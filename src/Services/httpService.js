@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // DEV
-const DEV_API_BASE_URL = 'http://182.18.177.16'; // Replace with your actual
+const DEV_API_BASE_URL = 'http://154.210.228.26'; // Replace with your actual
 export const API_BASE_URL = DEV_API_BASE_URL
 
 // // PROD
