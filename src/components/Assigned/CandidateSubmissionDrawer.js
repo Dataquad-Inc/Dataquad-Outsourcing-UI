@@ -167,6 +167,7 @@ const CandidateSubmissionDrawer = ({
   const formik = useFormik({
     initialValues: initialValues,
     validationSchema: getValidationSchema(),
+    enableReinitialize: true,
     onSubmit: async (values) => {
       setLoading(true);
       setErrorResponse(null);
