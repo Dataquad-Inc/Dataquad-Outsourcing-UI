@@ -44,6 +44,11 @@ import DownloadResume from "../../utils/DownloadResume";
 import { API_BASE_URL } from "../../Services/httpService";
 import { filterSubmissionsByTeamlead } from "../../redux/submissionSlice";
 
+
+const topOffset = 68; // Height of the header
+const bottomOffset =5;
+
+
 const Submission = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -145,83 +150,84 @@ const Submission = () => {
     setMoveToBenchDialogOpen(true);
   };
 
- const handleMoveToBenchConfirm = async () => {
-  if (!selectedCandidate) return;
+  const handleMoveToBenchConfirm = async () => {
+    if (!selectedCandidate) return;
 
-  try {
-    setMoveToBenchLoading(true);
-    const row = selectedCandidate;
-    const formData = new FormData();
-
-    // Append candidate details
-    formData.append("fullName", row.fullName);
-    formData.append("email", row.emailId || row.candidateEmailId);
-    formData.append("contactNumber", row.contactNumber);
-    formData.append("relevantExperience", row.relevantExperience || "");
-    formData.append("totalExperience", row.totalExperience || "");
-    formData.append("technology", row.technology || "");
-
-    // Handle skills
-    if (Array.isArray(row.skills)) {
-      formData.append("skills", JSON.stringify(row.skills));
-    } else if (typeof row.skills === "string") {
-      const skillsArray = row.skills.split(",").map((skill) => skill.trim());
-      formData.append("skills", JSON.stringify(skillsArray));
-    } else {
-      formData.append("skills", JSON.stringify([]));
-    }
-
-    // Append additional info
-    formData.append("linkedin", row.linkedin || "");
-    formData.append("referredBy", row.recruiterName || "");
-    formData.append("remarks", remarks);
-
-    // Fetch and append resume
     try {
-      const response = await httpService.get(
-        `/candidate/download-resume/${row.candidateId}/${row.jobId}`
-      );
+      setMoveToBenchLoading(true);
+      const row = selectedCandidate;
+      const formData = new FormData();
 
-      // Extract filename
-      let fileName = `resume_${row.candidateId}.pdf`;
-      if (response.headers["content-disposition"]) {
-        const filenameMatch = response.headers["content-disposition"].split("filename=")[1];
-        if (filenameMatch) fileName = filenameMatch.replace(/"/g, '');
+      // Append candidate details
+      formData.append("fullName", row.fullName);
+      formData.append("email", row.emailId || row.candidateEmailId);
+      formData.append("contactNumber", row.contactNumber);
+      formData.append("relevantExperience", row.relevantExperience || "");
+      formData.append("totalExperience", row.totalExperience || "");
+      formData.append("technology", row.technology || "");
+
+      // Handle skills
+      if (Array.isArray(row.skills)) {
+        formData.append("skills", JSON.stringify(row.skills));
+      } else if (typeof row.skills === "string") {
+        const skillsArray = row.skills.split(",").map((skill) => skill.trim());
+        formData.append("skills", JSON.stringify(skillsArray));
+      } else {
+        formData.append("skills", JSON.stringify([]));
       }
 
-      // Create File object
-      const file = new File([response.data], fileName, {
-        type: response.headers["content-type"] || "application/pdf",
+      // Append additional info
+      formData.append("linkedin", row.linkedin || "");
+      formData.append("referredBy", row.recruiterName || "");
+      formData.append("remarks", remarks);
+
+      // Fetch and append resume
+      try {
+        const response = await httpService.get(
+          `/candidate/download-resume/${row.candidateId}/${row.jobId}`
+        );
+
+        // Extract filename
+        let fileName = `resume_${row.candidateId}.pdf`;
+        if (response.headers["content-disposition"]) {
+          const filenameMatch =
+            response.headers["content-disposition"].split("filename=")[1];
+          if (filenameMatch) fileName = filenameMatch.replace(/"/g, "");
+        }
+
+        // Create File object
+        const file = new File([response.data], fileName, {
+          type: response.headers["content-type"] || "application/pdf",
+        });
+
+        // Append to formData - KEY CHANGE: Using the exact field name your backend expects
+        formData.append("resumeFile", file); // Note: Case sensitive!
+      } catch (error) {
+        console.error("Error fetching resume:", error);
+        showSnackbar("Resume not found, submitting without it", "warning");
+      }
+
+      // Submit with proper headers
+      await httpService.post("/candidate/bench/save", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
       });
 
-      // Append to formData - KEY CHANGE: Using the exact field name your backend expects
-      formData.append("resumeFile", file); // Note: Case sensitive!
+      // Success handling
+      setData(data.filter((item) => item.submissionId !== row.submissionId));
+      showSnackbar(`${row.fullName} moved to bench successfully!`);
+      setMoveToBenchDialogOpen(false);
     } catch (error) {
-      console.error("Error fetching resume:", error);
-      showSnackbar("Resume not found, submitting without it", "warning");
+      console.error("Move to bench failed:", error);
+      const errorMsg =
+        error.response?.data?.message || "Failed to move candidate to bench";
+      showSnackbar(errorMsg, "error");
+    } finally {
+      setMoveToBenchLoading(false);
+      setSelectedCandidate(null);
     }
-
-    // Submit with proper headers
-    await httpService.post("/candidate/bench/save", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
-
-    // Success handling
-    setData(data.filter((item) => item.submissionId !== row.submissionId));
-    showSnackbar(`${row.fullName} moved to bench successfully!`);
-    setMoveToBenchDialogOpen(false);
-  } catch (error) {
-    console.error("Move to bench failed:", error);
-    const errorMsg = error.response?.data?.message || 
-                    "Failed to move candidate to bench";
-    showSnackbar(errorMsg, "error");
-  } finally {
-    setMoveToBenchLoading(false);
-    setSelectedCandidate(null);
-  }
-};
+  };
 
   const handleMoveToBenchCancel = () => {
     setMoveToBenchDialogOpen(false);
@@ -495,42 +501,42 @@ const Submission = () => {
           ),
     },
     {
-  key:"status",
-  label:"Status",
-  type: "text",
-  sortable: true,
-  filterable: true,
-  width: 180,
-  align: "center",
-  render: loading
-    ? () => <Skeleton variant="text" width={120} />
-    : (row) => {
-        const getStatusColor = (status) => {
-          switch (status) {
-            case "PROCESSED FOR INTERVIEW":
-              return "success";
-            case "MOVED TO INTERVIEW":
-              return "primary";
-            case "SCREEN REJECT":
-            case "CLIENT REJECT":
-              return "error";
-            case "DUPLICATE":
-              return "warning";
-            default:
-              return "default";
-          }
-        };
+      key: "status",
+      label: "Status",
+      type: "text",
+      sortable: true,
+      filterable: true,
+      width: 180,
+      align: "center",
+      render: loading
+        ? () => <Skeleton variant="text" width={120} />
+        : (row) => {
+            const getStatusColor = (status) => {
+              switch (status) {
+                case "PROCESSED FOR INTERVIEW":
+                  return "success";
+                case "MOVED TO INTERVIEW":
+                  return "primary";
+                case "SCREEN REJECT":
+                case "CLIENT REJECT":
+                  return "error";
+                case "DUPLICATE":
+                  return "warning";
+                default:
+                  return "default";
+              }
+            };
 
-        return (
-          <Chip
-            label={row.status}
-            variant="outlined"
-            size="small"
-            color={getStatusColor(row.status)}
-          />
-        );
-      },
-},
+            return (
+              <Chip
+                label={row.status}
+                variant="outlined"
+                size="small"
+                color={getStatusColor(row.status)}
+              />
+            );
+          },
+    },
 
     {
       key: "moveToBench",
@@ -772,8 +778,8 @@ const Submission = () => {
             <DialogTitle>Move Candidate to Bench</DialogTitle>
             <DialogContent>
               <DialogContentText>
-                Are you sure you want to move {selectedCandidate?.fullName} to the bench?
-                Please add any remarks below.
+                Are you sure you want to move {selectedCandidate?.fullName} to
+                the bench? Please add any remarks below.
               </DialogContentText>
               <TextField
                 autoFocus
@@ -808,7 +814,22 @@ const Submission = () => {
             </DialogActions>
           </Dialog>
 
-          <Drawer anchor="right" open={openDrawer} onClose={closeDrawer}>
+          <Drawer
+            open={openDrawer}
+            onClose={closeDrawer}
+            anchor="right"
+            sx={{}}
+            PaperProps={{
+              sx: {
+                position: "fixed",
+                top: `${topOffset}px`,
+                bottom: `${bottomOffset}px`,
+                height: `calc(100vh - ${topOffset + bottomOffset}px)`,
+                borderTopLeftRadius: 8,
+                borderBottomLeftRadius: 8,
+              },
+            }}
+          >
             <CandidateSubmissionDrawer
               candidateData={candidateData}
               setCandidateData={setCandidateData}

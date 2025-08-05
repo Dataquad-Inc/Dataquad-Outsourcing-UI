@@ -145,21 +145,21 @@ const getCommonComponents = (theme) => ({
       },
     },
   },
-  MuiDrawer: {
-    styleOverrides: {
-      paper: {
-        borderRight: "none",
-        width: "280px",
-        [theme.breakpoints.down("md")]: {
-          width: "260px",
-        },
-        [theme.breakpoints.down("sm")]: {
-          width: "100%",
-          maxWidth: "300px",
-        },
-      },
-    },
-  },
+  // MuiDrawer: {
+  //   styleOverrides: {
+  //     paper: {
+  //       borderRight: "none",
+  //       width: "280px",
+  //       [theme.breakpoints.down("md")]: {
+  //         width: "260px",
+  //       },
+  //       [theme.breakpoints.down("sm")]: {
+  //         width: "100%",
+  //         maxWidth: "300px",
+  //       },
+  //     },
+  //   },
+  // },
   MuiButton: {
     styleOverrides: {
       root: {

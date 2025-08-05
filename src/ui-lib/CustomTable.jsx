@@ -188,7 +188,7 @@ const CustomTable = React.memo(
           p: 2,
           boxShadow: theme.shadows[4],
           backgroundColor: theme.palette.background.paper,
-          borderRadius: theme.shape.borderRadius,
+          borderRadius: 2,
           border: `1px solid ${theme.palette.divider}`,
         }}
       >
@@ -270,7 +270,7 @@ const CustomTable = React.memo(
             sx={{
               maxHeight: "80vh",
               overflowY: "auto",
-              borderRadius: theme.shape.borderRadius,
+              borderRadius: 2,
               border: `1px solid ${theme.palette.divider}`,
               "&::-webkit-scrollbar": {
                 width: 8,
