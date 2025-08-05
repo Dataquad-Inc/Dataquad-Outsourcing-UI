@@ -325,13 +325,13 @@ const Header = ({
                 </Typography>
               </Box>
 
-              <Chip
+              {/* <Chip
                 label={role || "User"}
                 size="small"
                 color="primary"
                 variant="outlined"
                 sx={{ height: 24, fontSize: "0.75rem" }}
-              />
+              /> */}
             </Stack>
 
             <IconButton

@@ -1,20 +1,21 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import httpService from "../Services/httpService"; // use your axios wrapper
+import httpService from "../Services/httpService";
 
 const initialState = {
   isAuthenticated: false,
   userId: null,
-  userName: null, // ✅ added
-  email: null,     // ✅ added
+  userName: null,
+  email: null,
   role: null,
+  entity: null, // ✅ Added entity field
   logInTimeStamp: null,
   logoutTimestamp: null,
   status: "idle",
   error: null,
-  encryptionKey:null
+  encryptionKey: null
 };
 
-// ✅ Login thunk using httpService
+// ✅ Updated login thunk to include entity
 export const loginAsync = createAsyncThunk(
   "auth/loginAsync",
   async ({ email, password }, { rejectWithValue }) => {
@@ -25,16 +26,25 @@ export const loginAsync = createAsyncThunk(
         { withCredentials: true }
       );
 
-      const { userId, userName, email: userEmail, roleType, loginTimestamp,encryptionKey} = response.data.payload;
+      const { 
+        userId, 
+        userName, 
+        email: userEmail, 
+        roleType, 
+        loginTimestamp, 
+        encryptionKey,
+        entity // ✅ Extract entity from response
+      } = response.data.payload;
 
       return {
         isAuthenticated: true,
         userId,
-        userName,             // ✅ now stored
-        email: userEmail,     // ✅ now stored
+        userName,
+        email: userEmail,
         role: roleType,
+        entity, // ✅ Include entity in return
         logInTimeStamp: loginTimestamp,
-        encryptionKey:encryptionKey
+        encryptionKey: encryptionKey
       };
     } catch (error) {
       if (error.response) {
@@ -78,14 +88,15 @@ const authSlice = createSlice({
     logout: (state) => {
       state.isAuthenticated = false;
       state.userId = null;
-      state.userName = null; // ✅ reset
-      state.email = null;     // ✅ reset
+      state.userName = null;
+      state.email = null;
       state.role = null;
+      state.entity = null; // ✅ Reset entity
       state.logInTimeStamp = null;
       state.logoutTimestamp = null;
       state.error = null;
       state.status = "idle";
-      state.encryptionKey=null;
+      state.encryptionKey = null;
     },
   },
   extraReducers: (builder) => {
@@ -98,11 +109,12 @@ const authSlice = createSlice({
         state.status = "succeeded";
         state.isAuthenticated = true;
         state.userId = action.payload.userId;
-        state.userName = action.payload.userName; // ✅ set
-        state.email = action.payload.email;       // ✅ set
+        state.userName = action.payload.userName;
+        state.email = action.payload.email;
         state.role = action.payload.role;
+        state.entity = action.payload.entity; // ✅ Set entity
         state.logInTimeStamp = action.payload.logInTimeStamp;
-        state.encryptionKey=action.payload.encryptionKey
+        state.encryptionKey = action.payload.encryptionKey;
       })
       .addCase(loginAsync.rejected, (state, action) => {
         state.status = "failed";
@@ -116,6 +128,7 @@ const authSlice = createSlice({
         state.userName = null;
         state.email = null;
         state.role = null;
+        state.entity = null; // ✅ Reset entity
         state.logInTimeStamp = null;
         state.logoutTimestamp = action.payload.logoutTimestamp;
       });
