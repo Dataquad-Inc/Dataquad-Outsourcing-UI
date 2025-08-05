@@ -12,16 +12,27 @@ import {
   Skeleton,
   Stack,
 } from "@mui/material";
-import { Assignment as AssignmentIcon, Refresh, Edit as EditIcon } from "@mui/icons-material";
+import {
+  Assignment as AssignmentIcon,
+  Refresh,
+  Edit as EditIcon,
+} from "@mui/icons-material";
 import httpService from "../../Services/httpService";
 import CandidateSubmissionDrawer from "./CandidateSubmissionDrawer";
 import { useSelector, useDispatch } from "react-redux";
 import { fetchEmployees } from "../../redux/employeesSlice";
-import ReusableExpandedContent from "../muiComponents/ReusableExpandedContent"; 
+import ReusableExpandedContent from "../muiComponents/ReusableExpandedContent";
 import ToastService from "../../Services/toastService";
 import ComponentTitle from "../../utils/ComponentTitle";
 import DateRangeFilter from "../muiComponents/DateRangeFilter";
-import { fetchAssignedJobs, filterRequirementsByRecruiter, setFilteredReqDataRequested } from "../../redux/requirementSlice";
+import {
+  fetchAssignedJobs,
+  filterRequirementsByRecruiter,
+  setFilteredReqDataRequested,
+} from "../../redux/requirementSlice";
+
+const topOffset = 68; // Height of the header
+const bottomOffset =5;
 
 const Assigned = () => {
   const [loading, setLoading] = useState(true);
@@ -36,7 +47,11 @@ const Assigned = () => {
 
   const { userId } = useSelector((state) => state.auth);
   const employeeList = useSelector((state) => state.employee.employeesList);
-  const { filterAssignedRequirements, assignedJobs, loading: reduxLoading } = useSelector((state) => state.requirement);
+  const {
+    filterAssignedRequirements,
+    assignedJobs,
+    loading: reduxLoading,
+  } = useSelector((state) => state.requirement);
   const { isFilteredDataRequested } = useSelector((state) => state.bench);
 
   const dispatch = useDispatch();
@@ -58,7 +73,7 @@ const Assigned = () => {
     if (!reduxLoading) {
       // Determine which data to use based on whether filtering is active
       const dataToUse = isFiltered ? filterAssignedRequirements : assignedJobs;
-      
+
       if (dataToUse?.length > 0) {
         ToastService.success(`${dataToUse.length} jobs loaded successfully`);
         setColumns(generateColumns(dataToUse));
@@ -70,16 +85,26 @@ const Assigned = () => {
     } else {
       setLoading(true);
     }
-  }, [assignedJobs, filterAssignedRequirements, isFiltered, error, reduxLoading]);
+  }, [
+    assignedJobs,
+    filterAssignedRequirements,
+    isFiltered,
+    error,
+    reduxLoading,
+  ]);
 
   const handleSubmit = (row) => {
     const status = row.status?.toLowerCase();
-    if (status === 'hold') {
+    if (status === "hold") {
       ToastService.warning("Submission disabled for jobs with HOLD status");
       return;
     }
-    
-    setSelectedJob({ userId: userId, jobId: row.jobId, clientName:row.clientName});
+
+    setSelectedJob({
+      userId: userId,
+      jobId: row.jobId,
+      clientName: row.clientName,
+    });
     setMode("create");
     setSelectedCandidate(null);
     setOpenDrawer(true);
@@ -114,8 +139,6 @@ const Assigned = () => {
   };
 
   const renderStatus = (status) => {
-   
-    
     const statusLower = status?.toLowerCase();
     let color = "default";
 
@@ -143,9 +166,9 @@ const Assigned = () => {
   const getExpandedContentConfig = () => {
     return {
       title: "Job Description",
-      description: { 
-        key: "jobDescription", 
-        fallback: "No description available." 
+      description: {
+        key: "jobDescription",
+        fallback: "No description available.",
       },
       backgroundColor: "#f5f5f5",
       sections: [
@@ -154,27 +177,35 @@ const Assigned = () => {
           fields: [
             { label: "Type", key: "jobType", fallback: "-" },
             { label: "Mode", key: "jobMode", fallback: "-" },
-            { label: "Location", key: "location", fallback: "-" }
-          ]
+            { label: "Location", key: "location", fallback: "-" },
+          ],
         },
         {
           title: "Requirements",
           fields: [
             { label: "Experience", key: "experienceRequired", fallback: "-" },
-            { label: "Relevant Experience", key: "relevantExperience", fallback: "-" },
-            { label: "Qualification", key: "qualification", fallback: "-" }
-          ]
+            {
+              label: "Relevant Experience",
+              key: "relevantExperience",
+              fallback: "-",
+            },
+            { label: "Qualification", key: "qualification", fallback: "-" },
+          ],
         },
         {
           title: "Additional Info",
           fields: [
-            { label: "Posted Date", key: "requirementAddedTimeStamp", fallback: "-" },
+            {
+              label: "Posted Date",
+              key: "requirementAddedTimeStamp",
+              fallback: "-",
+            },
             { label: "Notice Period", key: "noticePeriod", fallback: "-" },
             { label: "Positions", key: "noOfPositions", fallback: "-" },
             { label: "Salary Package", key: "salaryPackage", fallback: "-" },
-            { label: "Assigned By", key: "assignedBy", fallback: "-" }
-          ]
-        }
+            { label: "Assigned By", key: "assignedBy", fallback: "-" },
+          ],
+        },
       ],
       actions: [
         {
@@ -185,9 +216,9 @@ const Assigned = () => {
           size: "small",
           color: "primary",
           sx: { mr: 1 },
-          disabled: (row) => row.status?.toLowerCase() === 'hold'
-        }
-      ]
+          disabled: (row) => row.status?.toLowerCase() === "hold",
+        },
+      ],
     };
   };
 
@@ -197,7 +228,7 @@ const Assigned = () => {
         <Box sx={{ p: 2 }}>
           <Skeleton variant="text" width="60%" height={30} sx={{ mb: 2 }} />
           <Skeleton variant="rectangular" height={100} sx={{ mb: 2 }} />
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          <Box sx={{ display: "flex", gap: 2 }}>
             <Skeleton variant="rectangular" width="30%" height={100} />
             <Skeleton variant="rectangular" width="30%" height={100} />
             <Skeleton variant="rectangular" width="30%" height={100} />
@@ -205,12 +236,12 @@ const Assigned = () => {
         </Box>
       );
     }
-    return <ReusableExpandedContent row={row} config={getExpandedContentConfig()} />;
+    return (
+      <ReusableExpandedContent row={row} config={getExpandedContentConfig()} />
+    );
   };
 
   const generateColumns = (data) => {
-   
-
     if (!data || data.length === 0) return [];
 
     return [
@@ -283,7 +314,8 @@ const Assigned = () => {
         sortable: true,
         filterable: true,
         width: 150,
-        render: (row) => new Date(row.requirementAddedTimeStamp).toLocaleDateString(),
+        render: (row) =>
+          new Date(row.requirementAddedTimeStamp).toLocaleDateString(),
       },
       {
         key: "noOfPositions",
@@ -302,10 +334,18 @@ const Assigned = () => {
         width: 160,
         align: "center",
         render: (row) => {
-          const isDisabled = row.status?.toLowerCase() === 'hold' || row.status?.toLowerCase() === 'closed';
+          const isDisabled =
+            row.status?.toLowerCase() === "hold" ||
+            row.status?.toLowerCase() === "closed";
           return (
             <Box sx={{ display: "flex", justifyContent: "center" }}>
-              <Tooltip title={isDisabled ? "Submission disabled for HOLD status" : "Submit Candidate"}>
+              <Tooltip
+                title={
+                  isDisabled
+                    ? "Submission disabled for HOLD status"
+                    : "Submit Candidate"
+                }
+              >
                 <span>
                   <Button
                     variant="contained"
@@ -328,12 +368,14 @@ const Assigned = () => {
 
   // Use filtered data when filter is applied, otherwise use all assigned jobs
   const dataToDisplay = isFiltered ? filterAssignedRequirements : assignedJobs;
-  
-  const processedData = loading 
-    ? Array(5).fill({}).map((_, index) => ({
-        jobId: index,
-        expandContent: renderExpandedContent,
-      }))
+
+  const processedData = loading
+    ? Array(5)
+        .fill({})
+        .map((_, index) => ({
+          jobId: index,
+          expandContent: renderExpandedContent,
+        }))
     : dataToDisplay.map((row) => ({
         ...row,
         expandContent: renderExpandedContent,
@@ -343,7 +385,12 @@ const Assigned = () => {
     return (
       <Box sx={{ p: 3, textAlign: "center" }}>
         <Typography color="error">Error: {error.message}</Typography>
-        <Button variant="outlined" onClick={refreshData} startIcon={<Refresh />} sx={{ mt: 2 }}>
+        <Button
+          variant="outlined"
+          onClick={refreshData}
+          startIcon={<Refresh />}
+          sx={{ mt: 2 }}
+        >
           Retry
         </Button>
       </Box>
@@ -352,39 +399,41 @@ const Assigned = () => {
 
   return (
     <>
-      <Stack direction="row" alignItems="center" spacing={2}
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={2}
         sx={{
-          flexWrap: 'wrap',
+          flexWrap: "wrap",
           mb: 3,
-          justifyContent: 'space-between',
+          justifyContent: "space-between",
           p: 2,
-          backgroundColor: '#f9f9f9',
+          backgroundColor: "#f9f9f9",
           borderRadius: 2,
           boxShadow: 1,
-        }}>
-
+        }}
+      >
         <Box>
-          <Typography variant='h6' color='primary'>
+          <Typography variant="h6" color="primary">
             {isFiltered ? "Filtered Assigned Jobs" : "Assigned Jobs"}
           </Typography>
           {isFiltered && (
-            <Chip 
-              label="Filter Active" 
-              color="info" 
-              size="small" 
+            <Chip
+              label="Filter Active"
+              color="info"
+              size="small"
               onDelete={handleClearFilter}
               sx={{ ml: 1 }}
             />
           )}
         </Box>
-        
-        <DateRangeFilter 
-          component="AssignedList" 
+
+        <DateRangeFilter
+          component="AssignedList"
           onApply={handleDateFilterApply}
           onClear={handleClearFilter}
         />
       </Stack>
-
       <DataTable
         data={processedData}
         columns={columns}
@@ -404,8 +453,25 @@ const Assigned = () => {
         }}
         uniqueId="jobId"
       />
-
-      <Drawer anchor="right" open={openDrawer} onClose={closeDrawer}>
+      const topOffset = 64; // Height of the header const bottomOffset = 64; //
+      Height of the footer
+      <Drawer
+        open={openDrawer}
+        onClose={closeDrawer}
+        anchor="right"
+        sx={{}}
+        PaperProps={{
+          sx: {
+            position: "fixed",
+            top: `${topOffset}px`,
+            bottom: `${bottomOffset}px`,
+            height: `calc(100vh - ${topOffset + bottomOffset}px)`,
+            borderTopLeftRadius: 8,
+            borderBottomLeftRadius: 8,
+            
+          },
+        }}
+      >
         {selectedJob && (
           <CandidateSubmissionDrawer
             userId={selectedJob?.userId}
