@@ -1,18 +1,31 @@
 // src/components/auth/formValidation.js
 
 // Email regex patterns
-const emailRegex = /^[a-z0-9._%+-]+@dataqinc\.com$/;
+const emailRegex = /^[a-z0-9._%+-]+@(dataqinc\.com|adroitinnovative\.com)$/;
 const personalEmailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
 // Password regex pattern
 const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
 export const formValidation = {
-  validateUserId: (userId) => {
-    const userIdRegex = /^DQIND\d{2,4}$/;
-    return userIdRegex.test(userId)
-      ? ""
-      : "User ID must start with 'DQIND' followed by 2 to 4 digits";
+ validateUserId: (userId, entity) => {
+    if (!userId) {
+      return "User ID is required";
+    }
+
+    if (entity === "IN") {
+      const userIdRegex = /^(DQIND|ADRTIN)\d{2,4}$/;
+      return userIdRegex.test(userId)
+        ? ""
+        : "For IN entity, User ID must start with 'DQIND' or 'ADRTIN' followed by 2 to 4 digits";
+    } else if (entity === "US") {
+      const userIdRegex = /^ADRTUS\d{2,4}$/;
+      return userIdRegex.test(userId)
+        ? ""
+        : "For US entity, User ID must start with 'ADRTUS' followed by 2 to 4 digits";
+    }
+
+    return "Please select an entity first";
   },
 
   validateUserName: (userName) => {

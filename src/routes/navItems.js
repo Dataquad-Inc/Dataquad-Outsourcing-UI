@@ -11,7 +11,7 @@ import InsightsIcon from '@mui/icons-material/Insights';
 import HomeIcon from '@mui/icons-material/Home';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
 
-export const navItems = [
+export const inNavItems = [
   {
     text: "Home",
     path: "home",

@@ -198,6 +198,7 @@ const EditRequirement = ({ requirementData, onClose }) => {
         : clientOptions,
       validation: Yup.string().required("Client Name is required"),
       gridProps: fieldGridProps,
+      disabled:true,
     },
     {
       name: "jobTitle",

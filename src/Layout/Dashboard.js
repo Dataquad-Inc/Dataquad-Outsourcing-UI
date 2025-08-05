@@ -13,6 +13,7 @@ import { useSelector } from 'react-redux';
 // Import the separated components
 import SideNav from './SideNav';
 import Header from './Header';
+import Footer from './Footer';
 
 const drawerWidth = 240;
 const collapsedWidth = 72;
@@ -108,11 +109,11 @@ const Dashboard = () => {
         }}
       >
         <Toolbar /> 
-        <Box sx={{ p: 0.5 }}>
+        <Box >
           <Paper 
             elevation={0} 
             sx={{ 
-              p: 3, 
+              p: 1, 
               borderRadius: 2,
               boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
               minHeight: 'calc(100vh - 140px)'
@@ -121,7 +122,9 @@ const Dashboard = () => {
             <Outlet />
           </Paper>
         </Box>
+        <Footer />
       </Box>
+      
     </Box>
   );
 };
