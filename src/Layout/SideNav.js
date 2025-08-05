@@ -34,7 +34,7 @@ const SideNav = ({ handleDrawerToggle, isCollapsed, isMobile }) => {
   const location = useLocation();
   const theme = useTheme();
   const dispatch = useDispatch();
-  
+
   const { userId, role, entity, userName } = useSelector((state) => state.auth);
 
   const handleLogout = () => {
@@ -289,7 +289,7 @@ const SideNav = ({ handleDrawerToggle, isCollapsed, isMobile }) => {
                     border: active
                       ? `1px solid ${alpha(theme.palette.primary.main, 0.2)}`
                       : "1px solid transparent",
-                      
+
                     color: active
                       ? theme.palette.primary.main
                       : theme.palette.text.primary,
@@ -394,9 +394,10 @@ const SideNav = ({ handleDrawerToggle, isCollapsed, isMobile }) => {
               minHeight: 48,
               justifyContent: isCollapsed ? "center" : "flex-start",
               px: isCollapsed ? 2 : 2.5,
-              borderRadius: "14px",
+              borderRadius: "5px",
               color: theme.palette.error.main,
               border: `1px solid ${alpha(theme.palette.error.main, 0.2)}`,
+
               background: alpha(theme.palette.error.main, 0.04),
               "&:hover": {
                 background: alpha(theme.palette.error.main, 0.08),
