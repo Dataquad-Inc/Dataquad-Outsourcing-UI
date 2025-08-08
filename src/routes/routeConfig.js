@@ -62,9 +62,20 @@ const EmployeeStatus = lazy(() =>
   import("../components/TeamMetrics/EmployeeStatus")
 );
 const Hotlist = lazy(() => import("../components/Hotlist/Hotlist"));
-const CreateConsultant = lazy(() => import("../components/Hotlist/CreateConsultant"));
+const ConsultantProfile = lazy(() =>
+  import("../components/Hotlist/ConsultantProfile")
+);
+const TeamConsultantsHotlist = lazy(() =>
+  import("../components/Hotlist/TeamConsultantsHotlist")
+);
+const HotlistContainer = lazy(() =>
+  import("../components/Hotlist/HotlistContainer")
+);
+const CreateConsultant = lazy(() =>
+  import("../components/Hotlist/CreateConsultant")
+);
 
-const HotlistDetail = lazy(() => import("../components/Hotlist/HotlistDetail"));
+// const HotlistDetail = lazy(() => import("../components/Hotlist/HotlistDetail"));
 const Unauthorized = lazy(() => import("../pages/Unauthorized"));
 const DeniedAccessCard = lazy(() =>
   import("../pages/NotFound/DeniedAccessCard")
@@ -376,6 +387,24 @@ const routeConfig = [
           },
 
           // HOTLIST (US) with detail route
+          // {
+          //   path: "hotlist",
+          //   element: (
+          //     <ProtectedRoute
+          //       allowedRoles={["SUPERADMIN", "TEAMLEAD", "EMPLOYEE"]}
+          //       allowedEntities={["US"]}
+          //     />
+          //   ),
+          //   children: [
+          //     { index: true, element: Loadable(HotlistContainer) },
+          //     {
+          //       path: "consultants",
+          //       element: Loadable(Hotlist),
+          //     },
+
+          //   ],
+          // },
+
           {
             path: "hotlist",
             element: (
@@ -385,25 +414,38 @@ const routeConfig = [
               />
             ),
             children: [
-              { index: true, element: Loadable(Hotlist) },
               {
-                path: ":hotlistId",
-                element: Loadable(HotlistDetail),
+                path: "",
+                element: <HotlistContainer />, // Contains the tabs and <Outlet />
+                children: [
+                  {
+                    index: true, // /dashboard/hotlist
+                    element: Loadable(Hotlist), // Default tab content
+                  },
+                  {
+                    path: "consultants", // /dashboard/hotlist/consultants
+                    element: Loadable(Hotlist),
+                  },
+                  {
+                    path: "consultants/:consultantId", // /dashboard/hotlist/create
+                    element: Loadable(ConsultantProfile),
+                  },
+                  {
+                    path: "create", // /dashboard/hotlist/create
+                    element: Loadable(CreateConsultant),
+                  },
+                  {
+                    path: "team-consultants", // /dashboard/hotlist/create
+                    element: Loadable(TeamConsultantsHotlist),
+                  },
+                  {
+                    path: "team-consultants/:consultantId", // /dashboard/hotlist/create
+                    element: Loadable(ConsultantProfile),
+                  },
+
+                  // TeamConsultantsHotlist
+                ],
               },
-              
-            ],
-          },
-          {
-            path: "create-hotlist",
-            element: (
-              <ProtectedRoute
-                allowedRoles={["SUPERADMIN", "TEAMLEAD", "EMPLOYEE"]}
-                allowedEntities={["US"]}
-              />
-            ),
-            children: [
-              { index: true, element: Loadable(CreateConsultant) },
-              
             ],
           },
         ],

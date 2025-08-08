@@ -261,17 +261,17 @@ const iconMap = {
 
 // File type icon helper
 const getFileIcon = (fileName) => {
-  const extension = fileName?.split('.').pop()?.toLowerCase();
+  const extension = fileName?.split(".").pop()?.toLowerCase();
   switch (extension) {
-    case 'pdf':
+    case "pdf":
       return <PictureAsPdfIcon color="error" />;
-    case 'jpg':
-    case 'jpeg':
-    case 'png':
-    case 'gif':
+    case "jpg":
+    case "jpeg":
+    case "png":
+    case "gif":
       return <ImageIcon color="primary" />;
-    case 'doc':
-    case 'docx':
+    case "doc":
+    case "docx":
       return <DescriptionIcon color="info" />;
     default:
       return <InsertDriveFileIcon />;
@@ -295,6 +295,12 @@ const DynamicFormUltra = ({
   const validationSchema = {};
 
   const allFields = config.flatMap((section) => section.fields);
+
+  // 🔧 FIX 1: Process all initial values, not just config fields
+  Object.keys(initialValues).forEach((key) => {
+    generatedInitialValues[key] = initialValues[key];
+  });
+
   allFields.forEach((field) => {
     if (initialValues[field.name] !== undefined) {
       generatedInitialValues[field.name] = field.multiple
@@ -392,51 +398,65 @@ const DynamicFormUltra = ({
     }
   });
 
+ 
+
   const formik = useFormik({
     initialValues: generatedInitialValues,
     validationSchema: Yup.object(validationSchema),
     onSubmit: (values, formikHelpers) => {
       const formData = new FormData();
 
-      allFields.forEach((field) => {
-        const val = values[field.name];
+      // 🔧 FIX 4: Process ALL form values, not just config fields
+      Object.entries(values).forEach(([key, val]) => {
+        // Skip file fields - handle them separately
+        const field = allFields.find((f) => f.name === key);
 
-        // Phone: prepend country code if present
-        if (field.type === "phone" && val) {
-          const countryCode = countryCodes[field.name] || "+91";
+        if (field?.type === "file") {
+          return; // Handle files separately below
+        }
+
+        // Phone fields: prepend country code if present
+        if (field?.type === "phone" && val) {
+          const countryCode = countryCodes[key] || "+91";
           const phoneNumber = String(val).replace(/\s/g, "");
-          formData.append(field.name, `${countryCode}${phoneNumber}`);
+          formData.append(key, `${countryCode} ${phoneNumber}`);
           return;
         }
 
-        // File fields: handle actual File / FileList / array
-        if (field.type === "file") {
-          if (!val) return;
-
-          const appendFiles = (input) => {
-            if (input instanceof File) {
-              formData.append(field.name, input);
-            } else if (input instanceof FileList) {
-              Array.from(input).forEach((f) => formData.append(field.name, f));
-            } else if (Array.isArray(input)) {
-              input.forEach((f) => {
-                if (f instanceof File) formData.append(field.name, f);
-              });
-            }
-          };
-
-          appendFiles(val);
-          return;
-        }
-
-        // Other objects/arrays: JSON stringify
-        if (typeof val === "object" && val !== null) {
-          formData.append(field.name, JSON.stringify(val));
-        } else if (val !== undefined && val !== null) {
-          formData.append(field.name, String(val));
+        // Handle other values
+        if (val !== undefined && val !== null && val !== "") {
+          if (typeof val === "object") {
+            formData.append(key, JSON.stringify(val));
+          } else {
+            formData.append(key, String(val));
+          }
         }
       });
 
+      // Handle file fields separately
+      allFields.forEach((field) => {
+        if (field.type !== "file") return;
+
+        const val = values[field.name];
+        if (!val) return;
+
+        const appendFiles = (input) => {
+          if (input instanceof File) {
+            formData.append(field.name, input);
+          } else if (input instanceof FileList) {
+            Array.from(input).forEach((f) => formData.append(field.name, f));
+          } else if (Array.isArray(input)) {
+            input.forEach((f) => {
+              if (f instanceof File) formData.append(field.name, f);
+            });
+          }
+        };
+
+        appendFiles(val);
+      });
+
+      // 🔧 FIX 5: Pass the form values directly to onSubmit (not formData)
+      // This ensures all values including consultantId are passed
       onSubmit(values, formikHelpers);
     },
     enableReinitialize: true,
@@ -480,7 +500,7 @@ const DynamicFormUltra = ({
 
   const renderFileUpload = (field, fieldName, value, error) => {
     const isMultiple = field.multiple;
-    const hasFiles = isMultiple ? (value && value.length > 0) : value;
+    const hasFiles = isMultiple ? value && value.length > 0 : value;
 
     return (
       <Box>
@@ -559,7 +579,7 @@ const DynamicFormUltra = ({
             <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
               {isMultiple ? "Selected Documents:" : "Selected Document:"}
             </Typography>
-            
+
             {isMultiple ? (
               <Grid container spacing={2}>
                 {value?.map((file, idx) => (
@@ -568,26 +588,26 @@ const DynamicFormUltra = ({
                       <CardContent sx={{ p: 2 }}>
                         <Box display="flex" alignItems="center" mb={1}>
                           {getFileIcon(file?.name)}
-                          <Typography 
-                            variant="body2" 
-                            sx={{ 
-                              ml: 1, 
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              ml: 1,
                               fontWeight: 500,
                               overflow: "hidden",
                               textOverflow: "ellipsis",
-                              whiteSpace: "nowrap"
+                              whiteSpace: "nowrap",
                             }}
                           >
                             {file?.name}
                           </Typography>
                         </Box>
-                        
+
                         {file?.size && (
                           <Typography variant="caption" color="textSecondary">
                             {formatFileSize(file.size)}
                           </Typography>
                         )}
-                        
+
                         <Box mt={1}>
                           <IconButton
                             color="error"
@@ -605,7 +625,11 @@ const DynamicFormUltra = ({
             ) : (
               <Card variant="outlined">
                 <CardContent sx={{ p: 2 }}>
-                  <Box display="flex" alignItems="center" justifyContent="space-between">
+                  <Box
+                    display="flex"
+                    alignItems="center"
+                    justifyContent="space-between"
+                  >
                     <Box display="flex" alignItems="center">
                       {getFileIcon(value?.name)}
                       <Box ml={1}>
@@ -619,7 +643,7 @@ const DynamicFormUltra = ({
                         )}
                       </Box>
                     </Box>
-                    
+
                     <IconButton
                       color="error"
                       size="small"
@@ -834,7 +858,7 @@ const DynamicFormUltra = ({
       sx={{
         p: { xs: 2, sm: 4 },
         mx: "auto",
-        my: 4,
+        my: 1,
         backgroundColor: theme.palette.background.paper,
       }}
     >
@@ -858,11 +882,11 @@ const DynamicFormUltra = ({
         </Typography>
 
         {config.map((section, sectionIndex) => (
-          <Box key={section.section || sectionIndex} sx={{ mb: 5 }}>
+          <Box key={section.section || sectionIndex} sx={{ mb: 2 }}>
             <Typography
               variant="h6"
               sx={{
-                mb: 3,
+                mb: 2,
                 fontWeight: 600,
                 color: theme.palette.text.primary,
                 display: "flex",
@@ -871,15 +895,17 @@ const DynamicFormUltra = ({
             >
               {section.section}
             </Typography>
-            <Divider sx={{ mb: 3 }} />
+            <Divider sx={{ mb: 2 }} />
 
             <Grid container spacing={3}>
               {section.fields.map((field) => (
-                <Grid 
-                  item 
-                  xs={12} 
-                  sm={field.type === 'file' ? 12 : 6} 
-                  md={field.type === 'file' || field.type === 'textarea' ? 12 : 6}
+                <Grid
+                  item
+                  xs={12}
+                  sm={field.type === "file" ? 12 : 6}
+                  md={
+                    field.type === "file" || field.type === "textarea" ? 12 : 6
+                  }
                   key={field.name}
                 >
                   {field.multiple && field.type !== "file" ? (
@@ -926,13 +952,13 @@ const DynamicFormUltra = ({
 
         <Divider sx={{ my: 4 }} />
 
-        <Box 
-          display="flex" 
-          justifyContent="flex-end" 
+        <Box
+          display="flex"
+          justifyContent="flex-end"
           gap={2}
-          sx={{ 
+          sx={{
             flexDirection: { xs: "column", sm: "row" },
-            "& > *": { minWidth: { xs: "100%", sm: "auto" } }
+            "& > *": { minWidth: { xs: "100%", sm: "auto" } },
           }}
         >
           {onCancel && (

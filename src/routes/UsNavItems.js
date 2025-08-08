@@ -11,26 +11,19 @@ import InsightsIcon from "@mui/icons-material/Insights";
 import HomeIcon from "@mui/icons-material/Home";
 import AutorenewIcon from "@mui/icons-material/Autorenew";
 
-//Adroit Route Config
-
+// Adroit Route Config
 export const usNavItems = [
   {
     text: "Home",
-    path: "us-home", // Updated to match new routeConfig
+    path: "us-home",
     icon: <HomeIcon />,
     roles: ["SUPERADMIN", "EMPLOYEE", "TEAMLEAD"],
   },
-  {
+ {
     text: "Hotlist",
-    path: "hotlist",
+    path: "hotlist/consultants", // or just "hotlist"
     icon: <GroupIcon />,
-    roles: ["SUPERADMIN", "EMPLOYEE", "TEAMLEAD"], // Matched routeConfig allowedRoles
+    roles: ["SUPERADMIN", "EMPLOYEE", "TEAMLEAD"],
   },
-   {
-    text: "create-hotlist",
-    path: "create-hotlist",
-    icon: <PersonAddIcon />,
-    roles: ["SUPERADMIN", "EMPLOYEE", "TEAMLEAD"], // Matched routeConfig allowedRoles
-  },
-  
+ 
 ];

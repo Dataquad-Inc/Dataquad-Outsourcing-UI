@@ -1,10 +1,40 @@
 import React from "react";
 import { Box, IconButton, Skeleton } from "@mui/material";
-import { Edit, Delete } from "@mui/icons-material";
+import Edit from "@mui/icons-material/Edit";
+import Delete from "@mui/icons-material/Delete";
+import AssignmentInd from "@mui/icons-material/AssignmentInd";
+import Person from "@mui/icons-material/Person";
+import Email from "@mui/icons-material/Email";
+import Grade from "@mui/icons-material/Grade";
+import Contacts from "@mui/icons-material/Contacts";
+import Phone from "@mui/icons-material/Phone";
+import Info from "@mui/icons-material/Info";
+import SupervisorAccount from "@mui/icons-material/SupervisorAccount";
+import Group from "@mui/icons-material/Group";
+import CheckCircle from "@mui/icons-material/CheckCircle";
+import { FaPassport } from "react-icons/fa";
+import Engineering from "@mui/icons-material/Engineering";
+import LocationOn from "@mui/icons-material/LocationOn";
+import CalendarToday from "@mui/icons-material/CalendarToday";
+import LinkedIn from "@mui/icons-material/LinkedIn";
+import FlightTakeoff from "@mui/icons-material/FlightTakeoff";
+import MonetizationOn from "@mui/icons-material/MonetizationOn";
+import Payment from "@mui/icons-material/Payment";
+import Comment from "@mui/icons-material/Comment";
+import Update from "@mui/icons-material/Update";
+import { RiVisaFill } from "react-icons/ri";
+import Public from "@mui/icons-material/Public";
+
 import formatPhoneNumber from "../../utils/formatPhoneNumber";
 
 const renderValue = (value, width = 100, loading) =>
   loading ? <Skeleton width={width} /> : value;
+
+const iconLabel = (IconComp, text) => (
+  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+    <IconComp fontSize="small" /> {text}
+  </Box>
+);
 
 const getHotListColumns = ({
   handleNavigate,
@@ -14,7 +44,7 @@ const getHotListColumns = ({
 }) => [
   {
     id: "consultantId",
-    label: "Consultant ID",
+    label: iconLabel(AssignmentInd, "Consultant ID"),
     filterType: "text",
     render: (value, row) =>
       loading ? (
@@ -35,91 +65,106 @@ const getHotListColumns = ({
   },
   {
     id: "name",
-    label: "Candidate",
+    label: iconLabel(Person, "Consultant"),
     filterType: "text",
     render: (v) => renderValue(v, 120, loading),
   },
+
+   {
+    id: "recruiterName",
+    label: iconLabel(Person, "Recruiter"),
+    render: (v) => renderValue(v, 80, loading),
+  },
+  {
+    id: "teamleadName",
+    label: iconLabel(Person, "Teamlead"),
+    render: (v) => renderValue(v, 80, loading),
+  },
   {
     id: "emailId",
-    label: "Email",
+    label: iconLabel(Email, "Email"),
     filterType: "text",
     render: (v) => renderValue(v, 150, loading),
   },
-  { id: "grade", label: "Grade", render: (v) => renderValue(v, 50, loading) },
+  {
+    id: "grade",
+    label: iconLabel(Grade, "Grade"),
+    render: (v) => renderValue(v, 50, loading),
+  },
   {
     id: "marketingContact",
-    label: "Marketing Contact",
+    label: iconLabel(Contacts, "Marketing Contact"),
     render: (v) => renderValue(v, 120, loading),
   },
   {
     id: "personalContact",
-    label: "Personal Contact",
+    label: iconLabel(Phone, "Personal Contact"),
     render: (v) => renderValue(formatPhoneNumber(v), 120, loading),
   },
   {
     id: "reference",
-    label: "Reference",
+    label: iconLabel(Info, "Reference"),
     render: (v) => renderValue(v, 100, loading),
   },
   {
-    id: "recruiter",
-    label: "Recruiter",
+    id: "recruiterId",
+    label: iconLabel(SupervisorAccount, "Recruiter"),
     render: (v) => renderValue(v, 80, loading),
   },
   {
-    id: "teamLead",
-    label: "Team Lead",
+    id: "teamleadId",
+    label: iconLabel(Group, "Team Lead"),
     render: (v) => renderValue(v, 80, loading),
   },
   {
     id: "status",
-    label: "Status",
+    label: iconLabel(CheckCircle, "Status"),
     render: (v) => renderValue(v, 100, loading),
   },
   {
     id: "passport",
-    label: "Passport",
+    label: iconLabel(FaPassport,"Passport"),
     render: (v) => renderValue(v, 60, loading),
   },
   {
     id: "salesExecutive",
-    label: "Sales Executive",
+    label: iconLabel(SupervisorAccount, "Sales Executive"),
     render: (v) => renderValue(v, 100, loading),
   },
   {
     id: "remoteOnsite",
-    label: "Remote/Onsite",
+    label: iconLabel(Public, "Remote/Onsite"),
     render: (v) => renderValue(v, 100, loading),
   },
   {
     id: "technology",
-    label: "Technology",
+    label: iconLabel(Engineering, "Technology"),
     render: (v) => renderValue(v, 100, loading),
   },
   {
     id: "experience",
-    label: "Experience (Yrs)",
+    label: iconLabel(Grade, "Experience (Yrs)"),
     filterType: "number",
     render: (v) => renderValue(v, 50, loading),
   },
   {
     id: "location",
-    label: "Location",
+    label: iconLabel(LocationOn, "Location"),
     render: (v) => renderValue(v, 100, loading),
   },
   {
     id: "originalDOB",
-    label: "Original DOB",
+    label: iconLabel(CalendarToday, "Original DOB"),
     render: (v) => renderValue(new Date(v).toLocaleDateString(), 100, loading),
   },
   {
     id: "editedDOB",
-    label: "Edited DOB",
+    label: iconLabel(CalendarToday, "Edited DOB"),
     render: (v) => renderValue(new Date(v).toLocaleDateString(), 100, loading),
   },
   {
     id: "linkedInUrl",
-    label: "LinkedIn",
+    label: iconLabel(LinkedIn, "LinkedIn"),
     render: (v) =>
       loading ? (
         <Skeleton width={150} />
@@ -131,53 +176,54 @@ const getHotListColumns = ({
   },
   {
     id: "relocation",
-    label: "Relocation",
+    label: iconLabel(FlightTakeoff, "Relocation"),
     render: (v) => renderValue(v, 80, loading),
   },
   {
     id: "billRate",
-    label: "Bill Rate",
+    label: iconLabel(MonetizationOn, "Bill Rate"),
     render: (v) => renderValue(`$${v}`, 60, loading),
   },
   {
     id: "payroll",
-    label: "Payroll",
+    label: iconLabel(Payment, "Payroll"),
     render: (v) => renderValue(v, 80, loading),
   },
   {
     id: "marketingStartDate",
-    label: "Marketing Start",
+    label: iconLabel(CalendarToday, "Marketing Start"),
     render: (v) => renderValue(new Date(v).toLocaleDateString(), 90, loading),
   },
   {
     id: "remarks",
-    label: "Remarks",
+    label: iconLabel(Comment, "Remarks"),
     render: (v) => renderValue(v, 200, loading),
   },
   {
     id: "consultantAddedTimeStamp",
-    label: "Created Date",
+    label: iconLabel(CalendarToday, "Created Date"),
     filterType: "date",
     render: (v) => renderValue(new Date(v).toLocaleDateString(), 90, loading),
   },
   {
     id: "updatedTimeStamp",
-    label: "Updated Date",
+    label: iconLabel(Update, "Updated Date"),
     render: (v) => renderValue(new Date(v).toLocaleDateString(), 90, loading),
   },
   {
     id: "marketingVisa",
-    label: "Marketing Visa",
+    label:iconLabel(RiVisaFill,"Marketing Visa") ,
     render: (v) => renderValue(v, 80, loading),
   },
   {
     id: "actualVisa",
-    label: "Actual Visa",
+    label: iconLabel(RiVisaFill,"Actual Visa") ,
     render: (v) => renderValue(v, 80, loading),
   },
+
   {
     id: "actions",
-    label: "Actions",
+    label: iconLabel(Edit, "Actions"),
     render: (_, row) =>
       loading ? (
         <Box sx={{ display: "flex", gap: 1 }}>

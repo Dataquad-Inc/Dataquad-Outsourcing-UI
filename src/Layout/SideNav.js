@@ -134,11 +134,7 @@ const SideNav = ({ handleDrawerToggle, isCollapsed, isMobile }) => {
             width: 40,
             height: 40,
             borderRadius: "10px",
-            background: alpha(theme.palette.primary.contrastText, 0.1),
-            border: `1px solid ${alpha(
-              theme.palette.primary.contrastText,
-              0.2
-            )}`,
+
             "&:hover": {
               background: alpha(theme.palette.primary.contrastText, 0.2),
               transform: "scale(1.05)",

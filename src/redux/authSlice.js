@@ -1,21 +1,24 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import httpService from "../Services/httpService";
 
+// ✅ Load user from localStorage (if any)
+const storedUser = JSON.parse(localStorage.getItem("authUser"));
+
 const initialState = {
-  isAuthenticated: false,
-  userId: null,
-  userName: null,
-  email: null,
-  role: null,
-  entity: null, // ✅ Added entity field
-  logInTimeStamp: null,
+  isAuthenticated: !!storedUser,
+  userId: storedUser?.userId || null,
+  userName: storedUser?.userName || null,
+  email: storedUser?.email || null,
+  role: storedUser?.role || null,
+  entity: storedUser?.entity || null,
+  logInTimeStamp: storedUser?.logInTimeStamp || null,
   logoutTimestamp: null,
   status: "idle",
   error: null,
-  encryptionKey: null
+  encryptionKey: storedUser?.encryptionKey || null,
 };
 
-// ✅ Updated login thunk to include entity
+// ✅ Login async thunk
 export const loginAsync = createAsyncThunk(
   "auth/loginAsync",
   async ({ email, password }, { rejectWithValue }) => {
@@ -26,14 +29,14 @@ export const loginAsync = createAsyncThunk(
         { withCredentials: true }
       );
 
-      const { 
-        userId, 
-        userName, 
-        email: userEmail, 
-        roleType, 
-        loginTimestamp, 
+      const {
+        userId,
+        userName,
+        email: userEmail,
+        roleType,
+        loginTimestamp,
         encryptionKey,
-        entity // ✅ Extract entity from response
+        entity,
       } = response.data.payload;
 
       return {
@@ -42,14 +45,15 @@ export const loginAsync = createAsyncThunk(
         userName,
         email: userEmail,
         role: roleType,
-        entity, // ✅ Include entity in return
+        entity,
         logInTimeStamp: loginTimestamp,
-        encryptionKey: encryptionKey
+        encryptionKey,
       };
     } catch (error) {
       if (error.response) {
         const { status, data } = error.response;
-        const errorMessage = data?.error?.errorMessage || "An unexpected error occurred.";
+        const errorMessage =
+          data?.error?.errorMessage || "An unexpected error occurred.";
 
         if (status === 403) {
           return rejectWithValue("User is not active, please reach out to admin.");
@@ -69,6 +73,7 @@ export const loginAsync = createAsyncThunk(
   }
 );
 
+// ✅ Logout async thunk
 export const logoutAsync = createAsyncThunk(
   "auth/logoutAsync",
   async (userId, { rejectWithValue }) => {
@@ -81,6 +86,7 @@ export const logoutAsync = createAsyncThunk(
   }
 );
 
+// ✅ Auth slice
 const authSlice = createSlice({
   name: "auth",
   initialState,
@@ -91,12 +97,15 @@ const authSlice = createSlice({
       state.userName = null;
       state.email = null;
       state.role = null;
-      state.entity = null; // ✅ Reset entity
+      state.entity = null;
       state.logInTimeStamp = null;
       state.logoutTimestamp = null;
       state.error = null;
       state.status = "idle";
       state.encryptionKey = null;
+
+      // ✅ Remove user from localStorage
+      localStorage.removeItem("authUser");
     },
   },
   extraReducers: (builder) => {
@@ -106,15 +115,20 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(loginAsync.fulfilled, (state, action) => {
+        const payload = action.payload;
+
         state.status = "succeeded";
         state.isAuthenticated = true;
-        state.userId = action.payload.userId;
-        state.userName = action.payload.userName;
-        state.email = action.payload.email;
-        state.role = action.payload.role;
-        state.entity = action.payload.entity; // ✅ Set entity
-        state.logInTimeStamp = action.payload.logInTimeStamp;
-        state.encryptionKey = action.payload.encryptionKey;
+        state.userId = payload.userId;
+        state.userName = payload.userName;
+        state.email = payload.email;
+        state.role = payload.role;
+        state.entity = payload.entity;
+        state.logInTimeStamp = payload.logInTimeStamp;
+        state.encryptionKey = payload.encryptionKey;
+
+        // ✅ Save user to localStorage
+        localStorage.setItem("authUser", JSON.stringify(payload));
       })
       .addCase(loginAsync.rejected, (state, action) => {
         state.status = "failed";
@@ -128,9 +142,13 @@ const authSlice = createSlice({
         state.userName = null;
         state.email = null;
         state.role = null;
-        state.entity = null; // ✅ Reset entity
+        state.entity = null;
         state.logInTimeStamp = null;
         state.logoutTimestamp = action.payload.logoutTimestamp;
+        state.encryptionKey = null;
+
+        // ✅ Clear localStorage
+        localStorage.removeItem("authUser");
       });
   },
 });

@@ -572,7 +572,7 @@ const lightTheme = createTheme({
       contrastText: "#FFFFFF",
     },
     background: {
-      default: "#FFF6F0", // soft warm background
+      default: "#fbf2edff", // soft warm background
       paper: "#FFFFFF",
     },
     text: {
