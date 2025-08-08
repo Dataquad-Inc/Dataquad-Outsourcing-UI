@@ -2,59 +2,67 @@ import React, { useEffect, useCallback } from "react";
 import { Box, useTheme } from "@mui/material";
 import CustomTable from "../../ui-lib/CustomTable";
 import getHotListColumns from "./hotListColumns";
-import CreateConsultant from "./CreateConsultant"; // Import the CreateHotListUser component
+import CreateConsultant from "./CreateConsultant";
+import { useNavigate } from "react-router-dom";
 import { showErrorToast, showSuccessToast } from "../../utils/toastUtils";
 import showDeleteConfirm from "../../utils/showDeleteConfirm";
 import { useSelector, useDispatch } from "react-redux";
-import { useNavigate } from "react-router-dom";
-
-
-
-// Redux imports
 import {
-  fetchConsultants,
   fetchTeamConsultants,
+  fetchAllConsultants,
   deleteConsultant,
   setShowCreateForm,
   setEditingConsultant,
   clearEditingConsultant,
   clearErrors,
-  selectConsultants,
-  selectTotal,
-  selectLoading,
-  selectError,
+  selectTeamConsultants,
+  selectTeamConsultantsTotal,
+  selectTeamConsultantsLoading,
+  selectTeamConsultantsError,
+  selectAllConsultants,
+  selectAllConsultantsTotal,
+  selectAllConsultantsLoading,
+  selectAllConsultantsError,
   selectIsDeleting,
   selectDeleteError,
   selectShowCreateForm,
   selectEditingConsultant,
-} from "../../redux/hotlist"; // Adjust path as needed
+} from "../../redux/hotlist";
 
-
-const HotList = React.memo(() => {
+const TeamConsultantsHotlist = React.memo(() => {
   const dispatch = useDispatch();
   const theme = useTheme();
 
   // Selectors
-  const { userId , role } = useSelector((state) => state.auth);
-  const consultants = useSelector(selectConsultants);
-  const total = useSelector(selectTotal);
-  const loading = useSelector(selectLoading);
-  const error = useSelector(selectError);
+  const { userId, role } = useSelector((state) => state.auth);
+  const isSuperAdmin = role === "SUPERADMIN";
+  const navigate = useNavigate()
+  
+  // Conditional selectors based on role
+  const consultants = useSelector(
+    isSuperAdmin ? selectAllConsultants : selectTeamConsultants
+  );
+  const total = useSelector(
+    isSuperAdmin ? selectAllConsultantsTotal : selectTeamConsultantsTotal
+  );
+  const loading = useSelector(
+    isSuperAdmin ? selectAllConsultantsLoading : selectTeamConsultantsLoading
+  );
+  const error = useSelector(
+    isSuperAdmin ? selectAllConsultantsError : selectTeamConsultantsError
+  );
+  
   const isDeleting = useSelector(selectIsDeleting);
   const deleteError = useSelector(selectDeleteError);
   const showCreateForm = useSelector(selectShowCreateForm);
   const editingConsultant = useSelector(selectEditingConsultant);
+
   const [refreshKey, setRefreshKey] = React.useState(0);
-  const navigate = useNavigate()
 
   // Error handling
   useEffect(() => {
-    if (error) {
-      showErrorToast(error);
-    }
-    if (deleteError) {
-      showErrorToast(deleteError);
-    }
+    if (error) showErrorToast(error);
+    if (deleteError) showErrorToast(deleteError);
   }, [error, deleteError]);
 
   // Clear errors on mount
@@ -64,7 +72,7 @@ const HotList = React.memo(() => {
 
   const handleEdit = useCallback(
     (row) => {
-      const { teamleadName, recruiterName,consultantAddedTimeStamp,updatedTimeStamp, ...rest } = row;
+      const { teamleadName, recruiterName, consultantAddedTimeStamp, updatedTimeStamp, ...rest } = row;
       dispatch(setEditingConsultant(rest));
     },
     [dispatch]
@@ -89,31 +97,55 @@ const HotList = React.memo(() => {
           : "Consultant updated successfully!";
       showSuccessToast(message);
 
-      // Refresh the data by fetching again
-      dispatch(
-        fetchConsultants({
-          userId,
-          page: 0,
-          size: 10,
-        })
-      );
+      // Refresh data based on role
+      if (isSuperAdmin) {
+        dispatch(
+          fetchAllConsultants({
+            page: 0,
+            size: 10,
+          })
+        );
+      } else {
+        dispatch(
+          fetchTeamConsultants({
+            userId,
+            page: 0,
+            size: 10,
+          })
+        );
+      }
     },
-    [dispatch, userId]
+    [dispatch, userId, isSuperAdmin]
   );
 
   const fetchData = useCallback(
     async ({ page = 1, pageSize = 10, filters = {}, sort = {} }) => {
       try {
         const apiPage = Math.max(page - 1, 0);
-        const result = await dispatch(
-          fetchConsultants({
-            userId,
-            page: apiPage,
-            size: pageSize,
-            filters,
-            sort,
-          })
-        ).unwrap();
+        
+        let result;
+        if (isSuperAdmin) {
+          result = await dispatch(
+            fetchAllConsultants({
+              page: apiPage,
+              size: pageSize,
+              filters,
+              sort,
+            })
+          ).unwrap();
+        } else {
+          result = await dispatch(
+            fetchTeamConsultants({
+              userId,
+              page: apiPage,
+              size: pageSize,
+              filters,
+              sort,
+            })
+          ).unwrap();
+        }
+        
+        console.log(result);
 
         return {
           data: result.data,
@@ -121,13 +153,10 @@ const HotList = React.memo(() => {
         };
       } catch (error) {
         console.error("Error fetching hotlist data:", error);
-        return {
-          data: [],
-          total: 0,
-        };
+        return { data: [], total: 0 };
       }
     },
-    [dispatch, userId]
+    [dispatch, userId, isSuperAdmin]
   );
 
   const handleDelete = useCallback(
@@ -138,24 +167,19 @@ const HotList = React.memo(() => {
             deleteConsultant(row.consultantId)
           ).unwrap();
           showSuccessToast(result.message);
-
-          // 🔁 Trigger table refresh
           setRefreshKey((prevKey) => prevKey + 1);
         } catch (error) {
           console.error("Delete error:", error);
         }
       };
 
-      showDeleteConfirm(
-        deleteConsultantAction,
-        row.name || "this consultant"
-      );
+      showDeleteConfirm(deleteConsultantAction, row.name || "this consultant");
     },
     [dispatch]
   );
 
-  const handleNavigate = (consultantId)=>{
-    navigate(`/dashboard/hotlist/consultants/${consultantId}`)
+    const handleNavigate = (consultantId)=>{
+    navigate(`/dashboard/hotlist/team-consultants/${consultantId}`)
   }
 
   const columns = getHotListColumns({
@@ -178,8 +202,8 @@ const HotList = React.memo(() => {
           refreshKey={refreshKey}
           columns={columns}
           fetchData={fetchData}
-          title="Assigned Self Hotlist"
-          onCreateNew={handleCreateNew} // Pass this if your CustomTable supports it
+          title={isSuperAdmin ? "All Consultants" : "Team Consultants Hotlist"}
+          onCreateNew={handleCreateNew}
           loading={loading}
         />
       )}
@@ -187,6 +211,4 @@ const HotList = React.memo(() => {
   );
 });
 
-HotList.displayName = "HotList";
-
-export default HotList;
+export default TeamConsultantsHotlist;

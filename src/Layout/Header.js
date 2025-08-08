@@ -173,6 +173,7 @@ const Header = ({
           ID: {userId || "N/A"}
         </Typography>
       </Box>
+
       <Divider />
       <MenuItem onClick={handleMenuClose} sx={{ py: 1.5 }}>
         <AccountIcon sx={{ mr: 2 }} /> Profile
@@ -265,7 +266,7 @@ const Header = ({
           },
           ml: { sm: `${isCollapsed ? collapsedWidth : drawerWidth}px` },
           zIndex: theme.zIndex.drawer + 1,
-          backgroundColor: theme.palette.background.paper,
+          background: theme.palette.background.default,
           color: theme.palette.text.primary,
           borderBottom: `1px solid ${theme.palette.divider}`,
         }}
@@ -299,7 +300,7 @@ const Header = ({
               sx={{
                 p: 1,
                 borderRadius: 2,
-                backgroundColor: "#fff",
+
                 flexWrap: "wrap",
                 mr: 2,
               }}
