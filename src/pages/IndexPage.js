@@ -55,9 +55,10 @@ const HomePage = () => {
     placements: ['ADMIN', 'SUPERADMIN', 'PARTNER',"INVOICE"],
     users: ['ADMIN', 'SUPERADMIN', 'PARTNER',"INVOICE",'COORDINATOR'],
     bench: ['ADMIN', 'SUPERADMIN', 'BDM', 'TEAMLEAD', 'PARTNER', 'EMPLOYEE'],
+    timesheet:['EXTERNALEMPLOYEE']
   };
 
-  const allowedRoles = ['ADMIN', 'SUPERADMIN', 'EMPLOYEE', 'BDM', 'TEAMLEAD', 'PARTNER','INVOICE','COORDINATOR'];
+  const allowedRoles = ['ADMIN', 'SUPERADMIN', 'EMPLOYEE', 'BDM', 'TEAMLEAD', 'PARTNER','INVOICE','COORDINATOR','EXTERNALEMPLOYEE'];
 
   // Helper function to format placements data
   const formatPlacements = (data) => {

@@ -22,6 +22,8 @@ import {
   Add,
   Close,
   LockOpen,
+  PersonAdd,
+  HowToRegRounded
 } from "@mui/icons-material";
 import { useDispatch, useSelector } from "react-redux";
 import DataTable from "../muiComponents/DataTabel";
@@ -38,6 +40,8 @@ import DateRangeFilter from "../muiComponents/DateRangeFilter";
 import CryptoJS from "crypto-js";
 import httpService from "../../Services/httpService";
 import ToastService from "../../Services/toastService";
+import { render } from "@testing-library/react";
+import axios from "axios";
 
 
 const PlacementsList = () => {
@@ -47,15 +51,16 @@ const PlacementsList = () => {
     loading,
     selectedPlacement,
   } = useSelector((state) => state.placement);
-  const { userId,encryptionKey } = useSelector((state) => state.auth);
+  const { userId, encryptionKey } = useSelector((state) => state.auth);
 
-  console.log("encryption from backend",encryptionKey);
-  
+  console.log("encryption from backend", encryptionKey);
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [placementToDelete, setPlacementToDelete] = useState(null);
-  
+  const [users, setUsers]=useState([])
+
   // OTP related state
   const [otpDialogOpen, setOtpDialogOpen] = useState(false);
   const [currentRecord, setCurrentRecord] = useState(null);
@@ -67,33 +72,34 @@ const PlacementsList = () => {
 
   const [exportCallback, setExportCallback] = useState(null);
 
-const handleRequestExportVerification = (callback) => {
-  setExportCallback(() => callback);
-  handleOpenOtpDialog(null, true); // Open global verification
-};
 
-const decoded=atob(encryptionKey);
+  const handleRequestExportVerification = (callback) => {
+    setExportCallback(() => callback);
+    handleOpenOtpDialog(null, true); // Open global verification
+  };
 
-const FINANCIAL_SECRET_KEY = decoded
-const VERIFICATION_TIMEOUT = 5 * 60 * 1000; // 2 minutes in milliseconds
+  const decoded = atob(encryptionKey);
+
+  const FINANCIAL_SECRET_KEY = decoded
+  const VERIFICATION_TIMEOUT = 5 * 60 * 1000; // 2 minutes in milliseconds
 
 
-const decryptFinancialValue = (encryptedValue) => {
-  if (!encryptedValue) return 0;
-  try {
-    if (!isNaN(parseFloat(encryptedValue))) {
-      return parseFloat(encryptedValue);
+  const decryptFinancialValue = (encryptedValue) => {
+    if (!encryptedValue) return 0;
+    try {
+      if (!isNaN(parseFloat(encryptedValue))) {
+        return parseFloat(encryptedValue);
+      }
+
+      const bytes = CryptoJS.AES.decrypt(encryptedValue, FINANCIAL_SECRET_KEY);
+      const decryptedValue = bytes.toString(CryptoJS.enc.Utf8);
+      return parseFloat(decryptedValue) || 0;
+    } catch (error) {
+      console.error("Decryption failed:", error);
+      return 0;
     }
-    
-    const bytes = CryptoJS.AES.decrypt(encryptedValue, FINANCIAL_SECRET_KEY);
-    const decryptedValue = bytes.toString(CryptoJS.enc.Utf8);
-    return parseFloat(decryptedValue) || 0;
-  } catch (error) {
-    console.error("Decryption failed:", error);
-    return 0;
-  }
-};
-  
+  };
+
   // Initialize verification state
   const initializeVerificationState = () => {
     const savedState = localStorage.getItem('verificationState');
@@ -103,19 +109,19 @@ const decryptFinancialValue = (encryptedValue) => {
         records: {}
       };
     }
-    
+
     try {
       const parsed = JSON.parse(savedState);
       const now = Date.now();
       let needsUpdate = false;
-      
+
       // Check if global verification has expired
-      if (parsed.global?.verified && parsed.global?.timestamp && 
-          now - parsed.global.timestamp > VERIFICATION_TIMEOUT) {
+      if (parsed.global?.verified && parsed.global?.timestamp &&
+        now - parsed.global.timestamp > VERIFICATION_TIMEOUT) {
         parsed.global = { verified: false, timestamp: null };
         needsUpdate = true;
       }
-      
+
       // Clean expired record verifications
       const cleanRecords = {};
       if (parsed.records) {
@@ -129,12 +135,12 @@ const decryptFinancialValue = (encryptedValue) => {
         });
       }
       parsed.records = cleanRecords;
-      
+
       // Update localStorage if any changes were made
       if (needsUpdate) {
         localStorage.setItem('verificationState', JSON.stringify(parsed));
       }
-      
+
       return parsed;
     } catch (error) {
       console.error('Error parsing verification state:', error);
@@ -157,7 +163,7 @@ const decryptFinancialValue = (encryptedValue) => {
       const decryptedBillRate = decryptFinancialValue(placement.billRate);
       const decryptedPayRate = decryptFinancialValue(placement.payRate);
       const calculatedGrossProfit = decryptFinancialValue(decryptedBillRate - decryptedPayRate);
-      
+
       return {
         ...placement,
         _originalBillRate: placement.billRate,
@@ -174,7 +180,7 @@ const decryptFinancialValue = (encryptedValue) => {
   const clearVerification = useCallback((type, recordId = null) => {
     setVerificationState(prev => {
       const newState = { ...prev };
-      
+
       if (type === 'global') {
         newState.global = { verified: false, timestamp: null };
         console.log('Global verification cleared');
@@ -185,7 +191,7 @@ const decryptFinancialValue = (encryptedValue) => {
         newState.records = updatedRecords;
         console.log(`Record ${recordId} verification cleared`);
       }
-      
+
       localStorage.setItem('verificationState', JSON.stringify(newState));
       return newState;
     });
@@ -194,20 +200,20 @@ const decryptFinancialValue = (encryptedValue) => {
   // Function to set up verification timers
   const setupVerificationTimers = useCallback(() => {
     const now = Date.now();
-    
+
     // Clear existing timers first
     if (globalTimerRef.current) {
       clearTimeout(globalTimerRef.current);
       globalTimerRef.current = null;
     }
-    
+
     Object.keys(recordTimersRef.current).forEach(id => {
       if (recordTimersRef.current[id]) {
         clearTimeout(recordTimersRef.current[id]);
         delete recordTimersRef.current[id];
       }
     });
-    
+
     // Set global timer if verification is active
     if (verificationState.global?.verified && verificationState.global?.timestamp) {
       const timeLeft = VERIFICATION_TIMEOUT - (now - verificationState.global.timestamp);
@@ -221,7 +227,7 @@ const decryptFinancialValue = (encryptedValue) => {
         clearVerification('global');
       }
     }
-    
+
     // Set individual record timers
     if (verificationState.records) {
       Object.keys(verificationState.records).forEach(id => {
@@ -245,7 +251,7 @@ const decryptFinancialValue = (encryptedValue) => {
   // Set up timers whenever verification state changes
   useEffect(() => {
     setupVerificationTimers();
-    
+
     // Cleanup function
     return () => {
       if (globalTimerRef.current) {
@@ -344,6 +350,35 @@ const decryptFinancialValue = (encryptedValue) => {
     setOtpError("");
   };
 
+  const handleRegisterUser = async (id) => {
+  setIsLoading(true);
+  try {
+    const response = await httpService.post(
+      `/candidate/${id}/create-user`
+    );
+
+    if (response.status === 200) {
+      ToastService.success("Link has been sent to email.");
+
+      // ✅ Update the table so icon disables
+      setUsers((prevUsers) =>
+        prevUsers.map((user) =>
+          user.id === id ? { ...user, isRegistered: true } : user
+        )
+      );
+    } else {
+      ToastService.error(response.data?.message || "Failed to send Link.");
+    }
+  } catch (error) {
+    ToastService.error(
+      error.response?.data?.message || "Failed to send Link. Please try again."
+    );
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+
   const handleGenerateOtp = async () => {
     setIsLoading(true);
     try {
@@ -379,15 +414,15 @@ const decryptFinancialValue = (encryptedValue) => {
         userId: userId,
         otp: enteredOtp,
       };
-      
+
       const response = await httpService.post("/candidate/verifyOtp", payload);
 
       if (response.data) {
         const now = Date.now();
-        
+
         setVerificationState(prev => {
           const newState = { ...prev };
-          
+
           if (isGlobalVerification) {
             newState.global = { verified: true, timestamp: now };
             console.log('Global verification set at:', new Date(now));
@@ -400,10 +435,10 @@ const decryptFinancialValue = (encryptedValue) => {
           }
 
           if (exportCallback) {
-      exportCallback();
-      setExportCallback(null);
-    }
-          
+            exportCallback();
+            setExportCallback(null);
+          }
+
           localStorage.setItem('verificationState', JSON.stringify(newState));
           return newState;
         });
@@ -461,7 +496,7 @@ const decryptFinancialValue = (encryptedValue) => {
   const renderSensitiveField = useCallback((row, fieldName) => {
     const isGlobalVerified = verificationState.global?.verified;
     const isRecordVerified = verificationState.records?.[row.id]?.verified;
-    
+
     if (isGlobalVerified || isRecordVerified) {
       const value = row[fieldName];
       if (typeof value === 'number' && !isNaN(value)) {
@@ -487,13 +522,36 @@ const decryptFinancialValue = (encryptedValue) => {
         filterable: true,
         width: 100,
       },
+     {
+  key: 'isRegister',
+  label: "Register",
+  sortable: true,
+  filterable: true,
+  width: 100,
+  render: (row) => (
+    <Tooltip title="Register">
+      <span>
+        <IconButton
+          disabled={row.isRegister === true} // disable if already registered
+          onClick={() => handleRegisterUser(row.id)}
+        >
+          {row.isRegister
+            ? <HowToRegRounded sx={{ color: 'green' }} />
+            : <PersonAdd sx={{ color: '#9e9e9e' }} />}
+        </IconButton>
+      </span>
+    </Tooltip>
+  )
+},
+
+
       {
         key: "candidateFullName",
         label: "Consultant Name",
         type: "text",
         sortable: true,
         filterable: true,
-        width: 150,
+        width: 120,
       },
       {
         key: "candidateEmailId",
@@ -717,7 +775,7 @@ const decryptFinancialValue = (encryptedValue) => {
               handleOpenOtpDialog(null, true);
             }}
             startIcon={<LockOpen />}
-            sx={{ 
+            sx={{
               bgcolor: verificationState.global?.verified ? 'success.main' : 'secondary.main',
               '&:hover': {
                 bgcolor: verificationState.global?.verified ? 'success.dark' : 'secondary.dark'
@@ -754,7 +812,7 @@ const decryptFinancialValue = (encryptedValue) => {
               delete recordTimersRef.current[id];
             }
           });
-          
+
           localStorage.removeItem('verificationState');
           setVerificationState({
             global: { verified: false, timestamp: null },
@@ -891,8 +949,8 @@ const decryptFinancialValue = (encryptedValue) => {
       </Dialog>
 
       {/* OTP Verification Dialog */}
-      <Dialog 
-        open={otpDialogOpen} 
+      <Dialog
+        open={otpDialogOpen}
         onClose={handleCloseOtpDialog}
         PaperProps={{
           sx: {
@@ -928,12 +986,12 @@ const decryptFinancialValue = (encryptedValue) => {
         </DialogTitle>
         <DialogContent sx={{ pt: 3 }}>
           <Typography variant="body2" sx={{ mb: 3 }}>
-            {isGlobalVerification 
+            {isGlobalVerification
               ? "To view all sensitive financial information across all records, please generate and verify an OTP."
               : "To view sensitive financial information, please generate and verify an OTP."
             }
           </Typography>
-          
+
           {otpGenerated ? (
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" sx={{ mb: 1 }}>
@@ -959,18 +1017,18 @@ const decryptFinancialValue = (encryptedValue) => {
         </DialogContent>
         <DialogActions sx={{ borderTop: "1px solid #eee", py: 2, px: 3 }}>
           {otpGenerated ? (
-            <Button 
-              onClick={handleVerifyOtp} 
-              color="primary" 
+            <Button
+              onClick={handleVerifyOtp}
+              color="primary"
               variant="contained"
               disabled={isLoading || enteredOtp.length !== 6}
             >
               {isLoading ? <CircularProgress size={24} /> : "Verify OTP"}
             </Button>
           ) : (
-            <Button 
-              onClick={handleGenerateOtp} 
-              color="primary" 
+            <Button
+              onClick={handleGenerateOtp}
+              color="primary"
               variant="contained"
               disabled={isLoading}
             >

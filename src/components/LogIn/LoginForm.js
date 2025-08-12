@@ -42,24 +42,51 @@ const LoginForm = ({ onSwitchView }) => {
     password: Yup.string().required("Password is required"),
   });
 
-  const handleSubmit = async (values, { setSubmitting }) => {
-    setError(null);
-    try {
-      const resultAction = await dispatch(loginAsync(values));
+  // const handleSubmit = async (values, { setSubmitting }) => {
+  //   setError(null);
+  //   try {
+  //     const resultAction = await dispatch(loginAsync(values));
 
-      if (loginAsync.fulfilled.match(resultAction)) {
-        navigate("/dashboard");
+  //     if (loginAsync.fulfilled.match(resultAction)) {
+  //       navigate("/dashboard");
+  //     } else {
+  //       setError(
+  //         resultAction.payload || resultAction.error.message || "Login failed"
+  //       );
+  //     }
+  //   } catch (err) {
+  //     setError(err.message || "Login failed");
+  //   } finally {
+  //     setSubmitting(false);
+  //   }
+  // };
+const handleSubmit = async (values, { setSubmitting }) => {
+  setError(null);
+  try {
+    const resultAction = await dispatch(loginAsync(values));
+
+    if (loginAsync.fulfilled.match(resultAction)) {
+      // Get role from Redux or localStorage
+      const { role } = resultAction.payload || {};
+      const localUser = JSON.parse(localStorage.getItem("user"));
+      const userRole = role || localUser?.role;
+
+      if (userRole === "EXTERNALEMPLOYEE") {
+        navigate("/dashboard/timesheets");
       } else {
-        setError(
-          resultAction.payload || resultAction.error.message || "Login failed"
-        );
+        navigate("/dashboard");
       }
-    } catch (err) {
-      setError(err.message || "Login failed");
-    } finally {
-      setSubmitting(false);
+    } else {
+      setError(
+        resultAction.payload || resultAction.error.message || "Login failed"
+      );
     }
-  };
+  } catch (err) {
+    setError(err.message || "Login failed");
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   return (
     <Paper
