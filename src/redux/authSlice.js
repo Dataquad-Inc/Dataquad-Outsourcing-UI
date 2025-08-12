@@ -56,7 +56,9 @@ export const loginAsync = createAsyncThunk(
           data?.error?.errorMessage || "An unexpected error occurred.";
 
         if (status === 403) {
-          return rejectWithValue("User is not active, please reach out to admin.");
+          return rejectWithValue(
+            "User is not active, please reach out to admin."
+          );
         } else if (status === 400) {
           return rejectWithValue("Invalid credentials or bad request.");
         } else if (status === 201 && data?.success === false) {
@@ -107,6 +109,14 @@ const authSlice = createSlice({
       // ✅ Remove user from localStorage
       localStorage.removeItem("authUser");
     },
+    setEntity: (state, action) => {
+      state.entity = action.payload;
+
+      // ✅ Persist to localStorage
+      const storedUser = JSON.parse(localStorage.getItem("authUser")) || {};
+      storedUser.entity = action.payload;
+      localStorage.setItem("authUser", JSON.stringify(storedUser));
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -153,5 +163,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout } = authSlice.actions;
+export const { logout,setEntity } = authSlice.actions;
 export default authSlice.reducer;

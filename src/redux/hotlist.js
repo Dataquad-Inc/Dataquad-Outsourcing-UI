@@ -64,16 +64,15 @@ export const fetchTeamConsultants = createAsyncThunk(
   }
 );
 
-
-//get all consultants 
+//get all consultants
 export const fetchAllConsultants = createAsyncThunk(
   "hotlist/fetchAllConsultants",
   async (
-    {  page = 0, size = 10, filters = {}, sort = {} },
+    { page = 0, size = 10, filters = {}, sort = {} },
     { rejectWithValue }
   ) => {
     try {
-      const response = await hotlistAPI.getAllConsultants( {
+      const response = await hotlistAPI.getAllConsultants({
         page,
         size,
         ...filters,
@@ -88,11 +87,10 @@ export const fetchAllConsultants = createAsyncThunk(
         size,
       };
     } catch (error) {
-      return rejectWithValue(
-        error.response?.data?.message ||
-          error.message ||
-          "Failed to fetch team consultants"
-      );
+      console.log(error);
+      const errorMessage =
+        error.response?.data?.errorMessage || error.message || "Fetch failed";
+      return rejectWithValue(errorMessage);
     }
   }
 );
@@ -298,7 +296,7 @@ const hotlist = createSlice({
         state.teamConsultantsTotal = 0;
       });
 
-       // Fetch All SuperAdmin consultants
+    // Fetch All SuperAdmin consultants
     builder
       .addCase(fetchAllConsultants.pending, (state) => {
         state.allConsultantsLoading = true;
@@ -314,7 +312,7 @@ const hotlist = createSlice({
       })
       .addCase(fetchAllConsultants.rejected, (state, action) => {
         state.allConsultantsLoading = false;
-        state.allConsultantsError = action.payload;
+        state.allConsultantsError = action.payload; // This will be your message string
         state.allConsultants = [];
         state.allConsultantsTotal = 0;
       });
@@ -450,7 +448,7 @@ export const selectTeamConsultantsLoading = (state) =>
 export const selectTeamConsultantsError = (state) =>
   state.hotlist.teamConsultantsError;
 
-//all consultants 
+//all consultants
 
 // Selectors - Team consultants
 export const selectAllConsultants = (state) => state.hotlist.allConsultants;

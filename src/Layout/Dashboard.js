@@ -1,55 +1,55 @@
-import React, { useState, useEffect } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from "react";
+import { Outlet, useNavigate } from "react-router-dom";
 import {
   Box,
   CssBaseline,
   Toolbar,
   Paper,
   useMediaQuery,
-  useTheme
-} from '@mui/material';
-import { useSelector } from 'react-redux';
+  useTheme,
+} from "@mui/material";
+import { useSelector } from "react-redux";
 
-// Import the separated components
-import SideNav from './SideNav';
-import Header from './Header';
-import Footer from './Footer';
+import SideNav from "./SideNav";
+import Header from "./Header";
+import Footer from "./Footer";
 
 const drawerWidth = 240;
 const collapsedWidth = 72;
 
+const HEADER_HEIGHT = 64; // adjust if your header height differs
+const FOOTER_HEIGHT = 50; // adjust to your footer height
+
 const Dashboard = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  
+
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const navigate = useNavigate();
-  
-  // Get auth state from Redux
-  const { isAuthenticated, logInTimeStamp, role } = useSelector((state) => state.auth);
-  
-  // Redirect if not authenticated
+
+  const { isAuthenticated, logInTimeStamp } = useSelector(
+    (state) => state.auth
+  );
+
   useEffect(() => {
     if (!isAuthenticated) {
-      navigate('/');
+      navigate("/");
     }
   }, [isAuthenticated, navigate]);
-  
-  // Check login timestamp to determine if session is still valid
+
   useEffect(() => {
     if (logInTimeStamp) {
       const loginTime = new Date(logInTimeStamp).getTime();
       const currentTime = new Date().getTime();
-      const sessionDuration = 8 * 60 * 60 * 1000; // 8 hours in milliseconds
-      
+      const sessionDuration = 8 * 60 * 60 * 1000;
+
       if (currentTime - loginTime > sessionDuration) {
-        // Session expired, redirect to login
-        navigate('/');
+        navigate("/");
       }
     }
   }, [logInTimeStamp, navigate]);
-  
+
   const handleDrawerToggle = () => {
     if (isMobile) {
       setMobileOpen(!mobileOpen);
@@ -58,74 +58,108 @@ const Dashboard = () => {
     }
   };
 
-  if (!isAuthenticated) {
-    // Don't render anything while redirecting
-    return null;
-  }
+  if (!isAuthenticated) return null;
 
   return (
-    <Box sx={{ display: 'flex', height: '100vh' }}>
+    <>
       <CssBaseline />
-      
-      {/* Header Component */}
-      <Header 
-        handleDrawerToggle={handleDrawerToggle}
-        isCollapsed={isCollapsed}
-        drawerWidth={drawerWidth}
-        collapsedWidth={collapsedWidth}
-      />
-      
-      {/* Navigation Component */}
+
+      {/* Fixed Header */}
       <Box
-        component="nav"
         sx={{
-          width: { sm: isCollapsed ? collapsedWidth : drawerWidth },
-          flexShrink: { sm: 0 },
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: HEADER_HEIGHT,
+          zIndex: theme.zIndex.appBar,
         }}
       >
-        <SideNav 
-          handleDrawerToggle={handleDrawerToggle} 
-          isCollapsed={isCollapsed} 
-          isMobile={isMobile}
-          mobileOpen={mobileOpen}
+        <Header
+          handleDrawerToggle={handleDrawerToggle}
+          isCollapsed={isCollapsed}
+          drawerWidth={drawerWidth}
+          collapsedWidth={collapsedWidth}
         />
       </Box>
-      
-      {/* Main Content */}
+
+      {/* Main container between header and footer */}
       <Box
-        component="main"
         sx={{
-          flexGrow: 1,
-          width: { xs: '100%', sm: `calc(100% - ${isCollapsed ? collapsedWidth : drawerWidth}px)` },
-          height: '100vh',
-          overflow: 'auto',
-          backgroundColor: theme.palette.mode === 'dark' 
-            ? theme.palette.background.default 
-            : theme.palette.grey[100],
-          transition: theme.transitions.create('margin', {
-            easing: theme.transitions.easing.sharp,
-            duration: theme.transitions.duration.enteringScreen,
-          }),
+          display: "flex",
+          flexDirection: "row",
+          position: "fixed",
+          top: HEADER_HEIGHT,
+          left: 0,
+          width: "100%",
+          height: `calc(100vh - ${HEADER_HEIGHT + FOOTER_HEIGHT}px)`,
+          overflow: "hidden",
         }}
       >
-        <Toolbar /> 
-        <Box >
-          <Paper 
-            elevation={0} 
-            sx={{ 
-              p: 1, 
+        {/* Sidebar */}
+        <Box
+          component="nav"
+          sx={{
+            width: { sm: isCollapsed ? collapsedWidth : drawerWidth },
+            flexShrink: 0,
+            height: "100%",
+            borderRight: `1px solid ${theme.palette.divider}`,
+            bgcolor: theme.palette.background.paper,
+            overflowY: "auto",
+          }}
+        >
+          <SideNav
+            handleDrawerToggle={handleDrawerToggle}
+            isCollapsed={isCollapsed}
+            isMobile={isMobile}
+            mobileOpen={mobileOpen}
+          />
+        </Box>
+
+        {/* Main Content */}
+        <Box
+          component="main"
+          sx={{
+            flexGrow: 1,
+            height: "100%",
+            overflowY: "auto",
+            backgroundColor:
+              theme.palette.mode === "dark"
+                ? theme.palette.background.default
+                : theme.palette.grey[100],
+            
+          }}
+        >
+          {/* <Toolbar /> For consistent spacing if needed */}
+          <Paper
+            elevation={0}
+            sx={{
               borderRadius: 2,
-              boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
-              minHeight: 'calc(100vh - 140px)'
+              minHeight: "100%",
+              boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
             }}
           >
             <Outlet />
           </Paper>
         </Box>
+      </Box>
+
+      {/* Fixed Footer */}
+      <Box
+        sx={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          width: "100%",
+          height: FOOTER_HEIGHT,
+          borderTop: `1px solid ${theme.palette.divider}`,
+          bgcolor: theme.palette.background.paper,
+          zIndex: theme.zIndex.appBar,
+        }}
+      >
         <Footer />
       </Box>
-      
-    </Box>
+    </>
   );
 };
 

@@ -10,6 +10,8 @@ import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
 import InsightsIcon from "@mui/icons-material/Insights";
 import HomeIcon from "@mui/icons-material/Home";
 import AutorenewIcon from "@mui/icons-material/Autorenew";
+import PeopleIcon from "@mui/icons-material/People";
+import BadgeIcon from '@mui/icons-material/Badge';
 
 // Adroit Route Config
 export const usNavItems = [
@@ -25,5 +27,11 @@ export const usNavItems = [
     icon: <GroupIcon />,
     roles: ["SUPERADMIN", "EMPLOYEE", "TEAMLEAD"],
   },
+  // {
+  //   text: "Employees",
+  //   path: "us-employees/employeeslist", // or just "hotlist"
+  //   icon: <BadgeIcon />,
+  //   roles: ["SUPERADMIN"],
+  // },
  
 ];

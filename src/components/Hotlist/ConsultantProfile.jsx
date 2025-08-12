@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Card,
@@ -9,907 +8,646 @@ import {
   Avatar,
   Chip,
   Divider,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
+  Button,
+  Badge,
+  Paper,
+  Stack,
+  useTheme,
+  alpha,
   CircularProgress,
   Alert,
-  Paper,
-  Container,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Tabs,
-  Tab,
-  IconButton,
-  Tooltip,
-  Button,
 } from "@mui/material";
 import {
+  ArrowBack,
   Email,
   Phone,
   LocationOn,
-  Work,
-  CalendarToday,
+  LinkedIn,
   AttachMoney,
-  Language,
-  School,
-  Business,
   Person,
-  Schedule,
-  Assignment,
-  VideoCall,
-  Assessment,
-  TrendingUp,
-  CheckCircle,
-  Cancel,
-  Pending,
-  Edit,
-  Visibility,
+  Star,
+  WorkOutline,
+  AccountCircle,
+  CalendarToday,
+  Business,
 } from "@mui/icons-material";
-import { hotlistAPI } from "../../utils/api";
+import { useNavigate, useParams } from "react-router-dom";
+import Documents from "./Documents";
 
 const ConsultantProfile = () => {
-  const { consultantId } = useParams();
   const [consultant, setConsultant] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [tabValue, setTabValue] = useState(0);
+  const [error, setError] = useState("");
+
   const navigate = useNavigate();
-
-  // Mock data for interviews and rate confirmations
-  const [interviews] = useState([
-    {
-      id: 1,
-      clientName: "TechCorp Inc",
-      position: "Senior React Developer",
-      date: "2024-07-28",
-      time: "2:00 PM",
-      type: "Technical",
-      status: "Completed",
-      result: "Selected",
-      feedback: "Strong technical knowledge, excellent problem-solving skills",
-      interviewerName: "Jane Doe",
-      round: "Final Round",
-      duration: "60 mins",
-    },
-    {
-      id: 2,
-      clientName: "InnovateSoft",
-      position: "Full Stack Engineer",
-      date: "2024-07-25",
-      time: "10:30 AM",
-      type: "HR + Technical",
-      status: "Completed",
-      result: "Rejected",
-      feedback:
-        "Good technical skills but looking for more experience in microservices",
-      interviewerName: "Robert Chen",
-      round: "Second Round",
-      duration: "45 mins",
-    },
-    {
-      id: 3,
-      clientName: "DataFlow Solutions",
-      position: "Frontend Developer",
-      date: "2024-08-05",
-      time: "3:30 PM",
-      type: "Technical",
-      status: "Scheduled",
-      result: "Pending",
-      feedback: "",
-      interviewerName: "Lisa Anderson",
-      round: "First Round",
-      duration: "30 mins",
-    },
-    {
-      id: 4,
-      clientName: "CloudTech Systems",
-      position: "React Specialist",
-      date: "2024-08-10",
-      time: "11:00 AM",
-      type: "Client Interview",
-      status: "Scheduled",
-      result: "Pending",
-      feedback: "",
-      interviewerName: "Mark Johnson",
-      round: "Initial Screening",
-      duration: "30 mins",
-    },
-  ]);
-
-  const [rateConfirmations] = useState([
-    {
-      id: 1,
-      clientName: "TechCorp Inc",
-      position: "Senior React Developer",
-      proposedRate: 85,
-      negotiatedRate: 90,
-      status: "Confirmed",
-      confirmedBy: "David Brown",
-      confirmedDate: "2024-07-29",
-      projectDuration: "6 months",
-      startDate: "2024-08-15",
-      notes: "Rate increased due to excellent interview performance",
-    },
-    {
-      id: 2,
-      clientName: "StartupXYZ",
-      position: "Full Stack Developer",
-      proposedRate: 80,
-      negotiatedRate: 80,
-      status: "Pending",
-      confirmedBy: "",
-      confirmedDate: "",
-      projectDuration: "12 months",
-      startDate: "2024-08-20",
-      notes: "Waiting for client approval",
-    },
-    {
-      id: 3,
-      clientName: "Enterprise Corp",
-      position: "React Specialist",
-      proposedRate: 95,
-      negotiatedRate: 85,
-      status: "Negotiating",
-      confirmedBy: "",
-      confirmedDate: "",
-      projectDuration: "3 months",
-      startDate: "2024-09-01",
-      notes: "Client requested rate reduction, under discussion",
-    },
-    {
-      id: 4,
-      clientName: "DataFlow Solutions",
-      position: "Frontend Developer",
-      proposedRate: 75,
-      negotiatedRate: 0,
-      status: "Rejected",
-      confirmedBy: "",
-      confirmedDate: "",
-      projectDuration: "4 months",
-      startDate: "",
-      notes: "Budget constraints, client went with another candidate",
-    },
-  ]);
+  const theme = useTheme();
+  const { consultantId } = useParams();
 
   useEffect(() => {
-    const fetchConsultantDetails = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const response = await hotlistAPI.getConsultantById(consultantId);
-
-        if (response.data) {
-          setConsultant(response.data);
-        } else {
-          throw new Error(response.data?.message || "Unknown error occurred");
-        }
-      } catch (err) {
-        console.error("Error fetching consultant:", err);
-        setError(
-          err.response?.data?.message ||
-            "Failed to load consultant details. Please try again later."
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (consultantId) {
-      fetchConsultantDetails();
-    } else {
-      setError("No consultant ID provided");
-      setLoading(false);
-    }
+    fetchConsultantDetails();
   }, [consultantId]);
 
+  const fetchConsultantDetails = async () => {
+    setLoading(true);
+    try {
+      // Replace with your actual API endpoint
+      const response = await fetch(
+        `https://mymulya.com/hotlist/consultant/${consultantId}`
+      );
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      const result = await response.json();
+
+      if (result.success) {
+        setConsultant(result.data);
+      } else {
+        setError(
+          result.error?.errorMessage || "Failed to fetch consultant details"
+        );
+      }
+    } catch (err) {
+      setError(err.message);
+      // Mock data for demonstration
+      setConsultant({
+        consultantId: consultantId,
+        name: "Sarah Johnson",
+        technology: "React.js • Node.js • TypeScript",
+        experience: 8,
+        status: "available",
+        grade: "B",
+        remoteOnsite: "Remote",
+        emailId: "sarah.johnson@email.com",
+        marketingContact: "+1 (555) 123-4567",
+        personalContact: "+1 (555) 987-6543",
+        location: "San Francisco, CA",
+        linkedInUrl: "https://linkedin.com/in/sarahjohnson",
+        billRate: 95,
+        recruiterName: "John Doe",
+        recruiterId: "REC-001",
+        teamleadName: "Mike Wilson",
+        teamleadId: "TL-001",
+        salesExecutive: "Lisa Chen",
+        payroll: "W2",
+        marketingStartDate: "2024-07-01",
+        originalDOB: "1990-03-15",
+        editedDOB: "1990-03-15",
+        marketingVisa: "H1B",
+        actualVisa: "H1B",
+        passport: "Yes",
+        relocation: "Yes",
+        reference: "TechCorp Solutions",
+        remarks:
+          "Excellent performer with strong leadership skills. Consistently delivers high-quality work on time.",
+        consultantAddedTimeStamp: "2024-07-01T10:30:00Z",
+        updatedTimeStamp: "2024-08-10T15:45:00Z",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBackTo = () => {
+    navigate("/dashboard/hotlist/consultants");
+  };
+
   const getStatusColor = (status) => {
-    const statusColors = {
-      busy: "warning",
+    const colors = {
       available: "success",
+      busy: "warning",
       "on project": "info",
       inactive: "error",
     };
-    return statusColors[status?.toLowerCase()] || "default";
+    return colors[status?.toLowerCase()] || "default";
   };
 
   const getGradeColor = (grade) => {
-    const gradeColors = {
+    const colors = {
       A: "success",
       B: "warning",
       C: "error",
     };
-    return gradeColors[grade] || "default";
-  };
-
-  const getInterviewStatusColor = (status) => {
-    const colors = {
-      Completed: "success",
-      Scheduled: "info",
-      Cancelled: "error",
-    };
-    return colors[status] || "default";
-  };
-
-  const getInterviewResultColor = (result) => {
-    const colors = {
-      Selected: "success",
-      Rejected: "error",
-      Pending: "warning",
-    };
-    return colors[result] || "default";
-  };
-
-  const getRateStatusColor = (status) => {
-    const colors = {
-      Confirmed: "success",
-      Pending: "warning",
-      Negotiating: "info",
-      Rejected: "error",
-    };
-    return colors[status] || "default";
+    return colors[grade] || "default";
   };
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
-
-  const formatDateTime = (dateTimeString) => {
-    if (!dateTimeString) return "N/A";
-    return new Date(dateTimeString).toLocaleString("en-US", {
-      year: "numeric",
       month: "short",
       day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
     });
   };
 
-  const handleTabChange = (event, newValue) => {
-    setTabValue(newValue);
-  };
-  const handleBackTo = () => {
-    navigate("/dashboard/hotlist/consultants");
-  };
+  const InfoCard = ({ icon, title, value, subtitle }) => (
+    <Paper
+      elevation={0}
+      sx={{
+        p: 3,
+        height: "100%",
+        border: "1px solid",
+        borderColor: "divider",
+        borderRadius: 2,
+        transition: "all 0.2s ease-in-out",
+        "&:hover": {
+          boxShadow: theme.shadows[4],
+          transform: "translateY(-2px)",
+        },
+      }}
+    >
+      <Stack direction="row" spacing={2} alignItems="flex-start">
+        <Box
+          sx={{
+            p: 1.5,
+            bgcolor: alpha(theme.palette.primary.main, 0.1),
+            borderRadius: 2,
+            color: "primary.main",
+          }}
+        >
+          {icon}
+        </Box>
+        <Box sx={{ flex: 1 }}>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            {title}
+          </Typography>
+          <Typography variant="h6" fontWeight="600" sx={{ mb: 0.5 }}>
+            {value}
+          </Typography>
+          {subtitle && (
+            <Typography variant="body2" color="text.secondary">
+              {subtitle}
+            </Typography>
+          )}
+        </Box>
+      </Stack>
+    </Paper>
+  );
 
   if (loading) {
     return (
-      <Container
-        maxWidth="lg"
+      <Box
         sx={{
-          mt: 4,
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          minHeight: "60vh",
+          minHeight: "50vh",
         }}
       >
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-          }}
-        >
-          <CircularProgress size={60} />
-          <Typography variant="h6" sx={{ mt: 2 }}>
-            Loading consultant details...
-          </Typography>
-        </Box>
-      </Container>
+        <CircularProgress size={60} />
+      </Box>
     );
   }
 
-  if (error) {
+  if (error && !consultant) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4 }}>
+      <Box sx={{ p: 3 }}>
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
-      </Container>
+        <Button
+          startIcon={<ArrowBack />}
+          onClick={handleBackTo}
+          variant="outlined"
+        >
+          Back to Consultants
+        </Button>
+      </Box>
     );
   }
 
   if (!consultant) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4 }}>
-        <Alert severity="info">No consultant data found.</Alert>
-      </Container>
+      <Box sx={{ p: 3 }}>
+        <Alert severity="info">
+          No consultant found with ID: {consultantId}
+        </Alert>
+        <Button
+          startIcon={<ArrowBack />}
+          onClick={handleBackTo}
+          variant="outlined"
+          sx={{ mt: 2 }}
+        >
+          Back to Consultants
+        </Button>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      {/* Header Card */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Box
+    <Box sx={{ bgcolor: "grey.50", minHeight: "100vh", p: { xs:1, md:1 } }}>
+      <Box sx={{ maxWidth: "1400px", mx: "auto" }}>
+        {/* Header */}
+        <Box sx={{ mb: 3 }}>
+          <Button
+            startIcon={<ArrowBack />}
+            onClick={handleBackTo}
             sx={{
-              display: "flex",
-              alignItems: "flex-start",
-              justifyContent: "space-between",
-              flexWrap: "wrap",
-              gap: 2,
+              mb: 1,
+              color: "text.secondary",
+              "&:hover": { bgcolor: "action.hover" },
             }}
           >
-            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-              <Avatar
-                sx={{
-                  width: 80,
-                  height: 80,
-                  bgcolor: "primary.main",
-                  fontSize: "2rem",
-                  fontWeight: "bold",
-                }}
-              >
-                {consultant.name?.charAt(0)?.toUpperCase() || "C"}
-              </Avatar>
-              <Box>
-                <Typography variant="h4" component="h1" gutterBottom>
-                  {consultant.name || "Unknown"}
-                </Typography>
-                <Typography variant="h6" color="text.secondary" gutterBottom>
-                  {consultant.technology || "Technology not specified"}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  ID: {consultant.consultantId}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Experience: {consultant.experience} years
-                </Typography>
-              </Box>
-            </Box>
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 1,
-                alignItems: "flex-end",
-              }}
-            >
-              <Chip
-                label={consultant.status || "Unknown"}
-                color={getStatusColor(consultant.status)}
-                variant="filled"
-              />
-              <Chip
-                label={`Grade ${consultant.grade || "N/A"}`}
-                color={getGradeColor(consultant.grade)}
-                variant="outlined"
-              />
-              <Chip
-                label={consultant.remoteOnsite || "Not specified"}
-                color="info"
-                variant="outlined"
-              />
-            </Box>
-          </Box>
-        </CardContent>
-      </Card>
+            Back to Consultants
+          </Button>
+        </Box>
 
-      {/* Tabs */}
-      <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
-        <Tabs value={tabValue} onChange={handleTabChange}>
-          <Tab icon={<Person />} label="Profile Details" iconPosition="start" />
-          <Tab
-            icon={<VideoCall />}
-            label={`Interviews (${interviews.length})`}
-            iconPosition="start"
-          />
-          <Tab
-            icon={<AttachMoney />}
-            label={`Rate Confirmations (${rateConfirmations.length})`}
-            iconPosition="start"
-          />
-        </Tabs>
-      </Box>
+        {/* Profile Header */}
+        <Card
+          elevation={0}
+          sx={{
+            mb: 4,
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: 3,
+            overflow: "visible",
+          }}
+        >
+          <CardContent sx={{ p: 3 }}>
+            <Grid container spacing={3} alignItems="center">
+              {/* Avatar + Basic Info */}
+              <Grid item xs={12} md={8}>
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <Badge
+                    overlap="circular"
+                    anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+                    badgeContent={
+                      <Box
+                        sx={{
+                          width: 14,
+                          height: 14,
+                          borderRadius: "50%",
+                          bgcolor:
+                            consultant.status === "available"
+                              ? "success.main"
+                              : consultant.status === "busy"
+                              ? "warning.main"
+                              : "info.main",
+                          border: "2px solid white",
+                        }}
+                      />
+                    }
+                  >
+                    <Avatar
+                      sx={{
+                        width: 64,
+                        height: 64,
+                        bgcolor: "primary.main",
+                        fontWeight: "bold",
+                        fontSize: "1.25rem",
+                      }}
+                    >
+                      {consultant.name?.charAt(0)?.toUpperCase()}
+                    </Avatar>
+                  </Badge>
 
-      {/* Tab Content */}
-      {tabValue === 0 && (
-        <Grid container spacing={3}>
-          {/* Contact Information */}
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent>
-                <Typography
-                  variant="h6"
-                  gutterBottom
-                  sx={{ display: "flex", alignItems: "center", gap: 1 }}
-                >
-                  <Person color="primary" />
-                  Contact Information
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                <List dense>
-                  <ListItem>
-                    <ListItemIcon>
-                      <Email color="action" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="Email"
-                      secondary={consultant.emailId || "Not provided"}
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon>
-                      <Phone color="action" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="Marketing Contact"
-                      secondary={consultant.marketingContact || "Not provided"}
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon>
-                      <Phone color="action" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="Personal Contact"
-                      secondary={consultant.personalContact || "Not provided"}
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon>
-                      <LocationOn color="action" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="Location"
-                      secondary={consultant.location || "Not provided"}
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon>
-                      <Language color="action" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="LinkedIn"
-                      secondary={
-                        consultant.linkedInUrl ? (
-                          <a
-                            href={consultant.linkedInUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{ color: "#1976d2" }}
-                          >
-                            View Profile
-                          </a>
-                        ) : (
-                          "Not provided"
-                        )
-                      }
-                    />
-                  </ListItem>
-                </List>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Professional Information */}
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent>
-                <Typography
-                  variant="h6"
-                  gutterBottom
-                  sx={{ display: "flex", alignItems: "center", gap: 1 }}
-                >
-                  <Work color="primary" />
-                  Professional Details
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                <List dense>
-                  <ListItem>
-                    <ListItemIcon>
-                      <Business color="action" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="Reference"
-                      secondary={consultant.reference || "Not provided"}
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon>
-                      <Person color="action" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="Recruiter"
-                      secondary={`${consultant.recruiterName || "Unknown"} (${
-                        consultant.recruiterId || "N/A"
-                      })`}
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon>
-                      <Person color="action" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="Team Lead"
-                      secondary={`${consultant.teamleadName || "Unknown"} (${
-                        consultant.teamleadId || "N/A"
-                      })`}
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon>
-                      <Person color="action" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="Sales Executive"
-                      secondary={consultant.salesExecutive || "Not assigned"}
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon>
-                      <AttachMoney color="action" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="Bill Rate"
-                      secondary={
-                        consultant.billRate
-                          ? `$${consultant.billRate}/hr`
-                          : "Not specified"
-                      }
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon>
-                      <Assignment color="action" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="Payroll"
-                      secondary={consultant.payroll || "Not specified"}
-                    />
-                  </ListItem>
-                </List>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Additional Information */}
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent>
-                <Typography
-                  variant="h6"
-                  gutterBottom
-                  sx={{ display: "flex", alignItems: "center", gap: 1 }}
-                >
-                  <School color="primary" />
-                  Additional Information
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                <List dense>
-                  <ListItem>
-                    <ListItemIcon>
-                      <CalendarToday color="action" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="Original DOB"
-                      secondary={formatDate(consultant.originalDOB)}
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon>
-                      <CalendarToday color="action" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="Edited DOB"
-                      secondary={formatDate(consultant.editedDOB)}
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon>
-                      <Language color="action" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="Marketing Visa"
-                      secondary={consultant.marketingVisa || "Not specified"}
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon>
-                      <Language color="action" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="Actual Visa"
-                      secondary={consultant.actualVisa || "Not specified"}
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemText
-                      primary="Passport Available"
-                      secondary={consultant.passport === "Yes" ? "Yes" : "No"}
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemText
-                      primary="Relocation"
-                      secondary={
-                        consultant.relocation === "Yes"
-                          ? "Available"
-                          : "Not available"
-                      }
-                    />
-                  </ListItem>
-                </List>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Timeline Information */}
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent>
-                <Typography
-                  variant="h6"
-                  gutterBottom
-                  sx={{ display: "flex", alignItems: "center", gap: 1 }}
-                >
-                  <Schedule color="primary" />
-                  Timeline & Status
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                <List dense>
-                  <ListItem>
-                    <ListItemIcon>
-                      <CalendarToday color="action" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="Marketing Start Date"
-                      secondary={formatDate(consultant.marketingStartDate)}
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon>
-                      <Schedule color="action" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="Added Timestamp"
-                      secondary={formatDateTime(
-                        consultant.consultantAddedTimeStamp
-                      )}
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon>
-                      <Schedule color="action" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="Last Updated"
-                      secondary={formatDateTime(consultant.updatedTimeStamp)}
-                    />
-                  </ListItem>
-                </List>
-
-                {consultant.remarks && (
-                  <Box sx={{ mt: 2 }}>
-                    <Typography variant="subtitle2" gutterBottom>
-                      Remarks:
+                  <Box>
+                    <Typography variant="h6" fontWeight="bold">
+                      {consultant.name}
                     </Typography>
-                    <Paper sx={{ p: 2, bgcolor: "grey.50" }}>
-                      <Typography variant="body2">
-                        {consultant.remarks}
-                      </Typography>
-                    </Paper>
+                    <Typography variant="body2" color="text.secondary">
+                      {consultant.technology}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {consultant.experience} Years | ID:{" "}
+                      {consultant.consultantId}
+                    </Typography>
                   </Box>
-                )}
-              </CardContent>
-            </Card>
+                </Stack>
+              </Grid>
+
+              {/* Status + Rate */}
+              <Grid item xs={12} md={4}>
+                <Stack
+                  spacing={1}
+                  alignItems={{ xs: "flex-start", md: "flex-end" }}
+                >
+                  <Chip
+                    label={consultant.status}
+                    color={getStatusColor(consultant.status)}
+                    size="small"
+                  />
+                  <Chip
+                    icon={<Star />}
+                    label={`Grade ${consultant.grade}`}
+                    color={getGradeColor(consultant.grade)}
+                    size="small"
+                    variant="outlined"
+                  />
+                  <Typography
+                    variant="subtitle1"
+                    fontWeight="bold"
+                    color="primary"
+                  >
+                    ${consultant.billRate}/hr
+                  </Typography>
+                </Stack>
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+
+        {/* Quick Stats */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12}>
+            <Typography variant="h5" fontWeight="bold" sx={{ mb: 3 }}>
+              Quick Overview
+            </Typography>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <InfoCard
+              icon={<Email />}
+              title="Email Address"
+              value={consultant.emailId}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <InfoCard
+              icon={<Phone />}
+              title="Marketing Contact"
+              value={consultant.marketingContact}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <InfoCard
+              icon={<LocationOn />}
+              title="Location"
+              value={consultant.location}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <InfoCard
+              icon={<AttachMoney />}
+              title="Bill Rate"
+              value={`$${consultant.billRate}/hr`}
+              subtitle={consultant.payroll}
+            />
           </Grid>
         </Grid>
-      )}
 
-      {/* Interviews Tab */}
-      {tabValue === 1 && (
-        <Card>
-          <CardContent>
-            <Typography
-              variant="h6"
-              gutterBottom
-              sx={{ display: "flex", alignItems: "center", gap: 1 }}
+        <Grid container spacing={4}>
+          {/* Contact & Personal Details */}
+          <Grid item xs={12} md={6}>
+            <Card
+              elevation={0}
+              sx={{
+                height: "100%",
+                border: "1px solid",
+                borderColor: "divider",
+                borderRadius: 3,
+              }}
             >
-              <VideoCall color="primary" />
-              Interview History [dummy Data]
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Client & Position</TableCell>
-                    <TableCell>Date & Time</TableCell>
-                    <TableCell>Type & Round</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Result</TableCell>
-                    <TableCell>Interviewer</TableCell>
-                    <TableCell>Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {interviews.map((interview) => (
-                    <TableRow key={interview.id}>
-                      <TableCell>
-                        <Typography variant="subtitle2">
-                          {interview.clientName}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {interview.position}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {formatDate(interview.date)}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {interview.time} ({interview.duration})
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {interview.type}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {interview.round}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={interview.status}
-                          color={getInterviewStatusColor(interview.status)}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={interview.result}
-                          color={getInterviewResultColor(interview.result)}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {interview.interviewerName}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Tooltip title="View Details">
-                          <IconButton size="small">
-                            <Visibility />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Edit">
-                          <IconButton size="small">
-                            <Edit />
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </CardContent>
-        </Card>
-      )}
+              <CardContent sx={{ p: 4 }}>
+                <Typography variant="h6" fontWeight="bold" sx={{ mb: 3 }}>
+                  <AccountCircle sx={{ mr: 1, verticalAlign: "middle" }} />
+                  Contact & Personal Details
+                </Typography>
 
-      {/* Rate Confirmations Tab */}
-      {tabValue === 2 && (
-        <Card>
-          <CardContent>
-            <Typography
-              variant="h6"
-              gutterBottom
-              sx={{ display: "flex", alignItems: "center", gap: 1 }}
-            >
-              <TrendingUp color="primary" />
-              Rate Confirmation History [dummy data]
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Client & Position</TableCell>
-                    <TableCell>Rates ($/hr)</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Project Details</TableCell>
-                    <TableCell>Confirmed By</TableCell>
-                    <TableCell>Notes</TableCell>
-                    <TableCell>Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {rateConfirmations.map((rate) => (
-                    <TableRow key={rate.id}>
-                      <TableCell>
-                        <Typography variant="subtitle2">
-                          {rate.clientName}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {rate.position}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          Proposed: ${rate.proposedRate}
-                        </Typography>
-                        {rate.negotiatedRate > 0 && (
-                          <Typography variant="body2" color="primary">
-                            Negotiated: ${rate.negotiatedRate}
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
+                <Stack spacing={3}>
+                  <Box>
+                    <Typography
+                      variant="subtitle2"
+                      color="text.secondary"
+                      gutterBottom
+                    >
+                      Personal Contact
+                    </Typography>
+                    <Typography variant="body1" fontWeight="500">
+                      {consultant.personalContact}
+                    </Typography>
+                  </Box>
+
+                  <Box>
+                    <Typography
+                      variant="subtitle2"
+                      color="text.secondary"
+                      gutterBottom
+                    >
+                      LinkedIn Profile
+                    </Typography>
+                    <Button
+                      startIcon={<LinkedIn />}
+                      href={consultant.linkedInUrl}
+                      target="_blank"
+                      variant="outlined"
+                      size="small"
+                    >
+                      View Profile
+                    </Button>
+                  </Box>
+
+                  <Divider />
+
+                  <Box>
+                    <Typography
+                      variant="subtitle2"
+                      color="text.secondary"
+                      gutterBottom
+                    >
+                      Date of Birth
+                    </Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap">
+                      <Chip
+                        label={`Original: ${formatDate(
+                          consultant.originalDOB
+                        )}`}
+                        size="small"
+                        variant="outlined"
+                      />
+                      {consultant.editedDOB !== consultant.originalDOB && (
                         <Chip
-                          label={rate.status}
-                          color={getRateStatusColor(rate.status)}
+                          label={`Edited: ${formatDate(consultant.editedDOB)}`}
                           size="small"
+                          color="warning"
                         />
-                        {rate.confirmedDate && (
-                          <Typography variant="body2" color="text.secondary">
-                            {formatDate(rate.confirmedDate)}
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
+                      )}
+                    </Stack>
+                  </Box>
+
+                  <Box>
+                    <Typography
+                      variant="subtitle2"
+                      color="text.secondary"
+                      gutterBottom
+                    >
+                      Visa Status
+                    </Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap">
+                      <Chip
+                        label={`Marketing: ${consultant.marketingVisa}`}
+                        size="small"
+                        variant="outlined"
+                      />
+                      <Chip
+                        label={`Actual: ${consultant.actualVisa}`}
+                        size="small"
+                        color="primary"
+                      />
+                    </Stack>
+                  </Box>
+
+                  <Box>
+                    <Typography
+                      variant="subtitle2"
+                      color="text.secondary"
+                      gutterBottom
+                    >
+                      Availability
+                    </Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap">
+                      <Chip
+                        label={`Passport: ${consultant.passport}`}
+                        size="small"
+                        color={
+                          consultant.passport === "Yes" ? "success" : "default"
+                        }
+                      />
+                      <Chip
+                        label={`Relocation: ${
+                          consultant.relocation === "Yes"
+                            ? "Available"
+                            : "Not Available"
+                        }`}
+                        size="small"
+                        color={
+                          consultant.relocation === "Yes"
+                            ? "success"
+                            : "default"
+                        }
+                      />
+                    </Stack>
+                  </Box>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Professional Details */}
+          <Grid item xs={12} md={6}>
+            <Card
+              elevation={0}
+              sx={{
+                height: "100%",
+                border: "1px solid",
+                borderColor: "divider",
+                borderRadius: 3,
+              }}
+            >
+              <CardContent sx={{ p: 4 }}>
+                <Typography variant="h6" fontWeight="bold" sx={{ mb: 3 }}>
+                  <Business sx={{ mr: 1, verticalAlign: "middle" }} />
+                  Professional Details
+                </Typography>
+
+                <Stack spacing={3}>
+                  <Box>
+                    <Typography
+                      variant="subtitle2"
+                      color="text.secondary"
+                      gutterBottom
+                    >
+                      Team Information
+                    </Typography>
+                    <Stack spacing={1}>
+                      <Typography variant="body2">
+                        <strong>Recruiter:</strong> {consultant.recruiterName} (
+                        {consultant.recruiterId})
+                      </Typography>
+                      <Typography variant="body2">
+                        <strong>Team Lead:</strong> {consultant.teamleadName} (
+                        {consultant.teamleadId})
+                      </Typography>
+                      <Typography variant="body2">
+                        <strong>Sales Executive:</strong>{" "}
+                        {consultant.salesExecutive}
+                      </Typography>
+                    </Stack>
+                  </Box>
+
+                  <Divider />
+
+                  <Box>
+                    <Typography
+                      variant="subtitle2"
+                      color="text.secondary"
+                      gutterBottom
+                    >
+                      Reference
+                    </Typography>
+                    <Typography variant="body1" fontWeight="500">
+                      {consultant.reference}
+                    </Typography>
+                  </Box>
+
+                  <Box>
+                    <Typography
+                      variant="subtitle2"
+                      color="text.secondary"
+                      gutterBottom
+                    >
+                      Marketing Start Date
+                    </Typography>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <CalendarToday fontSize="small" color="action" />
+                      <Typography variant="body1" fontWeight="500">
+                        {formatDate(consultant.marketingStartDate)}
+                      </Typography>
+                    </Stack>
+                  </Box>
+
+                  <Box>
+                    <Typography
+                      variant="subtitle2"
+                      color="text.secondary"
+                      gutterBottom
+                    >
+                      Record Timestamps
+                    </Typography>
+                    <Stack spacing={0.5}>
+                      <Typography variant="body2" color="text.secondary">
+                        Added: {formatDate(consultant.consultantAddedTimeStamp)}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Updated: {formatDate(consultant.updatedTimeStamp)}
+                      </Typography>
+                    </Stack>
+                  </Box>
+
+                  {consultant.remarks && (
+                    <Box>
+                      <Typography
+                        variant="subtitle2"
+                        color="text.secondary"
+                        gutterBottom
+                      >
+                        Remarks
+                      </Typography>
+                      <Paper
+                        sx={{
+                          p: 2,
+                          bgcolor: "grey.50",
+                          borderRadius: 2,
+                          border: "1px solid",
+                          borderColor: "divider",
+                        }}
+                      >
                         <Typography variant="body2">
-                          Duration: {rate.projectDuration}
+                          {consultant.remarks}
                         </Typography>
-                        {rate.startDate && (
-                          <Typography variant="body2" color="text.secondary">
-                            Start: {formatDate(rate.startDate)}
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {rate.confirmedBy || "N/A"}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ maxWidth: 200 }}>
-                          {rate.notes || "No notes"}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Tooltip title="View Details">
-                          <IconButton size="small">
-                            <Visibility />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Edit">
-                          <IconButton size="small">
-                            <Edit />
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </CardContent>
-         
-        </Card>
-       
-      )}
-      <Box sx={{display:"flex" ,justifyContent:"flex-end"}}>
-         <Button onClick={handleBackTo} variant="contained">
-            Back to consultants
-          </Button>
+                      </Paper>
+                    </Box>
+                  )}
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Documents Section */}
+          <Grid item xs={12}>
+            <Documents consultantId={consultantId} />
+          </Grid>
+        </Grid>
       </Box>
-    </Container>
+    </Box>
   );
 };
 

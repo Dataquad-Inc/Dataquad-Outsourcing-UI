@@ -175,7 +175,7 @@ useEffect(() => {
       title: 'External Interviews',
       key: 'externalInterviews',
       subtitle: 'Scheduled',
-      color: '#D97706',
+      color: '#d97706ff',
       bg: '#FEF3C7',
       icon: <Calendar size={24} />,
       buttonText: 'View External Interviews',

@@ -65,12 +65,12 @@ const getHotListColumns = ({
   },
   {
     id: "name",
-    label: iconLabel(Person, "Consultant"),
+    label: iconLabel(Person, "Consultant Name"),
     filterType: "text",
     render: (v) => renderValue(v, 120, loading),
   },
 
-   {
+  {
     id: "recruiterName",
     label: iconLabel(Person, "Recruiter"),
     render: (v) => renderValue(v, 80, loading),
@@ -81,31 +81,36 @@ const getHotListColumns = ({
     render: (v) => renderValue(v, 80, loading),
   },
   {
+    id: "technology",
+    label: iconLabel(Engineering, "Technology"),
+    render: (v) => renderValue(v, 100, loading),
+  },
+  {
     id: "emailId",
-    label: iconLabel(Email, "Email"),
+    label: iconLabel(Email, "Consultant Email"),
     filterType: "text",
     render: (v) => renderValue(v, 150, loading),
   },
-  {
-    id: "grade",
-    label: iconLabel(Grade, "Grade"),
-    render: (v) => renderValue(v, 50, loading),
-  },
+  // {
+  //   id: "grade",
+  //   label: iconLabel(Grade, "Grade"),
+  //   render: (v) => renderValue(v, 50, loading),
+  // },
   {
     id: "marketingContact",
     label: iconLabel(Contacts, "Marketing Contact"),
     render: (v) => renderValue(v, 120, loading),
   },
-  {
-    id: "personalContact",
-    label: iconLabel(Phone, "Personal Contact"),
-    render: (v) => renderValue(formatPhoneNumber(v), 120, loading),
-  },
-  {
-    id: "reference",
-    label: iconLabel(Info, "Reference"),
-    render: (v) => renderValue(v, 100, loading),
-  },
+  // {
+  //   id: "personalContact",
+  //   label: iconLabel(Phone, "Personal Contact"),
+  //   render: (v) => renderValue(formatPhoneNumber(v), 120, loading),
+  // },
+  // {
+  //   id: "reference",
+  //   label: iconLabel(Info, "Reference"),
+  //   render: (v) => renderValue(v, 100, loading),
+  // },
   {
     id: "recruiterId",
     label: iconLabel(SupervisorAccount, "Recruiter"),
@@ -116,31 +121,27 @@ const getHotListColumns = ({
     label: iconLabel(Group, "Team Lead"),
     render: (v) => renderValue(v, 80, loading),
   },
-  {
-    id: "status",
-    label: iconLabel(CheckCircle, "Status"),
-    render: (v) => renderValue(v, 100, loading),
-  },
-  {
-    id: "passport",
-    label: iconLabel(FaPassport,"Passport"),
-    render: (v) => renderValue(v, 60, loading),
-  },
+  // {
+  //   id: "status",
+  //   label: iconLabel(CheckCircle, "Status"),
+  //   render: (v) => renderValue(v, 100, loading),
+  // },
+  // {
+  //   id: "passport",
+  //   label: iconLabel(FaPassport,"Passport"),
+  //   render: (v) => renderValue(v, 60, loading),
+  // },
   {
     id: "salesExecutive",
     label: iconLabel(SupervisorAccount, "Sales Executive"),
     render: (v) => renderValue(v, 100, loading),
   },
-  {
-    id: "remoteOnsite",
-    label: iconLabel(Public, "Remote/Onsite"),
-    render: (v) => renderValue(v, 100, loading),
-  },
-  {
-    id: "technology",
-    label: iconLabel(Engineering, "Technology"),
-    render: (v) => renderValue(v, 100, loading),
-  },
+  // {
+  //   id: "remoteOnsite",
+  //   label: iconLabel(Public, "Remote/Onsite"),
+  //   render: (v) => renderValue(v, 100, loading),
+  // },
+
   {
     id: "experience",
     label: iconLabel(Grade, "Experience (Yrs)"),
@@ -152,33 +153,33 @@ const getHotListColumns = ({
     label: iconLabel(LocationOn, "Location"),
     render: (v) => renderValue(v, 100, loading),
   },
-  {
-    id: "originalDOB",
-    label: iconLabel(CalendarToday, "Original DOB"),
-    render: (v) => renderValue(new Date(v).toLocaleDateString(), 100, loading),
-  },
-  {
-    id: "editedDOB",
-    label: iconLabel(CalendarToday, "Edited DOB"),
-    render: (v) => renderValue(new Date(v).toLocaleDateString(), 100, loading),
-  },
-  {
-    id: "linkedInUrl",
-    label: iconLabel(LinkedIn, "LinkedIn"),
-    render: (v) =>
-      loading ? (
-        <Skeleton width={150} />
-      ) : (
-        <a href={v} target="_blank" rel="noopener noreferrer">
-          {v}
-        </a>
-      ),
-  },
-  {
-    id: "relocation",
-    label: iconLabel(FlightTakeoff, "Relocation"),
-    render: (v) => renderValue(v, 80, loading),
-  },
+  // {
+  //   id: "originalDOB",
+  //   label: iconLabel(CalendarToday, "Original DOB"),
+  //   render: (v) => renderValue(new Date(v).toLocaleDateString(), 100, loading),
+  // },
+  // {
+  //   id: "editedDOB",
+  //   label: iconLabel(CalendarToday, "Edited DOB"),
+  //   render: (v) => renderValue(new Date(v).toLocaleDateString(), 100, loading),
+  // },
+  // {
+  //   id: "linkedInUrl",
+  //   label: iconLabel(LinkedIn, "LinkedIn"),
+  //   render: (v) =>
+  //     loading ? (
+  //       <Skeleton width={150} />
+  //     ) : (
+  //       <a href={v} target="_blank" rel="noopener noreferrer">
+  //         {v}
+  //       </a>
+  //     ),
+  // },
+  // {
+  //   id: "relocation",
+  //   label: iconLabel(FlightTakeoff, "Relocation"),
+  //   render: (v) => renderValue(v, 80, loading),
+  // },
   {
     id: "billRate",
     label: iconLabel(MonetizationOn, "Bill Rate"),
@@ -189,35 +190,35 @@ const getHotListColumns = ({
     label: iconLabel(Payment, "Payroll"),
     render: (v) => renderValue(v, 80, loading),
   },
-  {
-    id: "marketingStartDate",
-    label: iconLabel(CalendarToday, "Marketing Start"),
-    render: (v) => renderValue(new Date(v).toLocaleDateString(), 90, loading),
-  },
+  // {
+  //   id: "marketingStartDate",
+  //   label: iconLabel(CalendarToday, "Marketing Start"),
+  //   render: (v) => renderValue(new Date(v).toLocaleDateString(), 90, loading),
+  // },
   {
     id: "remarks",
     label: iconLabel(Comment, "Remarks"),
     render: (v) => renderValue(v, 200, loading),
   },
-  {
-    id: "consultantAddedTimeStamp",
-    label: iconLabel(CalendarToday, "Created Date"),
-    filterType: "date",
-    render: (v) => renderValue(new Date(v).toLocaleDateString(), 90, loading),
-  },
-  {
-    id: "updatedTimeStamp",
-    label: iconLabel(Update, "Updated Date"),
-    render: (v) => renderValue(new Date(v).toLocaleDateString(), 90, loading),
-  },
+  // {
+  //   id: "consultantAddedTimeStamp",
+  //   label: iconLabel(CalendarToday, "Created Date"),
+  //   filterType: "date",
+  //   render: (v) => renderValue(new Date(v).toLocaleDateString(), 90, loading),
+  // },
+  // {
+  //   id: "updatedTimeStamp",
+  //   label: iconLabel(Update, "Updated Date"),
+  //   render: (v) => renderValue(new Date(v).toLocaleDateString(), 90, loading),
+  // },
   {
     id: "marketingVisa",
-    label:iconLabel(RiVisaFill,"Marketing Visa") ,
+    label: iconLabel(RiVisaFill, "Marketing Visa"),
     render: (v) => renderValue(v, 80, loading),
   },
   {
     id: "actualVisa",
-    label: iconLabel(RiVisaFill,"Actual Visa") ,
+    label: iconLabel(RiVisaFill, "Actual Visa"),
     render: (v) => renderValue(v, 80, loading),
   },
 
