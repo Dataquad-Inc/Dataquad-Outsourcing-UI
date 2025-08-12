@@ -28,7 +28,10 @@ import { inNavItems } from "../routes/navItems";
 import { usNavItems } from "../routes/UsNavItems";
 
 const drawerWidth = 240;
-const collapsedWidth = 72;
+const collapsedWidth = 65;
+
+const HEADER_HEIGHT = 64; // must match your actual header height
+const FOOTER_HEIGHT = 50;
 
 const SideNav = ({ handleDrawerToggle, isCollapsed, isMobile }) => {
   const location = useLocation();
@@ -65,10 +68,10 @@ const SideNav = ({ handleDrawerToggle, isCollapsed, isMobile }) => {
 
   const drawerContent = (
     <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      {/* Header Section */}
+     
       <Box
         sx={{
-          height: 86,
+          height: HEADER_HEIGHT,
           display: "flex",
           alignItems: "center",
           justifyContent: isCollapsed ? "center" : "space-between",
@@ -119,7 +122,7 @@ const SideNav = ({ handleDrawerToggle, isCollapsed, isMobile }) => {
                     letterSpacing: "0.5px",
                   }}
                 >
-                  Dashboard
+                  Menu
                 </Typography>
               </>
             )}
@@ -145,7 +148,6 @@ const SideNav = ({ handleDrawerToggle, isCollapsed, isMobile }) => {
           {isCollapsed ? <MenuIcon /> : <ChevronLeftIcon />}
         </IconButton>
       </Box>
-
       {/* User Info Section */}
       {!isCollapsed && (
         <Fade in={!isCollapsed} timeout={400}>
@@ -208,7 +210,6 @@ const SideNav = ({ handleDrawerToggle, isCollapsed, isMobile }) => {
           </Box>
         </Fade>
       )}
-
       <Divider
         sx={{
           borderColor: alpha(theme.palette.primary.main, 0.1),
@@ -216,7 +217,6 @@ const SideNav = ({ handleDrawerToggle, isCollapsed, isMobile }) => {
           my: 1,
         }}
       />
-
       {/* Navigation Items */}
       <List
         sx={{
@@ -228,7 +228,7 @@ const SideNav = ({ handleDrawerToggle, isCollapsed, isMobile }) => {
           "&:hover": {
             overflow: "auto",
             "&::-webkit-scrollbar": {
-              width: "4px",
+              width: "8px",
             },
             "&::-webkit-scrollbar-track": {
               background: "transparent",
@@ -372,7 +372,6 @@ const SideNav = ({ handleDrawerToggle, isCollapsed, isMobile }) => {
           );
         })}
       </List>
-
       <Divider
         sx={{
           borderColor: alpha(theme.palette.primary.main, 0.1),
@@ -380,7 +379,6 @@ const SideNav = ({ handleDrawerToggle, isCollapsed, isMobile }) => {
           mb: 1,
         }}
       />
-
       {/* Logout Button */}
       <Box sx={{ p: isCollapsed ? 1 : 2 }}>
         <Tooltip title={isCollapsed ? "Logout" : ""} placement="right" arrow>
@@ -451,6 +449,11 @@ const SideNav = ({ handleDrawerToggle, isCollapsed, isMobile }) => {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.enteringScreen,
           }),
+          height: `calc(100vh - ${HEADER_HEIGHT + FOOTER_HEIGHT}px)`,
+          top: HEADER_HEIGHT,
+          bottom: FOOTER_HEIGHT,
+          position: "fixed",
+          overflowY: "auto", // scroll if content overflows vertically
         },
       }}
     >

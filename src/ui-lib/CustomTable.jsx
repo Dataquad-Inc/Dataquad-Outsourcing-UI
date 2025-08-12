@@ -26,6 +26,7 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ClearIcon from "@mui/icons-material/Close";
+
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { LoadingSpinner } from "./LoadingSpinner";
 
@@ -267,24 +268,47 @@ const CustomTable = React.memo(
           )}
 
           <TableContainer
+            ref={(ref) => {
+              if (ref) {
+                // Make scrollbar track clickable to jump to clicked position
+                ref.addEventListener("mousedown", (e) => {
+                  const isScrollbarClick =
+                    e.offsetX > ref.clientWidth || e.offsetY > ref.clientHeight;
+                  if (isScrollbarClick) return; // Skip if not on the track
+
+                  const trackHeight = ref.clientHeight;
+                  const thumbHeight =
+                    (trackHeight / ref.scrollHeight) * trackHeight;
+                  const clickPosition = e.offsetY - thumbHeight / 2;
+                  const maxScrollTop = ref.scrollHeight - trackHeight;
+                  ref.scrollTop =
+                    (clickPosition / (trackHeight - thumbHeight)) *
+                    maxScrollTop;
+                });
+              }
+            }}
             sx={{
               maxHeight: "80vh",
               overflowY: "auto",
               borderRadius: 2,
               border: `1px solid ${theme.palette.divider}`,
+              scrollbarGutter: "stable",
               "&::-webkit-scrollbar": {
-                width: 8,
-                height: 8,
+                width: 10,
+                height: 10,
+                cursor: "pointer",
               },
               "&::-webkit-scrollbar-thumb": {
                 backgroundColor: theme.palette.primary.main + "40",
                 borderRadius: 4,
+                cursor: "pointer",
                 "&:hover": {
                   backgroundColor: theme.palette.primary.main + "60",
                 },
               },
               "&::-webkit-scrollbar-track": {
                 backgroundColor: theme.palette.background.default,
+                cursor: "pointer",
               },
             }}
           >
@@ -348,6 +372,7 @@ const CustomTable = React.memo(
                           sx={{
                             whiteSpace: "nowrap",
                             py: 1.5,
+                            textAlign:"start",
                             borderBottom: `1px solid ${theme.palette.divider}`,
                             color: theme.palette.text.primary,
                           }}

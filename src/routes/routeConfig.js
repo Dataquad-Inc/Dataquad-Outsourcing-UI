@@ -7,6 +7,8 @@ import InterviewsRouter from "../components/Interviews/InterviewsRouter";
 import DashboardHomeRedirect from "./DashboardHomeRedirect"; // NEW
 import { element } from "prop-types";
 
+import UsEmployeesContainer from "../components/UsEmployees/UsEmployeesContainer";
+
 const Loadable = (Component) => (
   <Suspense
     fallback={
@@ -63,6 +65,8 @@ const EmployeeStatus = lazy(() =>
   import("../components/TeamMetrics/EmployeeStatus")
 );
 const Hotlist = lazy(() => import("../components/Hotlist/Hotlist"));
+const UsEmployees = lazy(() => import("../components/UsEmployees/UsEmployees"));
+
 const ConsultantProfile = lazy(() =>
   import("../components/Hotlist/ConsultantProfile")
 );
@@ -458,6 +462,34 @@ const routeConfig = [
                     path: "team-consultants/:consultantId", // /dashboard/hotlist/create
                     element: Loadable(ConsultantProfile),
                   },
+
+                  // TeamConsultantsHotlist
+                ],
+              },
+            ],
+          },
+          {
+            path: "us-employees",
+            element: (
+              <ProtectedRoute
+                allowedRoles={["SUPERADMIN"]}
+                allowedEntities={["US"]}
+              />
+            ),
+            children: [
+              {
+                path: "",
+                element: <UsEmployeesContainer />, // Contains the tabs and <Outlet />
+                children: [
+                  {
+                    index: true, // /dashboard/hotlist
+                    element: Loadable(UsEmployees), // Default tab content
+                  },
+                  {
+                    path: "employeeslist", // /dashboard/hotlist/consultants
+                    element: Loadable(UsEmployees),
+                  },
+                 
 
                   // TeamConsultantsHotlist
                 ],

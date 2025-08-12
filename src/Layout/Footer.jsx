@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Container, Typography, Link, Stack } from "@mui/material";
+import { Box, Container, Typography, Link, Stack, useTheme } from "@mui/material";
 import { GitHub, LinkedIn, Twitter } from "@mui/icons-material";
 
 const Footer = ({
@@ -11,13 +11,15 @@ const Footer = ({
     { text: "Contact", href: "#" },
   ],
 }) => {
+  const theme = useTheme();
+
   return (
     <Box
       component="footer"
       sx={{
         py: 3,
-        backgroundColor: (theme) => theme.palette.background.paper,
-        borderTop: (theme) => `1px solid ${theme.palette.divider}`,
+        backgroundColor: theme.palette.background.default,
+        borderTop: `1px solid ${theme.palette.divider}`,
       }}
     >
       <Container maxWidth="lg">
@@ -49,23 +51,13 @@ const Footer = ({
           </Stack>
 
           <Stack direction="row" spacing={1}>
-            <Link
-              href="#"
-              aria-label="Twitter"
-              color="inherit"
-              underline="none"
-            >
+            <Link href="#" aria-label="Twitter" color="inherit" underline="none">
               <Twitter fontSize="small" />
             </Link>
             <Link href="#" aria-label="GitHub" color="inherit" underline="none">
               <GitHub fontSize="small" />
             </Link>
-            <Link
-              href="#"
-              aria-label="LinkedIn"
-              color="inherit"
-              underline="none"
-            >
+            <Link href="#" aria-label="LinkedIn" color="inherit" underline="none">
               <LinkedIn fontSize="small" />
             </Link>
           </Stack>

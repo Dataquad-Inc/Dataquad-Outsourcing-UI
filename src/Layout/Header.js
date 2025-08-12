@@ -11,9 +11,11 @@ import {
   MenuItem,
   Divider,
   useTheme,
-  Chip,
   Stack,
   Drawer,
+  Switch,
+  FormControlLabel,
+  Tooltip,
 } from "@mui/material";
 import {
   Menu as MenuIcon,
@@ -23,9 +25,11 @@ import {
 } from "@mui/icons-material";
 import EventAvailableIcon from "@mui/icons-material/EventAvailable";
 import { useDispatch, useSelector } from "react-redux";
-import { logoutAsync } from "../redux/authSlice";
+import { logoutAsync, setEntity } from "../redux/authSlice";
 import logoOrg from "../assets/dashbaordLogo.svg";
 import ApplyLeave from "../components/LeaveCalender/ApplyLeave";
+import { useNavigate } from "react-router-dom";
+import EntityToggle from "../utils/EntityToggle";
 
 // Dark color palette for user avatars
 const darkColorPalette = [
@@ -55,7 +59,9 @@ const Header = ({
 
   const theme = useTheme();
   const dispatch = useDispatch();
-  const { userId, userName, email, role, logInTimeStamp } = useSelector(
+  const navigate = useNavigate();
+
+  const { userId, userName, email, role, logInTimeStamp, entity } = useSelector(
     (state) => state.auth
   );
 
@@ -128,6 +134,20 @@ const Header = ({
   const handleLogout = () => {
     dispatch(logoutAsync(userId));
     handleMenuClose();
+  };
+
+  const handleEntityToggle = (event) => {
+    const newEntity = event.target.checked ? "US" : "IN";
+    if (role === "SUPERADMIN") {
+      dispatch(setEntity(newEntity));
+
+      // Redirect based on newEntity value
+      if (newEntity === "IN") {
+        navigate("/dashboard/home", { replace: true });
+      } else if (newEntity === "US") {
+        navigate("/dashboard/us-home", { replace: true });
+      }
+    }
   };
 
   const isMenuOpen = Boolean(anchorEl);
@@ -261,9 +281,7 @@ const Header = ({
         position="fixed"
         elevation={0}
         sx={{
-          width: {
-            sm: `calc(100% - ${isCollapsed ? collapsedWidth : drawerWidth}px)`,
-          },
+          width:"100%",
           ml: { sm: `${isCollapsed ? collapsedWidth : drawerWidth}px` },
           zIndex: theme.zIndex.drawer + 1,
           background: theme.palette.background.default,
@@ -287,7 +305,7 @@ const Header = ({
               component="img"
               src={logoOrg}
               alt="Company Logo"
-              sx={{ height: 50, width: 160 }} // Increased dimensions
+              sx={{ height: 50, width: 160 }}
             />
           </Box>
 
@@ -300,7 +318,6 @@ const Header = ({
               sx={{
                 p: 1,
                 borderRadius: 2,
-
                 flexWrap: "wrap",
                 mr: 2,
               }}
@@ -325,16 +342,17 @@ const Header = ({
                   Logged in at: {formattedLoginTime}
                 </Typography>
               </Box>
-
-              {/* <Chip
-                label={role || "User"}
-                size="small"
-                color="primary"
-                variant="outlined"
-                sx={{ height: 24, fontSize: "0.75rem" }}
-              /> */}
             </Stack>
 
+            {role === "SUPERADMIN" && (
+              <EntityToggle
+                role={role}
+                entity={entity}
+                handleEntityToggle={handleEntityToggle}
+              />
+            )}
+
+            {/* Notifications IconButton */}
             <IconButton
               size="large"
               color="inherit"
@@ -347,6 +365,7 @@ const Header = ({
               </Badge>
             </IconButton>
 
+            {/* User Avatar IconButton */}
             <IconButton
               size="large"
               edge="end"

@@ -560,30 +560,30 @@ const lightTheme = createTheme({
   palette: {
     mode: "light",
     primary: {
-      main: "#FF6500", // brand orange
-      light: "#FF8533",
-      dark: "#CC5200",
+      main: "#c36a04ff",       // updated color
+      light: "#e09639",      // lighter shade of #d97706
+      dark: "#bc6b00ff",       // darker shade
       contrastText: "#FFFFFF",
     },
     secondary: {
-      main: "#FFA366", // softer orange accent
-      light: "#FFB380",
-      dark: "#E67E22",
+      main: "#d97706",       // updated to same for consistency; change if needed
+      light: "#e09639",
+      dark: "#a45f03",
       contrastText: "#FFFFFF",
     },
     background: {
-      default: "#fbf2edff", // soft warm background
+      default: "#fbf2edff",
       paper: "#FFFFFF",
     },
     text: {
-      primary: "#1F1F1F", // dark text for readability
-      secondary: "#5C5C5C", // muted gray for secondary text
+      primary: "#1F1F1F",
+      secondary: "#5C5C5C",
     },
-    divider: "#FFE0CC", // light orange divider
+    divider: "#FFE0CC",
     action: {
-      selected: "rgba(255, 101, 0, 0.12)",
-      hover: "rgba(255, 101, 0, 0.08)",
-      focus: "rgba(255, 101, 0, 0.16)",
+      selected: "rgba(217, 119, 6, 0.12)",  // rgba version of #d97706 with 12% opacity
+      hover: "rgba(217, 119, 6, 0.08)",
+      focus: "rgba(217, 119, 6, 0.16)",
       activatedOpacity: 0.16,
     },
   },
@@ -592,7 +592,7 @@ const lightTheme = createTheme({
     MuiAppBar: {
       styleOverrides: {
         root: {
-          backgroundColor: "#FF6500",
+          backgroundColor: "#d97706",  // updated app bar color
           color: "#FFFFFF",
           boxShadow: "0px 2px 4px -1px rgba(0,0,0,0.2)",
           elevation: 4,
@@ -610,15 +610,17 @@ const lightTheme = createTheme({
           textTransform: "none",
         },
         containedPrimary: {
-          backgroundColor: "#FF6500",
+          backgroundColor: "#d97706",  // button background
           "&:hover": {
-            backgroundColor: "#E65C00",
+            backgroundColor: "#a45f03",  // darker hover
           },
         },
       },
     },
   },
 });
+
+
 
 
 // Apply common components to light theme
