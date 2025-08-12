@@ -19,10 +19,10 @@ const ProtectedRoute = ({ allowedRoles = [], allowedEntities = [] }) => {
     return <Navigate to="/" replace />;
   }
 
-  // Role not allowed
-  if (allowedRoles.length && !allowedRoles.includes(userRole)) {
-    return <Navigate to="/unauthorized" replace />;
-  }
+  // // Role not allowed
+  // if (allowedRoles.length && !allowedRoles.includes(userRole)) {
+  //   return <Navigate to="/unauthorized" replace />;
+  // }
 
   // Entity not allowed
   if (allowedEntities.length && !allowedEntities.includes(userEntity)) {

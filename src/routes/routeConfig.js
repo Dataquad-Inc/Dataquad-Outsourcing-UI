@@ -5,6 +5,7 @@ import { Box, CircularProgress, Typography } from "@mui/material";
 import JobDetails from "../components/Requirements/jobTracking/JobDetails";
 import InterviewsRouter from "../components/Interviews/InterviewsRouter";
 import DashboardHomeRedirect from "./DashboardHomeRedirect"; // NEW
+import { element } from "prop-types";
 
 const Loadable = (Component) => (
   <Suspense
@@ -75,6 +76,7 @@ const CreateConsultant = lazy(() =>
   import("../components/Hotlist/CreateConsultant")
 );
 
+const Timesheets = lazy(() => import("../components/Timesheets/TimeSheets"))
 // const HotlistDetail = lazy(() => import("../components/Hotlist/HotlistDetail"));
 const Unauthorized = lazy(() => import("../pages/Unauthorized"));
 const DeniedAccessCard = lazy(() =>
@@ -383,6 +385,20 @@ const routeConfig = [
                 ),
                 children: [{ index: true, element: Loadable(EmployeeStatus) }],
               },
+            ],
+          },
+
+          {
+            path: "timesheets",
+            element: (
+              <ProtectedRoute
+                allowedRoles={["EXTERNALEMPLOYEE"]}
+                allowedEntities={["IN"]}
+              />
+            ),
+            children: [
+              { index: true, element: Loadable(Timesheets) },
+              
             ],
           },
 

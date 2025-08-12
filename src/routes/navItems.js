@@ -11,6 +11,7 @@ import InsightsIcon from '@mui/icons-material/Insights';
 import HomeIcon from '@mui/icons-material/Home';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
 
+
 export const inNavItems = [
   {
     text: "Home",
@@ -106,4 +107,10 @@ export const inNavItems = [
     icon: <HourglassIcon />,
     roles: ["ADMIN", "SUPERADMIN", "BDM", "TEAMLEAD", "PARTNER", "EMPLOYEE"],
   },
+  {
+    text:"Timesheet",
+    path:"timesheets",
+    icon:<AssignmentTurnedInIcon/>,
+    roles:["EXTERNALEMPLOYEE"]
+  }
 ];

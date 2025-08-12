@@ -453,8 +453,6 @@ const Assigned = () => {
         }}
         uniqueId="jobId"
       />
-      const topOffset = 64; // Height of the header const bottomOffset = 64; //
-      Height of the footer
       <Drawer
         open={openDrawer}
         onClose={closeDrawer}
