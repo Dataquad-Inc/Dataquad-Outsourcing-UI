@@ -268,48 +268,33 @@ const CustomTable = React.memo(
           )}
 
           <TableContainer
-            ref={(ref) => {
-              if (ref) {
-                // Make scrollbar track clickable to jump to clicked position
-                ref.addEventListener("mousedown", (e) => {
-                  const isScrollbarClick =
-                    e.offsetX > ref.clientWidth || e.offsetY > ref.clientHeight;
-                  if (isScrollbarClick) return; // Skip if not on the track
-
-                  const trackHeight = ref.clientHeight;
-                  const thumbHeight =
-                    (trackHeight / ref.scrollHeight) * trackHeight;
-                  const clickPosition = e.offsetY - thumbHeight / 2;
-                  const maxScrollTop = ref.scrollHeight - trackHeight;
-                  ref.scrollTop =
-                    (clickPosition / (trackHeight - thumbHeight)) *
-                    maxScrollTop;
-                });
-              }
-            }}
             sx={{
               maxHeight: "80vh",
-              overflowY: "auto",
+              overflowY: "scroll",
               borderRadius: 2,
               border: `1px solid ${theme.palette.divider}`,
               scrollbarGutter: "stable",
+
+              /* Chrome, Edge, Safari */
               "&::-webkit-scrollbar": {
-                width: 10,
-                height: 10,
-                cursor: "pointer",
+                width: 14, // was 10 — increases thumb thickness
+                height: 14, // horizontal scrollbar thickness
               },
               "&::-webkit-scrollbar-thumb": {
-                backgroundColor: theme.palette.primary.main + "40",
-                borderRadius: 4,
-                cursor: "pointer",
+                backgroundColor: theme.palette.primary.main + "10",
+                borderRadius: 8, // more rounded
+                border: `3px solid ${theme.palette.background.default}`, // optional padding illusion
                 "&:hover": {
-                  backgroundColor: theme.palette.primary.main + "60",
+                  backgroundColor: theme.palette.primary.main ,
                 },
               },
               "&::-webkit-scrollbar-track": {
                 backgroundColor: theme.palette.background.default,
-                cursor: "pointer",
               },
+
+              /* Firefox */
+              scrollbarWidth: "auto", // instead of thin
+              scrollbarColor: `${theme.palette.primary.main} ${theme.palette.background.default}`,
             }}
           >
             <Table stickyHeader>
@@ -372,7 +357,7 @@ const CustomTable = React.memo(
                           sx={{
                             whiteSpace: "nowrap",
                             py: 1.5,
-                            textAlign:"start",
+                            textAlign: "start",
                             borderBottom: `1px solid ${theme.palette.divider}`,
                             color: theme.palette.text.primary,
                           }}
