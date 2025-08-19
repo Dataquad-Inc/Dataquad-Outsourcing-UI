@@ -121,6 +121,7 @@ const Dashboard = () => {
           component="main"
           sx={{
             flexGrow: 1,
+            p:1,
             height: "100%",
             overflowY: "auto",
             backgroundColor:
