@@ -555,36 +555,32 @@ const getCommonComponents = (theme) => ({
 });
 
 // Light theme configuration
-const lightTheme = createTheme({
+export const lightTheme = createTheme({
   breakpoints: customBreakpoints,
   palette: {
     mode: "light",
     primary: {
-      main: "#c36a04ff",       // updated color
-      light: "#e09639",      // lighter shade of #d97706
-      dark: "#bc6b00ff",       // darker shade
+      main: "#F26322",
+      light: "#f5723aff",
+      dark: "#C3410A",
       contrastText: "#FFFFFF",
+     
     },
     secondary: {
-      main: "#d97706",       // updated to same for consistency; change if needed
-      light: "#e09639",
-      dark: "#a45f03",
-      contrastText: "#FFFFFF",
+      main: "#F5F5F5",
     },
     background: {
-      default: "#fbf2edff",
-      paper: "#FFFFFF",
+      default: "#FFFFFF",
+      paper: "#F8F9FA",
     },
     text: {
-      primary: "#1F1F1F",
-      secondary: "#5C5C5C",
+      primary: "#212121",
+      secondary: "#666666",
     },
-    divider: "#FFE0CC",
+    divider: "#E0E0E0",
     action: {
-      selected: "rgba(217, 119, 6, 0.12)",  // rgba version of #d97706 with 12% opacity
-      hover: "rgba(217, 119, 6, 0.08)",
-      focus: "rgba(217, 119, 6, 0.16)",
-      activatedOpacity: 0.16,
+      selected: "rgba(242, 99, 34, 0.08)",
+      hover: "rgba(242, 99, 34, 0.04)",
     },
   },
   typography: responsiveTypography,
@@ -592,27 +588,13 @@ const lightTheme = createTheme({
     MuiAppBar: {
       styleOverrides: {
         root: {
-          backgroundColor: "#d97706",  // updated app bar color
-          color: "#FFFFFF",
+          backgroundColor: "#FFFFFF",
+          color: "#212121",
           boxShadow: "0px 2px 4px -1px rgba(0,0,0,0.2)",
           elevation: 4,
           height: "64px",
           "@media (max-width:600px)": {
             height: "56px",
-          },
-        },
-      },
-    },
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          borderRadius: "8px",
-          textTransform: "none",
-        },
-        containedPrimary: {
-          backgroundColor: "#d97706",  // button background
-          "&:hover": {
-            backgroundColor: "#a45f03",  // darker hover
           },
         },
       },

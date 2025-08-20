@@ -202,7 +202,7 @@ const TeamConsultantsHotlist = React.memo(() => {
           refreshKey={refreshKey}
           columns={columns}
           fetchData={fetchData}
-          title={isSuperAdmin ? "All Consultants" : "Team Consultants Hotlist"}
+          title={isSuperAdmin ? "Master Hotlist" : "My Team Hotlist"}
           onCreateNew={handleCreateNew}
           loading={loading}
         />

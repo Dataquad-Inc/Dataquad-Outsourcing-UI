@@ -36,7 +36,7 @@ const HotlistContainer = () => {
     });
   } else if (role === "SUPERADMIN") {
     tabs.splice(2, 0, {
-      label: "Consultants", // Changed label for SUPERADMIN
+      label: "Hotlist", // Changed label for SUPERADMIN
       icon: <ListAltIcon />,
       path: "/dashboard/hotlist/team-consultants",
     });

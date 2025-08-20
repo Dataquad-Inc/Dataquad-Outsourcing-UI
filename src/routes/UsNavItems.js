@@ -27,11 +27,11 @@ export const usNavItems = [
     icon: <GroupIcon />,
     roles: ["SUPERADMIN", "EMPLOYEE", "TEAMLEAD"],
   },
-  // {
-  //   text: "Employees",
-  //   path: "us-employees/employeeslist", // or just "hotlist"
-  //   icon: <BadgeIcon />,
-  //   roles: ["SUPERADMIN"],
-  // },
+  {
+    text: "Employees",
+    path: "us-employees/employeeslist", // or just "hotlist"
+    icon: <BadgeIcon />,
+    roles: ["SUPERADMIN"],
+  },
  
 ];
