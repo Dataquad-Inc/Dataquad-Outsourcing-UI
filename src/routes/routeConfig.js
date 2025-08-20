@@ -429,7 +429,7 @@ const routeConfig = [
             path: "hotlist",
             element: (
               <ProtectedRoute
-                allowedRoles={["SUPERADMIN", "TEAMLEAD", "EMPLOYEE"]}
+                allowedRoles={["SUPERADMIN", "TEAMLEAD", "EMPLOYEE","RECRUITER","SALESEXECUTIVE"]}
                 allowedEntities={["US"]}
               />
             ),

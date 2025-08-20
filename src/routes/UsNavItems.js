@@ -19,13 +19,13 @@ export const usNavItems = [
     text: "Home",
     path: "us-home",
     icon: <HomeIcon />,
-    roles: ["SUPERADMIN", "EMPLOYEE", "TEAMLEAD"],
+    roles: ["SUPERADMIN", "EMPLOYEE", "TEAMLEAD","RECRUITER","SALESEXECUTIVE"],
   },
  {
     text: "Hotlist",
     path: "hotlist/consultants", // or just "hotlist"
     icon: <GroupIcon />,
-    roles: ["SUPERADMIN", "EMPLOYEE", "TEAMLEAD"],
+    roles: ["SUPERADMIN", "EMPLOYEE", "TEAMLEAD","RECRUITER", "SALESEXECUTIVE"],
   },
   {
     text: "Employees",

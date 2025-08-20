@@ -168,6 +168,7 @@ const UsEmployees = () => {
             <MenuItem value="SUPERADMIN">SuperAdmin</MenuItem>
             <MenuItem value="TEAMLEAD">Team Lead</MenuItem>
             <MenuItem value="RECRUITER">Recruiter</MenuItem>
+            <MenuItem value="SALESEXECUTIVE">Sales Executive</MenuItem>
           </TextField>
 
           <TextField
