@@ -111,16 +111,16 @@ const getHotListColumns = ({
   //   label: iconLabel(Info, "Reference"),
   //   render: (v) => renderValue(v, 100, loading),
   // },
-  {
-    id: "recruiterId",
-    label: iconLabel(SupervisorAccount, "Recruiter"),
-    render: (v) => renderValue(v, 80, loading),
-  },
-  {
-    id: "teamleadId",
-    label: iconLabel(Group, "Team Lead"),
-    render: (v) => renderValue(v, 80, loading),
-  },
+  // {
+  //   id: "recruiterId",
+  //   label: iconLabel(SupervisorAccount, "Recruiter"),
+  //   render: (v) => renderValue(v, 80, loading),
+  // },
+  // {
+  //   id: "teamleadId",
+  //   label: iconLabel(Group, "Team Lead"),
+  //   render: (v) => renderValue(v, 80, loading),
+  // },
   // {
   //   id: "status",
   //   label: iconLabel(CheckCircle, "Status"),
