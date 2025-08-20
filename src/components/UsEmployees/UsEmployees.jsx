@@ -53,7 +53,7 @@ const UsEmployees = () => {
     const deleteAction = async () => {
       try {
         const response = await fetch(
-          `http://192.168.0.115:8092/hotlist/user/${row.employeeId}`,
+          `${BASE_URL}/users/delete/${row.userId}`,
           { method: "DELETE" }
         );
 
