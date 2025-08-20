@@ -13,11 +13,11 @@ const UsEmployeesContainer = () => {
       icon: <ListAltIcon />,
       path: "/dashboard/us-employees/employeeslist",
     },
-    {
-      label: "Add New Employee",
-      icon: <PersonAddIcon />,
-      path: "/dashboard/us-employees/onboardemployee",
-    },
+    // {
+    //   label: "Add New Employee",
+    //   icon: <PersonAddIcon />,
+    //   path: "/dashboard/us-employees/onboardemployee",
+    // },
   ];
   return (
     <>

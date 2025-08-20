@@ -9,7 +9,7 @@ import Swal from "sweetalert2";
  */
 const showDeleteConfirm = (
   onConfirm,
-  itemName = "this item",
+  itemName = "this record",
   themeColors = {
     confirmColor: "#d32f2f", // default red
     cancelColor: "#1976d2", // default blue

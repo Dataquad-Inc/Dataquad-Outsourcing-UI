@@ -178,7 +178,7 @@ const HotList = React.memo(() => {
           refreshKey={refreshKey}
           columns={columns}
           fetchData={fetchData}
-          title="Assigned Self Hotlist"
+          title="My Assigned Hotlist"
           onCreateNew={handleCreateNew} // Pass this if your CustomTable supports it
           loading={loading}
         />

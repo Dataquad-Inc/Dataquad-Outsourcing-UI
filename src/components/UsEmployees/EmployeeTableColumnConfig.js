@@ -1,21 +1,18 @@
 import React from "react";
-import { Box, IconButton, Skeleton } from "@mui/material";
+import { Box, IconButton, Skeleton, Chip, Tooltip, Link } from "@mui/material";
 import Edit from "@mui/icons-material/Edit";
 import Delete from "@mui/icons-material/Delete";
 import AssignmentInd from "@mui/icons-material/AssignmentInd";
 import Person from "@mui/icons-material/Person";
 import Email from "@mui/icons-material/Email";
-import Engineering from "@mui/icons-material/Engineering";
 import CalendarToday from "@mui/icons-material/CalendarToday";
 import Phone from "@mui/icons-material/Phone";
 import CheckCircle from "@mui/icons-material/CheckCircle";
-import Wc from "@mui/icons-material/Wc";
 import Badge from "@mui/icons-material/Badge";
-import Cake from "@mui/icons-material/Cake";
 import formatPhoneNumber from "../../utils/formatPhoneNumber";
 
 const renderValue = (value, width = 100, loading) =>
-  loading ? <Skeleton width={width} /> : value;
+  loading ? <Skeleton width={width} /> : value ?? "-";
 
 const iconLabel = (IconComp, text) => (
   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -25,7 +22,7 @@ const iconLabel = (IconComp, text) => (
 
 const getEmployeeColumns = ({ handleEdit, handleDelete, loading }) => [
   {
-    id: "employeeId",
+    id: "userId",
     label: iconLabel(AssignmentInd, "Employee ID"),
     render: (v) => renderValue(v, 120, loading),
   },
@@ -37,47 +34,91 @@ const getEmployeeColumns = ({ handleEdit, handleDelete, loading }) => [
   {
     id: "roles",
     label: iconLabel(Badge, "Role"),
-    render: (v) => renderValue(v, 100, loading),
+    render: (v) =>
+      loading ? (
+        <Skeleton width={80} />
+      ) : Array.isArray(v) ? (
+        <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+          {v.map((role, i) => (
+            <Chip
+              key={i}
+              label={role}
+              size="small"
+              color={role === "ADMIN" ? "secondary" : "default"}
+              variant="outlined"
+            />
+          ))}
+        </Box>
+      ) : (
+        renderValue(v, 100, loading)
+      ),
   },
   {
     id: "email",
     label: iconLabel(Email, "Work Email"),
-    render: (v) => renderValue(v, 180, loading),
-  },
-  {
-    id: "designation",
-    label: iconLabel(Engineering, "Designation"),
-    render: (v) => renderValue(v, 150, loading),
+    render: (v) =>
+      loading ? (
+        <Skeleton width={180} />
+      ) : (
+        <Link href={`mailto:${v}`} underline="hover">
+          {v}
+        </Link>
+      ),
   },
   {
     id: "joiningDate",
     label: iconLabel(CalendarToday, "Joining Date"),
-    render: (v) => renderValue(new Date(v).toLocaleDateString(), 120, loading),
-  },
-  {
-    id: "gender",
-    label: iconLabel(Wc, "Gender"),
-    render: (v) => renderValue(v, 80, loading),
-  },
-  {
-    id: "dob",
-    label: iconLabel(Cake, "DOB"),
-    render: (v) => renderValue(new Date(v).toLocaleDateString(), 120, loading),
+    render: (v) =>
+      renderValue(
+        v
+          ? new Date(v).toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })
+          : "-",
+        120,
+        loading
+      ),
   },
   {
     id: "phoneNumber",
     label: iconLabel(Phone, "Phone Number"),
-    render: (v) => renderValue(formatPhoneNumber(v), 130, loading),
+    render: (v) =>
+      loading ? (
+        <Skeleton width={130} />
+      ) : (
+        <Link href={`tel:${v}`} underline="hover">
+          {formatPhoneNumber(v)}
+        </Link>
+      ),
   },
   {
     id: "personalemail",
     label: iconLabel(Email, "Personal Email"),
-    render: (v) => renderValue(v, 180, loading),
+    render: (v) =>
+      loading ? (
+        <Skeleton width={180} />
+      ) : (
+        <Link href={`mailto:${v}`} underline="hover">
+          {v}
+        </Link>
+      ),
   },
   {
     id: "status",
     label: iconLabel(CheckCircle, "Status"),
-    render: (v) => renderValue(v, 100, loading),
+    render: (v) =>
+      loading ? (
+        <Skeleton width={100} />
+      ) : (
+        <Chip
+          label={v}
+          size="small"
+          color={v === "ACTIVE" ? "success" : "default"}
+          sx={{ fontWeight: "bold" }}
+        />
+      ),
   },
   {
     id: "actions",
@@ -90,20 +131,16 @@ const getEmployeeColumns = ({ handleEdit, handleDelete, loading }) => [
         </Box>
       ) : (
         <Box sx={{ display: "flex", gap: 1 }}>
-          <IconButton
-            color="primary"
-            onClick={() => handleEdit(row)}
-            title="Edit Employee"
-          >
-            <Edit fontSize="small" />
-          </IconButton>
-          <IconButton
-            color="error"
-            onClick={() => handleDelete(row)}
-            title="Delete Employee"
-          >
-            <Delete fontSize="small" />
-          </IconButton>
+          <Tooltip title="Edit Employee">
+            <IconButton color="primary" onClick={() => handleEdit(row)}>
+              <Edit fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Delete Employee">
+            <IconButton color="error" onClick={() => handleDelete(row)}>
+              <Delete fontSize="small" />
+            </IconButton>
+          </Tooltip>
         </Box>
       ),
   },
