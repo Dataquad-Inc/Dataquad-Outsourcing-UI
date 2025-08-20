@@ -148,6 +148,7 @@ const routeConfig = [
                   "TEAMLEAD",
                   "EMPLOYEE",
                   "RECRUITER",
+                  "ADMIN"
                 ]}
                 allowedEntities={["US"]}
               />
@@ -416,6 +417,7 @@ const routeConfig = [
               <ProtectedRoute
                 allowedRoles={[
                   "SUPERADMIN",
+                  "ADMIN",
                   "TEAMLEAD",
                   "EMPLOYEE",
                   "RECRUITER",
