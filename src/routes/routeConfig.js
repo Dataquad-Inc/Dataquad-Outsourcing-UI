@@ -80,7 +80,7 @@ const CreateConsultant = lazy(() =>
   import("../components/Hotlist/CreateConsultant")
 );
 
-const Timesheets = lazy(() => import("../components/Timesheets/TimeSheets"))
+const Timesheets = lazy(() => import("../components/Timesheets/TimeSheets"));
 // const HotlistDetail = lazy(() => import("../components/Hotlist/HotlistDetail"));
 const Unauthorized = lazy(() => import("../pages/Unauthorized"));
 const DeniedAccessCard = lazy(() =>
@@ -99,6 +99,7 @@ const routeConfig = [
         allowedRoles={[
           "ADMIN",
           "SUPERADMIN",
+          "RECRUITER",
           "EMPLOYEE",
           "BDM",
           "TEAMLEAD",
@@ -142,7 +143,12 @@ const routeConfig = [
             path: "us-home",
             element: (
               <ProtectedRoute
-                allowedRoles={["SUPERADMIN", "TEAMLEAD", "EMPLOYEE"]}
+                allowedRoles={[
+                  "SUPERADMIN",
+                  "TEAMLEAD",
+                  "EMPLOYEE",
+                  "RECRUITER",
+                ]}
                 allowedEntities={["US"]}
               />
             ),
@@ -400,36 +406,21 @@ const routeConfig = [
                 allowedEntities={["IN"]}
               />
             ),
-            children: [
-              { index: true, element: Loadable(Timesheets) },
-              
-            ],
+            children: [{ index: true, element: Loadable(Timesheets) }],
           },
 
-          // HOTLIST (US) with detail route
-          // {
-          //   path: "hotlist",
-          //   element: (
-          //     <ProtectedRoute
-          //       allowedRoles={["SUPERADMIN", "TEAMLEAD", "EMPLOYEE"]}
-          //       allowedEntities={["US"]}
-          //     />
-          //   ),
-          //   children: [
-          //     { index: true, element: Loadable(HotlistContainer) },
-          //     {
-          //       path: "consultants",
-          //       element: Loadable(Hotlist),
-          //     },
-
-          //   ],
-          // },
-
+          // HOTLIST (US) - Updated to include RECRUITER role
           {
             path: "hotlist",
             element: (
               <ProtectedRoute
-                allowedRoles={["SUPERADMIN", "TEAMLEAD", "EMPLOYEE","RECRUITER","SALESEXECUTIVE"]}
+                allowedRoles={[
+                  "SUPERADMIN",
+                  "TEAMLEAD",
+                  "EMPLOYEE",
+                  "RECRUITER",
+                  "SALESEXECUTIVE",
+                ]}
                 allowedEntities={["US"]}
               />
             ),
@@ -447,7 +438,7 @@ const routeConfig = [
                     element: Loadable(Hotlist),
                   },
                   {
-                    path: "consultants/:consultantId", // /dashboard/hotlist/create
+                    path: "consultants/:consultantId", // /dashboard/hotlist/consultants/:id
                     element: Loadable(ConsultantProfile),
                   },
                   {
@@ -455,19 +446,18 @@ const routeConfig = [
                     element: Loadable(CreateConsultant),
                   },
                   {
-                    path: "team-consultants", // /dashboard/hotlist/create
+                    path: "team-consultants", // /dashboard/hotlist/team-consultants
                     element: Loadable(TeamConsultantsHotlist),
                   },
                   {
-                    path: "team-consultants/:consultantId", // /dashboard/hotlist/create
+                    path: "team-consultants/:consultantId", // /dashboard/hotlist/team-consultants/:id
                     element: Loadable(ConsultantProfile),
                   },
-
-                  // TeamConsultantsHotlist
                 ],
               },
             ],
           },
+
           {
             path: "us-employees",
             element: (
@@ -482,16 +472,13 @@ const routeConfig = [
                 element: <UsEmployeesContainer />, // Contains the tabs and <Outlet />
                 children: [
                   {
-                    index: true, // /dashboard/hotlist
+                    index: true, // /dashboard/us-employees
                     element: Loadable(UsEmployees), // Default tab content
                   },
                   {
-                    path: "employeeslist", // /dashboard/hotlist/consultants
+                    path: "employeeslist", // /dashboard/us-employees/employeeslist
                     element: Loadable(UsEmployees),
                   },
-                 
-
-                  // TeamConsultantsHotlist
                 ],
               },
             ],

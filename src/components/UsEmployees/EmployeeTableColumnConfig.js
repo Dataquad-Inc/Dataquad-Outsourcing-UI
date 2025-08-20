@@ -40,13 +40,7 @@ const getEmployeeColumns = ({ handleEdit, handleDelete, loading }) => [
       ) : Array.isArray(v) ? (
         <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
           {v.map((role, i) => (
-            <Chip
-              key={i}
-              label={role}
-              size="small"
-              color={role === "ADMIN" ? "secondary" : "default"}
-              variant="outlined"
-            />
+            <Chip key={i} label={role} size="small" variant="outlined" />
           ))}
         </Box>
       ) : (

@@ -28,7 +28,7 @@ const HotlistContainer = () => {
     },
   ];
 
-  if (role === "TEAMLEAD") {
+  if (role === "TEAMLEAD"||"RECRUITER") {
     tabs.splice(2, 0, {
       label: "Team Hotlist",
       icon: <ListAltIcon />,
