@@ -19,19 +19,19 @@ export const usNavItems = [
     text: "Home",
     path: "us-home",
     icon: <HomeIcon />,
-    roles: ["SUPERADMIN", "EMPLOYEE", "TEAMLEAD","RECRUITER","SALESEXECUTIVE"],
+    roles: ["SUPERADMIN", "EMPLOYEE", "TEAMLEAD","RECRUITER","SALESEXECUTIVE","ADMIN"],
   },
  {
     text: "Hotlist",
     path: "hotlist/consultants", // or just "hotlist"
     icon: <GroupIcon />,
-    roles: ["SUPERADMIN", "EMPLOYEE", "TEAMLEAD","RECRUITER", "SALESEXECUTIVE"],
+    roles: ["SUPERADMIN", "EMPLOYEE", "TEAMLEAD","RECRUITER", "SALESEXECUTIVE","ADMIN"],
   },
   {
     text: "Employees",
     path: "us-employees/employeeslist", // or just "hotlist"
     icon: <BadgeIcon />,
-    roles: ["SUPERADMIN"],
+    roles: ["SUPERADMIN","ADMIN"],
   },
  
 ];
