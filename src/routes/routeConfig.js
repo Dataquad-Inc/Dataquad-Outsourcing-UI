@@ -464,7 +464,7 @@ const routeConfig = [
             path: "us-employees",
             element: (
               <ProtectedRoute
-                allowedRoles={["SUPERADMIN"]}
+                allowedRoles={["SUPERADMIN","ADMIN"]}
                 allowedEntities={["US"]}
               />
             ),
