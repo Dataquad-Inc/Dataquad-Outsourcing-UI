@@ -28,15 +28,19 @@ const HotlistContainer = () => {
     },
   ];
 
-  if (role === "TEAMLEAD"||"RECRUITER") {
+  // Show only for TEAMLEAD / RECRUITER
+  if (role === "TEAMLEAD" || role === "RECRUITER") {
     tabs.splice(2, 0, {
-      label: "Team Hotlist",
+      label: "Team Consultants",
       icon: <ListAltIcon />,
       path: "/dashboard/hotlist/team-consultants",
     });
-  } else if (role === "SUPERADMIN") {
+  }
+
+  // Show only for SUPERADMIN
+  if (role === "SUPERADMIN") {
     tabs.splice(2, 0, {
-      label: "Hotlist", // Changed label for SUPERADMIN
+      label: "Hotlist",
       icon: <ListAltIcon />,
       path: "/dashboard/hotlist/team-consultants",
     });
