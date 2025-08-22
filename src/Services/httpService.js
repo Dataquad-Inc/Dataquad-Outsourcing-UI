@@ -31,6 +31,11 @@ const httpService = {
       withCredentials: true, // ensure cookies sent with PUT
       ...config,
     }),
+  patch: (url, data, config = {}) =>
+    axios.patch(`${API_BASE_URL}${url}`, data, {
+      withCredentials: true, // ensure cookies sent with PATCH
+      ...config,
+    }),
 
   delete: (url, config = {}) =>
     axios.delete(`${API_BASE_URL}${url}`, {
