@@ -14,24 +14,23 @@ import PeopleIcon from "@mui/icons-material/People";
 import BadgeIcon from '@mui/icons-material/Badge';
 
 // Adroit Route Config
-export const usNavItems = [
+export const usNavItems = (role) => [
   {
     text: "Home",
     path: "us-home",
     icon: <HomeIcon />,
-    roles: ["SUPERADMIN", "EMPLOYEE", "TEAMLEAD","RECRUITER","SALESEXECUTIVE","ADMIN"],
+    roles: ["SUPERADMIN", "EMPLOYEE", "TEAMLEAD", "RECRUITER", "SALESEXECUTIVE", "ADMIN"],
   },
- {
+  {
     text: "Hotlist",
-    path: "hotlist/consultants", // or just "hotlist"
+    path: role === "SUPERADMIN" ? "hotlist/master" : "hotlist/consultants",
     icon: <GroupIcon />,
-    roles: ["SUPERADMIN", "EMPLOYEE", "TEAMLEAD","RECRUITER", "SALESEXECUTIVE","ADMIN"],
+    roles: ["SUPERADMIN", "EMPLOYEE", "TEAMLEAD", "RECRUITER", "SALESEXECUTIVE", "ADMIN"],
   },
   {
     text: "Employees",
-    path: "us-employees/employeeslist", // or just "hotlist"
+    path: "us-employees/employeeslist",
     icon: <BadgeIcon />,
-    roles: ["SUPERADMIN","ADMIN"],
+    roles: ["SUPERADMIN", "ADMIN"],
   },
- 
 ];

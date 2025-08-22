@@ -45,9 +45,10 @@ const SideNav = ({ handleDrawerToggle, isCollapsed, isMobile }) => {
   };
 
   // Choose nav items based on entity only
+
   let combinedNavItems = [];
   if (entity === "US") {
-    combinedNavItems = [...usNavItems];
+    combinedNavItems = usNavItems(role);
   } else if (entity === "IN") {
     combinedNavItems = [...inNavItems];
   }

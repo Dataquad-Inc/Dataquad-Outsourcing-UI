@@ -144,6 +144,7 @@ const Header = ({
       // Redirect based on newEntity value
       if (newEntity === "IN") {
         navigate("/dashboard/home", { replace: true });
+        
       } else if (newEntity === "US") {
         navigate("/dashboard/us-home", { replace: true });
       }

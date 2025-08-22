@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useState } from "react";
-import { Box, useTheme } from "@mui/material";
+import { useTheme, Box } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import CustomDataTable from "../../ui-lib/CustomDataTable";
 import getHotListColumns from "./hotListColumns";
@@ -11,20 +11,27 @@ import {
 } from "../../utils/toastUtils";
 import showDeleteConfirm from "../../utils/showDeleteConfirm";
 import { hotlistAPI } from "../../utils/api";
-import { useSelector } from "react-redux";
-import ConsultantProfile from "./ConsultantProfile";
 
-const HotList = React.memo(() => {
+const useDebounce = (value, delay) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
+};
+
+const MasterHotlist = React.memo(() => {
   const theme = useTheme();
   const navigate = useNavigate();
-  const { userId } = useSelector((state) => state.auth);
 
   const [consultants, setConsultants] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 500);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -34,22 +41,29 @@ const HotList = React.memo(() => {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const params = { page, size: rowsPerPage, keyword: search };
-      const result = await hotlistAPI.getConsultantsByUserId(userId, params);
+      const params = {
+        page,
+        size: rowsPerPage,
+        ...(debouncedSearch ? { keyword: debouncedSearch } : {}),
+      };
+
+      const result = await hotlistAPI.getAllConsultants(params);
+
       setConsultants(result?.data?.content || []);
       setTotal(result?.data?.totalElements || 0);
-      showInfoToast("Hotlist loaded successfully ✅");
+
+      showInfoToast("Consultants loaded successfully ✅");
     } catch (err) {
-      console.error("Error fetching hotlist:", err);
-      showErrorToast("Failed to load hotlist ❌");
+      console.error("Error fetching consultants:", err);
+      showErrorToast("Failed to load consultants ❌");
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, userId, search, refreshKey]);
+  }, [page, rowsPerPage, debouncedSearch]);
 
   useEffect(() => {
     fetchData();
-  }, [fetchData, refreshKey]);
+  }, [fetchData, refreshKey, debouncedSearch]);
 
   /** ---------------- CRUD Handlers ---------------- */
   const handleEdit = useCallback((row) => {
@@ -68,7 +82,7 @@ const HotList = React.memo(() => {
       ...cleanEditData
     } = editData;
 
-    console.log("Setting edit data:", cleanEditData); // Debug log
+    console.log("Setting edit data (MasterHotlist):", cleanEditData); // Debug log
     setEditingConsultant(cleanEditData);
     setShowCreateForm(true);
   }, []);
@@ -79,7 +93,7 @@ const HotList = React.memo(() => {
   }, []);
 
   const handleFormCancel = useCallback(() => {
-    console.log("Cancel button clicked"); // Debug log
+    console.log("Cancel button clicked (MasterHotlist)"); // Debug log
     setShowCreateForm(false);
     setEditingConsultant(null);
   }, []);
@@ -111,7 +125,7 @@ const HotList = React.memo(() => {
   }, []);
 
   const handleNavigate = (consultantId) => {
-    navigate(`/dashboard/hotlist/consultants/${consultantId}`);
+    navigate(`/dashboard/hotlist/master/${consultantId}`);
   };
 
   /** ---------------- Columns ---------------- */
@@ -127,7 +141,7 @@ const HotList = React.memo(() => {
     <Box>
       {!showCreateForm ? (
         <CustomDataTable
-          title="My Hotlist"
+          title="Grand Hotlist"
           columns={columns}
           rows={consultants}
           total={total}
@@ -156,11 +170,11 @@ const HotList = React.memo(() => {
           onClose={handleFormCancel}
           onCancel={handleFormCancel} // Add explicit onCancel prop
           onSuccess={handleFormSuccess}
-          initialValues={editingConsultant}
+          initialValues={editingConsultant} // Changed from editingConsultant to initialValues
         />
       )}
     </Box>
   );
 });
 
-export default HotList;
+export default MasterHotlist;

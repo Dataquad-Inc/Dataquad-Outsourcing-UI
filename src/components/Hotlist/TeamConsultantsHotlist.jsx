@@ -1,210 +1,169 @@
-import React, { useEffect, useCallback } from "react";
-import { Box, useTheme } from "@mui/material";
-import CustomTable from "../../ui-lib/CustomTable";
+import React, { useEffect, useCallback, useState } from "react";
+import { useTheme, Box } from "@mui/material";
+import { useNavigate } from "react-router-dom";
+import CustomDataTable from "../../ui-lib/CustomDataTable";
 import getHotListColumns from "./hotListColumns";
 import CreateConsultant from "./CreateConsultant";
-import { useNavigate } from "react-router-dom";
-import { showErrorToast, showSuccessToast } from "../../utils/toastUtils";
+import { showErrorToast, showSuccessToast, showInfoToast } from "../../utils/toastUtils";
 import showDeleteConfirm from "../../utils/showDeleteConfirm";
-import { useSelector, useDispatch } from "react-redux";
-import {
-  fetchTeamConsultants,
-  fetchAllConsultants,
-  deleteConsultant,
-  setShowCreateForm,
-  setEditingConsultant,
-  clearEditingConsultant,
-  clearErrors,
-  selectTeamConsultants,
-  selectTeamConsultantsTotal,
-  selectTeamConsultantsLoading,
-  selectTeamConsultantsError,
-  selectAllConsultants,
-  selectAllConsultantsTotal,
-  selectAllConsultantsLoading,
-  selectAllConsultantsError,
-  selectIsDeleting,
-  selectDeleteError,
-  selectShowCreateForm,
-  selectEditingConsultant,
-} from "../../redux/hotlist";
+import { hotlistAPI } from "../../utils/api";
+import { useSelector } from "react-redux";
+
+// Debounce hook
+const useDebounce = (value, delay) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
+};
 
 const TeamConsultantsHotlist = React.memo(() => {
-  const dispatch = useDispatch();
   const theme = useTheme();
+  const navigate = useNavigate();
+  const { userId } = useSelector((state) => state.auth);
 
-  // Selectors
-  const { userId, role } = useSelector((state) => state.auth);
-  const isSuperAdmin = role === "SUPERADMIN";
-  const navigate = useNavigate()
-  
-  // Conditional selectors based on role
-  const consultants = useSelector(
-    isSuperAdmin ? selectAllConsultants : selectTeamConsultants
-  );
-  const total = useSelector(
-    isSuperAdmin ? selectAllConsultantsTotal : selectTeamConsultantsTotal
-  );
-  const loading = useSelector(
-    isSuperAdmin ? selectAllConsultantsLoading : selectTeamConsultantsLoading
-  );
-  const error = useSelector(
-    isSuperAdmin ? selectAllConsultantsError : selectTeamConsultantsError
-  );
-  
-  const isDeleting = useSelector(selectIsDeleting);
-  const deleteError = useSelector(selectDeleteError);
-  const showCreateForm = useSelector(selectShowCreateForm);
-  const editingConsultant = useSelector(selectEditingConsultant);
+  const [consultants, setConsultants] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 500);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const [refreshKey, setRefreshKey] = React.useState(0);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [editingConsultant, setEditingConsultant] = useState(null);
 
-  // Error handling
-  useEffect(() => {
-    if (error) showErrorToast(error);
-    if (deleteError) showErrorToast(deleteError);
-  }, [error, deleteError]);
-
-  // Clear errors on mount
-  useEffect(() => {
-    dispatch(clearErrors());
-  }, [dispatch]);
-
-  const handleEdit = useCallback(
-    (row) => {
-      const { teamleadName, recruiterName, consultantAddedTimeStamp, updatedTimeStamp, ...rest } = row;
-      dispatch(setEditingConsultant(rest));
-    },
-    [dispatch]
-  );
-
-  const handleCreateNew = useCallback(() => {
-    dispatch(setEditingConsultant(null));
-    dispatch(setShowCreateForm(true));
-  }, [dispatch]);
-
-  const handleFormCancel = useCallback(() => {
-    dispatch(clearEditingConsultant());
-  }, [dispatch]);
-
-  const handleFormSuccess = useCallback(
-    (data, action) => {
-      dispatch(clearEditingConsultant());
-
-      const message =
-        action === "create"
-          ? "Consultant created successfully!"
-          : "Consultant updated successfully!";
-      showSuccessToast(message);
-
-      // Refresh data based on role
-      if (isSuperAdmin) {
-        dispatch(
-          fetchAllConsultants({
-            page: 0,
-            size: 10,
-          })
-        );
-      } else {
-        dispatch(
-          fetchTeamConsultants({
-            userId,
-            page: 0,
-            size: 10,
-          })
-        );
-      }
-    },
-    [dispatch, userId, isSuperAdmin]
-  );
-
-  const fetchData = useCallback(
-    async ({ page = 1, pageSize = 10, filters = {}, sort = {} }) => {
-      try {
-        const apiPage = Math.max(page - 1, 0);
-        
-        let result;
-        if (isSuperAdmin) {
-          result = await dispatch(
-            fetchAllConsultants({
-              page: apiPage,
-              size: pageSize,
-              filters,
-              sort,
-            })
-          ).unwrap();
-        } else {
-          result = await dispatch(
-            fetchTeamConsultants({
-              userId,
-              page: apiPage,
-              size: pageSize,
-              filters,
-              sort,
-            })
-          ).unwrap();
-        }
-        
-        console.log(result);
-
-        return {
-          data: result.data,
-          total: result.total,
-        };
-      } catch (error) {
-        console.error("Error fetching hotlist data:", error);
-        return { data: [], total: 0 };
-      }
-    },
-    [dispatch, userId, isSuperAdmin]
-  );
-
-  const handleDelete = useCallback(
-    (row) => {
-      const deleteConsultantAction = async () => {
-        try {
-          const result = await dispatch(
-            deleteConsultant(row.consultantId)
-          ).unwrap();
-          showSuccessToast(result.message);
-          setRefreshKey((prevKey) => prevKey + 1);
-        } catch (error) {
-          console.error("Delete error:", error);
-        }
+  /** ---------------- Fetch Data ---------------- */
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const params = {
+        page,
+        size: rowsPerPage,
+        ...(debouncedSearch ? { keyword: debouncedSearch } : {}),
       };
 
-      showDeleteConfirm(deleteConsultantAction, row.name || "this consultant");
-    },
-    [dispatch]
-  );
+      const result = await hotlistAPI.getTeamConsultants(userId, params);
 
-    const handleNavigate = (consultantId)=>{
-    navigate(`/dashboard/hotlist/team-consultants/${consultantId}`)
-  }
+      setConsultants(result?.data?.content || []);
+      setTotal(result?.data?.totalElements || 0);
 
+      showInfoToast("Consultants loaded successfully ✅");
+    } catch (err) {
+      console.error("Error fetching consultants:", err);
+      showErrorToast("Failed to load consultants ❌");
+    } finally {
+      setLoading(false);
+    }
+  }, [page, rowsPerPage, userId, debouncedSearch]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData, refreshKey]);
+
+  /** ---------------- CRUD Handlers ---------------- */
+  const handleEdit = useCallback((row) => {
+    // Keep all necessary data for editing, including consultantId
+    const editData = {
+      ...row,
+      consultantId: row.consultantId, // Ensure consultantId is preserved
+    };
+    
+    // Remove timestamp fields that shouldn't be edited
+    const { teamleadName, recruiterName, consultantAddedTimeStamp, updatedTimeStamp, ...cleanEditData } = editData;
+    
+    console.log("Setting edit data (TeamConsultantsHotlist):", cleanEditData); // Debug log
+    setEditingConsultant(cleanEditData);
+    setShowCreateForm(true);
+  }, []);
+
+  const handleCreateNew = useCallback(() => {
+    setEditingConsultant(null);
+    setShowCreateForm(true);
+  }, []);
+
+  const handleFormCancel = useCallback(() => {
+    console.log("Cancel button clicked (TeamConsultantsHotlist)"); // Debug log
+    setShowCreateForm(false);
+    setEditingConsultant(null);
+  }, []);
+
+  const handleFormSuccess = useCallback((data, action) => {
+    showSuccessToast(
+      action === "create"
+        ? "Consultant created successfully 🎉"
+        : "Consultant updated successfully ✨"
+    );
+    setShowCreateForm(false);
+    setEditingConsultant(null);
+    setRefreshKey((prev) => prev + 1);
+  }, []);
+
+  /** ---------------- Delete ---------------- */
+  const handleDelete = useCallback((row) => {
+    const deleteConsultantAction = async () => {
+      try {
+        const result = await hotlistAPI.deleteConsultant(row.consultantId);
+        showSuccessToast(result.message || "Consultant deleted 🗑️");
+        setRefreshKey((prev) => prev + 1);
+      } catch (error) {
+        console.error("Delete error:", error);
+        showErrorToast("Failed to delete consultant ❌");
+      }
+    };
+    showDeleteConfirm(deleteConsultantAction, row.name || "this consultant");
+  }, []);
+
+  const handleNavigate = (consultantId) => {
+    navigate(`/dashboard/hotlist/team-consultants/${consultantId}`);
+  };
+
+  /** ---------------- Columns ---------------- */
   const columns = getHotListColumns({
     handleNavigate,
     handleEdit,
     handleDelete,
-    loading: isDeleting,
+    loading,
   });
 
+  /** ---------------- Render ---------------- */
   return (
     <Box>
-      {showCreateForm ? (
-        <CreateConsultant
-          initialValues={editingConsultant || {}}
-          onCancel={handleFormCancel}
-          onSuccess={handleFormSuccess}
+      {!showCreateForm ? (
+        <CustomDataTable
+          title="Team Consultants Hotlist"
+          columns={columns}
+          rows={consultants}
+          total={total}
+          page={page}
+          rowsPerPage={rowsPerPage}
+          search={search}
+          loading={loading}
+          onPageChange={(e, newPage) => setPage(newPage)}
+          onRowsPerPageChange={(e) => {
+            setRowsPerPage(parseInt(e.target.value, 10));
+            setPage(0);
+          }}
+          onSearchChange={(e) => {
+            setSearch(e.target.value);
+            setPage(0);
+          }}
+          onSearchClear={() => {
+            setSearch("");
+            setPage(0);
+          }}
+          onRefresh={() => setRefreshKey((prev) => prev + 1)}
+          onCreateNew={handleCreateNew}
         />
       ) : (
-        <CustomTable
-          refreshKey={refreshKey}
-          columns={columns}
-          fetchData={fetchData}
-          title={isSuperAdmin ? "Master Hotlist" : "My Team Hotlist"}
-          onCreateNew={handleCreateNew}
-          loading={loading}
+        <CreateConsultant
+          onClose={handleFormCancel}
+          onCancel={handleFormCancel} // Add explicit onCancel prop
+          onSuccess={handleFormSuccess}
+          initialValues={editingConsultant} // Changed from editingConsultant to initialValues
         />
       )}
     </Box>
