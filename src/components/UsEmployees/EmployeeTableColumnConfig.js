@@ -10,6 +10,7 @@ import Phone from "@mui/icons-material/Phone";
 import CheckCircle from "@mui/icons-material/CheckCircle";
 import Badge from "@mui/icons-material/Badge";
 import formatPhoneNumber from "../../utils/formatPhoneNumber";
+import CustomChip from "../../ui-lib/CustomChip";
 
 const renderValue = (value, width = 100, loading) =>
   loading ? <Skeleton width={width} /> : value ?? "-";
@@ -19,6 +20,16 @@ const iconLabel = (IconComp, text) => (
     <IconComp fontSize="small" /> {text}
   </Box>
 );
+
+// ✅ Role → Chip Color mapping
+const roleColors = {
+  SUPERADMIN: "#d32f2f", // Red (Error)
+  ADMIN: "#9c27b0", // Purple (Secondary)
+  TEAMLEAD: "#0288d1", // Blue (Info)
+  RECRUITER: "#1976d2", // Primary Blue
+  SALESEXECUTIVE: "#ed6c02", // Orange (Warning)
+  EMPLOYEE: "#2e7d32", // Green (Success)
+};
 
 const getEmployeeColumns = ({ handleEdit, handleDelete, loading }) => [
   {
@@ -33,18 +44,18 @@ const getEmployeeColumns = ({ handleEdit, handleDelete, loading }) => [
   },
   {
     id: "roles",
-    label: iconLabel(Badge, "Role"),
-    render: (v) =>
+    label: "Role",
+    render: (roles) =>
       loading ? (
         <Skeleton width={80} />
-      ) : Array.isArray(v) ? (
+      ) : Array.isArray(roles) ? (
         <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
-          {v.map((role, i) => (
-            <Chip key={i} label={role} size="small" variant="outlined" />
+          {roles.map((role, i) => (
+            <CustomChip key={i} role={role} />
           ))}
         </Box>
       ) : (
-        renderValue(v, 100, loading)
+        <CustomChip role={roles} />
       ),
   },
   {
