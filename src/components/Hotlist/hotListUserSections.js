@@ -1,7 +1,6 @@
 import { validateDate } from "@mui/x-date-pickers";
 
 const getHotListUserSections = (employees) => {
-  
   return [
     {
       section: "Hidden Fields", // This section won't be rendered but preserves the ID
@@ -11,7 +10,7 @@ const getHotListUserSections = (employees) => {
           type: "hidden", // Special type for hidden fields
           required: false,
         },
-      ]
+      ],
     },
     {
       section: "Basic Info",
@@ -139,6 +138,10 @@ const getHotListUserSections = (employees) => {
           options: [
             { value: "H1B", label: "H1B" },
             { value: "OPT", label: "OPT" },
+            { value: "STEM_OPT", label: "STEM OPT" },
+            { value: "OPT_EAD", label: "OPT EAD" },
+            { value: "H4_EAD", label: "H4 EAD" },
+            { value: "GC_EAD", label: "GC EAD" },
             { value: "CPT", label: "CPT" },
             { value: "GC", label: "Green Card" },
             { value: "Citizen", label: "Citizen" },
@@ -154,12 +157,17 @@ const getHotListUserSections = (employees) => {
           options: [
             { value: "H1B", label: "H1B" },
             { value: "OPT", label: "OPT" },
+            { value: "STEM_OPT", label: "STEM OPT" },
+            { value: "OPT_EAD", label: "OPT EAD" },
+            { value: "H4_EAD", label: "H4 EAD" },
+            { value: "GC_EAD", label: "GC EAD" },
             { value: "CPT", label: "CPT" },
             { value: "GC", label: "Green Card" },
             { value: "Citizen", label: "Citizen" },
             { value: "Other", label: "Other" },
           ],
         },
+
         {
           name: "relocation",
           label: "Relocation",

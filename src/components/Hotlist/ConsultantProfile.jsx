@@ -33,11 +33,14 @@ import {
 } from "@mui/icons-material";
 import { useNavigate, useParams } from "react-router-dom";
 import Documents from "./Documents";
+import { useSelector } from "react-redux";
+import { hotlistAPI } from "../../utils/api";
 
 const ConsultantProfile = () => {
   const [consultant, setConsultant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const { role } = useSelector((state) => state.auth);
 
   const navigate = useNavigate();
   const theme = useTheme();
@@ -50,20 +53,13 @@ const ConsultantProfile = () => {
   const fetchConsultantDetails = async () => {
     setLoading(true);
     try {
-      // Replace with your actual API endpoint
-      const response = await fetch(
-        `https://mymulya.com/hotlist/consultant/${consultantId}`
-      );
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
-      const result = await response.json();
+      const response = await hotlistAPI.getConsultantById(consultantId);
 
-      if (result.success) {
-        setConsultant(result.data);
+      if (response.data) {
+        setConsultant(response.data);
       } else {
         setError(
-          result.error?.errorMessage || "Failed to fetch consultant details"
+          response.error?.errorMessage || "Failed to fetch consultant details"
         );
       }
     } catch (err) {
@@ -108,7 +104,11 @@ const ConsultantProfile = () => {
   };
 
   const handleBackTo = () => {
-    navigate("/dashboard/hotlist/consultants");
+    if (role === "SUPERADMIN") {
+      navigate("/dashboard/hotlist/master");
+    } else {
+      navigate("/dashboard/hotlist/consultants");
+    }
   };
 
   const getStatusColor = (status) => {
@@ -234,7 +234,7 @@ const ConsultantProfile = () => {
   }
 
   return (
-    <Box sx={{ bgcolor: "grey.50", minHeight: "100vh", p: { xs:1, md:1 } }}>
+    <Box sx={{ bgcolor: "grey.50", minHeight: "100vh", p: { xs: 1, md: 1 } }}>
       <Box sx={{ maxWidth: "1400px", mx: "auto" }}>
         {/* Header */}
         <Box sx={{ mb: 3 }}>
@@ -353,28 +353,28 @@ const ConsultantProfile = () => {
               Quick Overview
             </Typography>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid item xs={12} sm={6} md={4}>
             <InfoCard
               icon={<Email />}
               title="Email Address"
               value={consultant.emailId}
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid item xs={12} sm={6} md={4}>
             <InfoCard
               icon={<Phone />}
               title="Marketing Contact"
               value={consultant.marketingContact}
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid item xs={12} sm={6} md={4}>
             <InfoCard
               icon={<LocationOn />}
               title="Location"
               value={consultant.location}
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid item xs={12} sm={6} md={4}>
             <InfoCard
               icon={<AttachMoney />}
               title="Bill Rate"

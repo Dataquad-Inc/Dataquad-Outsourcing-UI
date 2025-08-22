@@ -10,40 +10,55 @@ import { useSelector } from "react-redux";
 const HotlistContainer = () => {
   const { role } = useSelector((state) => state.auth);
 
-  const tabs = [
-    {
-      label: "Home",
-      icon: <Home />,
-      path: "/dashboard/us-home",
-    },
-    {
-      label: "My Hotlist",
-      icon: <ListAltIcon />,
-      path: "/dashboard/hotlist/consultants",
-    },
-    {
-      label: "Add Consultant",
-      icon: <PersonAddIcon />,
-      path: "/dashboard/hotlist/create",
-    },
-  ];
+  let tabs = [];
 
-  // Show only for TEAMLEAD / RECRUITER
-  if (role === "TEAMLEAD" || role === "RECRUITER") {
-    tabs.splice(2, 0, {
-      label: "Team Consultants",
-      icon: <ListAltIcon />,
-      path: "/dashboard/hotlist/team-consultants",
-    });
-  }
-
-  // Show only for SUPERADMIN
   if (role === "SUPERADMIN") {
-    tabs.splice(2, 0, {
-      label: "Hotlist",
-      icon: <ListAltIcon />,
-      path: "/dashboard/hotlist/team-consultants",
-    });
+    // Tabs for SUPERADMIN
+    tabs = [
+      {
+        label: "Home",
+        icon: <Home />,
+        path: "/dashboard/us-home",
+      },
+      {
+        label: "Grand Hotlist",
+        icon: <ListAltIcon />,
+        path: "/dashboard/hotlist/master",
+      },
+      {
+        label: "Add Consultant",
+        icon: <PersonAddIcon />,
+        path: "/dashboard/hotlist/create",
+      },
+    ];
+  } else {
+    // Tabs for TEAMLEAD, RECRUITER, etc.
+    tabs = [
+      {
+        label: "Home",
+        icon: <Home />,
+        path: "/dashboard/us-home",
+      },
+      {
+        label: "My Hotlist",
+        icon: <ListAltIcon />,
+        path: "/dashboard/hotlist/consultants",
+      },
+      {
+        label: "Add Consultant",
+        icon: <PersonAddIcon />,
+        path: "/dashboard/hotlist/create",
+      },
+    ];
+
+    // Show only for TEAMLEAD / RECRUITER
+    if (role === "TEAMLEAD") {
+      tabs.splice(2, 0, {
+        label: "Team Consultants",
+        icon: <ListAltIcon />,
+        path: "/dashboard/hotlist/team-consultants",
+      });
+    }
   }
 
   return (

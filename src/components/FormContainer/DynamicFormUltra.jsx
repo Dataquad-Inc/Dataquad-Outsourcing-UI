@@ -398,8 +398,6 @@ const DynamicFormUltra = ({
     }
   });
 
- 
-
   const formik = useFormik({
     initialValues: generatedInitialValues,
     validationSchema: Yup.object(validationSchema),
@@ -794,6 +792,16 @@ const DynamicFormUltra = ({
             error={Boolean(error)}
             helperText={error}
             InputProps={inputProps}
+            SelectProps={{
+              MenuProps: {
+                PaperProps: {
+                  sx: {
+                    maxHeight: 240, // Fixed height for dropdown list
+                    overflowY: "auto",
+                  },
+                },
+              },
+            }}
           >
             {field.options?.map((option) => (
               <MenuItem key={option.value} value={option.value}>
@@ -962,11 +970,7 @@ const DynamicFormUltra = ({
           }}
         >
           {onCancel && (
-            <CustomButton
-              variant="outlined"
-              color="secondary"
-              onClick={onCancel}
-            >
+            <CustomButton variant="outlined" color="primary" onClick={onCancel}>
               Cancel
             </CustomButton>
           )}

@@ -18,7 +18,12 @@ import {
 } from "../../redux/hotlist"; // Adjust path as needed
 import { useNavigate } from "react-router-dom";
 
-const CreateHotListUser = ({ initialValues = {}, onCancel, onSuccess }) => {
+const CreateHotListUser = ({
+  initialValues = {},
+  onCancel,
+  onSuccess,
+  onClose,
+}) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -32,7 +37,7 @@ const CreateHotListUser = ({ initialValues = {}, onCancel, onSuccess }) => {
   const createError = useSelector(selectCreateError);
   const updateError = useSelector(selectUpdateError);
 
-  const isEditMode = Boolean(initialValues.consultantId);
+  const isEditMode = Boolean(initialValues?.consultantId);
   const isSubmitting = isCreating || isUpdating;
   const currentError = isEditMode ? updateError : createError;
 
@@ -58,6 +63,28 @@ const CreateHotListUser = ({ initialValues = {}, onCancel, onSuccess }) => {
       showErrorToast(currentError);
     }
   }, [currentError]);
+
+  // Enhanced cancel handler
+  const handleCancel = () => {
+  
+
+    // Call the onCancel prop if provided (from parent component)
+    if (typeof onCancel === "function") {
+      onCancel();
+    }
+
+    // Call the onClose prop if provided (alternative prop name)
+    if (typeof onClose === "function") {
+      onClose();
+    }
+
+    // Clear any form errors
+    if (isEditMode) {
+      dispatch(clearUpdateError());
+    } else {
+      dispatch(clearCreateError());
+    }
+  };
 
   const handleSubmit = async (values, formikHelpers) => {
     console.log("from component - values:", values);
@@ -107,7 +134,8 @@ const CreateHotListUser = ({ initialValues = {}, onCancel, onSuccess }) => {
           })
         ).unwrap();
 
-        navigate("/dashboard/hotlist/consultants");
+        // Don't navigate immediately, let parent handle navigation
+        // navigate("/dashboard/hotlist/consultants");
       } else {
         // CREATE: Send FormData (for file uploads)
         console.log("Creating new consultant");
@@ -160,7 +188,8 @@ const CreateHotListUser = ({ initialValues = {}, onCancel, onSuccess }) => {
           })
         ).unwrap();
 
-        navigate("/dashboard/hotlist/consultants");
+        // Don't navigate immediately, let parent handle navigation
+        // navigate("/dashboard/hotlist/consultants");
       }
 
       const successMessage = isEditMode
@@ -186,14 +215,17 @@ const CreateHotListUser = ({ initialValues = {}, onCancel, onSuccess }) => {
     dispatch(fetchEmployeesUs(role));
   }, [role, dispatch]);
 
-  // Ensure consultantId is preserved in form initial values
+  // Enhanced form initial values with better preservation of consultantId
   const formInitialValues = {
     ...initialValues,
     // Explicitly preserve consultantId if it exists
-    ...(initialValues.consultantId && {
+    ...(initialValues?.consultantId && {
       consultantId: initialValues.consultantId,
     }),
   };
+
+  console.log("Form initial values:", formInitialValues); // Debug log
+  console.log("Is edit mode:", isEditMode); // Debug log
 
   return (
     <Box>
@@ -202,10 +234,11 @@ const CreateHotListUser = ({ initialValues = {}, onCancel, onSuccess }) => {
         onSubmit={handleSubmit}
         title={formTitle}
         initialValues={formInitialValues} // Use the enhanced initial values
-        onCancel={onCancel}
+        onCancel={handleCancel} // Use the enhanced cancel handler
         submitButtonText={submitButtonText}
         enableReinitialize={true} // Important for edit mode
         isSubmitting={isSubmitting} // Pass loading state to form
+        showCancelButton={true} // Explicitly show cancel button
       />
     </Box>
   );

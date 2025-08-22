@@ -148,11 +148,11 @@ const getHotListColumns = ({
     filterType: "number",
     render: (v) => renderValue(v, 50, loading),
   },
-  {
-    id: "location",
-    label: iconLabel(LocationOn, "Location"),
-    render: (v) => renderValue(v, 100, loading),
-  },
+  // {
+  //   id: "location",
+  //   label: iconLabel(LocationOn, "Location"),
+  //   render: (v) => renderValue(v, 100, loading),
+  // },
   // {
   //   id: "originalDOB",
   //   label: iconLabel(CalendarToday, "Original DOB"),
@@ -195,11 +195,11 @@ const getHotListColumns = ({
   //   label: iconLabel(CalendarToday, "Marketing Start"),
   //   render: (v) => renderValue(new Date(v).toLocaleDateString(), 90, loading),
   // },
-  {
-    id: "remarks",
-    label: iconLabel(Comment, "Remarks"),
-    render: (v) => renderValue(v, 200, loading),
-  },
+  // {
+  //   id: "remarks",
+  //   label: iconLabel(Comment, "Remarks"),
+  //   render: (v) => renderValue(v, 200, loading),
+  // },
   // {
   //   id: "consultantAddedTimeStamp",
   //   label: iconLabel(CalendarToday, "Created Date"),

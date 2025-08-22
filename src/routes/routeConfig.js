@@ -79,6 +79,9 @@ const HotlistContainer = lazy(() =>
 const CreateConsultant = lazy(() =>
   import("../components/Hotlist/CreateConsultant")
 );
+const MasterHotlist = lazy(() => import("../components/Hotlist/MasterHotlist"));
+
+
 
 const Timesheets = lazy(() => import("../components/Timesheets/TimeSheets"));
 // const HotlistDetail = lazy(() => import("../components/Hotlist/HotlistDetail"));
@@ -148,7 +151,7 @@ const routeConfig = [
                   "TEAMLEAD",
                   "EMPLOYEE",
                   "RECRUITER",
-                  "ADMIN"
+                  "ADMIN",
                 ]}
                 allowedEntities={["US"]}
               />
@@ -410,7 +413,7 @@ const routeConfig = [
             children: [{ index: true, element: Loadable(Timesheets) }],
           },
 
-          // HOTLIST (US) - Updated to include RECRUITER role
+          // HOTLIST (US) - Updated with proper index routing
           {
             path: "hotlist",
             element: (
@@ -431,13 +434,18 @@ const routeConfig = [
                 path: "",
                 element: <HotlistContainer />, // Contains the tabs and <Outlet />
                 children: [
-                  {
-                    index: true, // /dashboard/hotlist
-                    element: Loadable(Hotlist), // Default tab content
-                  },
+                 
                   {
                     path: "consultants", // /dashboard/hotlist/consultants
                     element: Loadable(Hotlist),
+                  },
+                  {
+                    path: "master", // /dashboard/hotlist/master
+                    element: Loadable(MasterHotlist),
+                  },
+                  {
+                    path: "master/:consultantId", // /dashboard/hotlist/master/:consultantId
+                    element: Loadable(ConsultantProfile),
                   },
                   {
                     path: "consultants/:consultantId", // /dashboard/hotlist/consultants/:id
@@ -464,7 +472,7 @@ const routeConfig = [
             path: "us-employees",
             element: (
               <ProtectedRoute
-                allowedRoles={["SUPERADMIN","ADMIN"]}
+                allowedRoles={["SUPERADMIN", "ADMIN"]}
                 allowedEntities={["US"]}
               />
             ),

@@ -5,16 +5,19 @@ import { hotlistAPI } from "../utils/api";
 export const fetchConsultants = createAsyncThunk(
   "hotlist/fetchConsultants",
   async (
-    { userId, page = 0, size = 10, filters = {}, sort = {} },
+    { userId, page, size, filters = {}, sort = {} },
     { rejectWithValue }
   ) => {
     try {
-      const response = await hotlistAPI.getConsultantsByUserId(userId, {
+      // Prepare query parameters
+      const queryParams = {
         page,
         size,
         ...filters,
         ...sort,
-      });
+      };
+
+      const response = await hotlistAPI.getConsultantsByUserId(userId, queryParams);
 
       const { content = [], totalElements = 0 } = response.data || {};
       return {
@@ -36,16 +39,19 @@ export const fetchConsultants = createAsyncThunk(
 export const fetchTeamConsultants = createAsyncThunk(
   "hotlist/fetchTeamConsultants",
   async (
-    { userId, page = 0, size = 10, filters = {}, sort = {} },
+    { userId, page, size, filters = {}, sort = {} },
     { rejectWithValue }
   ) => {
     try {
-      const response = await hotlistAPI.getTeamConsultants(userId, {
+      // Prepare query parameters
+      const queryParams = {
         page,
         size,
         ...filters,
         ...sort,
-      });
+      };
+
+      const response = await hotlistAPI.getTeamConsultants(userId, queryParams);
 
       const { content = [], totalElements = 0 } = response.data;
       return {
@@ -64,20 +70,23 @@ export const fetchTeamConsultants = createAsyncThunk(
   }
 );
 
-//get all consultants
+// Get all consultants
 export const fetchAllConsultants = createAsyncThunk(
   "hotlist/fetchAllConsultants",
   async (
-    { page = 0, size = 10, filters = {}, sort = {} },
+    { page, size, filters = {}, sort = {} },
     { rejectWithValue }
   ) => {
     try {
-      const response = await hotlistAPI.getAllConsultants({
+      // Prepare query parameters
+      const queryParams = {
         page,
         size,
         ...filters,
         ...sort,
-      });
+      };
+
+      const response = await hotlistAPI.getAllConsultants(queryParams);
 
       const { content = [], totalElements = 0 } = response.data;
       return {
@@ -176,7 +185,7 @@ const initialState = {
   teamConsultantsLoading: false,
   teamConsultantsError: null,
 
-  // All consultants data fro superadmin
+  // All consultants data for superadmin
   allConsultants: [],
   allConsultantsTotal: 0,
   allConsultantsCurrentPage: 1,
@@ -230,6 +239,7 @@ const hotlist = createSlice({
     clearErrors: (state) => {
       state.consultantsError = null;
       state.teamConsultantsError = null;
+      state.allConsultantsError = null;
       state.createError = null;
       state.updateError = null;
       state.deleteError = null;
