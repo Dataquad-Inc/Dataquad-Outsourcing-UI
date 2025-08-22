@@ -3,22 +3,21 @@ import TabsNavigation from "../../ui-lib/TabsNavigation";
 import { Outlet } from "react-router-dom";
 import ListAltIcon from "@mui/icons-material/ListAlt";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
-import { Home } from "@mui/icons-material";
 
 const UsEmployeesContainer = () => {
   const tabs = [
-    
     {
-      label: "Employees",
+      label: "Employees List",
       icon: <ListAltIcon />,
       path: "/dashboard/us-employees/employeeslist",
     },
-    // {
-    //   label: "Add New Employee",
-    //   icon: <PersonAddIcon />,
-    //   path: "/dashboard/us-employees/onboardemployee",
-    // },
+    {
+      label: "Onboard Employee",
+      icon: <PersonAddIcon />,
+      path: "/dashboard/us-employees/onboardemployee",
+    },
   ];
+
   return (
     <>
       <TabsNavigation tabs={tabs} />

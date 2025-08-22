@@ -66,6 +66,7 @@ const EmployeeStatus = lazy(() =>
 );
 const Hotlist = lazy(() => import("../components/Hotlist/Hotlist"));
 const UsEmployees = lazy(() => import("../components/UsEmployees/UsEmployees"));
+const OnBoardNewEmployee = lazy(() => import("../components/UsEmployees/OnBoradNewEmployee"));
 
 const ConsultantProfile = lazy(() =>
   import("../components/Hotlist/ConsultantProfile")
@@ -109,6 +110,7 @@ const routeConfig = [
           "PARTNER",
           "INVOICE",
           "COORDINATOR",
+          "SALESEXECUTIVE",
         ]}
       />
     ),
@@ -152,6 +154,7 @@ const routeConfig = [
                   "EMPLOYEE",
                   "RECRUITER",
                   "ADMIN",
+                  "SALESEXECUTIVE",
                 ]}
                 allowedEntities={["US"]}
               />
@@ -488,6 +491,10 @@ const routeConfig = [
                   {
                     path: "employeeslist", // /dashboard/us-employees/employeeslist
                     element: Loadable(UsEmployees),
+                  },
+                  {
+                    path: "onboardemployee", // /dashboard/us-employees/employeeslist
+                    element: Loadable(OnBoardNewEmployee),
                   },
                 ],
               },

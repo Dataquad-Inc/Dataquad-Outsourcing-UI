@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from "react";
 import { Button, MenuItem, TextField, Stack } from "@mui/material";
-import CustomTable from "../../ui-lib/CustomTable";
+import CustomDataTable from "../../ui-lib/CustomDataTable"; // ✅ use same table as MasterHotlist
 import getEmployeeColumns from "./EmployeeTableColumnConfig";
 import {
   showSuccessToast,
@@ -15,18 +15,24 @@ const UsEmployees = () => {
   const [loading, setLoading] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
-  const [formValues, setFormValues] = useState({ role: "", status: "" });
+  const [formValues, setFormValues] = useState({ roles: "", status: "" });
+
+  const [employees, setEmployees] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [search, setSearch] = useState("");
 
   const BASE_URL = "https://mymulya.com";
 
-  // ✅ Server-side fetch
-  const fetchData = useCallback(async ({ page = 1, pageSize = 10 }) => {
+  /** ---------------- Fetch Employees ---------------- */
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const apiPage = Math.max(page - 1, 0);
+      const apiPage = Math.max(page, 0);
 
       const response = await fetch(
-        `${BASE_URL}/hotlist/user/allUsers?page=${apiPage}&size=${pageSize}`
+        `${BASE_URL}/hotlist/user/allUsers?page=${apiPage}&size=${rowsPerPage}&keyword=${search}`
       );
 
       if (!response.ok) {
@@ -34,21 +40,24 @@ const UsEmployees = () => {
       }
 
       const result = await response.json();
-      setLoading(false);
-
       const data = result?.data?.content ?? [];
-      const total = result?.data?.totalElements ?? data.length;
+      const totalElements = result?.data?.totalElements ?? data.length;
 
-      return { data, total };
+      setEmployees(data);
+      setTotal(totalElements);
     } catch (error) {
-      setLoading(false);
       console.error("Error fetching employees:", error);
       showErrorToast("Failed to load employees");
-      return { data: [], total: 0 };
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  }, [page, rowsPerPage, search]);
 
-  // ✅ Delete
+  React.useEffect(() => {
+    fetchData();
+  }, [fetchData, refreshKey]);
+
+  /** ---------------- Delete ---------------- */
   const handleDelete = useCallback((row) => {
     const deleteAction = async () => {
       try {
@@ -73,32 +82,29 @@ const UsEmployees = () => {
     showDeleteConfirm(deleteAction, row.userName || "this employee");
   }, []);
 
+  /** ---------------- Create ---------------- */
   const handleCreateNew = () => {
     showInfoToast("Create new employee clicked");
   };
 
-  // ✅ Open Edit Dialog
+  /** ---------------- Edit ---------------- */
   const handleEdit = (row) => {
     setSelectedEmployee(row);
     setFormValues({
-      role: row.roles || "",
+      roles: row.roles || "",
       status: row.status || "",
     });
     setOpenEdit(true);
   };
 
-  // ✅ Save Edit
   const handleSave = async () => {
     try {
-      // merge: keep all existing fields from selectedEmployee,
-      // overwrite with formValues
       const payload = {
         ...selectedEmployee,
         ...formValues,
-        roles: [formValues.roles], // ensure roles is an array
+        roles: [formValues.roles], // ensure roles is array
       };
 
-      // Remove unwanted fields
       delete payload.password;
       delete payload.confirmPassword;
 
@@ -126,17 +132,36 @@ const UsEmployees = () => {
     }
   };
 
+  /** ---------------- Columns ---------------- */
   const columns = getEmployeeColumns({ handleEdit, handleDelete, loading });
 
+  /** ---------------- Render ---------------- */
   return (
     <>
-      <CustomTable
-        refreshKey={refreshKey}
-        columns={columns}
-        fetchData={fetchData}
+      <CustomDataTable
         title="US Employees"
-        onCreateNew={handleCreateNew}
+        columns={columns}
+        rows={employees}
+        total={total}
+        page={page}
+        rowsPerPage={rowsPerPage}
+        search={search}
         loading={loading}
+        onPageChange={(e, newPage) => setPage(newPage)}
+        onRowsPerPageChange={(e) => {
+          setRowsPerPage(parseInt(e.target.value, 10));
+          setPage(0);
+        }}
+        onSearchChange={(e) => {
+          setSearch(e.target.value);
+          setPage(0);
+        }}
+        onSearchClear={() => {
+          setSearch("");
+          setPage(0);
+        }}
+        onRefresh={() => setRefreshKey((prev) => prev + 1)}
+        onCreateNew={handleCreateNew}
       />
 
       {/* ✅ Edit Dialog */}
@@ -146,9 +171,9 @@ const UsEmployees = () => {
         title={`Edit Employee - ${selectedEmployee?.userName}`}
         actions={
           <>
-            <Button onClick={() => setOpenEdit(false)}>Cancel</Button>
+            <Button onClick={() => setOpenEdit(false)} variant="outlined">Cancel</Button>
             <Button variant="contained" onClick={handleSave}>
-              Save
+              Update Employee
             </Button>
           </>
         }
