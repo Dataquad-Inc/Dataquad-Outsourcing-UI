@@ -16,6 +16,16 @@ const UsEmployeesContainer = () => {
       icon: <PersonAddIcon />,
       path: "/dashboard/us-employees/onboardemployee",
     },
+    {
+      label: "Team List",
+      icon: <ListAltIcon />,
+      path: "/dashboard/us-employees/teamlist",
+    },
+    {
+      label: "Create Team",
+      icon: <PersonAddIcon />,
+      path: "/dashboard/us-employees/create-team",
+    },
   ];
 
   return (

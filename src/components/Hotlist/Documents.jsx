@@ -210,7 +210,7 @@ const handleDownload = async (documentId, fileName) => {
             </Typography>
           </Stack>
 
-          {/* <Button
+          <Button
             variant="contained"
             component="label"
             startIcon={<UploadIcon />}
@@ -223,7 +223,7 @@ const handleDownload = async (documentId, fileName) => {
               onChange={handleUpload}
               accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
             />
-          </Button> */}
+          </Button>
         </Stack>
 
         {errorMsg && (
