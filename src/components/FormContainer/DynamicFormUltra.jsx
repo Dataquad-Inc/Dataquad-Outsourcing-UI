@@ -844,6 +844,14 @@ const DynamicFormUltra = ({
               startAdornment={
                 icon && <InputAdornment position="start">{icon}</InputAdornment>
               }
+              MenuProps={{
+                PaperProps: {
+                  sx: {
+                    maxHeight: 240, // Fixed height for dropdown list
+                    overflowY: "auto",
+                  },
+                },
+              }}
             >
               {field.options?.map((option) => (
                 <MenuItem key={option.value} value={option.value}>

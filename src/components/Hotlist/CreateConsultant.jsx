@@ -1,9 +1,19 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import DynamicFormUltra from "../../components/FormContainer/DynamicFormUltra";
+import SimpleDocumentsDisplay from "./SimpleDocumentsDisplay";
+import Documents from "./Documents";
+
 import { showSuccessToast, showErrorToast } from "../../utils/toastUtils";
 import getHotListUserSections from "./hotListUserSections";
-import { Box } from "@mui/material";
-
+import {
+  Box,
+  Alert,
+  Typography,
+  Paper,
+  Stack,
+  Button,
+  Collapse,
+} from "@mui/material";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchEmployeesUs } from "../../redux/usEmployees";
 import {
@@ -15,7 +25,7 @@ import {
   selectIsUpdating,
   selectCreateError,
   selectUpdateError,
-} from "../../redux/hotlist"; // Adjust path as needed
+} from "../../redux/hotlist";
 import { useNavigate } from "react-router-dom";
 
 const CreateHotListUser = ({
@@ -26,6 +36,7 @@ const CreateHotListUser = ({
 }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const [showDocuments, setShowDocuments] = useState(true);
 
   // Selectors
   const employees = useSelector((state) => state.usEmployees.employees);
@@ -48,6 +59,14 @@ const CreateHotListUser = ({
     ? "Update Consultant"
     : "Submit Consultant";
 
+  // Debug logs
+  console.log("CreateHotListUser - Debug Info:", {
+    isEditMode,
+    consultantId: initialValues?.consultantId,
+    hasDocuments: initialValues?.documents?.length > 0,
+    initialValues: initialValues,
+  });
+
   // Clear errors on mount and when switching modes
   useEffect(() => {
     if (isEditMode) {
@@ -66,19 +85,14 @@ const CreateHotListUser = ({
 
   // Enhanced cancel handler
   const handleCancel = () => {
-  
-
-    // Call the onCancel prop if provided (from parent component)
     if (typeof onCancel === "function") {
       onCancel();
     }
 
-    // Call the onClose prop if provided (alternative prop name)
     if (typeof onClose === "function") {
       onClose();
     }
 
-    // Clear any form errors
     if (isEditMode) {
       dispatch(clearUpdateError());
     } else {
@@ -118,7 +132,7 @@ const CreateHotListUser = ({
 
         const updatePayload = {
           ...cleanValues,
-          recruiterId: userId, // Include recruiterId in JSON
+          recruiterId: userId,
         };
 
         // Remove file fields from JSON payload if they exist
@@ -133,9 +147,6 @@ const CreateHotListUser = ({
             consultantDto: updatePayload,
           })
         ).unwrap();
-
-        // Don't navigate immediately, let parent handle navigation
-        // navigate("/dashboard/hotlist/consultants");
       } else {
         // CREATE: Send FormData (for file uploads)
         console.log("Creating new consultant");
@@ -187,9 +198,6 @@ const CreateHotListUser = ({
             source: cleanValues.source,
           })
         ).unwrap();
-
-        // Don't navigate immediately, let parent handle navigation
-        // navigate("/dashboard/hotlist/consultants");
       }
 
       const successMessage = isEditMode
@@ -224,21 +232,58 @@ const CreateHotListUser = ({
     }),
   };
 
-  console.log("Form initial values:", formInitialValues); // Debug log
-  console.log("Is edit mode:", isEditMode); // Debug log
-
   return (
     <Box>
+      {/* Show existing documents in edit mode */}
+      {isEditMode && formInitialValues?.consultantId && (
+        <Box mb={3}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+            mb={2}
+          >
+            <Typography variant="h6" color="primary">
+              📄 Existing Documents & Resumes
+            </Typography>
+            <Button
+              size="small"
+              onClick={() => setShowDocuments(!showDocuments)}
+              variant="outlined"
+            >
+              {showDocuments ? "Hide" : "Show"} Documents
+            </Button>
+          </Stack>
+
+          <Collapse in={showDocuments}>
+            <Box mb={2}>
+              <Typography variant="body2" color="text.secondary" mb={2}>
+                Review and manage uploaded documents for this consultant:
+              </Typography>
+
+              {/* Try to use the Documents component, fallback to simple version */}
+              <SimpleDocumentsDisplay
+                consultantId={formInitialValues.consultantId}
+              />
+
+              {/* Uncomment below when Documents component import is fixed */}
+              {/* <Documents consultantId={formInitialValues.consultantId} /> */}
+            </Box>
+          </Collapse>
+        </Box>
+      )}
+
+      {/* Main Form */}
       <DynamicFormUltra
-        config={getHotListUserSections(employees)} // Pass employees data here
+        config={getHotListUserSections(employees)}
         onSubmit={handleSubmit}
         title={formTitle}
-        initialValues={formInitialValues} // Use the enhanced initial values
-        onCancel={handleCancel} // Use the enhanced cancel handler
+        initialValues={formInitialValues}
+        onCancel={handleCancel}
         submitButtonText={submitButtonText}
-        enableReinitialize={true} // Important for edit mode
-        isSubmitting={isSubmitting} // Pass loading state to form
-        showCancelButton={true} // Explicitly show cancel button
+        enableReinitialize={true}
+        isSubmitting={isSubmitting}
+        showCancelButton={true}
       />
     </Box>
   );

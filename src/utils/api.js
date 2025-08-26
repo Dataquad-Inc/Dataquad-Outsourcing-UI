@@ -205,6 +205,19 @@ export const employeeAPI = {
   },
 };
 
+// ========= team Management APIs ==========
+export const teamAPI = {
+  // Create new team
+  createTeam:async(userId,teamdata)=>{
+    if(!teamdata) throw new Error("team data is not found");
+    return apiPost(`/users/assignTeamLead/${userId}`,teamdata);
+  },
+  
+  getAllEmps:async()=>{
+    return apiGet("/users/getAll");
+  }
+};
+
 // ========== Hotlist/Consultant Management APIs ==========
 export const hotlistAPI = {
   // Get all consultants with pagination
@@ -233,7 +246,7 @@ export const hotlistAPI = {
   // Get consultant by ID
   getConsultantById: async (consultantId) => {
     if (!consultantId) throw new Error("Consultant ID is required");
-    return apiGet(`/hotlist/consultant/${consultantId}`)
+    return apiGet(`/hotlist/consultant/${consultantId}`);
   },
 
   // Create new consultant
@@ -248,12 +261,11 @@ export const hotlistAPI = {
 
   // Update consultant
   updateConsultant: async (consultantId, consultantDto) => {
-    console.log("-----------",consultantDto);
+    console.log("-----------", consultantDto);
     if (!consultantId) throw new Error("Consultant ID is required");
     if (!consultantDto) throw new Error("Consultant data is required");
     return apiPut(`/hotlist/updateConsultant/${consultantId}`, consultantDto);
   },
-
 
   // Delete consultant
   deleteConsultant: async (consultantId) => {
@@ -292,7 +304,7 @@ export const fileAPI = {
   uploadResume: async (file, consultantId) => {
     if (!file) throw new Error("File is required");
     if (!consultantId) throw new Error("Consultant ID is required");
-    
+
     const formData = new FormData();
     formData.append("file", file);
     formData.append("consultantId", consultantId);
@@ -304,7 +316,7 @@ export const fileAPI = {
     if (!file) throw new Error("File is required");
     if (!consultantId) throw new Error("Consultant ID is required");
     if (!documentType) throw new Error("Document type is required");
-    
+
     const formData = new FormData();
     formData.append("file", file);
     formData.append("consultantId", consultantId);
@@ -335,7 +347,7 @@ export const apiHelpers = {
   // Handle API errors consistently
   handleApiError: (error, customMessage = "An error occurred") => {
     console.error(customMessage, error);
-    
+
     if (error.response) {
       // Server responded with error status
       const { status, data } = error.response;

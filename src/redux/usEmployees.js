@@ -5,7 +5,7 @@ export const fetchEmployeesUs = createAsyncThunk(
   "usEmployees/fetchUsEmployees",
   async (role, thunkAPI) => {
     try {
-      const response = await hotlistAPI.getUsersByRole("TEAMLEAD");
+      const response = await hotlistAPI.getUsersByRole(role);
       return response;
       
     } catch (error) {

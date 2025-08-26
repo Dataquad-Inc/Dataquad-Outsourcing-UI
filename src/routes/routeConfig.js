@@ -66,6 +66,8 @@ const EmployeeStatus = lazy(() =>
 );
 const Hotlist = lazy(() => import("../components/Hotlist/Hotlist"));
 const UsEmployees = lazy(() => import("../components/UsEmployees/UsEmployees"));
+const CreateTeam = lazy(() => import("../components/UsEmployees/CreateTeam"));
+const Teamlist = lazy(() => import("../components/UsEmployees/Teamlist"));
 const OnBoardNewEmployee = lazy(() => import("../components/UsEmployees/OnBoradNewEmployee"));
 
 const ConsultantProfile = lazy(() =>
@@ -496,6 +498,15 @@ const routeConfig = [
                     path: "onboardemployee", // /dashboard/us-employees/employeeslist
                     element: Loadable(OnBoardNewEmployee),
                   },
+                   {
+                    path: "create-team", // /dashboard/us-employees/employeeslist
+                    element: Loadable(CreateTeam),
+                  },
+                  {
+                    path: "teamlist", // /dashboard/us-employees/teamlist
+                    element: Loadable(Teamlist),
+                  }
+
                 ],
               },
             ],
