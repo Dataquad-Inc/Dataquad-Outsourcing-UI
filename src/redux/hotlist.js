@@ -129,11 +129,12 @@ export const createConsultant = createAsyncThunk(
 
 export const updateConsultant = createAsyncThunk(
   "hotlist/updateConsultant",
-  async ({ consultantId, consultantDto }, { rejectWithValue }) => {
+  async ({ consultantId, consultantDto ,isAssignAll}, { rejectWithValue }) => {
     try {
       const response = await hotlistAPI.updateConsultant(
         consultantId,
-        consultantDto
+        consultantDto,
+        isAssignAll
       );
       if (!response.success)
         throw new Error(response.message || "Update failed");

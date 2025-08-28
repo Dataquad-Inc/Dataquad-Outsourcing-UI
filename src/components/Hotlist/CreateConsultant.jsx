@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
 import DynamicFormUltra from "../../components/FormContainer/DynamicFormUltra";
 import SimpleDocumentsDisplay from "./SimpleDocumentsDisplay";
-import Documents from "./Documents";
-
+import { useFormik } from "formik"; // Import useFormik
 import { showSuccessToast, showErrorToast } from "../../utils/toastUtils";
 import getHotListUserSections from "./hotListUserSections";
 import {
@@ -15,7 +14,7 @@ import {
   Collapse,
 } from "@mui/material";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchEmployeesUs } from "../../redux/usEmployees";
+import { fetchEmployeesUs, fetchTeamMembers } from "../../redux/usEmployees";
 import {
   createConsultant,
   updateConsultant,
@@ -37,6 +36,9 @@ const CreateHotListUser = ({
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [showDocuments, setShowDocuments] = useState(true);
+  const [selectedTeamleadId, setSelectedTeamleadId] = useState(
+    initialValues.teamleadId || ""
+  );
 
   // Selectors
   const employees = useSelector((state) => state.usEmployees.employees);
@@ -47,6 +49,10 @@ const CreateHotListUser = ({
   const isUpdating = useSelector(selectIsUpdating);
   const createError = useSelector(selectCreateError);
   const updateError = useSelector(selectUpdateError);
+  const recruiters = useSelector((state) => state.usEmployees.recruiters);
+  const salesExecutives = useSelector(
+    (state) => state.usEmployees.salesExecutives
+  );
 
   const isEditMode = Boolean(initialValues?.consultantId);
   const isSubmitting = isCreating || isUpdating;
@@ -59,13 +65,14 @@ const CreateHotListUser = ({
     ? "Update Consultant"
     : "Submit Consultant";
 
-  // Debug logs
-  console.log("CreateHotListUser - Debug Info:", {
-    isEditMode,
-    consultantId: initialValues?.consultantId,
-    hasDocuments: initialValues?.documents?.length > 0,
-    initialValues: initialValues,
-  });
+  // When teamleadId changes, fetch recruiters & sales executives
+  useEffect(() => {
+    dispatch(fetchEmployeesUs("TEAMLEAD"));
+
+    if (selectedTeamleadId) {
+      dispatch(fetchTeamMembers(selectedTeamleadId));
+    }
+  }, [userId, dispatch, selectedTeamleadId]);
 
   // Clear errors on mount and when switching modes
   useEffect(() => {
@@ -98,6 +105,10 @@ const CreateHotListUser = ({
     } else {
       dispatch(clearCreateError());
     }
+  };
+
+  const handleTeamleadChange = (teamLeadId) => {
+    setSelectedTeamleadId(teamLeadId);
   };
 
   const handleSubmit = async (values, formikHelpers) => {
@@ -145,6 +156,7 @@ const CreateHotListUser = ({
           updateConsultant({
             consultantId: cleanValues.consultantId,
             consultantDto: updatePayload,
+            isAssignAll: values.isAssignAll ?? false, // send from form values or default
           })
         ).unwrap();
       } else {
@@ -166,7 +178,6 @@ const CreateHotListUser = ({
 
         const createFormData = () => {
           const formData = new FormData();
-          formData.append("recruiterId", userId);
 
           Object.entries(cleanValues).forEach(([key, val]) => {
             if (val === undefined || val === null) return;
@@ -219,10 +230,6 @@ const CreateHotListUser = ({
     }
   };
 
-  useEffect(() => {
-    dispatch(fetchEmployeesUs(role));
-  }, [role, dispatch]);
-
   // Enhanced form initial values with better preservation of consultantId
   const formInitialValues = {
     ...initialValues,
@@ -230,6 +237,7 @@ const CreateHotListUser = ({
     ...(initialValues?.consultantId && {
       consultantId: initialValues.consultantId,
     }),
+    teamLeadId: selectedTeamleadId || initialValues.teamLeadId,
   };
 
   return (
@@ -261,13 +269,9 @@ const CreateHotListUser = ({
                 Review and manage uploaded documents for this consultant:
               </Typography>
 
-              {/* Try to use the Documents component, fallback to simple version */}
               <SimpleDocumentsDisplay
                 consultantId={formInitialValues.consultantId}
               />
-
-              {/* Uncomment below when Documents component import is fixed */}
-              {/* <Documents consultantId={formInitialValues.consultantId} /> */}
             </Box>
           </Collapse>
         </Box>
@@ -275,7 +279,12 @@ const CreateHotListUser = ({
 
       {/* Main Form */}
       <DynamicFormUltra
-        config={getHotListUserSections(employees)}
+        config={getHotListUserSections(
+          employees,
+          recruiters,
+          salesExecutives,
+          handleTeamleadChange
+        )}
         onSubmit={handleSubmit}
         title={formTitle}
         initialValues={formInitialValues}

@@ -1,13 +1,17 @@
 import { validateDate } from "@mui/x-date-pickers";
-
-const getHotListUserSections = (employees) => {
+const getHotListUserSections = (
+  employees,
+  recruiters,
+  salesExecutives,
+  onTeamleadChange = null
+) => {
   return [
     {
-      section: "Hidden Fields", // This section won't be rendered but preserves the ID
+      section: "Hidden Fields",
       fields: [
         {
           name: "consultantId",
-          type: "hidden", // Special type for hidden fields
+          type: "hidden",
           required: false,
         },
       ],
@@ -61,6 +65,14 @@ const getHotListUserSections = (employees) => {
           type: "link",
           icon: "LinkedIn",
         },
+        {
+          name: "isAssignAll",
+          label: "Assign to All",
+          type: "checkbox",
+          required: false,
+          icon: "CheckBox", // Optional icon
+          defaultChecked: false,
+        },
       ],
     },
     {
@@ -73,7 +85,7 @@ const getHotListUserSections = (employees) => {
           icon: "PersonSearch",
         },
         {
-          name: "teamleadId",
+          name: "teamLeadId",
           label: "Teamlead",
           type: "select",
           icon: "Group",
@@ -82,12 +94,27 @@ const getHotListUserSections = (employees) => {
             label: emp.employeeName,
             value: emp.employeeId,
           })),
+          onChange: onTeamleadChange, // Add onChange handler
         },
         {
-          name: "salesExecutive",
-          label: "Sales Executive",
-          type: "text",
+          name: "salesExecutiveId",
+          label: "Select Sales Executive",
+          type: "select",
           icon: "BusinessCenter",
+          options: salesExecutives.map((emp) => ({
+            label: emp.userName,
+            value: emp.userId,
+          })),
+        },
+        {
+          name: "recruiterId",
+          label: "Select Recruiter",
+          type: "select",
+          icon: "BusinessCenter",
+          options: recruiters.map((emp) => ({
+            label: emp.userName,
+            value: emp.userId,
+          })),
         },
       ],
     },

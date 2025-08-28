@@ -215,8 +215,13 @@ export const teamAPI = {
   
   getAllEmps:async()=>{
     return apiGet("/users/getAll");
+  },
+
+  getTeam:async(teamLeadId)=>{
+    if(!teamLeadId) throw new Error("teamLeadId is required");
+    return apiGet(`/users/associated-users/${teamLeadId}`);
   }
-};
+}
 
 // ========== Hotlist/Consultant Management APIs ==========
 export const hotlistAPI = {
