@@ -85,8 +85,11 @@ const CreateConsultant = lazy(() =>
 const MasterHotlist = lazy(() => import("../components/Hotlist/MasterHotlist"));
 
 
-
+//Timesheets
 const Timesheets = lazy(() => import("../components/Timesheets/TimeSheets"));
+const TimesheetsForAdmin = lazy(() => import("../components/Timesheets/TimeSheetsForAdmin"));
+const EmployeeTimesheetDetail = lazy(() => import("../components/Timesheets/EmployeeTimesheetDetail"));
+
 // const HotlistDetail = lazy(() => import("../components/Hotlist/HotlistDetail"));
 const Unauthorized = lazy(() => import("../pages/Unauthorized"));
 const DeniedAccessCard = lazy(() =>
@@ -113,6 +116,8 @@ const routeConfig = [
           "INVOICE",
           "COORDINATOR",
           "SALESEXECUTIVE",
+          "EXTERNALEMPLOYEE",
+          "ACCOUNTS"
         ]}
       />
     ),
@@ -138,6 +143,8 @@ const routeConfig = [
                   "PARTNER",
                   "INVOICE",
                   "COORDINATOR",
+                  "EXTERNALEMPLOYEE",
+                  "ACCOUNTS"
                 ]}
                 allowedEntities={["IN"]}
               />
@@ -406,16 +413,29 @@ const routeConfig = [
               },
             ],
           },
-
+     //Timesheets
           {
             path: "timesheets",
             element: (
               <ProtectedRoute
-                allowedRoles={["EXTERNALEMPLOYEE"]}
+                allowedRoles={["EXTERNALEMPLOYEE","SUPERADMIN","ACCOUNTS"]}
                 allowedEntities={["IN"]}
               />
             ),
             children: [{ index: true, element: Loadable(Timesheets) }],
+          },
+          {
+            path: "timesheetsForAdmins",
+            element: (
+              <ProtectedRoute
+                allowedRoles={["SUPERADMIN", "ADMIN","ACCOUNTS"]}
+                allowedEntities={["IN"]}
+              />
+            ),
+            children: [{ index: true, element: Loadable(TimesheetsForAdmin) },{
+                path: "employee/:userId",
+                element: Loadable(EmployeeTimesheetDetail),
+              }],
           },
 
           // HOTLIST (US) - Updated with proper index routing

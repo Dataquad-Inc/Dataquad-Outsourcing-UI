@@ -58,7 +58,7 @@ const HomePage = () => {
     timesheet:['EXTERNALEMPLOYEE']
   };
 
-  const allowedRoles = ['ADMIN', 'SUPERADMIN', 'EMPLOYEE', 'BDM', 'TEAMLEAD', 'PARTNER','INVOICE','COORDINATOR','EXTERNALEMPLOYEE'];
+  const allowedRoles = ['ADMIN', 'SUPERADMIN', 'EMPLOYEE', 'BDM', 'TEAMLEAD', 'PARTNER','INVOICE','COORDINATOR','EXTERNALEMPLOYEE',"ACCOUNTS"];
 
   // Helper function to format placements data
   const formatPlacements = (data) => {
