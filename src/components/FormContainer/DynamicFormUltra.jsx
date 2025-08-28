@@ -22,6 +22,10 @@ import {
   Grid,
   Divider,
   Alert,
+  Checkbox,
+  FormControlLabel,
+  FormGroup,
+  FormLabel,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -32,6 +36,8 @@ import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import ImageIcon from "@mui/icons-material/Image";
 import DescriptionIcon from "@mui/icons-material/Description";
+import CheckBoxIcon from "@mui/icons-material/CheckBox";
+import CheckBoxOutlineBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank";
 
 // ICON IMPORTS
 import LockIcon from "@mui/icons-material/Lock";
@@ -257,6 +263,8 @@ const iconMap = {
   ToggleOn: <ToggleOnIcon />,
   UploadFile: <UploadFileIcon />,
   AttachFile: <AttachFileIcon />,
+  CheckBox: <CheckBoxIcon />,
+  CheckBoxOutlineBlank: <CheckBoxOutlineBlankIcon />,
 };
 
 // File type icon helper
@@ -311,6 +319,10 @@ const DynamicFormUltra = ({
         generatedInitialValues[field.name] = [];
       } else if (field.type === "file") {
         generatedInitialValues[field.name] = field.multiple ? [] : null;
+      } else if (field.type === "checkbox") {
+        generatedInitialValues[field.name] = field.defaultChecked || false;
+      } else if (field.type === "checkbox-group") {
+        generatedInitialValues[field.name] = [];
       } else {
         generatedInitialValues[field.name] = field.multiple ? [""] : "";
       }
@@ -338,6 +350,14 @@ const DynamicFormUltra = ({
               .min(1, "At least one file must be selected")
               .required("Required")
           : Yup.mixed().required("A file is required");
+      } else if (field.type === "checkbox") {
+        validationSchema[field.name] = Yup.boolean()
+          .oneOf([true], "This field must be checked")
+          .required("Required");
+      } else if (field.type === "checkbox-group") {
+        validationSchema[field.name] = Yup.array()
+          .min(1, "At least one option must be selected")
+          .required("Required");
       } else {
         validationSchema[field.name] = field.multiple
           ? Yup.array().of(Yup.string().required("Required"))
@@ -787,7 +807,12 @@ const DynamicFormUltra = ({
             name={field.name}
             label={field.label}
             value={value}
-            onChange={formik.handleChange}
+            onChange={(e) => {
+              formik.handleChange(e); // Call formik's handleChange
+              if (field.onChange) {
+                field.onChange(e.target.value); // Call custom onChange if provided
+              }
+            }}
             onBlur={formik.handleBlur}
             error={Boolean(error)}
             helperText={error}
@@ -796,7 +821,7 @@ const DynamicFormUltra = ({
               MenuProps: {
                 PaperProps: {
                   sx: {
-                    maxHeight: 240, // Fixed height for dropdown list
+                    maxHeight: 240,
                     overflowY: "auto",
                   },
                 },
@@ -813,6 +838,16 @@ const DynamicFormUltra = ({
 
       case "file":
         return renderFileUpload(field, fieldName, value, error);
+
+      case "hidden":
+        return (
+          <input
+            type="hidden"
+            name={fieldName}
+            value={value || ""}
+            onChange={formik.handleChange}
+          />
+        );
 
       case "multiselect":
         return (
@@ -859,6 +894,104 @@ const DynamicFormUltra = ({
                 </MenuItem>
               ))}
             </Select>
+            {error && <FormHelperText>{error}</FormHelperText>}
+          </FormControl>
+        );
+
+      case "checkbox":
+        return (
+          <Box
+            sx={{
+              p: 2,
+              border: error
+                ? `1px solid ${theme.palette.error.main}`
+                : `1px solid ${theme.palette.divider}`,
+              borderRadius: 1,
+              backgroundColor: theme.palette.background.default,
+            }}
+          >
+            <FormControlLabel
+              control={
+                <Checkbox
+                  name={fieldName}
+                  checked={Boolean(value)}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  color="primary"
+                  icon={
+                    field.icon ? (
+                      iconMap[field.icon]
+                    ) : (
+                      <CheckBoxOutlineBlankIcon />
+                    )
+                  }
+                  checkedIcon={
+                    field.checkedIcon ? (
+                      iconMap[field.checkedIcon]
+                    ) : (
+                      <CheckBoxIcon />
+                    )
+                  }
+                />
+              }
+              label={
+                <Typography
+                  variant="body2"
+                  color={error ? "error" : "textPrimary"}
+                >
+                  {field.label}
+                  {field.required && " *"}
+                </Typography>
+              }
+            />
+            {error && (
+              <FormHelperText error sx={{ ml: 0, mt: 1 }}>
+                {error}
+              </FormHelperText>
+            )}
+          </Box>
+        );
+
+      case "checkbox-group":
+        return (
+          <FormControl
+            component="fieldset"
+            error={Boolean(error)}
+            sx={{ width: "100%" }}
+          >
+            <FormLabel component="legend">{field.label}</FormLabel>
+            <FormGroup>
+              {field.options?.map((option) => (
+                <FormControlLabel
+                  key={option.value}
+                  control={
+                    <Checkbox
+                      name={fieldName}
+                      value={option.value}
+                      checked={
+                        Array.isArray(value)
+                          ? value.includes(option.value)
+                          : false
+                      }
+                      onChange={(e) => {
+                        const newValue = Array.isArray(value) ? [...value] : [];
+                        if (e.target.checked) {
+                          newValue.push(e.target.value);
+                        } else {
+                          const index = newValue.indexOf(e.target.value);
+                          if (index > -1) {
+                            newValue.splice(index, 1);
+                          }
+                        }
+                        formik.setFieldValue(field.name, newValue);
+                      }}
+                      onBlur={formik.handleBlur}
+                    />
+                  }
+                  label={option.label}
+                />
+              ))}
+            </FormGroup>
             {error && <FormHelperText>{error}</FormHelperText>}
           </FormControl>
         );
@@ -918,13 +1051,23 @@ const DynamicFormUltra = ({
                 <Grid
                   item
                   xs={12}
-                  sm={field.type === "file" ? 12 : 6}
+                  sm={
+                    field.type === "file" || field.type === "checkbox-group"
+                      ? 12
+                      : 6
+                  }
                   md={
-                    field.type === "file" || field.type === "textarea" ? 12 : 6
+                    field.type === "file" ||
+                    field.type === "textarea" ||
+                    field.type === "checkbox-group"
+                      ? 12
+                      : 6
                   }
                   key={field.name}
                 >
-                  {field.multiple && field.type !== "file" ? (
+                  {field.multiple &&
+                  field.type !== "file" &&
+                  field.type !== "checkbox-group" ? (
                     <Box>
                       <Typography variant="subtitle2" sx={{ mb: 2 }}>
                         {field.label}

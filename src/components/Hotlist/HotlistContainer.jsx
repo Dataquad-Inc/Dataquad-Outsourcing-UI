@@ -40,6 +40,11 @@ const HotlistContainer = () => {
         path: "/dashboard/us-home",
       },
       {
+        label: "Grand Hotlist",
+        icon: <ListAltIcon />,
+        path: "/dashboard/hotlist/master",
+      },
+      {
         label: "My Hotlist",
         icon: <ListAltIcon />,
         path: "/dashboard/hotlist/consultants",
