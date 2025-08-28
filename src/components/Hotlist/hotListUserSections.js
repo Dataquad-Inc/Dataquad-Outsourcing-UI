@@ -17,6 +17,49 @@ const getHotListUserSections = (
       ],
     },
     {
+      section: "Team Info",
+      fields: [
+        {
+          name: "reference",
+          label: "Reference",
+          type: "text",
+          icon: "PersonSearch",
+        },
+        {
+          name: "teamLeadId",
+          label: "Teamlead",
+          type: "select",
+          icon: "Group",
+          required: true,
+          options: employees.map((emp) => ({
+            label: emp.employeeName,
+            value: emp.employeeId,
+          })),
+          onChange: onTeamleadChange, // Add onChange handler
+        },
+        {
+          name: "salesExecutiveId",
+          label: "Select Sales Executive",
+          type: "select",
+          icon: "BusinessCenter",
+          options: salesExecutives.map((emp) => ({
+            label: emp.userName,
+            value: emp.userId,
+          })),
+        },
+        {
+          name: "recruiterId",
+          label: "Select Recruiter",
+          type: "select",
+          icon: "BusinessCenter",
+          options: recruiters.map((emp) => ({
+            label: emp.userName,
+            value: emp.userId,
+          })),
+        },
+      ],
+    },
+    {
       section: "Basic Info",
       fields: [
         {
@@ -75,49 +118,7 @@ const getHotListUserSections = (
         },
       ],
     },
-    {
-      section: "Team Info",
-      fields: [
-        {
-          name: "reference",
-          label: "Reference",
-          type: "text",
-          icon: "PersonSearch",
-        },
-        {
-          name: "teamLeadId",
-          label: "Teamlead",
-          type: "select",
-          icon: "Group",
-          required: true,
-          options: employees.map((emp) => ({
-            label: emp.employeeName,
-            value: emp.employeeId,
-          })),
-          onChange: onTeamleadChange, // Add onChange handler
-        },
-        {
-          name: "salesExecutiveId",
-          label: "Select Sales Executive",
-          type: "select",
-          icon: "BusinessCenter",
-          options: salesExecutives.map((emp) => ({
-            label: emp.userName,
-            value: emp.userId,
-          })),
-        },
-        {
-          name: "recruiterId",
-          label: "Select Recruiter",
-          type: "select",
-          icon: "BusinessCenter",
-          options: recruiters.map((emp) => ({
-            label: emp.userName,
-            value: emp.userId,
-          })),
-        },
-      ],
-    },
+
     {
       section: "Status & Role",
       fields: [
