@@ -236,6 +236,11 @@ export const hotlistAPI = {
     return apiGet(`/hotlist/consultantsByUserId/${userId}`, params);
   },
 
+  getSalesExecConsultants: async (userId, params = {}) => {
+    if (!userId) throw new Error("User ID is required");
+    return apiGet(`/hotlist/salesExecutiveConsultants/${userId}`, params);
+  },
+
   // Get team consultants - Added this missing function
   getTeamConsultants: async (userId, params = {}) => {
     if (!userId) throw new Error("User ID is required");

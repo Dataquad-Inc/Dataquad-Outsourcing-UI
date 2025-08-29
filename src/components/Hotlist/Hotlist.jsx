@@ -17,7 +17,7 @@ import ConsultantProfile from "./ConsultantProfile";
 const HotList = React.memo(() => {
   const theme = useTheme();
   const navigate = useNavigate();
-  const { userId } = useSelector((state) => state.auth);
+  const { userId, role } = useSelector((state) => state.auth);
 
   const [consultants, setConsultants] = useState([]);
   const [total, setTotal] = useState(0);
@@ -35,13 +35,19 @@ const HotList = React.memo(() => {
     try {
       setLoading(true);
       const params = { page, size: rowsPerPage, keyword: search };
-      const result = await hotlistAPI.getConsultantsByUserId(userId, params);
+      let result = null;
+      if (role === "SALESEXECUTIVE") {
+        result = await hotlistAPI.getSalesExecConsultants(userId, params);
+      } else {
+        result = await hotlistAPI.getConsultantsByUserId(userId, params);
+      }
+
       setConsultants(result?.data?.content || []);
       setTotal(result?.data?.totalElements || 0);
-      showInfoToast("Hotlist loaded successfully ✅");
+      showInfoToast("Hotlist loaded successfully ");
     } catch (err) {
       console.error("Error fetching hotlist:", err);
-      showErrorToast("Failed to load hotlist ❌");
+      showErrorToast("Failed to load hotlist ");
     } finally {
       setLoading(false);
     }
@@ -87,8 +93,8 @@ const HotList = React.memo(() => {
   const handleFormSuccess = useCallback((data, action) => {
     showSuccessToast(
       action === "create"
-        ? "Consultant created successfully 🎉"
-        : "Consultant updated successfully ✨"
+        ? "Consultant created successfully "
+        : "Consultant updated successfully "
     );
     setShowCreateForm(false);
     setEditingConsultant(null);
@@ -100,11 +106,11 @@ const HotList = React.memo(() => {
     const deleteConsultantAction = async () => {
       try {
         const result = await hotlistAPI.deleteConsultant(row.consultantId);
-        showSuccessToast(result.message || "Consultant deleted 🗑️");
+        showSuccessToast(result.message || "Consultant deleted ");
         setRefreshKey((prev) => prev + 1);
       } catch (error) {
         console.error("Delete error:", error);
-        showErrorToast("Failed to delete consultant ❌");
+        showErrorToast("Failed to delete consultant ");
       }
     };
     showDeleteConfirm(deleteConsultantAction, row.name || "this consultant");
@@ -120,6 +126,8 @@ const HotList = React.memo(() => {
     handleEdit,
     handleDelete,
     loading,
+    userRole: role, // Pass user role
+    userId: userId, // Pass user ID
   });
 
   /** ---------------- Render ---------------- */

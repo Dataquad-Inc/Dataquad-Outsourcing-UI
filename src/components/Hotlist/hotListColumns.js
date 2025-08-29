@@ -36,11 +36,42 @@ const iconLabel = (IconComp, text) => (
   </Box>
 );
 
+// Role-based permission checker
+const hasPermission = (userRole, userId, row, action) => {
+  // Admin has full access
+  if (userRole === "SUPERADMIN") {
+    return true;
+  }
+
+  // Team Lead permissions
+  if (userRole === "TEAMLEAD") {
+    // Team leads can edit/delete consultants in their team
+    return row.teamleadId === userId;
+  }
+
+  // Recruiter permissions
+  if (userRole === "RECRUITER") {
+    // Recruiters can only edit/delete consultants they added
+    return row.recruiterId === userId;
+  }
+
+  // Sales Executive permissions
+  if (userRole === "SALESEXECUTIVE") {
+    // Sales executives can edit/delete their own consultants
+    return row.salesExecutiveId === userId;
+  }
+
+  // Default: no permission
+  return false;
+};
+
 const getHotListColumns = ({
   handleNavigate,
   handleEdit,
   handleDelete,
   loading,
+  userRole, // Add userRole parameter
+  userId, // Add userId parameter
 }) => [
   {
     id: "consultantId",
@@ -79,13 +110,11 @@ const getHotListColumns = ({
     label: iconLabel(SupervisorAccount, "Sales Executive"),
     render: (v) => renderValue(v, 100, loading),
   },
-
   {
     id: "recruiterName",
     label: iconLabel(Person, "Recruiter"),
     render: (v) => renderValue(v, 80, loading),
   },
-
   {
     id: "technology",
     label: iconLabel(Engineering, "Technology"),
@@ -97,96 +126,17 @@ const getHotListColumns = ({
     filterType: "text",
     render: (v) => renderValue(v, 150, loading),
   },
-  // {
-  //   id: "grade",
-  //   label: iconLabel(Grade, "Grade"),
-  //   render: (v) => renderValue(v, 50, loading),
-  // },
   {
     id: "marketingContact",
     label: iconLabel(Contacts, "Marketing Contact"),
     render: (v) => renderValue(v, 120, loading),
   },
-  // {
-  //   id: "personalContact",
-  //   label: iconLabel(Phone, "Personal Contact"),
-  //   render: (v) => renderValue(formatPhoneNumber(v), 120, loading),
-  // },
-  // {
-  //   id: "reference",
-  //   label: iconLabel(Info, "Reference"),
-  //   render: (v) => renderValue(v, 100, loading),
-  // },
-  // {
-  //   id: "recruiterId",
-  //   label: iconLabel(SupervisorAccount, "Recruiter"),
-  //   render: (v) => renderValue(v, 80, loading),
-  // },
-  // {
-  //   id: "teamleadId",
-  //   label: iconLabel(Group, "Team Lead"),
-  //   render: (v) => renderValue(v, 80, loading),
-  // },
-  // {
-  //   id: "status",
-  //   label: iconLabel(CheckCircle, "Status"),
-  //   render: (v) => renderValue(v, 100, loading),
-  // },
-  // {
-  //   id: "passport",
-  //   label: iconLabel(FaPassport,"Passport"),
-  //   render: (v) => renderValue(v, 60, loading),
-  // },
-
-  //  {
-  //   id: "salesExecutiveId",
-  //   label: iconLabel(SupervisorAccount, "Sales Executive"),
-  //   render: (v) => renderValue(v, 100, loading),
-  // },
-  // {
-  //   id: "remoteOnsite",
-  //   label: iconLabel(Public, "Remote/Onsite"),
-  //   render: (v) => renderValue(v, 100, loading),
-  // },
-
   {
     id: "experience",
     label: iconLabel(Grade, "Experience (Yrs)"),
     filterType: "number",
     render: (v) => renderValue(v, 50, loading),
   },
-  // {
-  //   id: "location",
-  //   label: iconLabel(LocationOn, "Location"),
-  //   render: (v) => renderValue(v, 100, loading),
-  // },
-  // {
-  //   id: "originalDOB",
-  //   label: iconLabel(CalendarToday, "Original DOB"),
-  //   render: (v) => renderValue(new Date(v).toLocaleDateString(), 100, loading),
-  // },
-  // {
-  //   id: "editedDOB",
-  //   label: iconLabel(CalendarToday, "Edited DOB"),
-  //   render: (v) => renderValue(new Date(v).toLocaleDateString(), 100, loading),
-  // },
-  // {
-  //   id: "linkedInUrl",
-  //   label: iconLabel(LinkedIn, "LinkedIn"),
-  //   render: (v) =>
-  //     loading ? (
-  //       <Skeleton width={150} />
-  //     ) : (
-  //       <a href={v} target="_blank" rel="noopener noreferrer">
-  //         {v}
-  //       </a>
-  //     ),
-  // },
-  // {
-  //   id: "relocation",
-  //   label: iconLabel(FlightTakeoff, "Relocation"),
-  //   render: (v) => renderValue(v, 80, loading),
-  // },
   {
     id: "billRate",
     label: iconLabel(MonetizationOn, "Bill Rate"),
@@ -197,27 +147,6 @@ const getHotListColumns = ({
     label: iconLabel(Payment, "Payroll"),
     render: (v) => renderValue(v, 80, loading),
   },
-  // {
-  //   id: "marketingStartDate",
-  //   label: iconLabel(CalendarToday, "Marketing Start"),
-  //   render: (v) => renderValue(new Date(v).toLocaleDateString(), 90, loading),
-  // },
-  // {
-  //   id: "remarks",
-  //   label: iconLabel(Comment, "Remarks"),
-  //   render: (v) => renderValue(v, 200, loading),
-  // },
-  // {
-  //   id: "consultantAddedTimeStamp",
-  //   label: iconLabel(CalendarToday, "Created Date"),
-  //   filterType: "date",
-  //   render: (v) => renderValue(new Date(v).toLocaleDateString(), 90, loading),
-  // },
-  // {
-  //   id: "updatedTimeStamp",
-  //   label: iconLabel(Update, "Updated Date"),
-  //   render: (v) => renderValue(new Date(v).toLocaleDateString(), 90, loading),
-  // },
   {
     id: "marketingVisa",
     label: iconLabel(RiVisaFill, "Marketing Visa"),
@@ -228,34 +157,50 @@ const getHotListColumns = ({
     label: iconLabel(RiVisaFill, "Actual Visa"),
     render: (v) => renderValue(v, 80, loading),
   },
-
   {
     id: "actions",
     label: iconLabel(Edit, "Actions"),
-    render: (_, row) =>
-      loading ? (
+    render: (_, row) => {
+      if (loading) {
+        return (
+          <Box sx={{ display: "flex", gap: 1 }}>
+            <Skeleton variant="circular" width={32} height={32} />
+            <Skeleton variant="circular" width={32} height={32} />
+          </Box>
+        );
+      }
+
+      const canEdit = hasPermission(userRole, userId, row, "edit");
+      const canDelete = hasPermission(userRole, userId, row, "delete");
+
+      // If no permissions, show empty box or minimal content
+      if (!canEdit && !canDelete) {
+        return <Box sx={{ minWidth: 80 }}>-</Box>;
+      }
+
+      return (
         <Box sx={{ display: "flex", gap: 1 }}>
-          <Skeleton variant="circular" width={32} height={32} />
-          <Skeleton variant="circular" width={32} height={32} />
+          {canEdit && (
+            <IconButton
+              color="primary"
+              onClick={() => handleEdit(row)}
+              title="Edit candidate"
+            >
+              <Edit fontSize="small" />
+            </IconButton>
+          )}
+          {canDelete && (
+            <IconButton
+              color="error"
+              onClick={() => handleDelete(row)}
+              title="Delete candidate"
+            >
+              <Delete fontSize="small" />
+            </IconButton>
+          )}
         </Box>
-      ) : (
-        <Box sx={{ display: "flex", gap: 1 }}>
-          <IconButton
-            color="primary"
-            onClick={() => handleEdit(row)}
-            title="Edit candidate"
-          >
-            <Edit fontSize="small" />
-          </IconButton>
-          <IconButton
-            color="error"
-            onClick={() => handleDelete(row)}
-            title="Delete candidate"
-          >
-            <Delete fontSize="small" />
-          </IconButton>
-        </Box>
-      ),
+      );
+    },
   },
 ];
 
