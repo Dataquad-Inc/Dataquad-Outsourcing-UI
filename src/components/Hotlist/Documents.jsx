@@ -25,12 +25,14 @@ import {
 } from "@mui/icons-material";
 import { showErrorToast, showSuccessToast } from "../../utils/toastUtils";
 import showDeleteConfirm from "../../utils/showDeleteConfirm";
+import { useSelector } from "react-redux";
 
 const Documents = ({ consultantId }) => {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
   const [uploading, setUploading] = useState(false);
+  const { userId } = useSelector((state) => state.auth);
 
   useEffect(() => {
     fetchDocuments();
@@ -60,37 +62,36 @@ const Documents = ({ consultantId }) => {
     }
   };
 
-const handleDownload = async (documentId, fileName) => {
-  try {
-    const res = await fetch(
-      `https://mymulya.com/hotlist/download-document/${documentId}`
-    );
-    if (!res.ok) throw new Error("Failed to download document");
+  const handleDownload = async (documentId, fileName) => {
+    try {
+      const res = await fetch(
+        `https://mymulya.com/hotlist/download-document/${documentId}`
+      );
+      if (!res.ok) throw new Error("Failed to download document");
 
-    const blob = await res.blob();
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = fileName || `Document_${documentId}`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName || `Document_${documentId}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
 
- 
-    showSuccessToast(`Document "${fileName || documentId}" downloaded successfully.`);
-  } catch (error) {
-    
-    showErrorToast(`Download failed: ${error.message}`);
-  }
-};
+      showSuccessToast(
+        `Document "${fileName || documentId}" downloaded successfully.`
+      );
+    } catch (error) {
+      showErrorToast(`Download failed: ${error.message}`);
+    }
+  };
 
- const handleDelete = (documentId, fileName) => {
-  showDeleteConfirm(
-    async () => {
+  const handleDelete = (documentId, fileName) => {
+    showDeleteConfirm(async () => {
       try {
         const res = await fetch(
-          `https://mymulya.com/hotlist/deleteDocument/${documentId}`,
+          `https://mymulya.com/hotlist/deleteDocument/${documentId}/${userId}`,
           { method: "DELETE" }
         );
 
@@ -99,19 +100,14 @@ const handleDownload = async (documentId, fileName) => {
         // ✅ Success toast
         showSuccessToast(`Document "${documentId}" deleted successfully.`);
 
-     
         setDocuments((prev) =>
           prev.filter((doc) => doc.documentId !== documentId)
         );
       } catch (error) {
-       
         showErrorToast(`Delete failed: ${error.message}`);
       }
-    },
-    fileName || "this document"
-  );
-};
-
+    }, fileName || "this document");
+  };
 
   const handleUpload = async (event) => {
     const file = event.target.files?.[0];

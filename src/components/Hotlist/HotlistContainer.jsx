@@ -32,7 +32,7 @@ const HotlistContainer = () => {
       },
     ];
   } else {
-    // Tabs for TEAMLEAD, RECRUITER, etc.
+    // Tabs for TEAMLEAD, RECRUITER, SALESEXECUTIVE, etc.
     tabs = [
       {
         label: "Home",
@@ -49,19 +49,23 @@ const HotlistContainer = () => {
         icon: <ListAltIcon />,
         path: "/dashboard/hotlist/consultants",
       },
-      {
-        label: "Add Consultant",
-        icon: <PersonAddIcon />,
-        path: "/dashboard/hotlist/create",
-      },
     ];
 
     // Show only for TEAMLEAD / RECRUITER
-    if (role === "TEAMLEAD"|| role === "SALESEXECUTIVE") {
+    if (role === "TEAMLEAD" || role === "SALESEXECUTIVE") {
       tabs.splice(2, 0, {
         label: "Team Consultants",
         icon: <ListAltIcon />,
         path: "/dashboard/hotlist/team-consultants",
+      });
+    }
+
+    // Add Consultant tab only if NOT SALESEXECUTIVE
+    if (role !== "SALESEXECUTIVE") {
+      tabs.push({
+        label: "Add Consultant",
+        icon: <PersonAddIcon />,
+        path: "/dashboard/hotlist/create",
       });
     }
   }

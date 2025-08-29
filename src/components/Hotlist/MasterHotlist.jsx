@@ -11,6 +11,9 @@ import {
 } from "../../utils/toastUtils";
 import showDeleteConfirm from "../../utils/showDeleteConfirm";
 import { hotlistAPI } from "../../utils/api";
+import { useSelector } from "react-redux";
+
+
 
 const useDebounce = (value, delay) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -23,7 +26,9 @@ const useDebounce = (value, delay) => {
 
 const MasterHotlist = React.memo(() => {
   const theme = useTheme();
+  
   const navigate = useNavigate();
+  const { userId } = useSelector((state) => state.auth);
 
   const [consultants, setConsultants] = useState([]);
   const [total, setTotal] = useState(0);
@@ -113,7 +118,7 @@ const MasterHotlist = React.memo(() => {
   const handleDelete = useCallback((row) => {
     const deleteConsultantAction = async () => {
       try {
-        const result = await hotlistAPI.deleteConsultant(row.consultantId);
+        const result = await hotlistAPI.deleteConsultant(row.consultantId,userId);
         showSuccessToast(result.message || "Consultant deleted 🗑️");
         setRefreshKey((prev) => prev + 1);
       } catch (error) {

@@ -273,9 +273,9 @@ export const hotlistAPI = {
   },
 
   // Delete consultant
-  deleteConsultant: async (consultantId) => {
+  deleteConsultant: async (consultantId,userId) => {
     if (!consultantId) throw new Error("Consultant ID is required");
-    return apiDelete(`/hotlist/deleteConsultant/${consultantId}`);
+    return apiDelete(`/hotlist/deleteConsultant/${consultantId}/${userId}`);
   },
 
   // Get users by role

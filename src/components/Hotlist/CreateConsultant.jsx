@@ -37,12 +37,20 @@ const CreateHotListUser = ({
   const navigate = useNavigate();
   const [showDocuments, setShowDocuments] = useState(true);
   const [selectedTeamleadId, setSelectedTeamleadId] = useState(
-    initialValues.teamleadId || ""
+    initialValues.teamleadId || initialValues.teamLeadId || ""
+  );
+  
+
+  // State to store predefined options for edit mode
+  const [predefinedRecruiters, setPredefinedRecruiters] = useState([]);
+  const [predefinedSalesExecutives, setPredefinedSalesExecutives] = useState(
+    []
   );
 
   // Selectors
   const employees = useSelector((state) => state.usEmployees.employees);
   const { role, userId } = useSelector((state) => state.auth);
+
 
   // Hotlist specific selectors
   const isCreating = useSelector(selectIsCreating);
@@ -73,6 +81,31 @@ const CreateHotListUser = ({
       dispatch(fetchTeamMembers(selectedTeamleadId));
     }
   }, [userId, dispatch, selectedTeamleadId]);
+
+  // Handle predefined values for edit mode
+  useEffect(() => {
+    if (isEditMode && initialValues) {
+      // Create predefined options for recruiter if recruiterId exists
+      if (initialValues.recruiterId && initialValues.recruiterName) {
+        setPredefinedRecruiters([
+          {
+            userId: initialValues.recruiterId,
+            userName: initialValues.recruiterName,
+          },
+        ]);
+      }
+
+      // Create predefined options for sales executive if salesExecutiveId exists
+      if (initialValues.salesExecutiveId && initialValues.salesExecutive) {
+        setPredefinedSalesExecutives([
+          {
+            userId: initialValues.salesExecutiveId,
+            userName: initialValues.salesExecutive,
+          },
+        ]);
+      }
+    }
+  }, [isEditMode, initialValues]);
 
   // Clear errors on mount and when switching modes
   useEffect(() => {
@@ -109,6 +142,11 @@ const CreateHotListUser = ({
 
   const handleTeamleadChange = (teamLeadId) => {
     setSelectedTeamleadId(teamLeadId);
+    // Clear predefined values when team lead changes (only in edit mode)
+    if (isEditMode) {
+      setPredefinedRecruiters([]);
+      setPredefinedSalesExecutives([]);
+    }
   };
 
   const handleSubmit = async (values, formikHelpers) => {
@@ -143,7 +181,7 @@ const CreateHotListUser = ({
 
         const updatePayload = {
           ...cleanValues,
-          recruiterId: userId,
+          recruiterId: cleanValues.recruiterId,
         };
 
         // Remove file fields from JSON payload if they exist
@@ -240,6 +278,17 @@ const CreateHotListUser = ({
     teamLeadId: selectedTeamleadId || initialValues.teamLeadId,
   };
 
+  // Get the effective recruiters and sales executives for the form
+  const effectiveRecruiters =
+    isEditMode && predefinedRecruiters.length > 0
+      ? predefinedRecruiters
+      : recruiters;
+
+  const effectiveSalesExecutives =
+    isEditMode && predefinedSalesExecutives.length > 0
+      ? predefinedSalesExecutives
+      : salesExecutives;
+
   return (
     <Box>
       {/* Show existing documents in edit mode */}
@@ -281,9 +330,10 @@ const CreateHotListUser = ({
       <DynamicFormUltra
         config={getHotListUserSections(
           employees,
-          recruiters,
-          salesExecutives,
-          handleTeamleadChange
+          effectiveRecruiters,
+          effectiveSalesExecutives,
+          handleTeamleadChange,
+          isEditMode
         )}
         onSubmit={handleSubmit}
         title={formTitle}
