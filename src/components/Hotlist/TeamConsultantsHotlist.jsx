@@ -4,7 +4,11 @@ import { useNavigate } from "react-router-dom";
 import CustomDataTable from "../../ui-lib/CustomDataTable";
 import getHotListColumns from "./hotListColumns";
 import CreateConsultant from "./CreateConsultant";
-import { showErrorToast, showSuccessToast, showInfoToast } from "../../utils/toastUtils";
+import {
+  showErrorToast,
+  showSuccessToast,
+  showInfoToast,
+} from "../../utils/toastUtils";
 import showDeleteConfirm from "../../utils/showDeleteConfirm";
 import { hotlistAPI } from "../../utils/api";
 import { useSelector } from "react-redux";
@@ -22,7 +26,7 @@ const useDebounce = (value, delay) => {
 const TeamConsultantsHotlist = React.memo(() => {
   const theme = useTheme();
   const navigate = useNavigate();
-  const { userId } = useSelector((state) => state.auth);
+  const { userId, role } = useSelector((state) => state.auth); // Get both userId and role
 
   const [consultants, setConsultants] = useState([]);
   const [total, setTotal] = useState(0);
@@ -51,10 +55,10 @@ const TeamConsultantsHotlist = React.memo(() => {
       setConsultants(result?.data?.content || []);
       setTotal(result?.data?.totalElements || 0);
 
-      showInfoToast("Consultants loaded successfully ✅");
+      showInfoToast("Consultants loaded successfully ");
     } catch (err) {
       console.error("Error fetching consultants:", err);
-      showErrorToast("Failed to load consultants ❌");
+      showErrorToast("Failed to load consultants ");
     } finally {
       setLoading(false);
     }
@@ -71,10 +75,16 @@ const TeamConsultantsHotlist = React.memo(() => {
       ...row,
       consultantId: row.consultantId, // Ensure consultantId is preserved
     };
-    
+
     // Remove timestamp fields that shouldn't be edited
-    const { teamleadName, recruiterName, consultantAddedTimeStamp, updatedTimeStamp, ...cleanEditData } = editData;
-    
+    const {
+      teamleadName,
+      recruiterName,
+      consultantAddedTimeStamp,
+      updatedTimeStamp,
+      ...cleanEditData
+    } = editData;
+
     console.log("Setting edit data (TeamConsultantsHotlist):", cleanEditData); // Debug log
     setEditingConsultant(cleanEditData);
     setShowCreateForm(true);
@@ -94,8 +104,8 @@ const TeamConsultantsHotlist = React.memo(() => {
   const handleFormSuccess = useCallback((data, action) => {
     showSuccessToast(
       action === "create"
-        ? "Consultant created successfully 🎉"
-        : "Consultant updated successfully ✨"
+        ? "Consultant created successfully "
+        : "Consultant updated successfully "
     );
     setShowCreateForm(false);
     setEditingConsultant(null);
@@ -107,11 +117,11 @@ const TeamConsultantsHotlist = React.memo(() => {
     const deleteConsultantAction = async () => {
       try {
         const result = await hotlistAPI.deleteConsultant(row.consultantId);
-        showSuccessToast(result.message || "Consultant deleted 🗑️");
+        showSuccessToast(result.message || "Consultant deleted ");
         setRefreshKey((prev) => prev + 1);
       } catch (error) {
         console.error("Delete error:", error);
-        showErrorToast("Failed to delete consultant ❌");
+        showErrorToast("Failed to delete consultant ");
       }
     };
     showDeleteConfirm(deleteConsultantAction, row.name || "this consultant");
@@ -127,6 +137,8 @@ const TeamConsultantsHotlist = React.memo(() => {
     handleEdit,
     handleDelete,
     loading,
+    userRole: role, // Pass user role
+    userId: userId, // Pass user ID
   });
 
   /** ---------------- Render ---------------- */
