@@ -11,6 +11,7 @@ import placementReducer from "../redux/placementSlice";
 import dashboardReducer from "../redux/dashboardSlice";
 import teamMetricsReducer from "../redux/teamMetricsSlice";
 import inProgressReducer from "../redux/inProgressSlice";
+import timesheetReducer from "../redux/timesheetSlice";
 //us store data
 import usEmployeess from "../redux/usEmployees";
 import hotlistReducer from "../redux/hotlist";
@@ -29,6 +30,7 @@ export const store = configureStore({
     dashboard: dashboardReducer,
     teamMetrics: teamMetricsReducer,
     inProgress: inProgressReducer,
+    timesheet: timesheetReducer,
     //us reducers
     hotlist: hotlistReducer,
     usEmployees: usEmployeess,

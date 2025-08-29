@@ -14,15 +14,14 @@ import ToastService from "../../Services/toastService";
  * @param {string} userRole - Current user's role
  * @param {string} [basePath='/dashboard/timesheetsForAdmins'] - Base path for navigation
  */
-// navigationHelpers.js
-/**
- * Handles navigation to employee timesheet detail page with role-based logic
- * @param {Object} row - The employee row data
- * @param {Function} navigate - React Router navigate function
- * @param {string} userRole - Current user's role
- * @param {string} [basePath='/dashboard/timesheetsForAdmins'] - Base path for navigation
- */
 export const handleEmployeeNameClick = (row, navigate, userRole, basePath = '/dashboard/timesheetsForAdmins') => {
+  // If user has ACCOUNTS role, navigate to Timesheets component instead of employee detail
+  if (userRole === 'ACCOUNTS') {
+    navigate('/dashboard/timesheets');
+    ToastService.info('Redirected to timesheets management');
+    return;
+  }
+
   // Extract userId with fallback options
   const userId = row.userId || row.employeeId || 'ADRTIN1235';
   
@@ -39,10 +38,10 @@ export const handleEmployeeNameClick = (row, navigate, userRole, basePath = '/da
     return;
   }
 
-  // Construct navigation path - ALL roles go to the same path now
-  const navigationPath = `${basePath}/employee/${userId}/${encodeURIComponent(row.employeeName)}`;
+  // Construct navigation path
+  const navigationPath = `${basePath}/employee/${userId}`;
   
-  // Navigate with state for role information
+  // Navigate with state for back navigation
   navigate(navigationPath, {
     state: { 
       from: basePath,
@@ -50,10 +49,7 @@ export const handleEmployeeNameClick = (row, navigate, userRole, basePath = '/da
         userId,
         employeeName: row.employeeName,
         employeeType: row.employeeType,
-        clientName: row.clientName,
-        // Add role information to determine view type
-        viewAsRole: (userRole === 'SUPERADMIN' || userRole === 'ACCOUNTS') ? 'EXTERNALEMPLOYEE' : userRole,
-        currentUserRole: userRole
+        clientName: row.clientName
       }
     }
   });
@@ -101,12 +97,13 @@ export const generateTimesheetPaths = (userRole, userId, employeeName, basePath 
   const encodedName = encodeURIComponent(employeeName);
   
   return {
-    employeeDetail: `${basePath}/employee/${userId}/${encodedName}`,
+    employeeDetail: userRole === 'ACCOUNTS' ? '/dashboard/timesheets' : `${basePath}/employee/${userId}`,
     employeeList: basePath,
     addTimesheet: '/dashboard/timesheets',
-    shouldRedirectToTimesheets: false // Remove redirection logic
+    shouldRedirectToTimesheets: userRole === 'ACCOUNTS'
   };
 };
+
 /**
  * Gets status color for timesheet status
  * @param {string} status - Timesheet status

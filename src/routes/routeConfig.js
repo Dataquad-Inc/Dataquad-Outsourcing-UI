@@ -414,29 +414,44 @@ const routeConfig = [
               },
             ],
           },
-     //Timesheets
+          //Timesheets
           {
             path: "timesheets",
             element: (
               <ProtectedRoute
-                allowedRoles={["EXTERNALEMPLOYEE","SUPERADMIN","ACCOUNTS"]}
+                allowedRoles={["EXTERNALEMPLOYEE", "SUPERADMIN", "ACCOUNTS"]}
                 allowedEntities={["IN"]}
               />
             ),
-            children: [{ index: true, element: Loadable(Timesheets) }],
+            children: [
+              { index: true, element: Loadable(Timesheets) },
+              {
+                path: "create",
+                element: (
+                  <ProtectedRoute
+                    allowedRoles={["SUPERADMIN", "ACCOUNTS"]}
+                    allowedEntities={["IN"]}
+                  />
+                ),
+                children: [{ index: true, element: Loadable(Timesheets) }]
+              }
+            ],
           },
           {
             path: "timesheetsForAdmins",
             element: (
               <ProtectedRoute
-                allowedRoles={["SUPERADMIN", "ADMIN","ACCOUNTS"]}
+                allowedRoles={["SUPERADMIN", "ADMIN", "ACCOUNTS"]}
                 allowedEntities={["IN"]}
               />
             ),
-            children: [{ index: true, element: Loadable(TimesheetsForAdmin) },{
+            children: [
+              { index: true, element: Loadable(TimesheetsForAdmin) },
+              {
                 path: "employee/:userId",
                 element: Loadable(EmployeeTimesheetDetail),
-              }],
+              }
+            ],
           },
 
           // HOTLIST (US) - Updated with proper index routing
@@ -460,7 +475,7 @@ const routeConfig = [
                 path: "",
                 element: <HotlistContainer />, // Contains the tabs and <Outlet />
                 children: [
-                 
+
                   {
                     path: "consultants", // /dashboard/hotlist/consultants
                     element: Loadable(Hotlist),
@@ -544,7 +559,7 @@ const routeConfig = [
                     path: "onboardemployee", // /dashboard/us-employees/employeeslist
                     element: Loadable(OnBoardNewEmployee),
                   },
-                   {
+                  {
                     path: "create-team", // /dashboard/us-employees/employeeslist
                     element: Loadable(CreateTeam),
                   },
