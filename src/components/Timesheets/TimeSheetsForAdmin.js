@@ -480,7 +480,7 @@ const TimesheetList = () => {
               <Button
                 variant="contained"
                 startIcon={<Add />}
-                onClick={() => navigate('/dashboard/timesheets')}
+               onClick={() => navigate('/dashboard/timesheets/create')}
                 sx={{
                   px: 3,
                   py: 1,

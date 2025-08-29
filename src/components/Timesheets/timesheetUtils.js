@@ -11,6 +11,9 @@ export const getMondayOfWeek = (date) => {
   return monday;
 };
 
+
+
+
 // Helper function to format date as YYYY-MM-DD consistently
 export const formatDateToYMD = (date) => {
   const d = new Date(date);
@@ -19,6 +22,8 @@ export const formatDateToYMD = (date) => {
   const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
+
+
 
 // Get week dates and info
 export const getWeekDates = (startDate) => {
