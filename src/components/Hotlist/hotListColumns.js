@@ -69,17 +69,23 @@ const getHotListColumns = ({
     filterType: "text",
     render: (v) => renderValue(v, 120, loading),
   },
+  {
+    id: "teamleadName",
+    label: iconLabel(Person, "Teamlead"),
+    render: (v) => renderValue(v, 80, loading),
+  },
+  {
+    id: "salesExecutive",
+    label: iconLabel(SupervisorAccount, "Sales Executive"),
+    render: (v) => renderValue(v, 100, loading),
+  },
 
   {
     id: "recruiterName",
     label: iconLabel(Person, "Recruiter"),
     render: (v) => renderValue(v, 80, loading),
   },
-  {
-    id: "teamleadName",
-    label: iconLabel(Person, "Teamlead"),
-    render: (v) => renderValue(v, 80, loading),
-  },
+
   {
     id: "technology",
     label: iconLabel(Engineering, "Technology"),
@@ -131,11 +137,12 @@ const getHotListColumns = ({
   //   label: iconLabel(FaPassport,"Passport"),
   //   render: (v) => renderValue(v, 60, loading),
   // },
-  {
-    id: "salesExecutive",
-    label: iconLabel(SupervisorAccount, "Sales Executive"),
-    render: (v) => renderValue(v, 100, loading),
-  },
+
+  //  {
+  //   id: "salesExecutiveId",
+  //   label: iconLabel(SupervisorAccount, "Sales Executive"),
+  //   render: (v) => renderValue(v, 100, loading),
+  // },
   // {
   //   id: "remoteOnsite",
   //   label: iconLabel(Public, "Remote/Onsite"),

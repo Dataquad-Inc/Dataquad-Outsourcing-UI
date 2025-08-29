@@ -1,9 +1,13 @@
 import { validateDate } from "@mui/x-date-pickers";
+import { is } from "date-fns/locale";
+
 const getHotListUserSections = (
   employees,
   recruiters,
   salesExecutives,
-  onTeamleadChange = null
+  onTeamleadChange = null,
+  isEditMode = false
+ 
 ) => {
   return [
     {
@@ -46,6 +50,10 @@ const getHotListUserSections = (
             label: emp.userName,
             value: emp.userId,
           })),
+          // In edit mode, if no options available but we have a value, show placeholder
+          placeholder: isEditMode && salesExecutives.length === 0 
+            ? "Sales Executive will load when team lead is selected"
+            : undefined,
         },
         {
           name: "recruiterId",
@@ -56,6 +64,10 @@ const getHotListUserSections = (
             label: emp.userName,
             value: emp.userId,
           })),
+          // In edit mode, if no options available but we have a value, show placeholder
+          placeholder: isEditMode && recruiters.length === 0 
+            ? "Recruiter will load when team lead is selected"
+            : undefined,
         },
       ],
     },
@@ -83,6 +95,14 @@ const getHotListUserSections = (
           type: "text",
           icon: "LocationOn",
         },
+         {
+          name: "isAssignAll",
+          label: "Assign to All",
+          type: "checkbox",
+          required: false,
+          icon: "CheckBox", 
+          defaultChecked: false,
+        },
       ],
     },
     {
@@ -108,14 +128,7 @@ const getHotListUserSections = (
           type: "link",
           icon: "LinkedIn",
         },
-        {
-          name: "isAssignAll",
-          label: "Assign to All",
-          type: "checkbox",
-          required: false,
-          icon: "CheckBox", // Optional icon
-          defaultChecked: false,
-        },
+       
       ],
     },
 
@@ -129,9 +142,10 @@ const getHotListUserSections = (
           required: true,
           icon: "Adjust",
           options: [
-            { label: "Available", value: "Available" },
-            { label: "Busy", value: "Busy" },
-            { label: "On Project", value: "On Project" },
+            { label: "ACTIVE", value: "Active" },
+            { label: "INACTIVE", value: "InActive" },
+            { label: "ON HOLD", value: "On Hold" },
+            { label: "PLACED", value: "Placed" },
           ],
         },
         {
@@ -272,7 +286,7 @@ const getHotListUserSections = (
           name: "resumes",
           label: "Upload Resume",
           type: "file",
-          required: true,
+          required: !isEditMode, // Make optional in edit mode
           multiple: true,
           accept: ".pdf,.doc,.docx",
           maxSize: 10,

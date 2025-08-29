@@ -12,6 +12,7 @@ import HomeIcon from "@mui/icons-material/Home";
 import AutorenewIcon from "@mui/icons-material/Autorenew";
 import PeopleIcon from "@mui/icons-material/People";
 import BadgeIcon from '@mui/icons-material/Badge';
+import { icons } from "lucide-react";
 
 // Adroit Route Config
 export const usNavItems = (role) => [
@@ -33,4 +34,10 @@ export const usNavItems = (role) => [
     icon: <BadgeIcon />,
     roles: ["SUPERADMIN", "ADMIN"],
   },
+  {
+    text:"Yet To Onboard",
+    path:"pre-hotlist",
+    icon: <HourglassIcon/>,
+    roles:["SUPERADMIN"]
+  }
 ];

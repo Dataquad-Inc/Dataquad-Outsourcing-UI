@@ -65,6 +65,7 @@ const EmployeeStatus = lazy(() =>
   import("../components/TeamMetrics/EmployeeStatus")
 );
 const Hotlist = lazy(() => import("../components/Hotlist/Hotlist"));
+const YetToOnboard = lazy(() => import("../components/Hotlist/YetToOnboard"));
 const UsEmployees = lazy(() => import("../components/UsEmployees/UsEmployees"));
 const CreateTeam = lazy(() => import("../components/UsEmployees/CreateTeam"));
 const Teamlist = lazy(() => import("../components/UsEmployees/Teamlist"));
@@ -488,7 +489,32 @@ const routeConfig = [
                     path: "team-consultants/:consultantId", // /dashboard/hotlist/team-consultants/:id
                     element: Loadable(ConsultantProfile),
                   },
+                  
                 ],
+              },
+            ],
+          },
+
+           {
+            path: "pre-hotlist",
+            element: (
+              <ProtectedRoute
+                allowedRoles={[
+                  "SUPERADMIN",
+                  "ADMIN",
+                  "TEAMLEAD",
+                  "EMPLOYEE",
+                  "RECRUITER",
+                  "SALESEXECUTIVE",
+                ]}
+                allowedEntities={["US"]}
+              />
+            ),
+            children: [
+              {
+                path: "",
+                element: <YetToOnboard />, // Contains the tabs and <Outlet />
+                
               },
             ],
           },
@@ -531,6 +557,7 @@ const routeConfig = [
               },
             ],
           },
+          
         ],
       },
     ],
