@@ -34,7 +34,7 @@ const getHotListUserSections = (
           label: "Teamlead",
           type: "select",
           icon: "Group",
-          required: true,
+          // required: true,
           options: employees.map((emp) => ({
             label: emp.employeeName,
             value: emp.employeeId,

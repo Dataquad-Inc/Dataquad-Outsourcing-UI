@@ -152,6 +152,7 @@ const getHotListColumns = ({
     label: iconLabel(RiVisaFill, "Marketing Visa"),
     render: (v) => renderValue(v, 80, loading),
   },
+
   {
     id: "actualVisa",
     label: iconLabel(RiVisaFill, "Actual Visa"),

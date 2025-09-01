@@ -36,8 +36,8 @@ export const usNavItems = (role) => [
   },
   {
     text:"Yet To Onboard",
-    path:"pre-hotlist",
+    path:"yet-to-onboard",
     icon: <HourglassIcon/>,
-    roles:["SUPERADMIN"]
+    roles:["SUPERADMIN", "EMPLOYEE", "TEAMLEAD", "RECRUITER", "SALESEXECUTIVE", "ADMIN"]
   }
 ];

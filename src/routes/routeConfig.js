@@ -65,15 +65,20 @@ const EmployeeStatus = lazy(() =>
   import("../components/TeamMetrics/EmployeeStatus")
 );
 const Hotlist = lazy(() => import("../components/Hotlist/Hotlist"));
-const YetToOnboard = lazy(() => import("../components/Hotlist/YetToOnboard"));
+const YetToOnboard = lazy(() =>
+  import("../components/YetToOnboard/YetToOnboard")
+);
 const UsEmployees = lazy(() => import("../components/UsEmployees/UsEmployees"));
 const CreateTeam = lazy(() => import("../components/UsEmployees/CreateTeam"));
 const Teamlist = lazy(() => import("../components/UsEmployees/Teamlist"));
-const OnBoardNewEmployee = lazy(() => import("../components/UsEmployees/OnBoradNewEmployee"));
+const OnBoardNewEmployee = lazy(() =>
+  import("../components/UsEmployees/OnBoradNewEmployee")
+);
 
 const ConsultantProfile = lazy(() =>
   import("../components/Hotlist/ConsultantProfile")
 );
+
 const TeamConsultantsHotlist = lazy(() =>
   import("../components/Hotlist/TeamConsultantsHotlist")
 );
@@ -85,11 +90,20 @@ const CreateConsultant = lazy(() =>
 );
 const MasterHotlist = lazy(() => import("../components/Hotlist/MasterHotlist"));
 
+//yet-to-bonboard
+
+const YetToOnBoardContainer = lazy(() =>
+  import("../components/YetToOnboard/YetToOnBoardContainer")
+);
 
 //Timesheets
 const Timesheets = lazy(() => import("../components/Timesheets/TimeSheets"));
-const TimesheetsForAdmin = lazy(() => import("../components/Timesheets/TimeSheetsForAdmin"));
-const EmployeeTimesheetDetail = lazy(() => import("../components/Timesheets/EmployeeTimesheetDetail"));
+const TimesheetsForAdmin = lazy(() =>
+  import("../components/Timesheets/TimeSheetsForAdmin")
+);
+const EmployeeTimesheetDetail = lazy(() =>
+  import("../components/Timesheets/EmployeeTimesheetDetail")
+);
 
 // const HotlistDetail = lazy(() => import("../components/Hotlist/HotlistDetail"));
 const Unauthorized = lazy(() => import("../pages/Unauthorized"));
@@ -118,7 +132,7 @@ const routeConfig = [
           "COORDINATOR",
           "SALESEXECUTIVE",
           "EXTERNALEMPLOYEE",
-          "ACCOUNTS"
+          "ACCOUNTS",
         ]}
       />
     ),
@@ -145,7 +159,7 @@ const routeConfig = [
                   "INVOICE",
                   "COORDINATOR",
                   "EXTERNALEMPLOYEE",
-                  "ACCOUNTS"
+                  "ACCOUNTS",
                 ]}
                 allowedEntities={["IN"]}
               />
@@ -433,8 +447,8 @@ const routeConfig = [
                     allowedEntities={["IN"]}
                   />
                 ),
-                children: [{ index: true, element: Loadable(Timesheets) }]
-              }
+                children: [{ index: true, element: Loadable(Timesheets) }],
+              },
             ],
           },
           {
@@ -450,7 +464,7 @@ const routeConfig = [
               {
                 path: "employee/:userId",
                 element: Loadable(EmployeeTimesheetDetail),
-              }
+              },
             ],
           },
 
@@ -475,7 +489,6 @@ const routeConfig = [
                 path: "",
                 element: <HotlistContainer />, // Contains the tabs and <Outlet />
                 children: [
-
                   {
                     path: "consultants", // /dashboard/hotlist/consultants
                     element: Loadable(Hotlist),
@@ -504,14 +517,13 @@ const routeConfig = [
                     path: "team-consultants/:consultantId", // /dashboard/hotlist/team-consultants/:id
                     element: Loadable(ConsultantProfile),
                   },
-                  
                 ],
               },
             ],
           },
 
-           {
-            path: "pre-hotlist",
+          {
+            path: "yet-to-onboard",
             element: (
               <ProtectedRoute
                 allowedRoles={[
@@ -528,8 +540,17 @@ const routeConfig = [
             children: [
               {
                 path: "",
-                element: <YetToOnboard />, // Contains the tabs and <Outlet />
-                
+                element: <YetToOnBoardContainer />,
+                children: [
+                  {
+                    index: true,
+                    element: Loadable(YetToOnboard), 
+                  },
+                  {
+                    path: "create-consultant",
+                    element: Loadable(CreateConsultant),
+                  },
+                ],
               },
             ],
           },
@@ -566,13 +587,11 @@ const routeConfig = [
                   {
                     path: "teamlist", // /dashboard/us-employees/teamlist
                     element: Loadable(Teamlist),
-                  }
-
+                  },
                 ],
               },
             ],
           },
-          
         ],
       },
     ],
