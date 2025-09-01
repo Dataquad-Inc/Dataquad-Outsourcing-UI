@@ -6,30 +6,32 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
 import { PickersDay } from '@mui/x-date-pickers/PickersDay';
-import { AccessTime, AttachFile, Delete, CloudUpload, ThumbDown } from '@mui/icons-material';
+import { AccessTime, AttachFile, Delete, CloudUpload, ThumbDown, Visibility } from '@mui/icons-material';
 import TimesheetTableSection from './TimesheetTableSection';
 import enGB from 'date-fns/locale/en-GB';
 
 const TimesheetMainView = (props) => {
   // All props are passed from TimeSheets.js
-  // Destructure as needed
   const {
-    alert, handleCloseAlert, selectedProject, projects, role, selectedEmployee,
-    setSelectedEmployee, externalEmployeesOptions, calendarValue, setCalendarValue,
-    CustomDay, highlightedWeek, currentTimesheet, currentWeekInfo, isSubmitted, pendingAttachments,
-    loading, getProjectConfig, getWorkingDaysHours, getPercentageColor, calculatePercentage,
-    handleHourChange, isFieldEditable, notes, handleNotesChange, fetchOrCreateTimesheet,
-    saveTimesheet, submitWeeklyTimesheet, isFridayInPresentWeek, onApprove, onReject, onCancel,
-    adminActionLoading, hasUnsavedChanges, rejectionReason, setRejectionReason, rejectDialogOpen,
-    setRejectDialogOpen, uploadDialogOpen, setUploadDialogOpen, uploading, handleUploadAttachments,
-    handleFileSelect, fileInputRef, selectedFiles, setSelectedFiles, attachments, handleRemoveAttachment,
-    projectDetails, timesheetData, getWeekDates, getSelectedProjectDetails, getTotalWorkingDays,
-    selectedWeekStart, isPresentWeek, handleRejectTimesheet
-    , setSelectedProject, formatFileSize,isCreateMode,isAddingNewTimesheet,
-  handleCancelAddTimesheet,
-  handleAddTimesheetClick,
-  tempEmployeeForAdd,
-  setTempEmployeeForAdd,clients} = props;
+    alert, handleCloseAlert, selectedProject, setSelectedProject, clients, role,
+    selectedEmployee, setSelectedEmployee, externalEmployeesOptions, calendarValue,
+    setCalendarValue, CustomDay, highlightedWeek, currentTimesheet, currentWeekInfo,
+    isSubmitted, pendingAttachments, loading, getProjectConfig, getWorkingDaysHours,
+    getPercentageColor, calculatePercentage, handleHourChange, isFieldEditable,
+    notes, handleNotesChange, fetchOrCreateTimesheet, saveTimesheet, submitWeeklyTimesheet,
+    isFridayInPresentWeek, onApprove, onReject, onCancel, adminActionLoading,
+    hasUnsavedChanges, rejectionReason, setRejectionReason, rejectDialogOpen,
+    setRejectDialogOpen, uploadDialogOpen, setUploadDialogOpen, uploading,
+    handleUploadAttachments, handleFileSelect, fileInputRef, selectedFiles,
+    setSelectedFiles, attachments, handleRemoveAttachment, projectDetails,
+    timesheetData, getWeekDates, getSelectedProjectDetails, getTotalWorkingDays,
+    selectedWeekStart, isPresentWeek, handleRejectTimesheet, formatFileSize,
+    isCreateMode, isAddingNewTimesheet, handleCancelAddTimesheet, handleAddTimesheetClick,
+    tempEmployeeForAdd, setTempEmployeeForAdd, handleViewAttachments, AttachmentsDialog,
+    employeeProjects,
+    loadingEmployeeProjects,
+    handleEmployeeChange
+  } = props;
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -73,56 +75,86 @@ const TimesheetMainView = (props) => {
             {/* Left Side: Project & Employee + Calendar */}
             <Grid item xs={12} md={5}>
               <Grid container spacing={2}>
-                {/* Project Dropdown */}
-         {/* Project Dropdown */}
-<Grid item xs={12} md={6}>
-  <FormControl fullWidth size="small">
-    <InputLabel id="project-select-label">Select Project</InputLabel>
-    <Select
-      labelId="project-select-label"
-      value={selectedProject}
-      label="Select Project"
-      onChange={(e) => props.setSelectedProject(e.target.value)}
-    >
-      <MenuItem value="">Choose a project...</MenuItem>
-      {clients.map((clientName) => (
-        <MenuItem key={clientName} value={clientName}>
-          {clientName}
-        </MenuItem>
-      ))}
-    </Select>
-  </FormControl>
-</Grid>
 
-                {/* Employee Dropdown (only for SUPERADMIN and ACCOUNTS) */}
-{/* Employee Dropdown (only for SUPERADMIN and ACCOUNTS) */}
-{(role === "SUPERADMIN" || role === "ACCOUNTS") && (
-  <Grid item xs={12} md={6}>
-    <FormControl fullWidth size="small">
-      <InputLabel id="employee-select-label">Select Employee</InputLabel>
-      <Select
-        labelId="employee-select-label"
-        value={isCreateMode && isAddingNewTimesheet ? tempEmployeeForAdd : selectedEmployee}
-        label="Select Employee"
-        onChange={(e) => {
-          if (isCreateMode) {
-            setTempEmployeeForAdd(e.target.value);
-            handleAddTimesheetClick(e.target.value);
-          } else {
-            setSelectedEmployee(e.target.value);
-          }
-        }}
-      >
-        <MenuItem value="">Choose an employee...</MenuItem>
-        {externalEmployeesOptions.map((emp) => (
-          <MenuItem key={emp.value} value={emp.value}>
-            {emp.label}
-          </MenuItem>
-        ))}
-      </Select>
-    </FormControl>
-  </Grid>
-)}
+                {((role === "SUPERADMIN" || role === "ACCOUNTS") || (isCreateMode && isAddingNewTimesheet)) && (
+                  <Grid item xs={12} md={6}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel id="employee-select-label">Select Employee</InputLabel>
+                      <Select
+                        labelId="employee-select-label"
+                        value={selectedEmployee} // Always use selectedEmployee, not tempEmployeeForAdd
+                        label="Select Employee"
+                        onChange={(e) => handleEmployeeChange(e.target.value)}
+                      >
+                        <MenuItem value="">Choose an employee...</MenuItem>
+                        {externalEmployeesOptions && externalEmployeesOptions.map((emp) => (
+                          <MenuItem key={emp.value} value={emp.value}>
+                            {emp.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                )}
+
+                {/* Project Dropdown */}
+                {/* Project Dropdown */}
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel id="project-select-label">Select Project</InputLabel>
+                    <Select
+                      labelId="project-select-label"
+                      value={selectedProject}
+                      label="Select Project"
+                      onChange={(e) => {
+                        console.log('Project selected:', e.target.value);
+                        setSelectedProject(e.target.value);
+                      }}
+                      disabled={loading || ((role === 'SUPERADMIN' || role === 'ACCOUNTS') && !selectedEmployee)}
+                    >
+                      <MenuItem value="">Choose a project...</MenuItem>
+
+                      {/* For SUPERADMIN/ACCOUNTS with selected employee */}
+                      {(role === 'SUPERADMIN' || role === 'ACCOUNTS') && selectedEmployee ? (
+                        loadingEmployeeProjects ? (
+                          <MenuItem value="" disabled>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <CircularProgress size={16} />
+                              Loading projects...
+                            </Box>
+                          </MenuItem>
+                        ) : employeeProjects && employeeProjects.length > 0 ? (
+                          employeeProjects.map((project, index) => {
+                            // Handle both string and object project formats
+                            const projectValue = typeof project === 'string' ? project : project.name || project.projectName || project.id;
+                            const projectLabel = typeof project === 'string' ? project : project.name || project.projectName || project.id;
+
+                            return (
+                              <MenuItem key={index} value={projectValue}>
+                                {projectLabel}
+                              </MenuItem>
+                            );
+                          })
+                        ) : (
+                          <MenuItem value="" disabled>
+                            No projects found for this employee
+                          </MenuItem>
+                        )
+                      ) : (
+                        // For other roles or no employee selected
+                        clients && clients.map((clientName, index) => (
+                          <MenuItem key={index} value={clientName}>
+                            {clientName}
+                          </MenuItem>
+                        ))
+                      )}
+                    </Select>
+                    {(role === 'SUPERADMIN' || role === 'ACCOUNTS') && selectedEmployee &&
+                      employeeProjects && employeeProjects.length === 0 && !loadingEmployeeProjects && (
+                        <FormHelperText>No projects available for selected employee</FormHelperText>
+                      )}
+                  </FormControl>
+                </Grid>
               </Grid>
 
               {/* Calendar */}
@@ -276,6 +308,7 @@ const TimesheetMainView = (props) => {
                       </Typography>
                     </Grid>
 
+
                     {/* Attachments */}
                     <Grid item xs={12} sx={{ mt: 1 }}>
                       {/* Header Row */}
@@ -293,7 +326,6 @@ const TimesheetMainView = (props) => {
                             <AttachFile fontSize="small" />
                           </IconButton>
                         )}
-
                       </Box>
 
                       {/* EXTERNALEMPLOYEE View - Show their own attachments */}
@@ -344,7 +376,7 @@ const TimesheetMainView = (props) => {
                                     </Box>
                                   }
                                   secondary={
-                                    props.formatFileSize(file.size) + " • " + file.uploadDate.toLocaleDateString()
+                                    formatFileSize(file.size) + " • " + file.uploadDate.toLocaleDateString()
                                   }
                                   primaryTypographyProps={{ variant: "body2" }}
                                   secondaryTypographyProps={{ variant: "caption" }}
@@ -359,53 +391,67 @@ const TimesheetMainView = (props) => {
                         )
                       ) : (
                         /* SUPERADMIN/ACCOUNTS View - Show all uploaded attachments */
-                        timesheetData.length > 0 && timesheetData.some(ts => ts.attachments?.length > 0) ? (
-                          <List
-                            dense
-                            sx={{
-                              border: "1px solid",
-                              borderColor: "divider",
-                              borderRadius: 1,
-                              maxHeight: 200,
-                              overflow: "auto",
-                            }}
-                          >
-                            {timesheetData.flatMap((timesheet) =>
-                              timesheet.attachments
-                                ?.filter((att) => att.uploaded)
-                                .map((attachment) => (
-                                  <ListItem
-                                    key={attachment.id}
-                                    secondaryAction={
-                                      <IconButton edge="end" size="small" disabled>
-                                        <CloudUpload fontSize="small" />
-                                      </IconButton>
-                                    }
-                                  >
-                                    <ListItemAvatar>
-                                      <Avatar sx={{ width: 24, height: 24, bgcolor: "success.main" }}>
-                                        <AttachFile sx={{ fontSize: 14 }} />
-                                      </Avatar>
-                                    </ListItemAvatar>
-                                    <ListItemText
-                                      primary={
-                                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                          <Typography variant="body2">
-                                            {attachment.filename || attachment.name}
-                                          </Typography>
-                                          <Chip label="Uploaded" size="small" color="success" variant="outlined" />
-                                        </Box>
+                        timesheetData && Array.isArray(timesheetData) && timesheetData.length > 0 && timesheetData.some(ts => ts.attachments?.length > 0) ? (
+                          <Box>
+                            <List
+                              dense
+                              sx={{
+                                border: "1px solid",
+                                borderColor: "divider",
+                                borderRadius: 1,
+                                maxHeight: 200,
+                                overflow: "auto",
+                              }}
+                            >
+                              {timesheetData.flatMap((timesheet) =>
+                                timesheet?.attachments
+                                  ?.filter((att) => att.uploaded)
+                                  .map((attachment) => (
+                                    <ListItem
+                                      key={attachment.id}
+                                      secondaryAction={
+                                        <IconButton
+                                          edge="end"
+                                          size="small"
+                                          onClick={() => handleViewAttachments(timesheet)}
+                                        >
+                                          <Visibility fontSize="small" />
+                                        </IconButton>
                                       }
-                                      secondary={`${props.formatFileSize(attachment.size || 0)} • ${new Date(
-                                        attachment.uploadedAt || attachment.uploadDate
-                                      ).toLocaleDateString()} • ${timesheet.project || "Unknown Project"}`}
-                                      primaryTypographyProps={{ variant: "body2" }}
-                                      secondaryTypographyProps={{ variant: "caption" }}
-                                    />
-                                  </ListItem>
-                                ))
-                            )}
-                          </List>
+                                    >
+                                      <ListItemAvatar>
+                                        <Avatar sx={{ width: 24, height: 24, bgcolor: "success.main" }}>
+                                          <AttachFile sx={{ fontSize: 14 }} />
+                                        </Avatar>
+                                      </ListItemAvatar>
+                                      <ListItemText
+                                        primary={
+                                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                            <Typography variant="body2">
+                                              {attachment.filename || attachment.name}
+                                            </Typography>
+                                            <Chip label="Uploaded" size="small" color="success" variant="outlined" />
+                                          </Box>
+                                        }
+                                        secondary={`${formatFileSize(attachment.size || 0)} • ${new Date(
+                                          attachment.uploadedAt || attachment.uploadDate
+                                        ).toLocaleDateString()} • ${timesheet.project || "Unknown Project"}`}
+                                        primaryTypographyProps={{ variant: "body2" }}
+                                        secondaryTypographyProps={{ variant: "caption" }}
+                                      />
+                                    </ListItem>
+                                  ))
+                              )}
+                            </List>
+                            <Button
+                              size="small"
+                              startIcon={<Visibility />}
+                              onClick={() => timesheetData[0] && handleViewAttachments(timesheetData[0])}
+                              sx={{ mt: 1 }}
+                            >
+                              View All Attachments
+                            </Button>
+                          </Box>
                         ) : (
                           <Typography variant="body2" color="text.secondary" fontStyle="italic">
                             No uploaded attachments found
@@ -582,6 +628,7 @@ const TimesheetMainView = (props) => {
           </CardContent>
         </Card>
       )}
+      {props.AttachmentsDialog && <props.AttachmentsDialog />}
     </Container>
   );
 };

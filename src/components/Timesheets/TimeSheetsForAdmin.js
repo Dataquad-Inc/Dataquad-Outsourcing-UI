@@ -103,7 +103,7 @@ const TimesheetList = () => {
     }
   };
 
-  // ✅ Fetch data whenever month/year changes
+  //  Fetch data whenever month/year changes
   useEffect(() => {
     fetchTimesheetData(monthStart, monthEnd);
   }, [selectedMonth, selectedYear]);
@@ -411,7 +411,34 @@ const TimesheetList = () => {
     //   ),
     //   width: 100
     // }
+    
   ];
+
+  // TimeSheetsForAdmin.js - Add this function
+const handleViewAttachments = async (row) => {
+  try {
+    // Fetch timesheet details to get attachments
+    const response = await httpService.get(`/timesheet/getTimesheetsByUserId?userId=${row.userId}`);
+    
+    if (response.data && response.data.data) {
+      const timesheets = response.data.data;
+      // Find the relevant timesheet and its attachments
+      // You might need to adjust this logic based on your data structure
+      const attachments = timesheets.flatMap(ts => ts.attachments || []);
+      
+      if (attachments.length > 0) {
+        // Open attachments dialog or show in a modal
+        console.log('Attachments:', attachments);
+        // Implement your attachment viewing logic here
+      } else {
+        ToastService.info('No attachments found for this employee');
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching attachments:', error);
+    ToastService.error('Failed to fetch attachments');
+  }
+};
 
   return (
     <Box sx={{ p: 3, backgroundColor: '#f8fafc', minHeight: '100vh' }}>

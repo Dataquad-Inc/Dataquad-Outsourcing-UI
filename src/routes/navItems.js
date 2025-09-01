@@ -35,7 +35,7 @@ export const inNavItems = [
     text: "Clients",
     path: "clients",
     icon: <BusinessIcon />,
-    roles: [ "SUPERADMIN", "BDM", "PARTNER"],
+    roles: [ "SUPERADMIN", "BDM", "PARTNER","INVOICE"],
   },
    {
     text: "Requirements",
@@ -117,6 +117,6 @@ export const inNavItems = [
     text:"Timesheets",
     path:"timesheetsForAdmins",
     icon:<AssignmentTurnedInIcon/>,
-    roles:["SUPERADMIN","ADMIN","ACCOUNTS"]
+    roles:["SUPERADMIN","ADMIN","ACCOUNTS","INVOICE"]
   }
 ];
