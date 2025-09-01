@@ -25,11 +25,11 @@ const HotlistContainer = () => {
         icon: <ListAltIcon />,
         path: "/dashboard/hotlist/master",
       },
-      {
-        label: "Add Consultant",
-        icon: <PersonAddIcon />,
-        path: "/dashboard/hotlist/create",
-      },
+      // {
+      //   label: "Add Consultant",
+      //   icon: <PersonAddIcon />,
+      //   path: "/dashboard/hotlist/create",
+      // },
     ];
   } else {
     // Tabs for TEAMLEAD, RECRUITER, SALESEXECUTIVE, etc.
