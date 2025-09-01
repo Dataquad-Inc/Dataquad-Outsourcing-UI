@@ -30,6 +30,10 @@ import {
   getPercentageColor
 } from './timesheetUtils';
 import TimesheetMainView from './TimesheetMainView';
+import httpService from '../../Services/httpService';
+import { Avatar, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, List, ListItem, ListItemAvatar, ListItemText, Typography } from '@mui/material';
+import { Box } from 'lucide-react';
+import { AttachFile, CloudUpload } from '@mui/icons-material';
 
 const Timesheets = () => {
   // State management
@@ -91,9 +95,17 @@ const Timesheets = () => {
   const [isAddingNewTimesheet, setIsAddingNewTimesheet] = useState(false);
 const [tempEmployeeForAdd, setTempEmployeeForAdd] = useState('');
 
+
+// Timesheets.js - Add these state variables
+const [employeeProjects, setEmployeeProjects] = useState([]);
+const [attachmentsDialogOpen, setAttachmentsDialogOpen] = useState(false);
+const [selectedTimesheetAttachments, setSelectedTimesheetAttachments] = useState([]);
+
+// Add this with your other state declarations
+const [loadingEmployeeProjects, setLoadingEmployeeProjects] = useState(false);
+
   const dispatch = useDispatch();
 
-  // Sample projects with additional details
   // const projects = [
   //   {
   //     name: 'Project Alpha',
@@ -132,8 +144,6 @@ const [tempEmployeeForAdd, setTempEmployeeForAdd] = useState('');
   //   }
   // ];
 
-
-
   useEffect(()=>{
     dispatch(fetchClientsForProjects())
   },[dispatch])
@@ -141,9 +151,11 @@ const [tempEmployeeForAdd, setTempEmployeeForAdd] = useState('');
 
   console.log('Clients from Redux:', clients);
 
-  const clientsData=clients.map((client) => {
-     return client;
-  });
+  // const clientsData=clients.map((client) => {
+  //    return client;
+  // });
+
+  const clientsData=Array.isArray(clients) ? clients : [];
 
   console.log('Mapped Clients Data:', clientsData);
 
@@ -212,6 +224,77 @@ useEffect(() => {
       value: emp.employeeId,
     })) || []
 
+
+
+useEffect(() => {
+  const fetchEmployeeProjects = async () => {
+    if (selectedEmployee && (role === 'SUPERADMIN' || role === 'ACCOUNTS')) {
+      try {
+        setLoadingEmployeeProjects(true);
+        console.log('Fetching projects for employee:', selectedEmployee);
+        
+        const response = await httpService.get(`/timesheet/vendors/${selectedEmployee}`);
+        console.log('Employee projects API response:', response);
+        
+        // Handle the actual response structure
+        let projectsData = [];
+        if (response.data && response.data.success) {
+          // The projects are in response.data.data array
+          projectsData = response.data.data || [];
+        }
+        
+        console.log('Setting employeeProjects to:', projectsData);
+        setEmployeeProjects(projectsData);
+      } catch (error) {
+        console.error('Error fetching employee projects:', error);
+        setEmployeeProjects([]);
+        showAlert('Failed to fetch employee projects', 'error');
+      } finally {
+        setLoadingEmployeeProjects(false);
+      }
+    } else {
+      console.log('Clearing employee projects');
+      setEmployeeProjects([]);
+    }
+  };
+
+  fetchEmployeeProjects();
+}, [selectedEmployee, role]);
+
+// Add this useEffect after the existing useEffects
+// In your useEffect that handles employee changes
+useEffect(() => {
+  if ((role === 'SUPERADMIN' || role === 'ACCOUNTS') && selectedEmployee) {
+    setSelectedProject(''); // This should already exist
+    setCurrentTimesheet(null); // This should already exist
+    // Force re-render by ensuring employeeProjects is cleared first
+    setEmployeeProjects([]);
+  }
+}, [selectedEmployee, role]);
+
+
+// Add this function with your other handler functions
+// In Timesheets.js, replace the handleEmployeeChange function with this:
+// Replace the handleEmployeeChange function with this:
+const handleEmployeeChange = (employeeId) => {
+  console.log('Employee changed to:', employeeId);
+  
+  // Reset project selection when employee changes
+  setSelectedProject('');
+  setCurrentTimesheet(null);
+  
+  if (isCreateMode || isAddingNewTimesheet) {
+    setTempEmployeeForAdd(employeeId);
+    setSelectedEmployee(employeeId);
+    handleAddTimesheetClick(employeeId);
+  } else {
+    setSelectedEmployee(employeeId);
+  }
+  
+  // Clear employee projects to trigger re-fetch
+  setEmployeeProjects([]);
+  console.log('Employee projects will be fetched for:', employeeId);
+};
   // Custom day renderer for calendar
   const CustomDay = (props) => {
     const { day, outsideCurrentMonth, ...other } = props;
@@ -840,7 +923,7 @@ const handleCancelAddTimesheet = () => {
 
       if (isUpdate) {
         // Use Redux action instead of direct HTTP call
-        const resultAction = dispatch(updateTimesheet({
+        const resultAction =await dispatch(updateTimesheet({
           timesheetId: currentTimesheet.id,
           userId: targetUserId,
           timesheetData
@@ -931,38 +1014,35 @@ const handleCancelAddTimesheet = () => {
   };
 
 
-  const handleAddTimesheetClick = (employeeId) => {
+const handleAddTimesheetClick = (employeeId) => {
   setTempEmployeeForAdd(employeeId);
   setIsAddingNewTimesheet(true);
-  
-  // Set the selected employee temporarily but don't persist it
   setSelectedEmployee(employeeId);
-  
-  // Also reset the current timesheet to show a fresh form
-  createNewTimesheetForEmployee(employeeId);
+  // Clear any existing timesheet data
+  setCurrentTimesheet(null);
+  setSelectedProject('');
 };
 
 
-  const uploadFilesToServer = async (timesheetId, files) => {
-    console.log('Uploading files to server:', { timesheetId, files });
+const uploadFilesToServer = async (timesheetId, files) => {
+  console.log('Uploading files to server:', { timesheetId, files });
 
-    try {
-      // Use Redux action instead of direct HTTP call
-      const resultAction = dispatch(uploadTimesheetAttachments({
-        timesheetId,
-        files
-      }));
-      
-      if (uploadTimesheetAttachments.fulfilled.match(resultAction)) {
-        return resultAction.payload;
-      } else {
-        throw new Error(resultAction.payload || 'Failed to upload attachments');
-      }
-    } catch (error) {
-      console.error('Error uploading files:', error);
-      throw error;
+  try {
+    const resultAction = await dispatch(uploadTimesheetAttachments({
+      timesheetId,
+      files
+    }));
+    
+    if (uploadTimesheetAttachments.fulfilled.match(resultAction)) {
+      return resultAction.payload;
+    } else {
+      throw new Error(resultAction.payload || 'Failed to upload attachments');
     }
-  };
+  } catch (error) {
+    console.error('Error uploading files:', error);
+    throw error;
+  }
+};
 
   const submitWeeklyTimesheetHandler = async () => {
     if (!currentTimesheet) return;
@@ -1245,7 +1325,7 @@ const handleCancelAddTimesheet = () => {
     setAdminActionLoading(true);
     try {
       // Use Redux action instead of direct HTTP call
-      const resultAction = dispatch(rejectTimesheet({
+      const resultAction = await dispatch(rejectTimesheet({
         timesheetId: currentTimesheet.id,
         userId,
         reason: rejectionReason.trim()
@@ -1279,7 +1359,7 @@ const handleCancelAddTimesheet = () => {
     setAdminActionLoading(true);
     try {
       // Use Redux action instead of direct HTTP call
-      const resultAction = dispatch(cancelTimesheet({
+      const resultAction =await dispatch(cancelTimesheet({
         timesheetId: currentTimesheet.id,
         userId
       }));
@@ -1305,9 +1385,80 @@ const handleCancelAddTimesheet = () => {
     }
   };
 
+  // Timesheets.js - Add this function
+const handleViewAttachments = (timesheet) => {
+  if (timesheet.attachments && timesheet.attachments.length > 0) {
+    setSelectedTimesheetAttachments(timesheet.attachments);
+    setAttachmentsDialogOpen(true);
+  } else {
+    showAlert('No attachments found for this timesheet', 'info');
+  }
+};
   
 
   const projectDetails = getSelectedProjectDetails();
+
+  // Timesheets.js - Add this component before the return statement
+const AttachmentsDialog = () => (
+  <Dialog
+    open={attachmentsDialogOpen}
+    onClose={() => setAttachmentsDialogOpen(false)}
+    maxWidth="md"
+    fullWidth
+  >
+    <DialogTitle>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <AttachFile />
+        Timesheet Attachments
+      </Box>
+    </DialogTitle>
+    <DialogContent>
+      <Box sx={{ py: 2 }}>
+        {selectedTimesheetAttachments.length > 0 ? (
+          <List>
+            {selectedTimesheetAttachments.map((attachment, index) => (
+              <ListItem
+                key={index}
+                secondaryAction={
+                  <IconButton
+                    edge="end"
+                    onClick={() => window.open(attachment.url || '#', '_blank')}
+                    disabled={!attachment.url}
+                  >
+                    <CloudUpload />
+                  </IconButton>
+                }
+              >
+                <ListItemAvatar>
+                  <Avatar sx={{ bgcolor: 'primary.main' }}>
+                    <AttachFile />
+                  </Avatar>
+                </ListItemAvatar>
+                <ListItemText
+                  primary={attachment.filename || attachment.name || `Attachment ${index + 1}`}
+                  secondary={
+                    attachment.uploadedAt 
+                      ? `Uploaded: ${new Date(attachment.uploadedAt).toLocaleDateString()}`
+                      : attachment.uploadDate 
+                        ? `Uploaded: ${attachment.uploadDate.toLocaleDateString()}`
+                        : 'Upload date not available'
+                  }
+                />
+              </ListItem>
+            ))}
+          </List>
+        ) : (
+          <Typography variant="body2" color="text.secondary" textAlign="center">
+            No attachments available
+          </Typography>
+        )}
+      </Box>
+    </DialogContent>
+    <DialogActions>
+      <Button onClick={() => setAttachmentsDialogOpen(false)}>Close</Button>
+    </DialogActions>
+  </Dialog>
+);
 
   // Render the new main view component, passing all props needed for UI
   return (
@@ -1364,7 +1515,7 @@ const handleCancelAddTimesheet = () => {
       attachments={attachments}
       handleRemoveAttachment={handleRemoveAttachment}
       projectDetails={projectDetails}
-      timesheetData={timesheetData}
+      timesheetData={timesheetData || []}
       getWeekDates={getWeekDates}
       getSelectedProjectDetails={getSelectedProjectDetails}
       getTotalWorkingDays={getTotalWorkingDays}
@@ -1378,6 +1529,10 @@ const handleCancelAddTimesheet = () => {
       handleAddTimesheetClick={handleAddTimesheetClick}
       tempEmployeeForAdd={tempEmployeeForAdd}
       setTempEmployeeForAdd={setTempEmployeeForAdd}
+       handleViewAttachments={handleViewAttachments}
+      AttachmentsDialog={AttachmentsDialog}
+      loadingEmployeeProjects={loadingEmployeeProjects}
+  handleEmployeeChange={handleEmployeeChange}
     />
   );
 };

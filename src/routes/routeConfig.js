@@ -288,7 +288,7 @@ const routeConfig = [
             path: "users",
             element: (
               <ProtectedRoute
-                allowedRoles={["ADMIN", "SUPERADMIN", "COORDINATOR"]}
+                allowedRoles={["ADMIN", "SUPERADMIN", "COORDINATOR","INVOICE"]}
                 allowedEntities={["IN"]}
               />
             ),
@@ -300,7 +300,7 @@ const routeConfig = [
             path: "clients",
             element: (
               <ProtectedRoute
-                allowedRoles={["ADMIN", "SUPERADMIN", "BDM"]}
+                allowedRoles={["ADMIN", "SUPERADMIN", "BDM","INVOICE"]}
                 allowedEntities={["IN"]}
               />
             ),
@@ -312,7 +312,7 @@ const routeConfig = [
             path: "addNewClient",
             element: (
               <ProtectedRoute
-                allowedRoles={["ADMIN", "SUPERADMIN", "BDM"]}
+                allowedRoles={["ADMIN", "SUPERADMIN", "BDM","INVOICE"]}
                 allowedEntities={["IN"]}
               />
             ),
@@ -330,6 +330,7 @@ const routeConfig = [
                   "BDM",
                   "TEAMLEAD",
                   "EMPLOYEE",
+                  "INVOICE"
                 ]}
                 allowedEntities={["IN"]}
               />
@@ -429,7 +430,7 @@ const routeConfig = [
                 path: "create",
                 element: (
                   <ProtectedRoute
-                    allowedRoles={["SUPERADMIN", "ACCOUNTS"]}
+                    allowedRoles={["SUPERADMIN", "ACCOUNTS","INVOICE"]}
                     allowedEntities={["IN"]}
                   />
                 ),
@@ -441,7 +442,7 @@ const routeConfig = [
             path: "timesheetsForAdmins",
             element: (
               <ProtectedRoute
-                allowedRoles={["SUPERADMIN", "ADMIN", "ACCOUNTS"]}
+                allowedRoles={["SUPERADMIN", "ADMIN", "ACCOUNTS","INVOICE"]}
                 allowedEntities={["IN"]}
               />
             ),

@@ -4,12 +4,28 @@ import httpService from '../Services/httpService';
 // Async thunks for API calls
 export const fetchClientsForProjects = createAsyncThunk(
   'timesheet/fetchClientsForProjects',
-  async (_, { rejectWithValue }) => {
+  async (_, { getState, rejectWithValue }) => {
     try {
-      const response = await httpService.get('/candidate/allVendors');
-      return response.data.data;
+      // const state = getState();
+      // const userId = state.auth.userId;
+      const response = await httpService.get(`/timesheet/vendors`);
+      
+      console.log('API Response:', response); // Debug log
+      
+      // More robust data extraction
+      if (response?.data?.success && Array.isArray(response.data.data)) {
+        return response.data.data;
+      } else if (Array.isArray(response?.data)) {
+        return response.data;
+      } else if (Array.isArray(response)) {
+        return response;
+      } else {
+        console.warn('Unexpected response format:', response);
+        return [];
+      }
     } catch (error) {
-      return rejectWithValue(error.response?.data || error.message);
+      console.error('Error fetching clients:', error);
+      return rejectWithValue(error.response?.data?.message || error.message || 'Failed to fetch clients');
     }
   }
 );
@@ -179,6 +195,7 @@ const timesheetSlice = createSlice({
       .addCase(fetchClientsForProjects.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+        state.clients = [];
       })
 
       // Fetch timesheets

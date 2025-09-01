@@ -6,6 +6,7 @@
 import dayjs from "dayjs";
 
 import ToastService from "../../Services/toastService";
+import httpService from "../../Services/httpService";
 
 /**
  * Handles navigation to employee timesheet detail page with role-based logic
@@ -14,7 +15,48 @@ import ToastService from "../../Services/toastService";
  * @param {string} userRole - Current user's role
  * @param {string} [basePath='/dashboard/timesheetsForAdmins'] - Base path for navigation
  */
-export const handleEmployeeNameClick = (row, navigate, userRole, basePath = '/dashboard/timesheetsForAdmins') => {
+// export const handleEmployeeNameClick = (row, navigate, userRole, basePath = '/dashboard/timesheetsForAdmins') => {
+//   // If user has ACCOUNTS role, navigate to Timesheets component instead of employee detail
+//   if (userRole === 'ACCOUNTS') {
+//     navigate('/dashboard/timesheets');
+//     ToastService.info('Redirected to timesheets management');
+//     return;
+//   }
+
+//   // Extract userId with fallback options
+//   const userId = row.userId || row.employeeId || 'ADRTIN1235';
+  
+//   // Validate required data
+//   if (!row.employeeName) {
+//     console.warn('Employee name is missing from row data');
+//     ToastService.warning('Employee data is incomplete');
+//     return;
+//   }
+
+//   if (!userId) {
+//     console.warn('User ID is missing from row data');
+//     ToastService.warning('Employee ID is missing');
+//     return;
+//   }
+
+//   // Construct navigation path
+//   const navigationPath = `${basePath}/employee/${userId}`;
+  
+//   // Navigate with state for back navigation
+//   navigate(navigationPath, {
+//     state: { 
+//       from: basePath,
+//       employeeData: {
+//         userId,
+//         employeeName: row.employeeName,
+//         employeeType: row.employeeType,
+//         clientName: row.clientName
+//       }
+//     }
+//   });
+// };
+// navigationHelpers.js - Update this function
+export const handleEmployeeNameClick = async (row, navigate, userRole, basePath = '/dashboard/timesheetsForAdmins') => {
   // If user has ACCOUNTS role, navigate to Timesheets component instead of employee detail
   if (userRole === 'ACCOUNTS') {
     navigate('/dashboard/timesheets');
@@ -38,6 +80,18 @@ export const handleEmployeeNameClick = (row, navigate, userRole, basePath = '/da
     return;
   }
 
+  // Store employee data for project fetching
+  try {
+    localStorage.setItem('selectedEmployeeData', JSON.stringify({
+      userId,
+      employeeName: row.employeeName,
+      employeeType: row.employeeType,
+      clientName: row.clientName
+    }));
+  } catch (error) {
+    console.warn('Failed to store employee data in localStorage:', error);
+  }
+
   // Construct navigation path
   const navigationPath = `${basePath}/employee/${userId}`;
   
@@ -54,7 +108,6 @@ export const handleEmployeeNameClick = (row, navigate, userRole, basePath = '/da
     }
   });
 };
-
 /**
  * Handles back navigation from employee detail page
  * @param {Function} navigate - React Router navigate function
@@ -67,6 +120,15 @@ export const handleBackNavigation = (navigate, location, defaultPath = '/dashboa
   navigate(backPath);
 };
 
+export const fetchEmployeeProjects = async (userId) => {
+  try {
+    const response = await httpService.get(`/timesheet/vendors/${userId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching employee projects:', error);
+    throw error;
+  }
+};
 /**
  * Utility function to extract and validate employee data from row
  * @param {Object} row - The employee row data
