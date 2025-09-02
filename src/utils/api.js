@@ -208,20 +208,20 @@ export const employeeAPI = {
 // ========= team Management APIs ==========
 export const teamAPI = {
   // Create new team
-  createTeam:async(userId,teamdata)=>{
-    if(!teamdata) throw new Error("team data is not found");
-    return apiPost(`/users/assignTeamLead/${userId}`,teamdata);
+  createTeam: async (userId, teamdata) => {
+    if (!teamdata) throw new Error("team data is not found");
+    return apiPost(`/users/assignTeamLead/${userId}`, teamdata);
   },
-  
-  getAllEmps:async()=>{
+
+  getAllEmps: async () => {
     return apiGet("/users/getAll");
   },
 
-  getTeam:async(teamLeadId)=>{
-    if(!teamLeadId) throw new Error("teamLeadId is required");
+  getTeam: async (teamLeadId) => {
+    if (!teamLeadId) throw new Error("teamLeadId is required");
     return apiGet(`/users/associated-users/${teamLeadId}`);
-  }
-}
+  },
+};
 
 // ========== Hotlist/Consultant Management APIs ==========
 export const hotlistAPI = {
@@ -278,7 +278,7 @@ export const hotlistAPI = {
   },
 
   // Delete consultant
-  deleteConsultant: async (consultantId,userId) => {
+  deleteConsultant: async (consultantId, userId) => {
     if (!consultantId) throw new Error("Consultant ID is required");
     return apiDelete(`/hotlist/deleteConsultant/${consultantId}/${userId}`);
   },
@@ -305,6 +305,14 @@ export const hotlistAPI = {
   bulkUpdateConsultants: async (updates) => {
     if (!updates) throw new Error("Update data is required");
     return apiPut("/hotlist/bulkUpdate", updates);
+  },
+
+  getYetToOnboardConsultants: async (params = {}) => {
+    return apiGet("/hotlist/yetToOnBoardConsultants", params);
+  },
+
+  moveToHotlist: async (consultantId) => {
+    return apiPatch(`hotlist/moveToHotlist/${consultantId}`);
   },
 };
 
