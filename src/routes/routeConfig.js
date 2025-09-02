@@ -68,6 +68,19 @@ const Hotlist = lazy(() => import("../components/Hotlist/Hotlist"));
 const YetToOnboard = lazy(() =>
   import("../components/YetToOnboard/YetToOnboard")
 );
+const RequirementsContainer = lazy(() =>
+  import("../components/UsRequirements/RequirementsContainer")
+);
+const RequirementsList = lazy(() =>
+  import("../components/UsRequirements/RequirementsList")
+);
+const CreateJobRequirement = lazy(() =>
+  import("../components/UsRequirements/CreateJobRequirement")
+);
+const RequirementProfile = lazy(() =>
+  import("../components/UsRequirements/RequirementProfile")
+);
+
 const UsEmployees = lazy(() => import("../components/UsEmployees/UsEmployees"));
 const CreateTeam = lazy(() => import("../components/UsEmployees/CreateTeam"));
 const Teamlist = lazy(() => import("../components/UsEmployees/Teamlist"));
@@ -544,11 +557,47 @@ const routeConfig = [
                 children: [
                   {
                     index: true,
-                    element: Loadable(YetToOnboard), 
+                    element: Loadable(YetToOnboard),
                   },
                   {
                     path: "create-consultant",
                     element: Loadable(CreateConsultant),
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            path: "us-requirements",
+            element: (
+              <ProtectedRoute
+                allowedRoles={[
+                  "SUPERADMIN",
+                  "ADMIN",
+                  "TEAMLEAD",
+                  "EMPLOYEE",
+                  "RECRUITER",
+                  "SALESEXECUTIVE",
+                ]}
+                allowedEntities={["US"]}
+              />
+            ),
+            children: [
+              {
+                path: "",
+                element: <RequirementsContainer />,
+                children: [
+                  {
+                    index: true,
+                    element: Loadable(RequirementsList),
+                  },
+                  {
+                    path: "create-requirement",
+                    element: Loadable(CreateJobRequirement),
+                  },
+                  {
+                    path: ":jobId",
+                    element: Loadable(RequirementProfile),
                   },
                 ],
               },

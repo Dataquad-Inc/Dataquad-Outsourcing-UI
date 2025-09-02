@@ -10,6 +10,7 @@ import {
   showSuccessToast,
   showInfoToast,
 } from "../../utils/toastUtils";
+import { useNavigate } from "react-router-dom";
 
 const YetToOnboard = React.memo(() => {
   const { userId, role } = useSelector((state) => state.auth);
@@ -21,6 +22,7 @@ const YetToOnboard = React.memo(() => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [search, setSearch] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
+  const navigate = useNavigate();
 
   /** ---------------- Fetch Data ---------------- */
   const fetchData = useCallback(async () => {
@@ -71,7 +73,7 @@ const YetToOnboard = React.memo(() => {
   }, []);
 
   const handleNavigate = useCallback((consultantId) => {
-    console.log("Navigate to consultant:", consultantId);
+    navigate(`/dashboard/hotlist/consultants/${consultantId}`);
   }, []);
 
   /** ---------------- Columns ---------------- */
@@ -87,7 +89,7 @@ const YetToOnboard = React.memo(() => {
     {
       id: "moveToHotlist",
       label: "Move To Hotlist",
-      width: 180,
+      width: 150,
       render: (_, row) => (
         <Button
           variant="outlined"
