@@ -77,84 +77,89 @@ const TimesheetMainView = (props) => {
               <Grid container spacing={2}>
 
                 {((role === "SUPERADMIN" || role === "ACCOUNTS") || (isCreateMode && isAddingNewTimesheet)) && (
-     <Grid item xs={12} md={6}>
-  <FormControl fullWidth size="small">
-    <InputLabel id="employee-select-label">Select Employee</InputLabel>
-    <Select
-      labelId="employee-select-label"
-      value={selectedEmployee} // Use selectedEmployee directly
-      label="Select Employee"
-      onChange={(e) => handleEmployeeChange(e.target.value)}
-    >
-      <MenuItem value="">Choose an employee...</MenuItem>
-      {externalEmployeesOptions && externalEmployeesOptions.map((emp) => (
-        <MenuItem key={emp.value} value={emp.value}>
-          {emp.label}
-        </MenuItem>
-      ))}
-    </Select>
-  </FormControl>
-</Grid>
+                  <Grid item xs={12} md={6}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel id="employee-select-label">Select Employee</InputLabel>
+                      <Select
+                        labelId="employee-select-label"
+                        value={isAddingNewTimesheet ? tempEmployeeForAdd : selectedEmployee}
+                        label="Select Employee"
+                        onChange={(e) => handleEmployeeChange(e.target.value)}
+                      >
+                        <MenuItem value="">Choose an employee...</MenuItem>
+                        {externalEmployeesOptions && externalEmployeesOptions.map((emp) => (
+                          <MenuItem key={emp.value} value={emp.value}>
+                            {emp.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
                 )}
 
                 {/* Project Dropdown */}
-    
-<Grid item xs={12} md={6}>
-  <FormControl fullWidth size="small">
-    <InputLabel id="project-select-label">Select Project</InputLabel>
-    <Select
-      labelId="project-select-label"
-      value={selectedProject}
-      label="Select Project"
-      onChange={(e) => {
-        console.log('Project selected:', e.target.value);
-        setSelectedProject(e.target.value);
-      }}
-      disabled={
-        loading || 
-        ((role === 'SUPERADMIN' || role === 'ACCOUNTS') && 
-         (!selectedEmployee && !tempEmployeeForAdd))
-      }
-    >
-      <MenuItem value="">Choose a project...</MenuItem>
 
-      {/* Show employee projects when employee is selected */}
-      {(role === 'SUPERADMIN' || role === 'ACCOUNTS') && (selectedEmployee || tempEmployeeForAdd) ? (
-        loadingEmployeeProjects ? (
-          <MenuItem value="" disabled>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <CircularProgress size={16} />
-              Loading projects...
-            </Box>
-          </MenuItem>
-        ) : employeeProjects && employeeProjects.length > 0 ? (
-          employeeProjects.map((project, index) => {
-            // Handle both string and object project formats
-            const projectValue = typeof project === 'string' ? project : project.name || project.projectName || project.id;
-            const projectLabel = typeof project === 'string' ? project : project.name || project.projectName || project.id;
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel id="project-select-label">Select Project</InputLabel>
+                    <Select
+                      labelId="project-select-label"
+                      value={selectedProject}
+                      label="Select Project"
+                      onChange={(e) => {
+                        console.log('Project selected:', e.target.value);
+                        setSelectedProject(e.target.value);
+                      }}
+                      disabled={
+                        loading ||
+                        loadingEmployeeProjects ||
+                        ((role === 'SUPERADMIN' || role === 'ACCOUNTS') &&
+                          (!selectedEmployee && !tempEmployeeForAdd))
+                      }
+                    >
+                      <MenuItem value="">Choose a project...</MenuItem>
 
-            return (
-              <MenuItem key={index} value={projectValue}>
-                {projectLabel}
-              </MenuItem>
-            );
-          })
-        ) : (
-          <MenuItem value="" disabled>
-            No projects found for this employee
-          </MenuItem>
-        )
-      ) : (
-        // For EXTERNALEMPLOYEE role, show regular clients
-        role === 'EXTERNALEMPLOYEE' && clients && clients.map((clientName, index) => (
-          <MenuItem key={index} value={clientName}>
-            {clientName}
-          </MenuItem>
-        ))
-      )}
-    </Select>
-  </FormControl>
-</Grid>
+                      {/* Loading state */}
+                      {loadingEmployeeProjects && (
+                        <MenuItem value="" disabled>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <CircularProgress size={16} />
+                            Loading projects...
+                          </Box>
+                        </MenuItem>
+                      )}
+
+                      {/* Show employee projects when employee is selected (admin roles) */}
+                      {/* Show employee projects when employee is selected (admin roles or add/create mode) */}
+                      {((role === 'SUPERADMIN' || role === 'ACCOUNTS') &&
+                        (selectedEmployee || tempEmployeeForAdd) &&
+                        !loadingEmployeeProjects) ? (
+                        employeeProjects && employeeProjects.length > 0 ? (
+                          employeeProjects.map((project, index) => (
+                            <MenuItem
+                              key={project.projectId || project.id || index}
+                              value={project.projectName || project.name || project}
+                            >
+                              {project.projectName || project.name || project}
+                            </MenuItem>
+                          ))
+                        ) : (
+                          <MenuItem value="" disabled>
+                            No projects found for this employee
+                          </MenuItem>
+                        )
+                      ) : (
+                        // For EXTERNALEMPLOYEE role (when not in add/create mode), show regular clients
+                        (role === 'EXTERNALEMPLOYEE' && !isAddingNewTimesheet && !isCreateMode) &&
+                        clients && clients.map((clientName, index) => (
+                          <MenuItem key={index} value={clientName}>
+                            {clientName}
+                          </MenuItem>
+                        ))
+                      )}
+                    </Select>
+                  </FormControl>
+                </Grid>
               </Grid>
 
               {/* Calendar */}

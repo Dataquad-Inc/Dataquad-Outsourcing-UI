@@ -178,7 +178,7 @@ const TimesheetTableSection = ({
                       disabled={!isFieldEditable(currentTimesheet, day)}
                       inputProps={{
                         min: 0,
-                        max: 24,
+                        max: 8,
                         step: 0.25,
                         style: {
                           textAlign: 'center',
@@ -215,12 +215,15 @@ const TimesheetTableSection = ({
                       <TextField
                         type="text"
                         value={currentTimesheet.sickLeave[day] || 0}
-                        onChange={(e) => handleHourChange(day, e.target.value, 'sickLeave')}
+                        onChange={(e) => {
+                          const value = Number(e.target.value);
+                          handleHourChange(day, value === 8 ? value : '', 'sickLeave');
+                        }}
                         disabled={!isFieldEditable(currentTimesheet, day, 'sickLeave') || isWeekend}
                         inputProps={{
                           min: 0,
-                          max: 24,
-                          step: 0.25,
+                          max: 8,
+                          step: 1,
                           style: {
                             textAlign: 'center',
                             fontWeight: currentTimesheet.sickLeave[day] > 0 ? 'bold' : 'normal',
@@ -240,6 +243,7 @@ const TimesheetTableSection = ({
                         variant="outlined"
                         size="small"
                       />
+
                     </TableCell>
                   );
                 })}
@@ -270,94 +274,94 @@ const TimesheetTableSection = ({
         />
 
         {/* Progress and Actions */}
-<Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 2 }}>
-  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-    <Button
-      variant="outlined"
-      startIcon={<Refresh />}
-      onClick={fetchOrCreateTimesheet}
-      disabled={loading || adminActionLoading}
-    >
-      Refresh
-    </Button>
-
-    {/* Show different buttons based on role and mode */}
-    {(role === 'SUPERADMIN' || role === 'ACCOUNTS') && !isAddingNewTimesheet && !isCreateMode ? (
-      <>
-        {/* Admin action buttons - only show if employee is selected and timesheet exists */}
-        {selectedEmployee && currentTimesheet && (
-          <>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 2 }}>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             <Button
-              onClick={onApprove}
-              variant="contained"
-              color="success"
-              disabled={adminActionLoading || currentTimesheet.status === 'APPROVED'}
-              startIcon={adminActionLoading ? <CircularProgress size={16} /> : <ThumbUp />}
-            >
-              {adminActionLoading ? 'Processing...' : 'Approve'}
-            </Button>
-
-            <Button
-              onClick={onReject}
-              variant="contained"
-              color="error"
-              disabled={adminActionLoading || currentTimesheet.status === 'REJECTED'}
-              startIcon={adminActionLoading ? <CircularProgress size={16} /> : <ThumbDown />}
-            >
-              {adminActionLoading ? 'Processing...' : 'Reject'}
-            </Button>
-
-            <Button
-              onClick={onCancel}
               variant="outlined"
-              color="default"
-              disabled={adminActionLoading || currentTimesheet.status === 'CANCELLED'}
-              startIcon={adminActionLoading ? <CircularProgress size={16} /> : <Cancel />}
+              startIcon={<Refresh />}
+              onClick={fetchOrCreateTimesheet}
+              disabled={loading || adminActionLoading}
             >
-              {adminActionLoading ? 'Processing...' : 'Cancel'}
+              Refresh
             </Button>
-          </>
-        )}
 
-        {/* Save button for admins (can save anytime) */}
-        {selectedEmployee && currentTimesheet && (
-          <Button
-            variant="outlined"
-            startIcon={loading ? <CircularProgress size={16} /> : <Save />}
-            onClick={() => saveTimesheet(false)}
-            disabled={loading}
-            sx={{ minWidth: 120 }}
-          >
-            {loading ? 'Saving...' : 'Save Changes'}
-          </Button>
-        )}
-      </>
-    ) : (
-      /* EXTERNALEMPLOYEE buttons OR admin in create/add mode */
-      <>
-        <Button
-          variant="outlined"
-          startIcon={loading ? <CircularProgress size={16} /> : <Save />}
-          onClick={() => saveTimesheet(false)}
-          disabled={loading || (role === 'EXTERNALEMPLOYEE' && isSubmitted)}
-          sx={{ minWidth: 120 }}
-        >
-          {loading ? 'Saving...' : 'Save Draft'}
-        </Button>
-        <Button
-          variant="contained"
-          color="success"
-          startIcon={loading ? <CircularProgress size={16} /> : <CheckCircle />}
-          onClick={submitWeeklyTimesheet}
-          disabled={loading || (role === 'EXTERNALEMPLOYEE' && (isSubmitted || !isFridayInPresentWeek()))}
-          sx={{ minWidth: 140 }}
-        >
-          {loading ? 'Submitting...' : 'Submit for Approval'}
-        </Button>
-      </>
-    )}
-  </Box>
-</Box>
+            {/* Show different buttons based on role and mode */}
+            {(role === 'SUPERADMIN' || role === 'ACCOUNTS') && !isAddingNewTimesheet && !isCreateMode ? (
+              <>
+                {/* Admin action buttons - only show if employee is selected and timesheet exists */}
+                {selectedEmployee && currentTimesheet && (
+                  <>
+                    <Button
+                      onClick={onApprove}
+                      variant="contained"
+                      color="success"
+                      disabled={adminActionLoading || currentTimesheet.status === 'APPROVED'}
+                      startIcon={adminActionLoading ? <CircularProgress size={16} /> : <ThumbUp />}
+                    >
+                      {adminActionLoading ? 'Processing...' : 'Approve'}
+                    </Button>
+
+                    <Button
+                      onClick={onReject}
+                      variant="contained"
+                      color="error"
+                      disabled={adminActionLoading || currentTimesheet.status === 'REJECTED'}
+                      startIcon={adminActionLoading ? <CircularProgress size={16} /> : <ThumbDown />}
+                    >
+                      {adminActionLoading ? 'Processing...' : 'Reject'}
+                    </Button>
+
+                    <Button
+                      onClick={onCancel}
+                      variant="outlined"
+                      color="default"
+                      disabled={adminActionLoading || currentTimesheet.status === 'CANCELLED'}
+                      startIcon={adminActionLoading ? <CircularProgress size={16} /> : <Cancel />}
+                    >
+                      {adminActionLoading ? 'Processing...' : 'Cancel'}
+                    </Button>
+                  </>
+                )}
+
+                {/* Save button for admins (can save anytime) */}
+                {selectedEmployee && currentTimesheet && (
+                  <Button
+                    variant="outlined"
+                    startIcon={loading ? <CircularProgress size={16} /> : <Save />}
+                    onClick={() => saveTimesheet(false)}
+                    disabled={loading}
+                    sx={{ minWidth: 120 }}
+                  >
+                    {loading ? 'Saving...' : 'Save Changes'}
+                  </Button>
+                )}
+              </>
+            ) : (
+              /* EXTERNALEMPLOYEE buttons OR admin in create/add mode */
+              <>
+                <Button
+                  variant="outlined"
+                  startIcon={loading ? <CircularProgress size={16} /> : <Save />}
+                  onClick={() => saveTimesheet(false)}
+                  disabled={loading || (role === 'EXTERNALEMPLOYEE' && isSubmitted)}
+                  sx={{ minWidth: 120 }}
+                >
+                  {loading ? 'Saving...' : 'Save Draft'}
+                </Button>
+                <Button
+                  variant="contained"
+                  color="success"
+                  startIcon={loading ? <CircularProgress size={16} /> : <CheckCircle />}
+                  onClick={submitWeeklyTimesheet}
+                  // disabled={loading || (role === 'EXTERNALEMPLOYEE' && (isSubmitted || !isFridayInPresentWeek()))}
+                  sx={{ minWidth: 140 }}
+                >
+                  {loading ? 'Submitting...' : 'Submit for Approval'}
+                </Button>
+              </>
+            )}
+          </Box>
+        </Box>
       </Box>
     </CardContent>
   </Card>
