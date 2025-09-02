@@ -178,7 +178,7 @@ const TimesheetTableSection = ({
                       disabled={!isFieldEditable(currentTimesheet, day)}
                       inputProps={{
                         min: 0,
-                        max: 24,
+                        max: 8,
                         step: 0.25,
                         style: {
                           textAlign: 'center',
@@ -215,12 +215,15 @@ const TimesheetTableSection = ({
                       <TextField
                         type="text"
                         value={currentTimesheet.sickLeave[day] || 0}
-                        onChange={(e) => handleHourChange(day, e.target.value, 'sickLeave')}
+                        onChange={(e) => {
+                          const value = Number(e.target.value);
+                          handleHourChange(day, value === 8 ? value : '', 'sickLeave');
+                        }}
                         disabled={!isFieldEditable(currentTimesheet, day, 'sickLeave') || isWeekend}
                         inputProps={{
                           min: 0,
-                          max: 24,
-                          step: 0.25,
+                         max: 8,
+                          step: 1,
                           style: {
                             textAlign: 'center',
                             fontWeight: currentTimesheet.sickLeave[day] > 0 ? 'bold' : 'normal',
