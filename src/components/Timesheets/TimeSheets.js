@@ -225,21 +225,45 @@ useEffect(() => {
     })) || []
 
 
+    // Add this useEffect after your existing useEffects in Timesheets.js
+useEffect(() => {
+  // When project is selected in create/add mode, create timesheet immediately
+  if (selectedProject && (isCreateMode || isAddingNewTimesheet) && (tempEmployeeForAdd || selectedEmployee)) {
+    if (!selectedWeekStart) {
+      // Set current week if not set
+      const currentWeek = getCurrentWeek();
+      setSelectedWeekStart(currentWeek.startString);
+      setCalendarValue(new Date(currentWeek.startString));
+      setHighlightedWeek(getWeekDatesArray(new Date(currentWeek.startString)));
+    } else {
+      // Create timesheet for the selected project and employee
+      createNewTimesheetForEmployee(tempEmployeeForAdd || selectedEmployee);
+    }
+  }
+}, [selectedProject, isCreateMode, isAddingNewTimesheet, tempEmployeeForAdd, selectedEmployee, selectedWeekStart]);
+
 
 useEffect(() => {
   const fetchEmployeeProjects = async () => {
-    if (selectedEmployee && (role === 'SUPERADMIN' || role === 'ACCOUNTS')) {
+    // Get the employee ID from the right source based on mode
+    let employeeToFetch = null;
+    
+    if (isCreateMode || isAddingNewTimesheet) {
+      employeeToFetch = tempEmployeeForAdd || selectedEmployee;
+    } else {
+      employeeToFetch = selectedEmployee;
+    }
+    
+    if (employeeToFetch && (role === 'SUPERADMIN' || role === 'ACCOUNTS')) {
       try {
         setLoadingEmployeeProjects(true);
-        console.log('Fetching projects for employee:', selectedEmployee);
+        console.log('Fetching projects for employee:', employeeToFetch);
         
-        const response = await httpService.get(`/timesheet/vendors/${selectedEmployee}`);
+        const response = await httpService.get(`/timesheet/vendors/${employeeToFetch}`);
         console.log('Employee projects API response:', response);
         
-        // Handle the actual response structure
         let projectsData = [];
         if (response.data && response.data.success) {
-          // The projects are in response.data.data array
           projectsData = response.data.data || [];
         }
         
@@ -253,13 +277,13 @@ useEffect(() => {
         setLoadingEmployeeProjects(false);
       }
     } else {
-      console.log('Clearing employee projects');
+      console.log('Clearing employee projects - no employee selected');
       setEmployeeProjects([]);
     }
   };
 
   fetchEmployeeProjects();
-}, [selectedEmployee, role]);
+}, [selectedEmployee, tempEmployeeForAdd, role, isCreateMode, isAddingNewTimesheet]);
 
 // Add this useEffect after the existing useEffects
 // In your useEffect that handles employee changes
@@ -274,25 +298,23 @@ useEffect(() => {
 
 
 // Add this function with your other handler functions
-// In Timesheets.js, replace the handleEmployeeChange function with this:
-// Replace the handleEmployeeChange function with this:
 const handleEmployeeChange = (employeeId) => {
   console.log('Employee changed to:', employeeId);
   
-  // Reset project selection when employee changes
+  // Reset project selection and timesheet when employee changes
   setSelectedProject('');
   setCurrentTimesheet(null);
+  setEmployeeProjects([]);
   
   if (isCreateMode || isAddingNewTimesheet) {
+    // In create/add mode
     setTempEmployeeForAdd(employeeId);
     setSelectedEmployee(employeeId);
-    handleAddTimesheetClick(employeeId);
   } else {
+    // In normal view mode
     setSelectedEmployee(employeeId);
   }
   
-  // Clear employee projects to trigger re-fetch
-  setEmployeeProjects([]);
   console.log('Employee projects will be fetched for:', employeeId);
 };
   // Custom day renderer for calendar
@@ -376,89 +398,98 @@ const handleEmployeeChange = (employeeId) => {
     }
   }, [selectedProject, selectedWeekStart]);
 
-  const fetchOrCreateTimesheet = async () => {
-    if (!selectedProject || !selectedWeekStart) return;
+const fetchOrCreateTimesheet = async () => {
+  if (!selectedProject || !selectedWeekStart) return;
 
-         if (isAddingNewTimesheet) {
-    createNewTimesheetForEmployee(tempEmployeeForAdd);
+  // Special handling for add timesheet mode
+  if (isAddingNewTimesheet || (isCreateMode && tempEmployeeForAdd)) {
+    const employeeId = tempEmployeeForAdd || selectedEmployee;
+    if (employeeId) {
+      createNewTimesheetForEmployee(employeeId);
+    }
     return;
   }
 
-    setLoading(true);
-    try {
-      // Use selectedEmployee if available (for SUPERADMIN/ACCOUNTS), otherwise use current userId
-      const targetUserId = selectedEmployee || userId;
+  setLoading(true);
+  try {
+    // Use selectedEmployee if available (for SUPERADMIN/ACCOUNTS), otherwise use current userId
+    const targetUserId = selectedEmployee || userId;
 
-      console.log('Fetching timesheet for:', { targetUserId, selectedProject, selectedWeekStart });
+    console.log('Fetching timesheet for:', { 
+      targetUserId, 
+      selectedProject, 
+      selectedWeekStart,
+      selectedEmployee,
+      userId 
+    });
 
-      // Use Redux action instead of direct HTTP call
-      const resultAction =await dispatch(fetchTimesheetsByUserId(targetUserId));
+    // Use Redux action instead of direct HTTP call
+    const resultAction = await dispatch(fetchTimesheetsByUserId(targetUserId));
 
+    if (fetchTimesheetsByUserId.fulfilled.match(resultAction)) {
+      const response = resultAction.payload;
       
-      if (fetchTimesheetsByUserId.fulfilled.match(resultAction)) {
-        const response = resultAction.payload;
-        
-        console.log('Full API response:', response);
-        setTimeSheetData(response.data || []);
+      console.log('Full API response:', response);
+      setTimeSheetData(response.data || []);
 
-        let existingTimesheet = null;
+      let existingTimesheet = null;
 
-        if (response && response.success && response.data) {
-          // Find existing timesheet for this week AND project
-          existingTimesheet = response.data.find(ts => {
-            const tsWeekStart = new Date(ts.weekStartDate).toISOString().split('T')[0];
-            // Check if any working entry matches the selected project
-            const hasProjectEntries = ts.workingEntries && ts.workingEntries.some(entry => entry.project === selectedProject);
-            console.log('Checking timesheet:', {
-              tsWeekStart,
-              selectedWeekStart,
-              hasProjectEntries,
-              timesheetId: ts.timesheetId
-            });
-            return tsWeekStart === selectedWeekStart && hasProjectEntries;
+      if (response && response.success && response.data) {
+        // Find existing timesheet for this week AND project
+        existingTimesheet = response.data.find(ts => {
+          const tsWeekStart = new Date(ts.weekStartDate).toISOString().split('T')[0];
+          // Check if any working entry matches the selected project
+          const hasProjectEntries = ts.workingEntries && ts.workingEntries.some(entry => entry.project === selectedProject);
+          console.log('Checking timesheet:', {
+            tsWeekStart,
+            selectedWeekStart,
+            hasProjectEntries,
+            timesheetId: ts.timesheetId
           });
-        }
+          return tsWeekStart === selectedWeekStart && hasProjectEntries;
+        });
+      }
 
-        console.log('Found existing timesheet:', existingTimesheet);
+      console.log('Found existing timesheet:', existingTimesheet);
 
-        if (existingTimesheet) {
-          const transformed = transformTimesheet(existingTimesheet);
-          console.log('Transformed timesheet:', transformed);
-          setCurrentTimesheet(transformed);
+      if (existingTimesheet) {
+        const transformed = transformTimesheet(existingTimesheet);
+        console.log('Transformed timesheet:', transformed);
+        setCurrentTimesheet(transformed);
 
-          // Handle attachments
-          if (existingTimesheet.attachments && existingTimesheet.attachments.length > 0) {
-            const processedAttachments = existingTimesheet.attachments.map(att => ({
-              id: att.id,
-              name: att.filename,
-              size: 0,
-              type: att.filetype,
-              uploadDate: new Date(att.uploadedAt),
-              uploaded: true,
-              url: null
-            }));
-            setAttachments(processedAttachments);
-          } else {
-            setAttachments([]);
-          }
-          showAlert('Timesheet loaded successfully', 'success');
+        // Handle attachments
+        if (existingTimesheet.attachments && existingTimesheet.attachments.length > 0) {
+          const processedAttachments = existingTimesheet.attachments.map(att => ({
+            id: att.id,
+            name: att.filename,
+            size: 0,
+            type: att.filetype,
+            uploadDate: new Date(att.uploadedAt),
+            uploaded: true,
+            url: null
+          }));
+          setAttachments(processedAttachments);
         } else {
-          console.log('No existing timesheet found, creating new one');
-          createNewTimesheet();
           setAttachments([]);
         }
+        showAlert('Timesheet loaded successfully', 'success');
       } else {
-        throw new Error(resultAction.payload || 'Failed to fetch timesheets');
+        console.log('No existing timesheet found, creating new one');
+        createNewTimesheetForEmployee(targetUserId); // Pass the target user ID
+        setAttachments([]);
       }
-    } catch (error) {
-      console.error('Error fetching timesheet:', error);
-      showAlert(`Failed to fetch timesheet: ${error.message}`, 'error');
-      createNewTimesheet();
-      setAttachments([]);
-    } finally {
-      setLoading(false);
+    } else {
+      throw new Error(resultAction.payload || 'Failed to fetch timesheets');
     }
-  };
+  } catch (error) {
+    console.error('Error fetching timesheet:', error);
+    showAlert(`Failed to fetch timesheet: ${error.message}`, 'error');
+    createNewTimesheetForEmployee(selectedEmployee || userId); // Pass the target user ID
+    setAttachments([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const createNewTimesheet = () => {
     const weekInfo = getWeekDates(selectedWeekStart);
@@ -787,13 +818,15 @@ const handleEmployeeChange = (employeeId) => {
       .reduce((total, day) => total + (timesheet[day] || 0), 0);
   };
 
-  const createNewTimesheetForEmployee = (employeeId = null) => {
+const createNewTimesheetForEmployee = (employeeId = null) => {
   const weekInfo = getWeekDates(selectedWeekStart);
   const targetUserId = employeeId || selectedEmployee || userId;
 
+  console.log('Creating new timesheet for employee:', targetUserId);
+
   const newTimesheet = {
     id: null,
-    userId: targetUserId,
+    userId: targetUserId, // Use the target user ID
     project: selectedProject,
     status: 'Working',
     startDate: weekInfo.startString,
@@ -1015,12 +1048,25 @@ const handleCancelAddTimesheet = () => {
 
 
 const handleAddTimesheetClick = (employeeId) => {
+  console.log('Adding timesheet for employee:', employeeId);
   setTempEmployeeForAdd(employeeId);
   setIsAddingNewTimesheet(true);
   setSelectedEmployee(employeeId);
+  
   // Clear any existing timesheet data
   setCurrentTimesheet(null);
   setSelectedProject('');
+  setAttachments([]);
+  setPendingAttachments([]);
+  setHasUnsavedChanges(false);
+  
+  // Set current week as default
+  const currentWeek = getCurrentWeek();
+  setSelectedWeekStart(currentWeek.startString);
+  setCalendarValue(new Date(currentWeek.startString));
+  setHighlightedWeek(getWeekDatesArray(new Date(currentWeek.startString)));
+  
+  console.log('Add timesheet mode activated for employee:', employeeId);
 };
 
 
@@ -1533,6 +1579,7 @@ const AttachmentsDialog = () => (
       AttachmentsDialog={AttachmentsDialog}
       loadingEmployeeProjects={loadingEmployeeProjects}
   handleEmployeeChange={handleEmployeeChange}
+  employeeProjects={employeeProjects}
     />
   );
 };

@@ -6,9 +6,9 @@ export const fetchClientsForProjects = createAsyncThunk(
   'timesheet/fetchClientsForProjects',
   async (_, { getState, rejectWithValue }) => {
     try {
-      // const state = getState();
-      // const userId = state.auth.userId;
-      const response = await httpService.get(`/timesheet/vendors`);
+      const state = getState();
+      const userId = state.auth.userId;
+      const response = await httpService.get(`/timesheet/vendors/${userId}`);
       
       console.log('API Response:', response); // Debug log
       
