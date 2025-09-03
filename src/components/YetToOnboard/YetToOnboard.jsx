@@ -4,6 +4,7 @@ import { useSelector } from "react-redux";
 import CustomDataTable from "../../ui-lib/CustomDataTable";
 import getHotListColumns from "../Hotlist/hotListColumns";
 import { hotlistAPI } from "../../utils/api";
+import { useNavigate } from "react-router-dom";
 
 import {
   showErrorToast,
@@ -21,6 +22,7 @@ const YetToOnboard = React.memo(() => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [search, setSearch] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
+  const navigate = useNavigate();
 
   /** ---------------- Fetch Data ---------------- */
   const fetchData = useCallback(async () => {
@@ -71,7 +73,7 @@ const YetToOnboard = React.memo(() => {
   }, []);
 
   const handleNavigate = useCallback((consultantId) => {
-    console.log("Navigate to consultant:", consultantId);
+    navigate(`/dashboard/hotlist/consultants/${consultantId}`);
   }, []);
 
   /** ---------------- Columns ---------------- */

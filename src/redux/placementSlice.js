@@ -2,7 +2,6 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import httpService from "../Services/httpService";
 import ToastService from "../Services/toastService";
 
-
 const formatDateForAPI = (dateStr) => {
   if (!dateStr) return null;
 
@@ -15,14 +14,14 @@ const formatDateForAPI = (dateStr) => {
     // Handle MM/DD/YYYY format from UI
     if (dateStr.includes("/")) {
       const [month, day, year] = dateStr.split("/");
-      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
     }
-    
+
     // For other formats, use UTC to avoid timezone issues
-    const date = new Date(dateStr + 'T00:00:00');
+    const date = new Date(dateStr + "T00:00:00");
     const year = date.getUTCFullYear();
-    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(date.getUTCDate()).padStart(2, '0');
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   } catch (e) {
     console.error("Error formatting date for API:", e, dateStr);
@@ -39,7 +38,7 @@ const formatDateForUI = (isoDate) => {
       const [year, month, day] = isoDate.split("-");
       return `${month}/${day}/${year}`;
     }
-    
+
     // Handle MM/DD/YYYY format (already formatted)
     if (isoDate.includes("/")) {
       return isoDate;
@@ -55,7 +54,6 @@ const formatDateForUI = (isoDate) => {
   }
 };
 
-
 const formatDateForFormInput = (dateStr) => {
   if (!dateStr) return "";
 
@@ -68,14 +66,14 @@ const formatDateForFormInput = (dateStr) => {
     // Handle MM/DD/YYYY format from display
     if (dateStr.includes("/")) {
       const [month, day, year] = dateStr.split("/");
-      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
     }
 
     // For other formats, extract date components without timezone conversion
-    const date = new Date(dateStr + 'T00:00:00');
+    const date = new Date(dateStr + "T00:00:00");
     const year = date.getUTCFullYear();
-    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(date.getUTCDate()).padStart(2, '0');
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   } catch (error) {
     console.error("Error formatting date for form input:", error, dateStr);
@@ -171,8 +169,10 @@ export const updatePlacement = createAsyncThunk(
 
       if (response.data.success) {
         const { message, data } = response.data;
-        ToastService.success(`${message}! Candidate ID: ${data.id}, Name: ${data.candidateFullName}`);
-         // Refetch placements after updating
+        ToastService.success(
+          `${message}! Candidate ID: ${data.id}, Name: ${data.candidateFullName}`
+        );
+        // Refetch placements after updating
         dispatch(fetchPlacements());
         return response.data;
       } else {
@@ -219,13 +219,26 @@ export const deletePlacement = createAsyncThunk(
   }
 );
 
+// Fixed async thunk for date range filtering
 export const filterPlacementByDateRange = createAsyncThunk(
   "placement/filterByDateRange",
   async ({ startDate, endDate }, thunkAPI) => {
     try {
-      const response = await httpService.get(`/candidate/placement/filterByDate?startDate=${startDate}&endDate=${endDate}`)
-      return response.data;
+      const response = await httpService.get(
+        `/candidate/placement/filterByDate?startDate=${startDate}&endDate=${endDate}`
+      );
+
+      // Format the filtered data for UI display
+      const rawData = response.data.data || response.data;
+      const formattedData = rawData.map((item) => ({
+        ...item,
+        startDate: item.startDate ? formatDateForUI(item.startDate) : "",
+        endDate: item.endDate ? formatDateForUI(item.endDate) : "",
+      }));
+
+      return formattedData;
     } catch (error) {
+      ToastService.error("Failed to filter placements by date range.");
       return thunkAPI.rejectWithValue(
         error.response?.data?.message || "Failed to fetch placements"
       );
@@ -240,6 +253,7 @@ const initialState = {
   success: false,
   actionType: null, // To track what action is in progress (create, update, delete)
   selectedPlacement: null, // To store the currently selected placement
+  isFiltered: false, // Track if data is currently filtered
 };
 
 const placementSlice = createSlice({
@@ -258,9 +272,9 @@ const placementSlice = createSlice({
         const placement = action.payload;
         console.log("Original placement dates:", {
           startDate: placement.startDate,
-          endDate: placement.endDate
+          endDate: placement.endDate,
         });
-        
+
         state.selectedPlacement = {
           ...placement,
           // Use formatDateForFormInput instead of formatDateForAPI
@@ -268,18 +282,22 @@ const placementSlice = createSlice({
           startDate: placement.startDate
             ? formatDateForFormInput(placement.startDate)
             : "",
-          endDate: placement.endDate 
-            ? formatDateForFormInput(placement.endDate) 
+          endDate: placement.endDate
+            ? formatDateForFormInput(placement.endDate)
             : "",
         };
-        
+
         console.log("Formatted placement dates:", {
           startDate: state.selectedPlacement.startDate,
-          endDate: state.selectedPlacement.endDate
+          endDate: state.selectedPlacement.endDate,
         });
       } else {
         state.selectedPlacement = null;
       }
+    },
+    // Clear filter state
+    clearPlacementFilter: (state) => {
+      state.isFiltered = false;
     },
   },
   extraReducers: (builder) => {
@@ -294,6 +312,7 @@ const placementSlice = createSlice({
         state.loading = false;
         state.placements = action.payload;
         state.actionType = null;
+        state.isFiltered = false; // Reset filter state when fetching all data
       })
       .addCase(fetchPlacements.rejected, (state, action) => {
         state.loading = false;
@@ -359,7 +378,7 @@ const placementSlice = createSlice({
         state.actionType = null;
       })
 
-      // Handle the pending state for date range filter
+      // Handle date range filter
       .addCase(filterPlacementByDateRange.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -371,16 +390,22 @@ const placementSlice = createSlice({
         state.placements = action.payload;
         state.success = true;
         state.actionType = null;
+        state.isFiltered = true; // Mark as filtered
       })
       .addCase(filterPlacementByDateRange.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
         state.success = false;
         state.actionType = null;
+        state.isFiltered = false;
       });
   },
 });
 
-export const { resetPlacementState, setSelectedPlacement } =
-  placementSlice.actions;
+export const {
+  resetPlacementState,
+  setSelectedPlacement,
+  clearPlacementFilter,
+} = placementSlice.actions;
+
 export default placementSlice.reducer;

@@ -682,6 +682,13 @@ const DynamicFormUltra = ({
             <Typography variant="caption">{error}</Typography>
           </Alert>
         )}
+
+        {/* Helper Text */}
+        {field.helperText && !error && (
+          <FormHelperText sx={{ mt: 1, mx: 0 }}>
+            {field.helperText}
+          </FormHelperText>
+        )}
       </Box>
     );
   };
@@ -709,6 +716,7 @@ const DynamicFormUltra = ({
     switch (field.type) {
       case "text":
       case "link":
+      case "number":
       case "email":
         return (
           <TextField
@@ -720,13 +728,15 @@ const DynamicFormUltra = ({
                 ? "url"
                 : field.type === "email"
                 ? "email"
+                : field.type === "number"
+                ? "number"
                 : "text"
             }
             value={value}
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
             error={Boolean(error)}
-            helperText={error}
+            helperText={error || field.helperText}
             InputProps={inputProps}
           />
         );
@@ -742,7 +752,7 @@ const DynamicFormUltra = ({
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
             error={Boolean(error)}
-            helperText={error}
+            helperText={error || field.helperText}
             InputProps={inputProps}
             autoComplete="new-password"
           />
@@ -757,6 +767,7 @@ const DynamicFormUltra = ({
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
             error={error}
+            helperText={field.helperText}
             required={field.required}
             countryCode={countryCodes[field.name] || "+91"}
             setCountryCode={(newCode) =>
@@ -777,7 +788,7 @@ const DynamicFormUltra = ({
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
             error={Boolean(error)}
-            helperText={error}
+            helperText={error || field.helperText}
             InputProps={inputProps}
           />
         );
@@ -794,7 +805,7 @@ const DynamicFormUltra = ({
             onBlur={formik.handleBlur}
             InputLabelProps={{ shrink: true }}
             error={Boolean(error)}
-            helperText={error}
+            helperText={error || field.helperText}
             InputProps={inputProps}
           />
         );
@@ -815,7 +826,7 @@ const DynamicFormUltra = ({
             }}
             onBlur={formik.handleBlur}
             error={Boolean(error)}
-            helperText={error}
+            helperText={error || field.helperText}
             InputProps={inputProps}
             SelectProps={{
               MenuProps: {
@@ -895,6 +906,9 @@ const DynamicFormUltra = ({
               ))}
             </Select>
             {error && <FormHelperText>{error}</FormHelperText>}
+            {field.helperText && !error && (
+              <FormHelperText>{field.helperText}</FormHelperText>
+            )}
           </FormControl>
         );
 
@@ -949,6 +963,11 @@ const DynamicFormUltra = ({
                 {error}
               </FormHelperText>
             )}
+            {field.helperText && !error && (
+              <FormHelperText sx={{ ml: 0, mt: 1 }}>
+                {field.helperText}
+              </FormHelperText>
+            )}
           </Box>
         );
 
@@ -993,6 +1012,9 @@ const DynamicFormUltra = ({
               ))}
             </FormGroup>
             {error && <FormHelperText>{error}</FormHelperText>}
+            {field.helperText && !error && (
+              <FormHelperText>{field.helperText}</FormHelperText>
+            )}
           </FormControl>
         );
 
