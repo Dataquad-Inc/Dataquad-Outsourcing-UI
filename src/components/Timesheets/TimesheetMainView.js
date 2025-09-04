@@ -30,7 +30,16 @@ const TimesheetMainView = (props) => {
     tempEmployeeForAdd, setTempEmployeeForAdd, handleViewAttachments, AttachmentsDialog,
     employeeProjects,
     loadingEmployeeProjects,
-    handleEmployeeChange
+    handleEmployeeChange,
+    prepopulatedEmployee,
+    isEditMode,
+    setIsEditMode,
+    handleEditTimesheet,
+    canEditTimesheet,
+    isDateInCurrentMonth,
+    getDateForDay,
+    isDateInSelectedWeekMonth,
+    isDateInCalendarMonth,
   } = props;
 
   return (
@@ -56,10 +65,10 @@ const TimesheetMainView = (props) => {
         <AccessTime color="primary" sx={{ fontSize: 40 }} />
         <Box>
           <Typography variant="h4" component="h1" fontWeight="bold" color="text.primary">
-            Weekly Timesheet Management
+            Timesheet Management
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Manage your weekly work hours and leave
+            Manage your work hours and leave
           </Typography>
         </Box>
       </Box>
@@ -75,87 +84,150 @@ const TimesheetMainView = (props) => {
             {/* Left Side: Project & Employee + Calendar */}
             <Grid item xs={12} md={5}>
               <Grid container spacing={2}>
+                {((role === "SUPERADMIN" || role === "ACCOUNTS" || role === "INVOICE") || (isCreateMode && isAddingNewTimesheet)) && (
+                  <Grid item xs={12} md={6}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel id="employee-select-label">Select Employee</InputLabel>
+                      <Select
+                        labelId="employee-select-label"
+                        value={isAddingNewTimesheet ? tempEmployeeForAdd : selectedEmployee}
+                        label="Select Employee"
+                        onChange={(e) => handleEmployeeChange(e.target.value)}
+                        disabled={loadingEmployeeProjects}
+                      >
+                        <MenuItem value="">Choose an employee...</MenuItem>
 
- {((role === "SUPERADMIN" || role === "ACCOUNTS" ) || (isCreateMode && isAddingNewTimesheet)) && (
-  <Grid item xs={12} md={6}>
-    <FormControl fullWidth size="small">
-      <InputLabel id="employee-select-label">Select Employee</InputLabel>
-      <Select
-        labelId="employee-select-label"
-        value={isAddingNewTimesheet ? tempEmployeeForAdd : selectedEmployee}
-        label="Select Employee"
-        onChange={(e) => handleEmployeeChange(e.target.value)}
-      >
-        <MenuItem value="">Choose an employee...</MenuItem>
-        {externalEmployeesOptions && externalEmployeesOptions.map((emp) => (
-          <MenuItem key={emp.value} value={emp.value}>
-            {emp.label}
-          </MenuItem>
-        ))}
-      </Select>
-    </FormControl>
-  </Grid>
-)}
+                        {/* Show loading state */}
+                        {loadingEmployeeProjects && (
+                          <MenuItem value="" disabled>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <CircularProgress size={16} />
+                              Loading employees...
+                            </Box>
+                          </MenuItem>
+                        )}
+
+                        {/* Show prepopulated employee as selected if available */}
+                        {prepopulatedEmployee && !loadingEmployeeProjects && (
+                          <MenuItem
+                            value={prepopulatedEmployee.userId}
+                            selected
+                            sx={{ backgroundColor: 'primary.light', color: 'primary.contrastText' }}
+                          >
+                            {prepopulatedEmployee.employeeName} (Prepopulated)
+                          </MenuItem>
+                        )}
+
+                        {externalEmployeesOptions && externalEmployeesOptions.map((emp) => (
+                          <MenuItem
+                            key={emp.value}
+                            value={emp.value}
+                            disabled={prepopulatedEmployee && emp.value === prepopulatedEmployee.userId}
+                          >
+                            {emp.label}
+                            {prepopulatedEmployee && emp.value === prepopulatedEmployee.userId && ' (Prepopulated)'}
+                          </MenuItem>
+                        ))}
+                      </Select>
+
+                      {/* Loading indicator */}
+                      {loadingEmployeeProjects && (
+                        <FormHelperText>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <CircularProgress size={16} />
+                            Loading employee data...
+                          </Box>
+                        </FormHelperText>
+                      )}
+
+                      {/* Prepopulation status */}
+                      {prepopulatedEmployee && !loadingEmployeeProjects && (
+                        <FormHelperText sx={{ color: 'primary.main', fontWeight: 'bold' }}>
+                          Prepopulated: {prepopulatedEmployee.employeeName}
+                        </FormHelperText>
+                      )}
+                    </FormControl>
+                  </Grid>
+                )}
 
                 {/* Project Dropdown */}
-    
-<Grid item xs={12} md={6}>
-  <FormControl fullWidth size="small">
-    <InputLabel id="project-select-label">Select Project</InputLabel>
-    <Select
-      labelId="project-select-label"
-      value={selectedProject}
-      label="Select Project"
-      onChange={(e) => {
-        console.log('Project selected:', e.target.value);
-        setSelectedProject(e.target.value);
-      }}
-      disabled={
-        loading || 
-        loadingEmployeeProjects ||
-        ((role === 'SUPERADMIN' || role === 'ACCOUNTS') && 
-         (!selectedEmployee && !tempEmployeeForAdd))
-      }
-    >
-      <MenuItem value="">Choose a project...</MenuItem>
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel id="project-select-label">Select Project</InputLabel>
+                    <Select
+                      labelId="project-select-label"
+                      value={selectedProject}
+                      label="Select Project"
+                      onChange={(e) => {
+                        console.log('Project selected:', e.target.value);
+                        setSelectedProject(e.target.value);
+                      }}
+                      disabled={
+                        loading ||
+                        loadingEmployeeProjects ||
+                        ((role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === 'INVOICE') &&
+                          (!selectedEmployee && !tempEmployeeForAdd))
+                      }
+                    >
+                      <MenuItem value="">Choose a project...</MenuItem>
 
-      {/* Loading state */}
-      {loadingEmployeeProjects && (
-        <MenuItem value="" disabled>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <CircularProgress size={16} />
-            Loading projects...
-          </Box>
-        </MenuItem>
-      )}
+                      {/* Loading state */}
+                      {loadingEmployeeProjects && (
+                        <MenuItem value="" disabled>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <CircularProgress size={16} />
+                            Loading projects...
+                          </Box>
+                        </MenuItem>
+                      )}
 
-      {/* Show employee projects when employee is selected (admin roles) */}
-      {(role === 'SUPERADMIN' || role === 'ACCOUNTS') && (selectedEmployee || tempEmployeeForAdd) && !loadingEmployeeProjects ? (
-        employeeProjects && employeeProjects.length > 0 ? (
-        employeeProjects.map((project) => (
-  <MenuItem 
-    key={project.projectId || project.id || project} 
-    value={project.projectName || project.name || project}
-  >
-    {project.projectName || project.name || project}
-  </MenuItem>
-))
-        ) : (
-          <MenuItem value="" disabled>
-            No projects found for this employee
-          </MenuItem>
-        )
-      ) : (
-        // For EXTERNALEMPLOYEE role, show regular clients
-        role === 'EXTERNALEMPLOYEE' && clients && clients.map((clientName, index) => (
-          <MenuItem key={index} value={clientName}>
-            {clientName}
-          </MenuItem>
-        ))
-      )}
-    </Select>
-  </FormControl>
-</Grid>
+                      {/* Auto-select first project when prepopulated */}
+                      {prepopulatedEmployee && employeeProjects && employeeProjects.length > 0 && !loadingEmployeeProjects && (
+                        <MenuItem
+                          value={employeeProjects[0].projectName || employeeProjects[0].name || employeeProjects[0]}
+                          selected
+                          sx={{ backgroundColor: 'primary.light', color: 'primary.contrastText' }}
+                        >
+                          {employeeProjects[0].projectName || employeeProjects[0].name || employeeProjects[0]} (Auto-selected)
+                        </MenuItem>
+                      )}
+
+                      {/* Show employee projects when employee is selected (admin roles) */}
+                      {(role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === 'INVOICE') && (selectedEmployee || tempEmployeeForAdd) && !loadingEmployeeProjects ? (
+                        employeeProjects && employeeProjects.length > 0 ? (
+                          employeeProjects.map((project, index) => (
+                            <MenuItem
+                              key={project.projectId || project.id || project || index}
+                              value={project.projectName || project.name || project}
+                              disabled={prepopulatedEmployee && index === 0} // Disable auto-selected item to prevent confusion
+                            >
+                              {project.projectName || project.name || project}
+                              {prepopulatedEmployee && index === 0 && ' (Auto-selected)'}
+                            </MenuItem>
+                          ))
+                        ) : (
+                          <MenuItem value="" disabled>
+                            No projects found for this employee
+                          </MenuItem>
+                        )
+                      ) : (
+                        // For EXTERNALEMPLOYEE role, show regular clients
+                        role === 'EXTERNALEMPLOYEE' && clients && clients.map((clientName, index) => (
+                          <MenuItem key={index} value={clientName}>
+                            {clientName}
+                          </MenuItem>
+                        ))
+                      )}
+                    </Select>
+
+                    {/* Prepopulation status for projects */}
+                    {prepopulatedEmployee && employeeProjects && employeeProjects.length > 0 && !loadingEmployeeProjects && (
+                      <FormHelperText sx={{ color: 'primary.main', fontWeight: 'bold' }}>
+                        Auto-selected first project for {prepopulatedEmployee.employeeName}
+                      </FormHelperText>
+                    )}
+                  </FormControl>
+                </Grid>
               </Grid>
 
               {/* Calendar */}
@@ -182,6 +254,8 @@ const TimesheetMainView = (props) => {
                       value={calendarValue}
                       onChange={(newValue) => setCalendarValue(newValue)}
                       slots={{ day: CustomDay }}
+                      showDaysOutsideCurrentMonth={true} // Show days but they'll be disabled
+                      disableFuture={false} // Allow future dates if needed
                       sx={{
                         width: "100%",
                         maxWidth: "100%",
@@ -242,6 +316,11 @@ const TimesheetMainView = (props) => {
                             backgroundColor: "primary.light",
                             borderRadius: 0,
                           },
+                          // Style for disabled days (outside current month)
+                          "&.Mui-disabled": {
+                            color: "text.disabled",
+                            backgroundColor: "grey.50",
+                          },
                         },
                         "& .Mui-selected": {
                           backgroundColor: "primary.main !important",
@@ -254,6 +333,7 @@ const TimesheetMainView = (props) => {
                         "& .MuiPickersDay-dayOutsideMonth": {
                           color: "text.disabled",
                           backgroundColor: "grey.50",
+                          pointerEvents: "none", // Disable interaction
                         },
                         "& .MuiPickersCalendarHeader-root": {
                           px: 1,
@@ -280,7 +360,7 @@ const TimesheetMainView = (props) => {
                     {/* Client */}
                     <Grid item xs={6}>
                       <Typography variant="body2" color="text.secondary">Client</Typography>
-                      <Typography variant="body1" fontWeight="medium">{projectDetails.client}</Typography>
+                      <Typography variant="body1" fontWeight="medium">{selectedProject}</Typography>
                     </Grid>
                     {/* Start Date */}
                     <Grid item xs={6}>
@@ -314,7 +394,8 @@ const TimesheetMainView = (props) => {
                     <Grid item xs={12} sx={{ mt: 1 }}>
                       {/* Header Row */}
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                        <Typography variant="body2" color="text.secondary">
+                        <Typography variant="subtitle2"
+                          sx={{ color: "primary.main", fontWeight: "bold" }}>
                           Attachments
                         </Typography>
                         {(role === "EXTERNALEMPLOYEE") && (
@@ -499,7 +580,13 @@ const TimesheetMainView = (props) => {
           selectedEmployee={selectedEmployee}
           isAddingNewTimesheet={isAddingNewTimesheet}
           isCreateMode={isCreateMode}
-
+          getDateForDay={getDateForDay}
+          isDateInSelectedWeekMonth={isDateInSelectedWeekMonth}
+          selectedWeekStart={selectedWeekStart}
+          canEditTimesheet={canEditTimesheet}
+          isEditMode={isEditMode}
+          calendarValue={calendarValue}
+          isDateInCalendarMonth={isDateInCalendarMonth}
         />
       )}
 

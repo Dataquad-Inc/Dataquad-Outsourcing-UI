@@ -448,7 +448,7 @@ const routeConfig = [
             path: "timesheets",
             element: (
               <ProtectedRoute
-                allowedRoles={["EXTERNALEMPLOYEE", "SUPERADMIN", "ACCOUNTS"]}
+                allowedRoles={["EXTERNALEMPLOYEE", "SUPERADMIN", "ACCOUNTS","INVOICE"]}
                 allowedEntities={["IN"]}
               />
             ),

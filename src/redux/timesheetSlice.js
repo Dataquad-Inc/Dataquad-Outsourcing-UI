@@ -1,5 +1,25 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import httpService from '../Services/httpService';
+import ToastService from '../Services/toastService';
+import axios from 'axios';
+
+// Helper function to extract error message
+const extractErrorMessage = (error) => {
+  const apiError = error.response?.data;
+  let errorMessage = "Something went wrong";
+
+  if (typeof apiError === "string") {
+    errorMessage = apiError;
+  } else if (apiError?.error?.errorMessage) {
+    errorMessage = apiError.error.errorMessage;
+  } else if (apiError?.message) {
+    errorMessage = apiError.message;
+  } else if (error.message) {
+    errorMessage = error.message;
+  }
+
+  return errorMessage;
+};
 
 // Async thunks for API calls
 export const fetchClientsForProjects = createAsyncThunk(
@@ -9,9 +29,9 @@ export const fetchClientsForProjects = createAsyncThunk(
       const state = getState();
       const userId = state.auth.userId;
       const response = await httpService.get(`/timesheet/vendors/${userId}`);
-      
+
       console.log('API Response:', response); // Debug log
-      
+
       // More robust data extraction
       if (response?.data?.success && Array.isArray(response.data.data)) {
         return response.data.data;
@@ -25,7 +45,9 @@ export const fetchClientsForProjects = createAsyncThunk(
       }
     } catch (error) {
       console.error('Error fetching clients:', error);
-      return rejectWithValue(error.response?.data?.message || error.message || 'Failed to fetch clients');
+      const errorMessage = extractErrorMessage(error);
+      ToastService.error(errorMessage);
+      return rejectWithValue(errorMessage);
     }
   }
 );
@@ -39,7 +61,9 @@ export const fetchTimesheetsByUserId = createAsyncThunk(
       );
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data || error.message);
+      const errorMessage = extractErrorMessage(error);
+      ToastService.error(errorMessage);
+      return rejectWithValue(errorMessage);
     }
   }
 );
@@ -52,9 +76,12 @@ export const createTimesheet = createAsyncThunk(
         `/timesheet/daily-entry?userId=${userId}`,
         timesheetData
       );
+      ToastService.success('Timesheet created successfully');
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data || error.message);
+      const errorMessage = extractErrorMessage(error);
+      ToastService.error(errorMessage);
+      return rejectWithValue(errorMessage);
     }
   }
 );
@@ -64,12 +91,15 @@ export const updateTimesheet = createAsyncThunk(
   async ({ timesheetId, userId, timesheetData }, { rejectWithValue }) => {
     try {
       const response = await httpService.patch(
-        `/timesheet/update-timesheet/${timesheetId}?userId=${userId}`,
+        `/timesheet/update-timesheet-entries/${timesheetId}?userId=${userId}`,
         timesheetData
       );
+      ToastService.success('Timesheet updated successfully');
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data || error.message);
+      const errorMessage = extractErrorMessage(error);
+      ToastService.error(errorMessage);
+      return rejectWithValue(errorMessage);
     }
   }
 );
@@ -82,9 +112,12 @@ export const submitWeeklyTimesheet = createAsyncThunk(
         `/timesheet/submit-weekly?userId=${userId}&weekStart=${weekStart}`,
         {}
       );
+      ToastService.success('Timesheet submitted successfully');
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data || error.message);
+      const errorMessage = extractErrorMessage(error);
+      ToastService.error(errorMessage);
+      return rejectWithValue(errorMessage);
     }
   }
 );
@@ -107,9 +140,45 @@ export const uploadTimesheetAttachments = createAsyncThunk(
           },
         }
       );
+      ToastService.success('Files uploaded successfully');
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data || error.message);
+      const errorMessage = extractErrorMessage(error);
+      ToastService.error(errorMessage);
+      return rejectWithValue(errorMessage);
+    }
+  }
+);
+
+export const deleteTimesheetAttachments = createAsyncThunk(
+  'timesheet/deleteTimesheetAttachments',
+  async ({ attachmentId }, { rejectWithValue }) => {
+    try {
+      const response = await httpService.delete(
+        `/timesheet/delete-attachments/${attachmentId}`
+      );
+      ToastService.success('Attachment deleted successfully');
+      return response.data;
+    } catch (error) {
+      const errorMessage = extractErrorMessage(error);
+      ToastService.error(errorMessage);
+      return rejectWithValue(errorMessage);
+    }
+  }
+);
+
+export const getTimesheetAttachmentsById = createAsyncThunk(
+  'timesheet/getTimesheetAttachmentsById',
+  async (timesheetId, { rejectWithValue }) => {
+    try {
+      const response = await httpService.get(
+        `/timesheet/${timesheetId}/attachments`
+      );
+      return response.data;
+    } catch (error) {
+      const errorMessage = extractErrorMessage(error);
+      ToastService.error(errorMessage);
+      return rejectWithValue(errorMessage);
     }
   }
 );
@@ -121,9 +190,12 @@ export const approveTimesheet = createAsyncThunk(
       const response = await httpService.post(
         `/timesheet/approve?timesheetId=${timesheetId}&userId=${userId}`
       );
+      ToastService.success('Timesheet approved successfully');
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data || error.message);
+      const errorMessage = extractErrorMessage(error);
+      ToastService.error(errorMessage);
+      return rejectWithValue(errorMessage);
     }
   }
 );
@@ -135,9 +207,12 @@ export const rejectTimesheet = createAsyncThunk(
       const response = await httpService.post(
         `/timesheet/reject?timesheetId=${timesheetId}&userId=${userId}&reason=${encodeURIComponent(reason.trim())}`
       );
+      ToastService.success('Timesheet rejected successfully');
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data || error.message);
+      const errorMessage = extractErrorMessage(error);
+      ToastService.error(errorMessage);
+      return rejectWithValue(errorMessage);
     }
   }
 );
@@ -150,9 +225,12 @@ export const cancelTimesheet = createAsyncThunk(
         `/timesheet/cancel/${timesheetId}`,
         { cancelledBy: userId }
       );
+      ToastService.success('Timesheet cancelled successfully');
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data || error.message);
+      const errorMessage = extractErrorMessage(error);
+      ToastService.error(errorMessage);
+      return rejectWithValue(errorMessage);
     }
   }
 );
@@ -167,7 +245,8 @@ const timesheetSlice = createSlice({
     uploadError: null,
     actionLoading: false,
     actionError: null,
-    clients:[]
+    clients: [],
+    attachments: []
   },
   reducers: {
     clearError: (state) => {
@@ -183,7 +262,7 @@ const timesheetSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      //fetch clients
+      // Fetch clients
       .addCase(fetchClientsForProjects.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -211,6 +290,7 @@ const timesheetSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
+      
       // Create timesheet
       .addCase(createTimesheet.pending, (state) => {
         state.loading = true;
@@ -223,6 +303,7 @@ const timesheetSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
+      
       // Update timesheet
       .addCase(updateTimesheet.pending, (state) => {
         state.loading = true;
@@ -235,6 +316,7 @@ const timesheetSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
+      
       // Submit weekly timesheet
       .addCase(submitWeeklyTimesheet.pending, (state) => {
         state.loading = true;
@@ -247,6 +329,7 @@ const timesheetSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
+      
       // Upload attachments
       .addCase(uploadTimesheetAttachments.pending, (state) => {
         state.uploadLoading = true;
@@ -259,6 +342,20 @@ const timesheetSlice = createSlice({
         state.uploadLoading = false;
         state.uploadError = action.payload;
       })
+
+      // Delete attachments
+      .addCase(deleteTimesheetAttachments.pending, (state) => {
+        state.actionLoading = true;
+        state.actionError = null;
+      })
+      .addCase(deleteTimesheetAttachments.fulfilled, (state) => {
+        state.actionLoading = false;
+      })
+      .addCase(deleteTimesheetAttachments.rejected, (state, action) => {
+        state.actionLoading = false;
+        state.actionError = action.payload;
+      })
+
       // Approve timesheet
       .addCase(approveTimesheet.pending, (state) => {
         state.actionLoading = true;
@@ -271,6 +368,7 @@ const timesheetSlice = createSlice({
         state.actionLoading = false;
         state.actionError = action.payload;
       })
+      
       // Reject timesheet
       .addCase(rejectTimesheet.pending, (state) => {
         state.actionLoading = true;
@@ -283,6 +381,7 @@ const timesheetSlice = createSlice({
         state.actionLoading = false;
         state.actionError = action.payload;
       })
+      
       // Cancel timesheet
       .addCase(cancelTimesheet.pending, (state) => {
         state.actionLoading = true;
@@ -294,6 +393,21 @@ const timesheetSlice = createSlice({
       .addCase(cancelTimesheet.rejected, (state, action) => {
         state.actionLoading = false;
         state.actionError = action.payload;
+      })
+      
+      // Get timesheet attachments
+      .addCase(getTimesheetAttachmentsById.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(getTimesheetAttachmentsById.fulfilled, (state, action) => {
+        state.loading = false;
+        state.attachments = action.payload.data || [];
+      })
+      .addCase(getTimesheetAttachmentsById.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+        state.attachments = [];
       });
   }
 });
