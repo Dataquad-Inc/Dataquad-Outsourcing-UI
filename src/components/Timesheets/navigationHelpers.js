@@ -15,55 +15,84 @@ import httpService from "../../Services/httpService";
  * @param {string} userRole - Current user's role
  * @param {string} [basePath='/dashboard/timesheetsForAdmins'] - Base path for navigation
  */
-// export const handleEmployeeNameClick = (row, navigate, userRole, basePath = '/dashboard/timesheetsForAdmins') => {
-//   // If user has ACCOUNTS role, navigate to Timesheets component instead of employee detail
-//   if (userRole === 'ACCOUNTS') {
-//     navigate('/dashboard/timesheets');
-//     ToastService.info('Redirected to timesheets management');
-//     return;
-//   }
 
-//   // Extract userId with fallback options
-//   const userId = row.userId || row.employeeId || 'ADRTIN1235';
-  
-//   // Validate required data
-//   if (!row.employeeName) {
-//     console.warn('Employee name is missing from row data');
-//     ToastService.warning('Employee data is incomplete');
-//     return;
-//   }
 
-//   if (!userId) {
-//     console.warn('User ID is missing from row data');
-//     ToastService.warning('Employee ID is missing');
-//     return;
-//   }
-
-//   // Construct navigation path
-//   const navigationPath = `${basePath}/employee/${userId}`;
-  
-//   // Navigate with state for back navigation
-//   navigate(navigationPath, {
-//     state: { 
-//       from: basePath,
-//       employeeData: {
-//         userId,
-//         employeeName: row.employeeName,
-//         employeeType: row.employeeType,
-//         clientName: row.clientName
-//       }
-//     }
-//   });
-// };
-// navigationHelpers.js - Update this function
 export const handleEmployeeNameClick = async (row, navigate, userRole, basePath = '/dashboard/timesheetsForAdmins') => {
-  // If user has ACCOUNTS role, navigate to Timesheets component instead of employee detail
-  if (userRole === 'ACCOUNTS') {
-    navigate('/dashboard/timesheets');
-    ToastService.info('Redirected to timesheets management');
+  // If user has ACCOUNTS or INVOICE role, navigate to Timesheets component with employee data prepopulated
+  if (userRole === 'ACCOUNTS' || userRole === "INVOICE") {
+    // Extract employee data for prepopulation
+    const employeeData = {
+      userId: row.userId || row.employeeId || '',
+      employeeName: row.employeeName || '',
+      employeeType: row.employeeType || '',
+      clientName: row.clientName || '',
+      employeeId: row.employeeId || '' // Include original employeeId if available
+    };
+
+    // Validate required data
+    if (!employeeData.employeeName) {
+      console.warn('Employee name is missing from row data');
+      ToastService.warning('Employee data is incomplete');
+      return;
+    }
+
+    if (!employeeData.userId) {
+      console.warn('User ID is missing from row data');
+      ToastService.warning('Employee ID is missing');
+      return;
+    }
+
+    // Store employee data for prepopulation using multiple approaches for reliability
+    try {
+      // Approach 1: localStorage (most reliable)
+      localStorage.setItem('prepopulatedEmployee', JSON.stringify(employeeData));
+      
+      // Approach 2: sessionStorage (fallback)
+      sessionStorage.setItem('prepopulatedEmployee', JSON.stringify(employeeData));
+      
+      // Approach 3: URL parameters (additional fallback)
+      const urlParams = new URLSearchParams();
+      urlParams.set('prepopulate', 'true');
+      urlParams.set('employeeId', employeeData.userId);
+      urlParams.set('employeeName', encodeURIComponent(employeeData.employeeName));
+      
+      if (employeeData.employeeType) {
+        urlParams.set('employeeType', employeeData.employeeType);
+      }
+      if (employeeData.clientName) {
+        urlParams.set('clientName', encodeURIComponent(employeeData.clientName));
+      }
+
+      const urlWithParams = `/dashboard/timesheets?${urlParams.toString()}`;
+      
+      // Navigate with state and URL parameters
+      navigate(urlWithParams, {
+        state: {
+          prepopulatedEmployee: employeeData,
+          from: basePath,
+          timestamp: Date.now() // Add timestamp to ensure fresh data
+        },
+        replace: true // Replace current history entry to avoid back navigation issues
+      });
+      
+      ToastService.info(`Redirected to timesheets for ${employeeData.employeeName}`);
+      
+    } catch (error) {
+      console.warn('Failed to store employee data:', error);
+      // Fallback: navigate without storage but with state
+      navigate('/dashboard/timesheets', {
+        state: {
+          prepopulatedEmployee: employeeData,
+          from: basePath,
+          timestamp: Date.now()
+        }
+      });
+      ToastService.info('Redirected to timesheets management');
+    }
     return;
   }
 
+  // Original logic for other roles (SUPERADMIN, etc.)
   // Extract userId with fallback options
   const userId = row.userId || row.employeeId || 'ADRTIN1235';
   
@@ -159,10 +188,10 @@ export const generateTimesheetPaths = (userRole, userId, employeeName, basePath 
   const encodedName = encodeURIComponent(employeeName);
   
   return {
-    employeeDetail: userRole === 'ACCOUNTS' ? '/dashboard/timesheets' : `${basePath}/employee/${userId}`,
+    employeeDetail: userRole === 'ACCOUNTS' || userRole==="INVOICE" ? '/dashboard/timesheets' : `${basePath}/employee/${userId}`,
     employeeList: basePath,
     addTimesheet: '/dashboard/timesheets',
-    shouldRedirectToTimesheets: userRole === 'ACCOUNTS'
+    shouldRedirectToTimesheets: userRole === 'ACCOUNTS' || userRole==="INVOICE"
   };
 };
 
