@@ -16,7 +16,7 @@ import {
   TextField,
   Button
 } from '@mui/material';
-import { Refresh, Save, CheckCircle, ThumbUp, ThumbDown, Cancel } from '@mui/icons-material';
+import { Refresh, Save, CheckCircle, ThumbUp, ThumbDown, Cancel, Edit } from '@mui/icons-material';
 
 const TimesheetTableSection = ({
   selectedProject,
@@ -49,6 +49,7 @@ const TimesheetTableSection = ({
   isCreateMode,
   getDateForDay,
   isDateInSelectedWeekMonth,
+  handleEditTimesheet,
   selectedWeekStart,
   canEditTimesheet,
   isEditMode,
