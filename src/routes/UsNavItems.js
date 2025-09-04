@@ -11,8 +11,17 @@ import InsightsIcon from "@mui/icons-material/Insights";
 import HomeIcon from "@mui/icons-material/Home";
 import AutorenewIcon from "@mui/icons-material/Autorenew";
 import PeopleIcon from "@mui/icons-material/People";
-import BadgeIcon from '@mui/icons-material/Badge';
+import BadgeIcon from "@mui/icons-material/Badge";
 import { icons } from "lucide-react";
+
+const commonRoles = [
+  "SUPERADMIN",
+  "EMPLOYEE",
+  "TEAMLEAD",
+  "RECRUITER",
+  "SALESEXECUTIVE",
+  "ADMIN",
+];
 
 // Adroit Route Config
 export const usNavItems = (role) => [
@@ -20,13 +29,27 @@ export const usNavItems = (role) => [
     text: "Home",
     path: "us-home",
     icon: <HomeIcon />,
-    roles: ["SUPERADMIN", "EMPLOYEE", "TEAMLEAD", "RECRUITER", "SALESEXECUTIVE", "ADMIN"],
+    roles: [
+      "SUPERADMIN",
+      "EMPLOYEE",
+      "TEAMLEAD",
+      "RECRUITER",
+      "SALESEXECUTIVE",
+      "ADMIN",
+    ],
   },
   {
     text: "Hotlist",
     path: role === "SUPERADMIN" ? "hotlist/master" : "hotlist/consultants",
     icon: <GroupIcon />,
-    roles: ["SUPERADMIN", "EMPLOYEE", "TEAMLEAD", "RECRUITER", "SALESEXECUTIVE", "ADMIN"],
+    roles: [
+      "SUPERADMIN",
+      "EMPLOYEE",
+      "TEAMLEAD",
+      "RECRUITER",
+      "SALESEXECUTIVE",
+      "ADMIN",
+    ],
   },
   {
     text: "Employees",
@@ -35,9 +58,28 @@ export const usNavItems = (role) => [
     roles: ["SUPERADMIN", "ADMIN"],
   },
   {
-    text:"Yet To Onboard",
-    path:"yet-to-onboard",
-    icon: <HourglassIcon/>,
-    roles:["SUPERADMIN", "EMPLOYEE", "TEAMLEAD", "RECRUITER", "SALESEXECUTIVE", "ADMIN"]
-  }
+    text: "Yet To Onboard",
+    path: "yet-to-onboard",
+    icon: <HourglassIcon />,
+    roles: [
+      "SUPERADMIN",
+      "EMPLOYEE",
+      "TEAMLEAD",
+      "RECRUITER",
+      "SALESEXECUTIVE",
+      "ADMIN",
+    ],
+  },
+  {
+    text: "Requirements",
+    path: "us-requirements",
+    icon: <AssignmentIcon />, // more meaningful than reusing hourglass
+    roles: commonRoles,
+  },
+  {
+    text: "Submissions",
+    // path: "us-submissions",
+    icon: <SendIcon />, // submission looks better with a send icon
+    roles: commonRoles,
+  },
 ];

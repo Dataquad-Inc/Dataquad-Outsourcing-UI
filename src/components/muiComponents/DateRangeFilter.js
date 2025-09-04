@@ -1,24 +1,41 @@
-import React, { useEffect, useState } from 'react';
-import { Stack, IconButton, Tooltip } from '@mui/material';
-import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import ClearIcon from '@mui/icons-material/Clear';
-import dayjs from 'dayjs';
-import { useDispatch } from 'react-redux';
-import { useSearchParams } from 'react-router-dom';
-import ToastService from '../../Services/toastService'; 
-import { filterBenchListByDateRange, setFilteredDataRequested } from '../../redux/benchSlice';
-import { validateDateRange } from '../../utils/validateDateRange';
-import { filterRequirementsByDateRange, filterRequirementsByRecruiter } from '../../redux/requirementSlice';
-import { filterInterviewsByDateRange, filterInterviewsByRecruiter ,filterInterviewsByTeamLead, clearRecruiterFilter} from '../../redux/interviewSlice';
-import { filterUsersByDateRange } from '../../redux/employeesSlice';
-import { filterSubmissionsByDateRange, filterSubmissionssByRecruiter } from '../../redux/submissionSlice';
-import { filterClientsByDateRange } from '../../redux/clientsSlice';
-import { filterPlacementByDateRange } from '../../redux/placementSlice';
-import { filterDashBoardCountByDateRange } from '../../redux/dashboardSlice';
-import { filterTeamMetricsByDateRange, clearFilters } from '../../redux/teamMetricsSlice';
-import { filterSubmissionsByTeamlead } from '../../redux/submissionSlice';
-import { filterInProgressDataByDateRange,clearFilterData } from '../../redux/inProgressSlice';
+import React, { useEffect, useState } from "react";
+import { Stack, IconButton, Tooltip, MenuItem, TextField } from "@mui/material";
+import ClearIcon from "@mui/icons-material/Clear";
+import dayjs from "dayjs";
+import { useDispatch } from "react-redux";
+import { useSearchParams } from "react-router-dom";
+import ToastService from "../../Services/toastService";
+import {
+  filterBenchListByDateRange,
+  setFilteredDataRequested,
+} from "../../redux/benchSlice";
+import {
+  filterRequirementsByDateRange,
+  filterRequirementsByRecruiter,
+} from "../../redux/requirementSlice";
+import {
+  filterInterviewsByDateRange,
+  filterInterviewsByRecruiter,
+  filterInterviewsByTeamLead,
+  clearRecruiterFilter,
+} from "../../redux/interviewSlice";
+import { filterUsersByDateRange } from "../../redux/employeesSlice";
+import {
+  filterSubmissionsByDateRange,
+  filterSubmissionssByRecruiter,
+  filterSubmissionsByTeamlead,
+} from "../../redux/submissionSlice";
+import { filterClientsByDateRange } from "../../redux/clientsSlice";
+import { filterPlacementByDateRange } from "../../redux/placementSlice";
+import { filterDashBoardCountByDateRange } from "../../redux/dashboardSlice";
+import {
+  filterTeamMetricsByDateRange,
+  clearFilters,
+} from "../../redux/teamMetricsSlice";
+import {
+  filterInProgressDataByDateRange,
+  clearFilterData,
+} from "../../redux/inProgressSlice";
 
 const componentToActionMap = {
   BenchList: filterBenchListByDateRange,
@@ -37,165 +54,233 @@ const componentToActionMap = {
   allSubmissions: filterSubmissionsByDateRange,
   allInterviews: filterInterviewsByDateRange,
   TeamMetrics: filterTeamMetricsByDateRange,
-  InProgress: filterInProgressDataByDateRange, // Add this line
+  InProgress: filterInProgressDataByDateRange,
 };
 
 const componentToClearActionsMap = {
   TeamMetrics: clearFilters,
-  InProgress:clearFilterData, // Add this line
+  InProgress: clearFilterData,
 };
 
-const DateRangeFilter = ({ component, labelPrefix = '', onDateChange,onClearFilter }) => {
+const DateRangeFilter = ({
+  component,
+  labelPrefix = "",
+  onDateChange,
+  onClearFilter,
+}) => {
   const dispatch = useDispatch();
   const [searchParams, setSearchParams] = useSearchParams();
-  
-  // Initialize dates from URL parameters
-  const [startDate, setStartDate] = useState(() => {
-    const urlStartDate = searchParams.get('startDate');
-    return urlStartDate ? dayjs(urlStartDate) : null;
-  });
-  
-  const [endDate, setEndDate] = useState(() => {
-    const urlEndDate = searchParams.get('endDate');
-    return urlEndDate ? dayjs(urlEndDate) : null;
+
+  const currentYear = dayjs().year();
+  const currentMonth = dayjs().month() + 1;
+
+  // Add "All" option + 10 year range
+  const yearOptions = [
+    "All",
+    ...Array.from({ length: 10 }, (_, i) => currentYear - 5 + i),
+  ];
+
+  // Initialize from URL or fallback to current year/month
+  const [selectedYear, setSelectedYear] = useState(() => {
+    const urlYear = searchParams.get("year");
+    return urlYear
+      ? urlYear === "All"
+        ? "All"
+        : parseInt(urlYear)
+      : currentYear;
   });
 
-  // Update URL parameters when dates change
-  const updateUrlParams = (newStartDate, newEndDate) => {
-    const newSearchParams = new URLSearchParams(searchParams);
-    
-    if (newStartDate && newEndDate) {
-      newSearchParams.set('startDate', dayjs(newStartDate).format('YYYY-MM-DD'));
-      newSearchParams.set('endDate', dayjs(newEndDate).format('YYYY-MM-DD'));
-    } else {
-      newSearchParams.delete('startDate');
-      newSearchParams.delete('endDate');
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const urlMonth = searchParams.get("month");
+    return urlMonth ? parseInt(urlMonth) : currentMonth;
+  });
+
+  const monthOptions = [
+    { value: 1, label: "January" },
+    { value: 2, label: "February" },
+    { value: 3, label: "March" },
+    { value: 4, label: "April" },
+    { value: 5, label: "May" },
+    { value: 6, label: "June" },
+    { value: 7, label: "July" },
+    { value: 8, label: "August" },
+    { value: 9, label: "September" },
+    { value: 10, label: "October" },
+    { value: 11, label: "November" },
+    { value: 12, label: "December" },
+  ];
+
+  // Calculate start and end dates
+  let startDate = null;
+  let endDate = null;
+
+  if (selectedYear) {
+    if (selectedYear === "All") {
+      startDate = dayjs(`${currentYear}-01-01`);
+      endDate = dayjs();
+    } else if (selectedMonth) {
+      startDate = dayjs(
+        `${selectedYear}-${selectedMonth.toString().padStart(2, "0")}-01`
+      );
+      endDate = startDate.endOf("month");
     }
-    
+  }
+
+  const updateUrlParams = (year, month) => {
+    const newSearchParams = new URLSearchParams(searchParams);
+
+    if (year === "All") {
+      newSearchParams.set("year", "All");
+      newSearchParams.delete("month");
+
+      const start = dayjs(`${currentYear}-01-01`);
+      const end = dayjs();
+      newSearchParams.set("startDate", start.format("YYYY-MM-DD"));
+      newSearchParams.set("endDate", end.format("YYYY-MM-DD"));
+    } else if (year && month) {
+      newSearchParams.set("year", year);
+      newSearchParams.set("month", month);
+      const start = dayjs(`${year}-${month.toString().padStart(2, "0")}-01`);
+      newSearchParams.set("startDate", start.format("YYYY-MM-DD"));
+      newSearchParams.set("endDate", start.endOf("month").format("YYYY-MM-DD"));
+    } else {
+      newSearchParams.delete("year");
+      newSearchParams.delete("month");
+      newSearchParams.delete("startDate");
+      newSearchParams.delete("endDate");
+    }
+
     setSearchParams(newSearchParams, { replace: true });
   };
 
-  const handleStartDateChange = (date) => {
-    setStartDate(date);
-    updateUrlParams(date, endDate);
+  const handleYearChange = (event) => {
+    const year = event.target.value;
+    setSelectedYear(year);
+
+    if (year === "All") {
+      setSelectedMonth(null);
+      updateUrlParams("All", null);
+    } else {
+      updateUrlParams(year, selectedMonth);
+    }
   };
 
-  const handleEndDateChange = (date) => {
-    setEndDate(date);
-    updateUrlParams(startDate, date);
+  const handleMonthChange = (event) => {
+    const month = event.target.value;
+    setSelectedMonth(month);
+    updateUrlParams(selectedYear, month);
   };
 
   const handleClearFilter = () => {
-    setStartDate(null);
-    setEndDate(null);
-    
-    // Clear URL parameters
-    updateUrlParams(null, null);
-    
+    const now = dayjs();
+    const resetYear = currentYear;
+    const resetMonth = currentMonth;
+
+    setSelectedYear(resetYear);
+    setSelectedMonth(resetMonth);
+
+    updateUrlParams(resetYear, resetMonth);
+
     dispatch(setFilteredDataRequested(false));
-    
-    // Use component-specific clear action if available
+
     const clearAction = componentToClearActionsMap[component];
-    if (clearAction) {
-      dispatch(clearAction());
-    }
+    if (clearAction) dispatch(clearAction());
 
-      if (onClearFilter) {
-            onClearFilter();
-        }
-
-
-        if (component === 'InterviewsForRecruiter') {
+    if (onClearFilter) onClearFilter();
+    if (component === "InterviewsForRecruiter")
       dispatch(clearRecruiterFilter());
-    } 
-    
-    // Call the onDateChange callback if provided
+
     if (onDateChange) {
-      onDateChange(null, null);
+      const start = now.startOf("month").format("YYYY-MM-DD");
+      const end = now.endOf("month").format("YYYY-MM-DD");
+      onDateChange(start, end);
     }
   };
 
   useEffect(() => {
     if (startDate && endDate) {
-      const error = validateDateRange(startDate, endDate);
-      if (error) {
-        ToastService.error(error);
-        return;
-      }
-
-      const formattedStart = dayjs(startDate).format('YYYY-MM-DD');
-      const formattedEnd = dayjs(endDate).format('YYYY-MM-DD');
+      const formattedStart = startDate.format("YYYY-MM-DD");
+      const formattedEnd = endDate.format("YYYY-MM-DD");
 
       dispatch(setFilteredDataRequested(true));
 
       const actionCreator = componentToActionMap[component];
       if (actionCreator) {
-        dispatch(actionCreator({ startDate: formattedStart, endDate: formattedEnd }))
+        dispatch(
+          actionCreator({ startDate: formattedStart, endDate: formattedEnd })
+        )
           .then(() => {
-            // Call the onDateChange callback if provided
             if (onDateChange) {
               onDateChange(formattedStart, formattedEnd);
             }
           })
-          .catch(error => {
+          .catch((error) => {
             ToastService.error(`Error applying date filter: ${error.message}`);
           });
       } else {
         console.warn(`No action mapped for component: ${component}`);
       }
     }
-  }, [startDate, endDate, component, dispatch, onDateChange]);
+  }, [selectedYear, selectedMonth, component, dispatch, onDateChange]);
 
-  // Load dates from URL on component mount or when URL changes
+  // Sync with URL
   useEffect(() => {
-    const urlStartDate = searchParams.get('startDate');
-    const urlEndDate = searchParams.get('endDate');
-    
-    if (urlStartDate && urlEndDate) {
-      const startDateObj = dayjs(urlStartDate);
-      const endDateObj = dayjs(urlEndDate);
-      
-      if (startDateObj.isValid() && endDateObj.isValid()) {
-        setStartDate(startDateObj);
-        setEndDate(endDateObj);
-      }
+    const urlYear = searchParams.get("year");
+    const urlMonth = searchParams.get("month");
+
+    if (urlYear) {
+      setSelectedYear(urlYear === "All" ? "All" : parseInt(urlYear));
+      setSelectedMonth(urlMonth ? parseInt(urlMonth) : null);
     }
   }, [searchParams]);
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDayjs}>
-      <Stack direction="row" spacing={2} alignItems="center" sx={{ flexWrap: 'wrap' }}>
-        <DatePicker
-          label={` Start Date`}
-          value={startDate}
-          onChange={handleStartDateChange}
-          slotProps={{
-            textField: {
-              size: 'small',
-              sx: { maxWidth: 180 },
-            },
-          }}
-        />
-        <DatePicker
-          label={` End Date`}
-          value={endDate}
-          onChange={handleEndDateChange}
-          slotProps={{
-            textField: {
-              size: 'small',
-              sx: { maxWidth: 180 },
-            },
-          }}
-        />
-        {(startDate || endDate) && (
-          <Tooltip title="Clear Filter">
-            <IconButton onClick={handleClearFilter} size="small" sx={{ mt: 3 }}>
-              <ClearIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        )}
-      </Stack>
-    </LocalizationProvider>
+    <Stack
+      direction="row"
+      spacing={2}
+      alignItems="center"
+      sx={{ flexWrap: "wrap" }}
+    >
+      <TextField
+        select
+        label="Year"
+        value={selectedYear || ""}
+        onChange={handleYearChange}
+        size="small"
+        sx={{ minWidth: 140 }}
+      >
+        {yearOptions.map((year) => (
+          <MenuItem key={year} value={year}>
+            {year === "All" ? "All (Current Year)" : year}
+          </MenuItem>
+        ))}
+      </TextField>
+
+      {selectedYear !== "All" && (
+        <TextField
+          select
+          label="Month"
+          value={selectedMonth || ""}
+          onChange={handleMonthChange}
+          size="small"
+          sx={{ minWidth: 140 }}
+        >
+          {monthOptions.map((month) => (
+            <MenuItem key={month.value} value={month.value}>
+              {month.label}
+            </MenuItem>
+          ))}
+        </TextField>
+      )}
+
+      {(selectedYear || selectedMonth) && (
+        <Tooltip title="Clear Filter">
+          <IconButton onClick={handleClearFilter} size="small" sx={{ mt: 3 }}>
+            <ClearIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )}
+    </Stack>
   );
 };
 

@@ -40,7 +40,6 @@ import BenchCandidateForm from './BenchForm';
 import CandidateDetails from './CandidateDetails';
 import { useDispatch, useSelector } from 'react-redux';
 import { filterBenchListByDateRange, setFilteredDataRequested } from '../../redux/benchSlice';
-import DateRangeFilter from '../muiComponents/DateRangeFilter';
 import { User2Icon } from 'lucide-react';
 import InternalFeedbackCell from '../Interviews/FeedBack';
 
@@ -372,49 +371,17 @@ const BenchList = () => {
             </IconButton>
           </Tooltip>
 
-          {/* <Tooltip title="Download Resume"> 
-           <IconButton
-           color="success"
-           size="small"
-           onClick={handleMenuOpen}
-           disabled={downloadingResume}
-           >
-           <Download fontSize="small" />
-           </IconButton>
-
-          <Menu 
-          anchorEl={anchorEl}
-          open={Boolean(anchorEl)}
-          onClose={handleMenuClose}
-          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-          transformOrigin={{ vertical: "top", horizontal: "right" }}
-          PaperProps={{
-          sx: {
-          boxShadow: "0px 2px 4px rgba(0,0,0,0.1)", // lighter shadow
-  
-          },
+          <DownloadResume
+          candidate={{
+          candidateId: row?.id ?? 'NO_ID',
+          jobId: row?.jobId ?? 'NO_JOB_ID',
+          fullName: row?.fullName ?? 'NO_NAME',
+          }}
+          getDownloadUrl={(candidate, format) => {
+          console.log("Resolved candidate for download:", candidate, format);
+           return `${API_BASE_URL}/candidate/bench/download/${candidate.candidateId}?format=${format}`;
          }}
-         >
-        <MenuItem onClick={() => downloadResume(row.id, row.fullName, "pdf")}>
-         PDF
-        </MenuItem>
-        <MenuItem onClick={() => downloadResume(row.id, row.fullName, "word")}>
-         Word
-        </MenuItem>
-        </Menu>
-        </Tooltip> */}
-        <DownloadResume
-        candidate={{
-        candidateId: row?.id ?? 'NO_ID',
-        jobId: row?.jobId ?? 'NO_JOB_ID',
-        fullName: row?.fullName ?? 'NO_NAME',
-        }}
-        getDownloadUrl={(candidate, format) => {
-        console.log("Resolved candidate for download:", candidate, format);
-         return `${API_BASE_URL}/candidate/bench/download/${candidate.candidateId}?format=${format}`;
-       }}
-       />
-
+         />
         </Box>
       ),
     },
@@ -441,11 +408,6 @@ const BenchList = () => {
         </Typography>
        
         <Stack direction="row" alignItems="center" spacing={2} sx={{ ml: 'auto' }}>
-          {loading ? (
-            <Skeleton variant="rounded" width={200} height={36} />
-          ) : (
-            <DateRangeFilter component="BenchList" />
-          )}
           <Button
             variant="text"
             color="primary"
@@ -472,7 +434,7 @@ const BenchList = () => {
         </Box>
       ) : (
         <DataTable
-          data={isFilteredDataRequested ? filteredBenchList : benchData || []}
+          data={benchData || []}
           columns={generateColumns(loading)}
           pageLimit={20}
           title="Bench List"

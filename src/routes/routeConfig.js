@@ -96,6 +96,20 @@ const YetToOnBoardContainer = lazy(() =>
   import("../components/YetToOnboard/YetToOnBoardContainer")
 );
 
+//US Requirements
+const RequirementsContainer = lazy(() =>
+  import("../components/UsRequirements/RequirementsContainer")
+);
+const RequirementsList = lazy(() =>
+  import("../components/UsRequirements/RequirementsList")
+);
+const CreateJobRequirement = lazy(() =>
+  import("../components/UsRequirements/CreateJobRequirement")
+);
+const RequirementProfile = lazy(() =>
+  import("../components/UsRequirements/RequirementProfile")
+);
+
 //Timesheets
 const Timesheets = lazy(() => import("../components/Timesheets/TimeSheets"));
 const TimesheetsForAdmin = lazy(() =>
@@ -302,7 +316,7 @@ const routeConfig = [
             path: "users",
             element: (
               <ProtectedRoute
-                allowedRoles={["ADMIN", "SUPERADMIN", "COORDINATOR","INVOICE"]}
+                allowedRoles={["ADMIN", "SUPERADMIN", "COORDINATOR", "INVOICE"]}
                 allowedEntities={["IN"]}
               />
             ),
@@ -314,7 +328,7 @@ const routeConfig = [
             path: "clients",
             element: (
               <ProtectedRoute
-                allowedRoles={["ADMIN", "SUPERADMIN", "BDM","INVOICE"]}
+                allowedRoles={["ADMIN", "SUPERADMIN", "BDM", "INVOICE"]}
                 allowedEntities={["IN"]}
               />
             ),
@@ -326,7 +340,7 @@ const routeConfig = [
             path: "addNewClient",
             element: (
               <ProtectedRoute
-                allowedRoles={["ADMIN", "SUPERADMIN", "BDM","INVOICE"]}
+                allowedRoles={["ADMIN", "SUPERADMIN", "BDM", "INVOICE"]}
                 allowedEntities={["IN"]}
               />
             ),
@@ -344,7 +358,7 @@ const routeConfig = [
                   "BDM",
                   "TEAMLEAD",
                   "EMPLOYEE",
-                  "INVOICE"
+                  "INVOICE",
                 ]}
                 allowedEntities={["IN"]}
               />
@@ -444,7 +458,7 @@ const routeConfig = [
                 path: "create",
                 element: (
                   <ProtectedRoute
-                    allowedRoles={["SUPERADMIN", "ACCOUNTS","INVOICE"]}
+                    allowedRoles={["SUPERADMIN", "ACCOUNTS", "INVOICE"]}
                     allowedEntities={["IN"]}
                   />
                 ),
@@ -456,7 +470,7 @@ const routeConfig = [
             path: "timesheetsForAdmins",
             element: (
               <ProtectedRoute
-                allowedRoles={["SUPERADMIN", "ADMIN", "ACCOUNTS","INVOICE"]}
+                allowedRoles={["SUPERADMIN", "ADMIN", "ACCOUNTS", "INVOICE"]}
                 allowedEntities={["IN"]}
               />
             ),
@@ -545,11 +559,48 @@ const routeConfig = [
                 children: [
                   {
                     index: true,
-                    element: Loadable(YetToOnboard), 
+                    element: Loadable(YetToOnboard),
                   },
                   {
                     path: "create-consultant",
                     element: Loadable(CreateConsultant),
+                  },
+                ],
+              },
+            ],
+          },
+
+          {
+            path: "us-requirements",
+            element: (
+              <ProtectedRoute
+                allowedRoles={[
+                  "SUPERADMIN",
+                  "ADMIN",
+                  "TEAMLEAD",
+                  "EMPLOYEE",
+                  "RECRUITER",
+                  "SALESEXECUTIVE",
+                ]}
+                allowedEntities={["US"]}
+              />
+            ),
+            children: [
+              {
+                path: "",
+                element: <RequirementsContainer />,
+                children: [
+                  {
+                    index: true,
+                    element: Loadable(RequirementsList),
+                  },
+                  {
+                    path: "create-requirement",
+                    element: Loadable(CreateJobRequirement),
+                  },
+                  {
+                    path: ":jobId",
+                    element: Loadable(RequirementProfile),
                   },
                 ],
               },

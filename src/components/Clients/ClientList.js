@@ -116,22 +116,22 @@ const ClientList = () => {
       });
   };
 
-   const handleStatusFilterChange = (event, newFilter) => {
+  const handleStatusFilterChange = (event, newFilter) => {
     if (newFilter !== null) setLevelFilter(newFilter);
   };
 
- const handleClientsByStatus = (clients) => {
-  if (!clients) return [];
-  if (levelFilter === "ALL") return clients;
-  
-  return clients.filter((client) => {
-    if (levelFilter === "ACTIVE") return client.status === "ACTIVE";
-    if (levelFilter === "INACTIVE") return client.status !== "ACTIVE";
-    return false;
-  });
-};
+  const handleClientsByStatus = (clients) => {
+    if (!clients) return [];
+    if (levelFilter === "ALL") return clients;
 
- const renderStatus = (status) => {
+    return clients.filter((client) => {
+      if (levelFilter === "ACTIVE") return client.status === "ACTIVE";
+      if (levelFilter === "INACTIVE") return client.status !== "ACTIVE";
+      return false;
+    });
+  };
+
+  const renderStatus = (status) => {
     let color = "default";
     const statusLower = status?.toLowerCase();
 
@@ -215,7 +215,7 @@ const ClientList = () => {
         {
           key: "id",
           label: "Client ID",
-           align:"center",
+          align: "center",
           render: (row) =>
             loading ? (
               <Skeleton variant="text" width={80} height={24} />
@@ -226,7 +226,7 @@ const ClientList = () => {
         {
           key: "clientName",
           label: "Client Name",
-           align:"center",
+          align: "center",
           render: (row) =>
             loading ? (
               <Skeleton variant="text" width={120} height={24} />
@@ -237,7 +237,7 @@ const ClientList = () => {
         {
           key: "onBoardedBy",
           label: "BDM",
-           align:"center",
+          align: "center",
           render: (row) =>
             loading ? (
               <Skeleton variant="text" width={100} height={24} />
@@ -248,7 +248,7 @@ const ClientList = () => {
         {
           key: "clientSpocName",
           label: "Contact Person",
-          align:"center",
+          align: "center",
           render: (row) =>
             loading ? (
               <Skeleton variant="text" width={150} height={24} />
@@ -261,7 +261,7 @@ const ClientList = () => {
         {
           key: "positionType",
           label: "Position Type",
-          align:"center",
+          align: "center",
           render: (row) =>
             loading ? (
               <Skeleton variant="rectangular" width={100} height={32} />
@@ -277,7 +277,7 @@ const ClientList = () => {
         {
           key: "netPayment",
           label: "Net Payment",
-          align:"center",
+          align: "center",
           render: (row) =>
             loading ? (
               <Skeleton variant="text" width={80} height={24} />
@@ -290,7 +290,7 @@ const ClientList = () => {
         {
           key: "supportingCustomers",
           label: "Supporting Customers",
-          align:"center",
+          align: "center",
           render: (row) =>
             loading ? (
               <Skeleton variant="text" width={150} height={24} />
@@ -315,9 +315,10 @@ const ClientList = () => {
             ),
         },
         {
-          key:"status",
-          label:"Status",
-           align:"center",
+          key: "status",
+          label: "Status",
+          align: "center",
+          
           render: (row) =>
             loading ? (
               <Skeleton variant="rectangular" width={100} height={32} />
@@ -326,45 +327,43 @@ const ClientList = () => {
             ),
         },
         {
-          key:"feedBack",
-          label:"FeedBack",
-           align:"center",
-          render:(row) =>
+          key: "feedBack",
+          label: "FeedBack",
+          align: "center",
+          render: (row) =>
             loading ? (
               <Skeleton variant="rectangular" width={100} height={32} />
-            ) :(
-              <InternalFeedbackCell
-                value={row.feedBack}
-              />
-            )
+            ) : (
+              <InternalFeedbackCell value={row.feedBack} />
+            ),
         },
-         {
-  key: "numberOfRequirements",
-  label: "Requirements",
-  align: "center",
-  render: (row) => {
-    if (loading) {
-      return <Skeleton variant="rectangular" width={100} height={32} />;
-    }
+        {
+          key: "numberOfRequirements",
+          label: "Requirements",
+          align: "center",
+          render: (row) => {
+            if (loading) {
+              return <Skeleton variant="rectangular" width={100} height={32} />;
+            }
 
-    return row.numberOfRequirements ? (
-      <Chip
-        label={row.numberOfRequirements}
-        color="primary"
-        variant="outlined"
-        size="small"
-      />
-    ) : (
-      <Typography
-        variant="body2"
-        color="text.secondary"
-        fontStyle="italic"
-      >
-        -
-      </Typography>
-    );
-  }
-},
+            return row.numberOfRequirements ? (
+              <Chip
+                label={row.numberOfRequirements}
+                color="primary"
+                variant="outlined"
+                size="small"
+              />
+            ) : (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                fontStyle="italic"
+              >
+                -
+              </Typography>
+            );
+          },
+        },
         {
           key: "actions",
           label: "Actions",
@@ -453,7 +452,7 @@ const ClientList = () => {
         }}
       >
         <Typography variant="h6" color="primary">
-         Clients Management
+          Clients Management
         </Typography>
 
         <Stack
@@ -472,8 +471,6 @@ const ClientList = () => {
           </Button>
         </Stack>
       </Stack>
-      
-      
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -481,9 +478,9 @@ const ClientList = () => {
         </Alert>
       )}
 
-       <Box sx={{ mb: 2, display: "flex", justifyContent: "start" }}>
+      <Box sx={{ mb: 2, display: "flex", justifyContent: "start" }}>
         <ToggleButtonGroup
-           value={levelFilter}
+          value={levelFilter}
           exclusive
           onChange={handleStatusFilterChange}
           aria-label="client status filter"
@@ -509,28 +506,31 @@ const ClientList = () => {
             },
           }}
         >
-          
-            {/* <ToggleButton value="ALL" aria-label="all clients" >
+          {/* <ToggleButton value="ALL" aria-label="all clients" >
               ALL
             </ToggleButton>
           */}
-          
+
           <ToggleButton value="ACTIVE" aria-label="active clients">
             ACTIVE
           </ToggleButton>
-      
-        
-            <ToggleButton value="INACTIVE" aria-label="inactive clients">
-              INACTIVE
-            </ToggleButton>
-        
+
+          <ToggleButton value="INACTIVE" aria-label="inactive clients">
+            INACTIVE
+          </ToggleButton>
         </ToggleButtonGroup>
       </Box>
 
       <DataTable
         data={handleClientsByStatus(clients)}
         columns={columns}
-        title={levelFilter==="ALL"?"Clients":levelFilter==="ACTIVE"?"Active":"InActive"}
+        title={
+          levelFilter === "ALL"
+            ? "Clients"
+            : levelFilter === "ACTIVE"
+            ? "Active"
+            : "InActive"
+        }
         loading={loading}
         enableSelection={false}
         defaultSortColumn="clientName"
@@ -610,11 +610,6 @@ const ClientList = () => {
           </Button>
         </DialogActions>
       </Dialog>
-
-
-     
-     
-      
 
       {/* View Documents Dialog */}
       <Dialog
