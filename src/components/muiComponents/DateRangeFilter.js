@@ -73,6 +73,7 @@ const DateRangeFilter = ({
 
   const currentYear = dayjs().year();
   const currentMonth = dayjs().month() + 1;
+  const currentDay = dayjs().date();
 
   // Add "All" option + 10 year range
   const yearOptions = [
@@ -80,7 +81,7 @@ const DateRangeFilter = ({
     ...Array.from({ length: 10 }, (_, i) => currentYear - 5 + i),
   ];
 
-  // Initialize from URL or fallback to current year/month
+  // Initialize from URL or fallback to current year/month/day
   const [selectedYear, setSelectedYear] = useState(() => {
     const urlYear = searchParams.get("year");
     return urlYear
@@ -93,6 +94,11 @@ const DateRangeFilter = ({
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const urlMonth = searchParams.get("month");
     return urlMonth ? parseInt(urlMonth) : currentMonth;
+  });
+
+  const [selectedDay, setSelectedDay] = useState(() => {
+    const urlDay = searchParams.get("day");
+    return urlDay ? parseInt(urlDay) : currentDay;
   });
 
   const monthOptions = [
@@ -110,6 +116,18 @@ const DateRangeFilter = ({
     { value: 12, label: "December" },
   ];
 
+  // Generate day options based on selected year and month
+  const getDayOptions = () => {
+    if (selectedYear === "All" || !selectedYear || !selectedMonth) {
+      return [];
+    }
+
+    const daysInMonth = dayjs(`${selectedYear}-${selectedMonth}`).daysInMonth();
+    return Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  };
+
+  const dayOptions = getDayOptions();
+
   // Calculate start and end dates
   let startDate = null;
   let endDate = null;
@@ -118,7 +136,15 @@ const DateRangeFilter = ({
     if (selectedYear === "All") {
       startDate = dayjs(`${currentYear}-01-01`);
       endDate = dayjs();
+    } else if (selectedMonth && selectedDay) {
+      // Specific day selected
+      const dateStr = `${selectedYear}-${selectedMonth
+        .toString()
+        .padStart(2, "0")}-${selectedDay.toString().padStart(2, "0")}`;
+      startDate = dayjs(dateStr).startOf("day");
+      endDate = dayjs(dateStr).endOf("day");
     } else if (selectedMonth) {
+      // Only month selected, filter entire month
       startDate = dayjs(
         `${selectedYear}-${selectedMonth.toString().padStart(2, "0")}-01`
       );
@@ -126,26 +152,42 @@ const DateRangeFilter = ({
     }
   }
 
-  const updateUrlParams = (year, month) => {
+  const updateUrlParams = (year, month, day) => {
     const newSearchParams = new URLSearchParams(searchParams);
 
     if (year === "All") {
       newSearchParams.set("year", "All");
       newSearchParams.delete("month");
+      newSearchParams.delete("day");
 
       const start = dayjs(`${currentYear}-01-01`);
       const end = dayjs();
       newSearchParams.set("startDate", start.format("YYYY-MM-DD"));
       newSearchParams.set("endDate", end.format("YYYY-MM-DD"));
-    } else if (year && month) {
+    } else if (year && month && day) {
+      // Specific day selected
       newSearchParams.set("year", year);
       newSearchParams.set("month", month);
+      newSearchParams.set("day", day);
+      const dateStr = `${year}-${month.toString().padStart(2, "0")}-${day
+        .toString()
+        .padStart(2, "0")}`;
+      const start = dayjs(dateStr).startOf("day");
+      const end = dayjs(dateStr).endOf("day");
+      newSearchParams.set("startDate", start.format("YYYY-MM-DD"));
+      newSearchParams.set("endDate", end.format("YYYY-MM-DD"));
+    } else if (year && month) {
+      // Only month selected
+      newSearchParams.set("year", year);
+      newSearchParams.set("month", month);
+      newSearchParams.delete("day");
       const start = dayjs(`${year}-${month.toString().padStart(2, "0")}-01`);
       newSearchParams.set("startDate", start.format("YYYY-MM-DD"));
       newSearchParams.set("endDate", start.endOf("month").format("YYYY-MM-DD"));
     } else {
       newSearchParams.delete("year");
       newSearchParams.delete("month");
+      newSearchParams.delete("day");
       newSearchParams.delete("startDate");
       newSearchParams.delete("endDate");
     }
@@ -159,27 +201,41 @@ const DateRangeFilter = ({
 
     if (year === "All") {
       setSelectedMonth(null);
-      updateUrlParams("All", null);
+      setSelectedDay(null);
+      updateUrlParams("All", null, null);
     } else {
-      updateUrlParams(year, selectedMonth);
+      // Reset day when year changes to avoid invalid dates
+      setSelectedDay(null);
+      updateUrlParams(year, selectedMonth, null);
     }
   };
 
   const handleMonthChange = (event) => {
     const month = event.target.value;
     setSelectedMonth(month);
-    updateUrlParams(selectedYear, month);
+
+    // Reset day when month changes to avoid invalid dates
+    setSelectedDay(null);
+    updateUrlParams(selectedYear, month, null);
+  };
+
+  const handleDayChange = (event) => {
+    const day = event.target.value;
+    setSelectedDay(day);
+    updateUrlParams(selectedYear, selectedMonth, day);
   };
 
   const handleClearFilter = () => {
     const now = dayjs();
     const resetYear = currentYear;
     const resetMonth = currentMonth;
+    const resetDay = currentDay;
 
     setSelectedYear(resetYear);
     setSelectedMonth(resetMonth);
+    setSelectedDay(resetDay);
 
-    updateUrlParams(resetYear, resetMonth);
+    updateUrlParams(resetYear, resetMonth, resetDay);
 
     dispatch(setFilteredDataRequested(false));
 
@@ -191,8 +247,8 @@ const DateRangeFilter = ({
       dispatch(clearRecruiterFilter());
 
     if (onDateChange) {
-      const start = now.startOf("month").format("YYYY-MM-DD");
-      const end = now.endOf("month").format("YYYY-MM-DD");
+      const start = now.startOf("day").format("YYYY-MM-DD");
+      const end = now.endOf("day").format("YYYY-MM-DD");
       onDateChange(start, end);
     }
   };
@@ -221,18 +277,43 @@ const DateRangeFilter = ({
         console.warn(`No action mapped for component: ${component}`);
       }
     }
-  }, [selectedYear, selectedMonth, component, dispatch, onDateChange]);
+  }, [
+    selectedYear,
+    selectedMonth,
+    selectedDay,
+    component,
+    dispatch,
+    onDateChange,
+  ]);
 
   // Sync with URL
   useEffect(() => {
     const urlYear = searchParams.get("year");
     const urlMonth = searchParams.get("month");
+    const urlDay = searchParams.get("day");
 
     if (urlYear) {
       setSelectedYear(urlYear === "All" ? "All" : parseInt(urlYear));
       setSelectedMonth(urlMonth ? parseInt(urlMonth) : null);
+      setSelectedDay(urlDay ? parseInt(urlDay) : null);
     }
   }, [searchParams]);
+
+  // Validate and reset day if it's invalid for the current month/year
+  useEffect(() => {
+    if (
+      selectedYear !== "All" &&
+      selectedYear &&
+      selectedMonth &&
+      selectedDay
+    ) {
+      const maxDays = dayjs(`${selectedYear}-${selectedMonth}`).daysInMonth();
+      if (selectedDay > maxDays) {
+        setSelectedDay(null);
+        updateUrlParams(selectedYear, selectedMonth, null);
+      }
+    }
+  }, [selectedYear, selectedMonth, selectedDay]);
 
   return (
     <Stack
@@ -273,7 +354,31 @@ const DateRangeFilter = ({
         </TextField>
       )}
 
-      {(selectedYear || selectedMonth) && (
+      <TextField
+        select
+        label="Day"
+        value={selectedDay || ""}
+        onChange={handleDayChange}
+        size="small"
+        sx={{ minWidth: 100 }}
+        SelectProps={{
+          MenuProps: {
+            PaperProps: {
+              sx: {
+                maxHeight: 200, // 👈 sets dropdown list height
+              },
+            },
+          },
+        }}
+      >
+        {dayOptions.map((day) => (
+          <MenuItem key={day} value={day}>
+            {day}
+          </MenuItem>
+        ))}
+      </TextField>
+
+      {(selectedYear || selectedMonth || selectedDay) && (
         <Tooltip title="Clear Filter">
           <IconButton onClick={handleClearFilter} size="small" sx={{ mt: 3 }}>
             <ClearIcon fontSize="small" />

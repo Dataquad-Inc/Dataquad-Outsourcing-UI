@@ -1,5 +1,15 @@
 import React, { useState, useCallback } from "react";
-import { Button, MenuItem, TextField, Stack } from "@mui/material";
+import { 
+  Button, 
+  MenuItem, 
+  TextField, 
+  Stack, 
+  FormControlLabel,
+  Checkbox,
+  Chip,
+  Box,
+  Typography
+} from "@mui/material";
 import CustomDataTable from "../../ui-lib/CustomDataTable";
 import getRequirementsColumns from "./requirementsColumns";
 import {
@@ -17,13 +27,25 @@ const RequirementsList = () => {
   const [loading, setLoading] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [selectedRequirement, setSelectedRequirement] = useState(null);
-  const [formValues, setFormValues] = useState({ status: "", jobMode: "" });
+  const [selectedFields, setSelectedFields] = useState([]);
+  const [formValues, setFormValues] = useState({});
 
   const [requirements, setRequirements] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [search, setSearch] = useState("");
+
+  // Define which fields are editable
+  const editableFields = [
+    { id: 'status', label: 'Status', type: 'select', options: ['Open', 'Closed', 'OnHold', 'Cancelled'] },
+    { id: 'jobMode', label: 'Job Mode', type: 'select', options: ['Remote', 'Onsite', 'Hybrid'] },
+    { id: 'employmentType', label: 'Employment Type', type: 'select', options: ['FullTime', 'PartTime', 'Contract', 'Temporary'] },
+    { id: 'noticePeriod', label: 'Notice Period (days)', type: 'number' },
+    { id: 'salaryPackage', label: 'Salary Package ($)', type: 'number' },
+    { id: 'noOfPositions', label: 'Number of Positions', type: 'number' },
+    { id: 'jobClosingDate', label: 'Job Closing Date', type: 'date' },
+  ];
 
   // Dummy data for demonstration
   const dummyRequirements = [
@@ -232,17 +254,51 @@ const RequirementsList = () => {
   /** ---------------- Edit ---------------- */
   const handleEdit = (row) => {
     setSelectedRequirement(row);
-    setFormValues({
-      status: row.status || "",
-      jobMode: row.jobMode || "",
-    });
+    setSelectedFields([]);
+    setFormValues({});
     setOpenEdit(true);
+  };
+
+  const handleFieldSelection = (fieldId, isSelected) => {
+    if (isSelected) {
+      setSelectedFields([...selectedFields, fieldId]);
+      // Initialize form value for this field
+      setFormValues({
+        ...formValues,
+        [fieldId]: selectedRequirement[fieldId] || ""
+      });
+    } else {
+      setSelectedFields(selectedFields.filter(id => id !== fieldId));
+      // Remove field from form values
+      const newFormValues = {...formValues};
+      delete newFormValues[fieldId];
+      setFormValues(newFormValues);
+    }
+  };
+
+  const handleFieldValueChange = (fieldId, value) => {
+    setFormValues({
+      ...formValues,
+      [fieldId]: value
+    });
   };
 
   const handleSave = async () => {
     try {
       // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 500));
+      
+      // Update the requirement in our dummy data
+      const updatedIndex = dummyRequirements.findIndex(
+        req => req.id === selectedRequirement.id
+      );
+      
+      if (updatedIndex !== -1) {
+        dummyRequirements[updatedIndex] = {
+          ...dummyRequirements[updatedIndex],
+          ...formValues
+        };
+      }
 
       showSuccessToast("Requirement updated successfully");
       setOpenEdit(false);
@@ -301,41 +357,87 @@ const RequirementsList = () => {
             <Button onClick={() => setOpenEdit(false)} variant="outlined">
               Cancel
             </Button>
-            <Button variant="contained" onClick={handleSave}>
-              Update Requirement
+            <Button 
+              variant="contained" 
+              onClick={handleSave}
+              disabled={selectedFields.length === 0}
+            >
+              Update Selected Fields
             </Button>
           </>
         }
       >
-        <Stack spacing={2} sx={{ mt: 1 }}>
-          <TextField
-            select
-            label="Status"
-            value={formValues.status}
-            onChange={(e) =>
-              setFormValues({ ...formValues, status: e.target.value })
-            }
-            fullWidth
-          >
-            <MenuItem value="Open">Open</MenuItem>
-            <MenuItem value="Closed">Closed</MenuItem>
-            <MenuItem value="OnHold">On Hold</MenuItem>
-            <MenuItem value="Cancelled">Cancelled</MenuItem>
-          </TextField>
+        <Stack spacing={3} sx={{ mt: 1 }}>
+          <Typography variant="h6">Select fields to edit:</Typography>
+          
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+            {editableFields.map(field => (
+              <Chip
+                key={field.id}
+                label={field.label}
+                color={selectedFields.includes(field.id) ? "primary" : "default"}
+                onClick={() => handleFieldSelection(field.id, !selectedFields.includes(field.id))}
+                variant={selectedFields.includes(field.id) ? "filled" : "outlined"}
+              />
+            ))}
+          </Box>
 
-          <TextField
-            select
-            label="Job Mode"
-            value={formValues.jobMode}
-            onChange={(e) =>
-              setFormValues({ ...formValues, jobMode: e.target.value })
-            }
-            fullWidth
-          >
-            <MenuItem value="Remote">Remote</MenuItem>
-            <MenuItem value="Onsite">Onsite</MenuItem>
-            <MenuItem value="Hybrid">Hybrid</MenuItem>
-          </TextField>
+          {selectedFields.length > 0 && (
+            <>
+              <Typography variant="h6">Edit selected fields:</Typography>
+              
+              {selectedFields.map(fieldId => {
+                const fieldConfig = editableFields.find(f => f.id === fieldId);
+                if (!fieldConfig) return null;
+                
+                return (
+                  <div key={fieldId}>
+                    {fieldConfig.type === 'select' ? (
+                      <TextField
+                        select
+                        label={fieldConfig.label}
+                        value={formValues[fieldId] || ""}
+                        onChange={(e) => handleFieldValueChange(fieldId, e.target.value)}
+                        fullWidth
+                      >
+                        {fieldConfig.options.map(option => (
+                          <MenuItem key={option} value={option}>
+                            {option}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    ) : fieldConfig.type === 'number' ? (
+                      <TextField
+                        label={fieldConfig.label}
+                        type="number"
+                        value={formValues[fieldId] || ""}
+                        onChange={(e) => handleFieldValueChange(fieldId, e.target.value)}
+                        fullWidth
+                      />
+                    ) : fieldConfig.type === 'date' ? (
+                      <TextField
+                        label={fieldConfig.label}
+                        type="date"
+                        value={formValues[fieldId] || ""}
+                        onChange={(e) => handleFieldValueChange(fieldId, e.target.value)}
+                        fullWidth
+                        InputLabelProps={{
+                          shrink: true,
+                        }}
+                      />
+                    ) : (
+                      <TextField
+                        label={fieldConfig.label}
+                        value={formValues[fieldId] || ""}
+                        onChange={(e) => handleFieldValueChange(fieldId, e.target.value)}
+                        fullWidth
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </>
+          )}
         </Stack>
       </CustomModal>
     </>
