@@ -121,6 +121,25 @@ export const submitWeeklyTimesheet = createAsyncThunk(
     }
   }
 );
+export const submitMonthlyTimesheet = createAsyncThunk(
+  'timesheet/submitMonthlyTimesheet',
+  async ({ userId, monthStartDate }, { rejectWithValue }) => {
+    try {
+      const response = await httpService.post(
+        `/timesheet/submit-monthly?userId=${userId}&monthStartDate=${monthStartDate}`,
+        {}
+      );
+      ToastService.success('Timesheet submitted successfully');
+      return response.data;
+    } catch (error) {
+      const errorMessage = extractErrorMessage(error);
+      ToastService.error(errorMessage);
+      return rejectWithValue(errorMessage);
+    }
+  }
+);
+
+
 
 export const uploadTimesheetAttachments = createAsyncThunk(
   'timesheet/uploadAttachments',
@@ -329,7 +348,20 @@ const timesheetSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-      
+
+      //submit monthly timesheet
+      .addCase(submitMonthlyTimesheet.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(submitMonthlyTimesheet.fulfilled, (state) => {
+        state.loading = false;
+      })
+      .addCase(submitMonthlyTimesheet.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
       // Upload attachments
       .addCase(uploadTimesheetAttachments.pending, (state) => {
         state.uploadLoading = true;

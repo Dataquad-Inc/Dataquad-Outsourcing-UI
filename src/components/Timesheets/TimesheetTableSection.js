@@ -53,9 +53,9 @@ const TimesheetTableSection = ({
   selectedWeekStart,
   canEditTimesheet,
   isEditMode,
-   calendarValue,isDateInCalendarMonth
+  calendarValue, isDateInCalendarMonth
 }) => (
-  
+
   <Card sx={{ mb: 3 }}>
     <CardContent sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 4 }}>
@@ -135,158 +135,158 @@ const TimesheetTableSection = ({
               }
             }}
           >
- <TableHead>
-            <TableRow>
-              <TableCell sx={{ minWidth: 120, fontWeight: 'bold', py: 1 }}>
-                Type
-              </TableCell>
-              {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => {
-                const isWeekend = day === 'saturday' || day === 'sunday';
-                const dayDate = getDateForDay(selectedWeekStart, day);
-                const isInCalendarMonth = dayDate ? isDateInCalendarMonth(dayDate, calendarValue) : false;
-                
-                return (
-                  <TableCell
-                    key={day}
-                    align="center"
-                    sx={{
-                      minWidth: 60,
-                      fontWeight: 'bold',
-                      color: isWeekend ? 'text.secondary' : (isInCalendarMonth ? 'text.primary' : 'text.disabled'),
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ minWidth: 120, fontWeight: 'bold', py: 1 }}>
+                  Type
+                </TableCell>
+                {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => {
+                  const isWeekend = day === 'saturday' || day === 'sunday';
+                  const dayDate = getDateForDay(selectedWeekStart, day);
+                  const isInCalendarMonth = dayDate ? isDateInCalendarMonth(dayDate, calendarValue) : false;
+
+                  return (
+                    <TableCell
+                      key={day}
+                      align="center"
+                      sx={{
+                        minWidth: 60,
+                        fontWeight: 'bold',
+                        color: isWeekend ? 'text.secondary' : (isInCalendarMonth ? 'text.primary' : 'text.disabled'),
+                        py: 1,
+                        px: 0.5,
+                        backgroundColor: !isInCalendarMonth ? 'grey.50' : 'transparent'
+                      }}
+                    >
+                      <Box>
+                        <Typography variant="body2" sx={{
+                          textTransform: 'uppercase',
+                          fontSize: '0.8rem',
+                          opacity: isInCalendarMonth ? 1 : 0.6
+                        }}>
+                          <b>{day.slice(0, 3)}</b>
+                        </Typography>
+                        {dayDate && (
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              fontSize: '0.7rem',
+                              opacity: isInCalendarMonth ? 1 : 0.6
+                            }}
+                          >
+                            {dayDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                          </Typography>
+                        )}
+                      </Box>
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            </TableHead>
+
+            <TableBody>
+              {/* Work Hours Row */}
+              <TableRow>
+                <TableCell sx={{ fontWeight: 'bold', color: 'text.primary', pl: 2, py: 1 }}>
+                  Work Hours
+                </TableCell>
+                {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => {
+                  const dayDate = getDateForDay(selectedWeekStart, day);
+                  const isInCalendarMonth = dayDate ? isDateInCalendarMonth(dayDate, calendarValue) : false;
+                  const isEditable = isFieldEditable(currentTimesheet, day, null, calendarValue) && isInCalendarMonth;
+
+                  return (
+                    <TableCell key={day} align="center" sx={{
                       py: 1,
                       px: 0.5,
                       backgroundColor: !isInCalendarMonth ? 'grey.50' : 'transparent'
-                    }}
-                  >
-                    <Box>
-                      <Typography variant="body2" sx={{
-                        textTransform: 'uppercase',
-                        fontSize: '0.8rem',
-                        opacity: isInCalendarMonth ? 1 : 0.6
-                      }}>
-                        <b>{day.slice(0, 3)}</b>
-                      </Typography>
-                      {dayDate && (
-                        <Typography 
-                          variant="caption" 
-                          sx={{ 
-                            fontSize: '0.7rem',
-                            opacity: isInCalendarMonth ? 1 : 0.6
-                          }}
-                        >
-                          {dayDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-                        </Typography>
-                      )}
-                    </Box>
-                  </TableCell>
-                );
-              })}
-            </TableRow>
-          </TableHead>
-
-  <TableBody>
-            {/* Work Hours Row */}
-            <TableRow>
-              <TableCell sx={{ fontWeight: 'bold', color: 'text.primary', pl: 2, py: 1 }}>
-                Work Hours
-              </TableCell>
-              {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => {
-                const dayDate = getDateForDay(selectedWeekStart, day);
-                const isInCalendarMonth = dayDate ? isDateInCalendarMonth(dayDate, calendarValue) : false;
-                const isEditable = isFieldEditable(currentTimesheet, day, null, calendarValue) && isInCalendarMonth;
-                
-                return (
-                  <TableCell key={day} align="center" sx={{ 
-                    py: 1, 
-                    px: 0.5,
-                    backgroundColor: !isInCalendarMonth ? 'grey.50' : 'transparent'
-                  }}>
-                    <TextField
-                      type="text"
-                      value={currentTimesheet[day] || 0}
-                      onChange={(e) => handleHourChange(day, e.target.value)}
-                      disabled={!isEditable}
-                      inputProps={{
-                        min: 0,
-                        max: 8,
-                        step: 0.25,
-                        style: {
-                          textAlign: 'center',
-                          fontWeight: currentTimesheet[day] > 0 ? 'bold' : 'normal',
-                          padding: '4px',
-                          width: '50px'
-                        }
-                      }}
-                      sx={{
-                        '& .MuiInputBase-root': {
-                          backgroundColor: !isEditable ? 'grey.100' : 'white',
-                          '&.Mui-disabled': {
-                            backgroundColor: 'grey.50',
-                            color: 'text.secondary'
+                    }}>
+                      <TextField
+                        type="text"
+                        value={currentTimesheet[day] || 0}
+                        onChange={(e) => handleHourChange(day, e.target.value)}
+                        disabled={!isEditable}
+                        inputProps={{
+                          min: 0,
+                          max: 8,
+                          step: 0.25,
+                          style: {
+                            textAlign: 'center',
+                            fontWeight: currentTimesheet[day] > 0 ? 'bold' : 'normal',
+                            padding: '4px',
+                            width: '50px'
                           }
-                        }
-                      }}
-                      variant="outlined"
-                      size="small"
-                    />
-                  </TableCell>
-                );
-              })}
-            </TableRow>
-
-            {/* Sick Leave Row */}
-            <TableRow>
-              <TableCell sx={{ fontWeight: 'bold', color: 'primary.main', pl: 2, py: 1 }}>
-                Sick Leave/Company Holiday
-              </TableCell>
-              {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => {
-                const isWeekend = day === 'saturday' || day === 'sunday';
-                const dayDate = getDateForDay(selectedWeekStart, day);
-                const isInCalendarMonth = dayDate ? isDateInCalendarMonth(dayDate, calendarValue) : false;
-               const isEditable = isFieldEditable(currentTimesheet, day, 'sickLeave', calendarValue) && isInCalendarMonth && !isWeekend;
-                
-                return (
-                  <TableCell key={day} align="center" sx={{ 
-                    py: 1, 
-                    px: 0.5,
-                    backgroundColor: !isInCalendarMonth ? 'grey.50' : 'transparent'
-                  }}>
-                    <TextField
-                      type="text"
-                      value={currentTimesheet.sickLeave[day] || 0}
-                      onChange={(e) => {
-                        const value = Number(e.target.value);
-                        handleHourChange(day, value === 8 ? value : '', 'sickLeave');
-                      }}
-                      disabled={!isEditable}
-                      inputProps={{
-                        min: 0,
-                        max: 8,
-                        step: 1,
-                        style: {
-                          textAlign: 'center',
-                          fontWeight: currentTimesheet.sickLeave[day] > 0 ? 'bold' : 'normal',
-                          padding: '4px',
-                          width: '50px'
-                        }
-                      }}
-                      sx={{
-                        '& .MuiInputBase-root': {
-                          backgroundColor: !isEditable ? 'grey.100' : 'white',
-                          '&.Mui-disabled': {
-                            backgroundColor: 'grey.50',
-                            color: 'text.secondary'
+                        }}
+                        sx={{
+                          '& .MuiInputBase-root': {
+                            backgroundColor: !isEditable ? 'grey.100' : 'white',
+                            '&.Mui-disabled': {
+                              backgroundColor: 'grey.50',
+                              color: 'text.secondary'
+                            }
                           }
-                        }
-                      }}
-                      variant="outlined"
-                      size="small"
-                    />
-                  </TableCell>
-                );
-              })}
-            </TableRow>
-          </TableBody>
+                        }}
+                        variant="outlined"
+                        size="small"
+                      />
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+
+              {/* Sick Leave Row */}
+              <TableRow>
+                <TableCell sx={{ fontWeight: 'bold', color: 'primary.main', pl: 2, py: 1 }}>
+                  Sick Leave/Company Holiday
+                </TableCell>
+                {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => {
+                  const isWeekend = day === 'saturday' || day === 'sunday';
+                  const dayDate = getDateForDay(selectedWeekStart, day);
+                  const isInCalendarMonth = dayDate ? isDateInCalendarMonth(dayDate, calendarValue) : false;
+                  const isEditable = isFieldEditable(currentTimesheet, day, 'sickLeave', calendarValue) && isInCalendarMonth && !isWeekend;
+
+                  return (
+                    <TableCell key={day} align="center" sx={{
+                      py: 1,
+                      px: 0.5,
+                      backgroundColor: !isInCalendarMonth ? 'grey.50' : 'transparent'
+                    }}>
+                      <TextField
+                        type="text"
+                        value={currentTimesheet.sickLeave[day] || 0}
+                        onChange={(e) => {
+                          const value = Number(e.target.value);
+                          handleHourChange(day, value === 8 ? value : '', 'sickLeave');
+                        }}
+                        disabled={!isEditable}
+                        inputProps={{
+                          min: 0,
+                          max: 8,
+                          step: 1,
+                          style: {
+                            textAlign: 'center',
+                            fontWeight: currentTimesheet.sickLeave[day] > 0 ? 'bold' : 'normal',
+                            padding: '4px',
+                            width: '50px'
+                          }
+                        }}
+                        sx={{
+                          '& .MuiInputBase-root': {
+                            backgroundColor: !isEditable ? 'grey.100' : 'white',
+                            '&.Mui-disabled': {
+                              backgroundColor: 'grey.50',
+                              color: 'text.secondary'
+                            }
+                          }
+                        }}
+                        variant="outlined"
+                        size="small"
+                      />
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            </TableBody>
           </Table>
         </Box>
       )}
