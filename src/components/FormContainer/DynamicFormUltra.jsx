@@ -86,8 +86,8 @@ const CustomButton = ({ children, loading, ...props }) => (
 
 // Custom Phone Input Component (simplified version)
 const countryCodes = [
-  { code: "+91", label: "IND", maxLength: 10, format: [4, 3, 3] },
   { code: "+1", label: "USA", maxLength: 10, format: [3, 3, 4] },
+  { code: "+91", label: "IND", maxLength: 10, format: [4, 3, 3] },
   { code: "+86", label: "CHN", maxLength: 11, format: [3, 4, 4] },
   { code: "+62", label: "IDN", maxLength: 10, format: [4, 3, 3] },
   { code: "+55", label: "BRA", maxLength: 11, format: [2, 5, 4] },
@@ -333,7 +333,7 @@ const DynamicFormUltra = ({
       if (!countryCodes[field.name]) {
         setCountryCodes((prev) => ({
           ...prev,
-          [field.name]: "+91", // Default to India
+          [field.name]: "+1", // Default to India
         }));
       }
     }
@@ -435,7 +435,7 @@ const DynamicFormUltra = ({
 
         // Phone fields: prepend country code if present
         if (field?.type === "phone" && val) {
-          const countryCode = countryCodes[key] || "+91";
+          const countryCode = countryCodes[key] || "+1";
           const phoneNumber = String(val).replace(/\s/g, "");
           formData.append(key, `${countryCode} ${phoneNumber}`);
           return;
