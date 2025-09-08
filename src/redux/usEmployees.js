@@ -1,9 +1,10 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { hotlistAPI, teamAPI } from "../utils/api";
 
+// 🔹 Fetch only TEAMLEAD users
 export const fetchEmployeesUs = createAsyncThunk(
-  "usEmployees/fetchUsEmployees",
-  async (role, thunkAPI) => {
+  "usEmployees/fetchEmployeesUs",
+  async (_, thunkAPI) => {
     try {
       const response = await hotlistAPI.getUsersByRole("TEAMLEAD");
       return response;
@@ -16,6 +17,23 @@ export const fetchEmployeesUs = createAsyncThunk(
   }
 );
 
+// 🔹 Fetch all employees by role
+export const fetchAllEmployeesUs = createAsyncThunk(
+  "usEmployees/fetchAllEmployeesUs",
+  async (role, thunkAPI) => {
+    try {
+      const response = await hotlistAPI.getUsersByRole(role);
+      return response;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        `Error fetching US employees: ${error.message}` ||
+          "failed to fetch US employees"
+      );
+    }
+  }
+);
+
+// 🔹 Fetch team by Team Lead ID
 export const fetchTeamMembers = createAsyncThunk(
   "usEmployees/fetchTeamMembers",
   async (teamLeadId, thunkAPI) => {
@@ -35,10 +53,11 @@ const usEmployeesSlice = createSlice({
   name: "usEmployees",
   initialState: {
     employees: [],
-    team: null, // full team object
-    salesExecutives: [], // just sales
-    recruiters: [], // just recruiters
-    loading: false,
+    team: null,
+    salesExecutives: [],
+    recruiters: [],
+    loadingEmployees: false,
+    loadingTeam: false,
     error: null,
   },
 
@@ -46,35 +65,48 @@ const usEmployeesSlice = createSlice({
 
   extraReducers: (builder) => {
     builder
+      // 🔹 Employees
       .addCase(fetchEmployeesUs.pending, (state) => {
-        state.loading = true;
+        state.loadingEmployees = true;
         state.error = null;
       })
       .addCase(fetchEmployeesUs.fulfilled, (state, action) => {
-        state.loading = false;
+        state.loadingEmployees = false;
         state.employees = action.payload;
       })
       .addCase(fetchEmployeesUs.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message;
+        state.loadingEmployees = false;
+        state.error = action.payload || action.error.message;
       })
 
-      // ✅ Handle team members
+      // 🔹 All employees by role
+      .addCase(fetchAllEmployeesUs.pending, (state) => {
+        state.loadingEmployees = true;
+        state.error = null;
+      })
+      .addCase(fetchAllEmployeesUs.fulfilled, (state, action) => {
+        state.loadingEmployees = false;
+        state.employees = action.payload;
+      })
+      .addCase(fetchAllEmployeesUs.rejected, (state, action) => {
+        state.loadingEmployees = false;
+        state.error = action.payload || action.error.message;
+      })
+
+      // 🔹 Team members
       .addCase(fetchTeamMembers.pending, (state) => {
-        state.loading = true;
+        state.loadingTeam = true;
         state.error = null;
       })
       .addCase(fetchTeamMembers.fulfilled, (state, action) => {
-        state.loading = false;
+        state.loadingTeam = false;
         state.team = action.payload;
-
-        // Correct fields based on API response
         state.salesExecutives = action.payload.salesExecutives || [];
         state.recruiters = action.payload.recruiters || [];
       })
       .addCase(fetchTeamMembers.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message;
+        state.loadingTeam = false;
+        state.error = action.payload || action.error.message;
       });
   },
 });

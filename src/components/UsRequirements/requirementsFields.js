@@ -1,4 +1,4 @@
-const getRequirementsSections = (isEditMode = false) => {
+const getRequirementsSections = (isEditMode = false, employees) => {
   return [
     {
       section: "Job Details",
@@ -32,6 +32,27 @@ const getRequirementsSections = (isEditMode = false) => {
           ],
           helperText: "Select the work arrangement for this position",
         },
+        {
+          name: "visaType",
+          label: "Type of Visa",
+          type: "select",
+          required: true,
+          icon: "BusinessCenter",
+          options: [
+            { value: "H1B", label: "H1B" },
+            { value: "OPT", label: "OPT" },
+            { value: "STEM_OPT", label: "STEM OPT" },
+            { value: "OPT_EAD", label: "OPT EAD" },
+            { value: "H4_EAD", label: "H4 EAD" },
+            { value: "GC_EAD", label: "GC EAD" },
+            { value: "CPT", label: "CPT" },
+            { value: "GC", label: "Green Card" },
+            { value: "Citizen", label: "Citizen" },
+            { value: "Other", label: "Other" },
+          ],
+          helperText: "Select the visa type required for this position",
+        },
+
         {
           name: "location",
           label: "Job Location",

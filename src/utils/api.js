@@ -223,6 +223,42 @@ export const teamAPI = {
   },
 };
 
+// ==========Requirements API ===========
+
+export const requirementsAPI = {
+  // Get all requirements with pagination and filtering
+  getAllRequirements: async (params = {}) => {
+    return apiGet("/api/us/requirements/allRequirements", params);
+  },
+
+
+  // Create new requirement with form data (for file uploads)
+  createRequirement: async (formData) => {
+    if (!formData) throw new Error("Form data is required");
+    return apiPostFormData("/api/us/requirements/create-", formData);
+  },
+
+  // Update requirement by ID
+  updateRequirement: async (requirementId, requirementData) => {
+    if (!requirementId) throw new Error("Requirement ID is required");
+    if (!requirementData) throw new Error("Requirement data is required");
+    return apiPut(`/requirements/update/${requirementId}`, requirementData);
+  },
+
+  // Update requirement with form data (for file uploads)
+  updateRequirementWithFormData: async (requirementId, formData) => {
+    if (!requirementId) throw new Error("Requirement ID is required");
+    if (!formData) throw new Error("Form data is required");
+    return apiPutFormData(`/requirements/update/${requirementId}`, formData);
+  },
+
+  // Delete requirement by ID
+  deleteRequirement: async (requirementId) => {
+    if (!requirementId) throw new Error("Requirement ID is required");
+    return apiDelete(`/requirements/delete/${requirementId}`);
+  },
+};
+
 // ========== Hotlist/Consultant Management APIs ==========
 export const hotlistAPI = {
   // Get all consultants with pagination

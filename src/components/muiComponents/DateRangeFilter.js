@@ -81,24 +81,24 @@ const DateRangeFilter = ({
     ...Array.from({ length: 10 }, (_, i) => currentYear - 5 + i),
   ];
 
-  // Initialize from URL or fallback to current year/month/day
+  // Initialize from URL or leave empty (no default selection)
   const [selectedYear, setSelectedYear] = useState(() => {
     const urlYear = searchParams.get("year");
     return urlYear
       ? urlYear === "All"
         ? "All"
         : parseInt(urlYear)
-      : currentYear;
+      : null; // Changed from currentYear to null
   });
 
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const urlMonth = searchParams.get("month");
-    return urlMonth ? parseInt(urlMonth) : currentMonth;
+    return urlMonth ? parseInt(urlMonth) : null; // Changed from currentMonth to null
   });
 
   const [selectedDay, setSelectedDay] = useState(() => {
     const urlDay = searchParams.get("day");
-    return urlDay ? parseInt(urlDay) : currentDay;
+    return urlDay ? parseInt(urlDay) : null; // Changed from currentDay to null
   });
 
   const monthOptions = [
@@ -128,7 +128,7 @@ const DateRangeFilter = ({
 
   const dayOptions = getDayOptions();
 
-  // Calculate start and end dates
+  // Calculate start and end dates - only when selections are made
   let startDate = null;
   let endDate = null;
 
@@ -226,16 +226,19 @@ const DateRangeFilter = ({
   };
 
   const handleClearFilter = () => {
-    const now = dayjs();
-    const resetYear = currentYear;
-    const resetMonth = currentMonth;
-    const resetDay = currentDay;
+    // Reset to no selection instead of current date
+    setSelectedYear(null);
+    setSelectedMonth(null);
+    setSelectedDay(null);
 
-    setSelectedYear(resetYear);
-    setSelectedMonth(resetMonth);
-    setSelectedDay(resetDay);
-
-    updateUrlParams(resetYear, resetMonth, resetDay);
+    // Clear URL params
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.delete("year");
+    newSearchParams.delete("month");
+    newSearchParams.delete("day");
+    newSearchParams.delete("startDate");
+    newSearchParams.delete("endDate");
+    setSearchParams(newSearchParams, { replace: true });
 
     dispatch(setFilteredDataRequested(false));
 
@@ -246,14 +249,14 @@ const DateRangeFilter = ({
     if (component === "InterviewsForRecruiter")
       dispatch(clearRecruiterFilter());
 
+    // Don't call onDateChange with current date - let parent handle no filter state
     if (onDateChange) {
-      const start = now.startOf("day").format("YYYY-MM-DD");
-      const end = now.endOf("day").format("YYYY-MM-DD");
-      onDateChange(start, end);
+      onDateChange(null, null); // Pass null to indicate no filter
     }
   };
 
   useEffect(() => {
+    // Only apply filters when dates are actually selected
     if (startDate && endDate) {
       const formattedStart = startDate.format("YYYY-MM-DD");
       const formattedEnd = endDate.format("YYYY-MM-DD");
@@ -275,6 +278,13 @@ const DateRangeFilter = ({
           });
       } else {
         console.warn(`No action mapped for component: ${component}`);
+      }
+    }
+    // When no dates selected, don't apply any filter
+    else if (!selectedYear && !selectedMonth && !selectedDay) {
+      dispatch(setFilteredDataRequested(false));
+      if (onDateChange) {
+        onDateChange(null, null);
       }
     }
   }, [
@@ -345,6 +355,7 @@ const DateRangeFilter = ({
           onChange={handleMonthChange}
           size="small"
           sx={{ minWidth: 140 }}
+          disabled={!selectedYear || selectedYear === "All"} // Disable if no year selected
         >
           {monthOptions.map((month) => (
             <MenuItem key={month.value} value={month.value}>
@@ -361,11 +372,12 @@ const DateRangeFilter = ({
         onChange={handleDayChange}
         size="small"
         sx={{ minWidth: 100 }}
+        disabled={!selectedYear || selectedYear === "All" || !selectedMonth} // Disable if no year/month selected
         SelectProps={{
           MenuProps: {
             PaperProps: {
               sx: {
-                maxHeight: 200, // 👈 sets dropdown list height
+                maxHeight: 200,
               },
             },
           },
