@@ -9,6 +9,7 @@ import {
   createTimesheet,
   updateTimesheet,
   submitWeeklyTimesheet as submitWeeklyTimesheetAction,
+  submitMonthlyTimesheet as submitMonthlyTimesheetAction,
   uploadTimesheetAttachments,
   deleteTimesheetAttachments,
   approveTimesheet,
@@ -56,6 +57,7 @@ const Timesheets = () => {
 
   // Calendar and timesheet states
   const [selectedWeekStart, setSelectedWeekStart] = useState('');
+  const [timesheetType, setTimesheetType] = useState('WEEKLY'); // or 'MONTHLY'
   const [currentTimesheet, setCurrentTimesheet] = useState(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [calendarValue, setCalendarValue] = useState(new Date());
@@ -118,6 +120,10 @@ const Timesheets = () => {
 
   const dispatch = useDispatch();
 
+
+  const selectedDate = new Date(calendarValue);
+  const monthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+  const startDate = formatDateToYMD(monthStart);
 
 
   useEffect(() => {
@@ -332,68 +338,68 @@ const Timesheets = () => {
 
 
 
- const handleEmployeeChange = async (employeeId, callback) => {
-  console.log('Employee changed to:', employeeId);
+  const handleEmployeeChange = async (employeeId, callback) => {
+    console.log('Employee changed to:', employeeId);
 
-  // Reset project selection and timesheet when employee changes
-  setSelectedProject('');
-  setCurrentTimesheet(null);
-  setAttachments([]);
-  setPendingAttachments([]);
-  setHasUnsavedChanges(false);
+    // Reset project selection and timesheet when employee changes
+    setSelectedProject('');
+    setCurrentTimesheet(null);
+    setAttachments([]);
+    setPendingAttachments([]);
+    setHasUnsavedChanges(false);
 
-  if (isCreateMode || isAddingNewTimesheet) {
-    setTempEmployeeForAdd(employeeId);
-    setSelectedEmployee(employeeId);
-  } else {
-    setSelectedEmployee(employeeId);
-  }
+    if (isCreateMode || isAddingNewTimesheet) {
+      setTempEmployeeForAdd(employeeId);
+      setSelectedEmployee(employeeId);
+    } else {
+      setSelectedEmployee(employeeId);
+    }
 
-  // Immediately fetch projects for the selected employee
-  if (employeeId && (role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE")) {
-    setLoadingEmployeeProjects(true);
-    try {
-      console.log('Fetching projects for employee:', employeeId);
-      const response = await httpService.get(`/timesheet/vendors/${employeeId}`);
-      console.log('Employee projects API response:', response);
+    // Immediately fetch projects for the selected employee
+    if (employeeId && (role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE")) {
+      setLoadingEmployeeProjects(true);
+      try {
+        console.log('Fetching projects for employee:', employeeId);
+        const response = await httpService.get(`/timesheet/vendors/${employeeId}`);
+        console.log('Employee projects API response:', response);
 
-      let projectsData = [];
-      if (response.data && response.data.success) {
-        // Handle both array of strings and array of objects
-        if (Array.isArray(response.data.data)) {
-          projectsData = response.data.data.map((project, index) => {
-            if (typeof project === 'string') {
-              return {
-                projectId: index,
-                projectName: project
-              };
-            } else {
-              return project;
-            }
-          });
+        let projectsData = [];
+        if (response.data && response.data.success) {
+          // Handle both array of strings and array of objects
+          if (Array.isArray(response.data.data)) {
+            projectsData = response.data.data.map((project, index) => {
+              if (typeof project === 'string') {
+                return {
+                  projectId: index,
+                  projectName: project
+                };
+              } else {
+                return project;
+              }
+            });
+          }
         }
-      }
 
-      console.log('Processed employeeProjects:', projectsData);
-      setEmployeeProjects(projectsData);
+        console.log('Processed employeeProjects:', projectsData);
+        setEmployeeProjects(projectsData);
 
-      // Execute callback if provided (for prepopulation)
-      if (callback && typeof callback === 'function') {
-        callback(projectsData);
+        // Execute callback if provided (for prepopulation)
+        if (callback && typeof callback === 'function') {
+          callback(projectsData);
+        }
+      } catch (error) {
+        console.error('Error fetching employee projects:', error);
+        setEmployeeProjects([]);
+        const errorMessage = extractErrorMessage(error);
+        ToastService.error(errorMessage || 'Failed to fetch employee projects');
+      } finally {
+        setLoadingEmployeeProjects(false);
       }
-    } catch (error) {
-      console.error('Error fetching employee projects:', error);
+    } else {
       setEmployeeProjects([]);
-      const errorMessage = extractErrorMessage(error);
-      ToastService.error(errorMessage || 'Failed to fetch employee projects');
-    } finally {
       setLoadingEmployeeProjects(false);
     }
-  } else {
-    setEmployeeProjects([]);
-    setLoadingEmployeeProjects(false);
-  }
-};
+  };
 
 
   // Timesheets.js - Add this function
@@ -518,131 +524,107 @@ const Timesheets = () => {
     fetchEmployeeAttachments();
   }, [selectedEmployee, timesheetData, selectedWeekStart, role]);
 
-const extractErrorMessage = (errorData) => {
-  if (typeof errorData === 'string') {
-    return errorData;
-  }
-  
-  if (errorData?.error?.errorMessage) {
-    return errorData.error.errorMessage;
-  }
-  
-  if (errorData?.message) {
-    return errorData.message;
-  }
-  
-  if (errorData?.data?.message) {
-    return errorData.data.message;
-  }
-  
-  if (errorData instanceof Error) {
-    return errorData.message;
-  }
-  
-  return 'An unexpected error occurred';
-};
-
-// 1. Fixed fetchOrCreateTimesheet function
-const fetchOrCreateTimesheet = async () => {
-  if (!selectedProject || !selectedWeekStart) return;
-
-  // Special handling for add timesheet mode
-  if (isAddingNewTimesheet || (isCreateMode && tempEmployeeForAdd)) {
-    const employeeId = tempEmployeeForAdd || selectedEmployee;
-    if (employeeId) {
-      console.log("Creating new timesheet for employee in add/create mode:", employeeId);
-      setCurrentTimesheet(getEmptyTimesheet(selectedProject));
-      await createNewTimesheetForEmployee(employeeId);
+  const extractErrorMessage = (errorData) => {
+    if (typeof errorData === 'string') {
+      return errorData;
     }
-    return;
-  }
 
-  setLoading(true);
-  try {
-    const targetUserId = selectedEmployee || userId;
+    if (errorData?.error?.errorMessage) {
+      return errorData.error.errorMessage;
+    }
 
-    console.log("Fetching timesheet for:", {
-      targetUserId,
-      selectedProject,
-      selectedWeekStart,
-      selectedEmployee,
-      userId
-    });
+    if (errorData?.message) {
+      return errorData.message;
+    }
 
-    const resultAction = await dispatch(fetchTimesheetsByUserId(targetUserId));
+    if (errorData?.data?.message) {
+      return errorData.data.message;
+    }
 
-    if (fetchTimesheetsByUserId.fulfilled.match(resultAction)) {
-      const response = resultAction.payload;
+    if (errorData instanceof Error) {
+      return errorData.message;
+    }
 
-      console.log("Full API response:", response);
-      
-      // Handle response properly - ensure we extract data correctly
-      const timesheetData = response?.data || [];
-      setTimeSheetData(timesheetData);
+    return 'An unexpected error occurred';
+  };
 
-      let existingTimesheet = null;
+  // 1. Fixed fetchOrCreateTimesheet function
+  const fetchOrCreateTimesheet = async () => {
+    if (!selectedProject || !selectedWeekStart) return;
 
-      if (response?.success && Array.isArray(timesheetData)) {
-        existingTimesheet = timesheetData.find(ts => {
-          const tsWeekStart = new Date(ts.weekStartDate).toISOString().split("T")[0];
-          const hasProjectEntries = ts.workingEntries?.some(entry => entry.project === selectedProject);
-          console.log("Checking timesheet:", {
-            tsWeekStart,
-            selectedWeekStart,
-            hasProjectEntries,
-            timesheetId: ts.timesheetId
-          });
-          return tsWeekStart === selectedWeekStart && hasProjectEntries;
-        });
+    // Special handling for add timesheet mode
+    if (isAddingNewTimesheet || (isCreateMode && tempEmployeeForAdd)) {
+      const employeeId = tempEmployeeForAdd || selectedEmployee;
+      if (employeeId) {
+        console.log("Creating new timesheet for employee in add/create mode:", employeeId);
+        setCurrentTimesheet(getEmptyTimesheet(selectedProject));
+        await createNewTimesheetForEmployee(employeeId);
       }
+      return;
+    }
 
-      console.log("Found existing timesheet:", existingTimesheet);
+    setLoading(true);
+    try {
+      const targetUserId = selectedEmployee || userId;
 
-      if (existingTimesheet) {
-        const transformed = transformTimesheet(existingTimesheet);
-        const safeTransformed = { ...getEmptyTimesheet(selectedProject), ...transformed };
-        console.log("Transformed timesheet:", safeTransformed);
-        setCurrentTimesheet(safeTransformed);
+      const resultAction = await dispatch(fetchTimesheetsByUserId(targetUserId));
 
-        if (existingTimesheet.attachments?.length > 0) {
-          const processedAttachments = existingTimesheet.attachments.map(att => ({
-            id: att.id,
-            name: att.filename,
-            size: 0,
-            type: att.filetype,
-            uploadDate: new Date(att.uploadedAt),
-            uploaded: true,
-            url: null
-          }));
-          setAttachments(processedAttachments);
+      if (fetchTimesheetsByUserId.fulfilled.match(resultAction)) {
+        const response = resultAction.payload;
+        const timesheetData = response?.data || [];
+        setTimeSheetData(timesheetData);
+
+        let existingTimesheet = null;
+
+        if (response?.success && Array.isArray(timesheetData)) {
+          existingTimesheet = timesheetData.find(ts => {
+            const tsWeekStart = new Date(ts.weekStartDate).toISOString().split("T")[0];
+            const hasProjectEntries = ts.workingEntries?.some(entry => entry.project === selectedProject);
+            return tsWeekStart === selectedWeekStart && hasProjectEntries;
+          });
+        }
+
+        if (existingTimesheet) {
+          // PASS CURRENT CALENDAR MONTH TO TRANSFORM FUNCTION
+          const transformed = transformTimesheet(existingTimesheet, calendarValue);
+          const safeTransformed = { ...getEmptyTimesheet(selectedProject), ...transformed };
+          setCurrentTimesheet(safeTransformed);
+
+          if (existingTimesheet.attachments?.length > 0) {
+            const processedAttachments = existingTimesheet.attachments.map(att => ({
+              id: att.id,
+              name: att.filename,
+              size: 0,
+              type: att.filetype,
+              uploadDate: new Date(att.uploadedAt),
+              uploaded: true,
+              url: null
+            }));
+            setAttachments(processedAttachments);
+          } else {
+            setAttachments([]);
+          }
         } else {
+          console.log("No existing timesheet found, creating new one");
+          setCurrentTimesheet(getEmptyTimesheet(selectedProject));
+          await createNewTimesheetForEmployee(targetUserId);
           setAttachments([]);
         }
-        ToastService.success("Timesheet loaded successfully");
       } else {
-        console.log("No existing timesheet found, creating new one");
-        setCurrentTimesheet(getEmptyTimesheet(selectedProject));
-        await createNewTimesheetForEmployee(targetUserId);
-        setAttachments([]);
+        const errorMessage = extractErrorMessage(resultAction.payload);
+        throw new Error(errorMessage);
       }
-    } else {
-      // Handle error response properly - extract string message
-      const errorMessage = extractErrorMessage(resultAction.payload);
-      throw new Error(errorMessage);
+    } catch (error) {
+      console.error("Error fetching timesheet:", error);
+      const errorMessage = extractErrorMessage(error);
+      ToastService.error(errorMessage);
+      setCurrentTimesheet(getEmptyTimesheet(selectedProject));
+      await createNewTimesheetForEmployee(selectedEmployee || userId);
+      setAttachments([]);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error("Error fetching timesheet:", error);
-    
-    // Extract proper error message
-    const errorMessage = extractErrorMessage(error);
-    ToastService.error(errorMessage);
-    setCurrentTimesheet(getEmptyTimesheet(selectedProject));
-    await createNewTimesheetForEmployee(selectedEmployee || userId);
-    setAttachments([]);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const createNewTimesheet = () => {
     const weekInfo = getWeekDates(selectedWeekStart);
@@ -701,15 +683,14 @@ const fetchOrCreateTimesheet = async () => {
     setIsSubmitted(false);
   };
 
-  const transformTimesheet = (apiTimesheet) => {
+  const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
     if (!apiTimesheet) {
       console.log('No timesheet found, returning null');
       return null;
     }
 
-    console.log('Transforming timesheet:', apiTimesheet);
+    console.log('Transforming timesheet with calendar month:', currentCalendarMonth);
 
-    // Check if timesheet is submitted/approved (but not if in edit mode for rejected timesheets)
     const submitted = (apiTimesheet.status === 'SUBMITTED' ||
       apiTimesheet.status === 'APPROVED' ||
       apiTimesheet.status === 'PENDING_APPROVAL') && !isEditMode;
@@ -719,6 +700,7 @@ const fetchOrCreateTimesheet = async () => {
       id: apiTimesheet.timesheetId || null,
       userId: apiTimesheet.userId || userId,
       project: selectedProject,
+      timesheetType: apiTimesheet.timesheetType || 'WEEKLY',
       status: apiTimesheet.status || 'DRAFT',
       startDate: apiTimesheet.weekStartDate || '',
       endDate: apiTimesheet.weekEndDate || '',
@@ -732,7 +714,6 @@ const fetchOrCreateTimesheet = async () => {
       notes: apiTimesheet.notes || '',
       workingEntries: apiTimesheet.workingEntries || [],
       nonWorkingEntries: apiTimesheet.nonWorkingEntries || [],
-      // Allow editing if in edit mode for rejected timesheets
       isEditable: isEditMode || (!submitted && (apiTimesheet.status === 'DRAFT' || !apiTimesheet.status)),
       percentageOfTarget: apiTimesheet.percentageOfTarget || 0,
       dayStatuses: {
@@ -767,89 +748,97 @@ const fetchOrCreateTimesheet = async () => {
       startDate: apiTimesheet.startDate || apiTimesheet.weekStartDate || ''
     };
 
-    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
-    console.log('Processing working entries:', apiTimesheet.workingEntries);
-
-    // Process working entries - only for dates in selected week's month
+    // Process working entries - FILTER BY CURRENT CALENDAR MONTH
     if (apiTimesheet.workingEntries) {
       apiTimesheet.workingEntries.forEach(entry => {
-        console.log('Processing working entry:', entry);
-
         const entryDate = new Date(entry.date);
+        const dayOfWeek = entryDate.getDay();
 
-        // Skip entries for dates outside selected week's month
-        if (!isDateInSelectedWeekMonth(entryDate, selectedWeekStart)) {
-          console.log('Skipping entry outside selected week month:', entry.date);
-          return;
+        let dayIndex;
+        if (dayOfWeek === 0) {
+          dayIndex = 6;
+        } else {
+          dayIndex = dayOfWeek - 1;
         }
 
-        const dayOfWeek = entryDate.getDay();
+        const dayName = days[dayIndex];
         const hours = parseFloat(entry.hours) || 0;
-        const dayName = days[dayOfWeek];
 
-        console.log('Working entry details:', {
-          date: entry.date,
-          dayOfWeek,
-          dayName,
-          hours,
-          project: entry.project,
-          inSelectedWeekMonth: isDateInSelectedWeekMonth(entryDate, selectedWeekStart)
-        });
+        // FILTER: Only process entries that are in the current calendar month
+        const isInCalendarMonth = isDateInCalendarMonth(entryDate, currentCalendarMonth);
+        const isInSelectedWeek = isDateInSelectedWeek(entryDate, selectedWeekStart);
 
-        if (dayName && transformed.hasOwnProperty(dayName) && entry.project === selectedProject) {
-          console.log(`Adding ${hours} working hours to ${dayName}`);
+        if (dayName && isInCalendarMonth && isInSelectedWeek && entry.project === selectedProject) {
+          console.log(`Adding ${hours} working hours to ${dayName} for date ${entry.date}`);
           transformed[dayName] += hours;
         }
       });
     }
 
-    console.log('Processing non-working entries:', apiTimesheet.nonWorkingEntries);
-
-    // Process non-working entries - only for dates in selected week's month
+    // Process non-working entries - FILTER BY CURRENT CALENDAR MONTH
     if (apiTimesheet.nonWorkingEntries) {
       apiTimesheet.nonWorkingEntries.forEach(entry => {
-        console.log('Processing non-working entry:', entry);
-
         const entryDate = new Date(entry.date);
+        const dayOfWeek = entryDate.getDay();
 
-        // Skip entries for dates outside selected week's month
-        if (!isDateInSelectedWeekMonth(entryDate, selectedWeekStart)) {
-          console.log('Skipping non-working entry outside selected week month:', entry.date);
-          return;
+        let dayIndex;
+        if (dayOfWeek === 0) {
+          dayIndex = 6;
+        } else {
+          dayIndex = dayOfWeek - 1;
         }
 
-        const dayOfWeek = entryDate.getDay();
+        const dayName = days[dayIndex];
         const hours = parseFloat(entry.hours) || 0;
-        const dayName = days[dayOfWeek];
         const description = entry.description?.toLowerCase() || '';
 
-        console.log('Non-working entry details:', {
-          date: entry.date,
-          dayOfWeek,
-          dayName,
-          hours,
-          description,
-          inSelectedWeekMonth: isDateInSelectedWeekMonth(entryDate, selectedWeekStart)
-        });
+        // FILTER: Only process entries that are in the current calendar month
+        const isInCalendarMonth = isDateInCalendarMonth(entryDate, currentCalendarMonth);
+        const isInSelectedWeek = isDateInSelectedWeek(entryDate, selectedWeekStart);
 
-        if (dayName && transformed.hasOwnProperty(dayName)) {
+        if (dayName && isInCalendarMonth && isInSelectedWeek) {
           if (description.includes('sick leave')) {
-            console.log(`Adding ${hours} sick leave hours to ${dayName}`);
             transformed.sickLeave[dayName] += hours;
           } else if (description.includes('company holiday') || description.includes('holiday')) {
-            console.log(`Adding ${hours} holiday hours to ${dayName}`);
             transformed.companyHoliday[dayName] += hours;
           }
         }
       });
     }
 
-    console.log('Final transformed timesheet:', transformed);
+    // Set default values for days that are in current calendar month but have no entries
+    days.forEach(day => {
+      const dayDate = getDateForDay(selectedWeekStart, day);
+      const isInCalendarMonth = dayDate ? isDateInCalendarMonth(dayDate, currentCalendarMonth) : false;
+
+      if (isInCalendarMonth && transformed[day] === 0 &&
+        transformed.sickLeave[day] === 0 &&
+        transformed.companyHoliday[day] === 0) {
+        // Set default 8 hours for weekdays in current month
+        if (['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].includes(day)) {
+          transformed[day] = 8;
+        }
+      }
+    });
 
     transformed.percentageOfTarget = calculatePercentage(transformed);
     setNotes(transformed.notes);
     return transformed;
+  };
+
+
+  const isDateInSelectedWeek = (date, weekStartString) => {
+    if (!weekStartString) return false;
+
+    const weekStart = new Date(weekStartString);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6); // Add 6 days to get Sunday
+
+    const targetDate = new Date(date);
+
+    return targetDate >= weekStart && targetDate <= weekEnd;
   };
 
   const getProjectConfig = (projectName) => {
@@ -898,7 +887,6 @@ const fetchOrCreateTimesheet = async () => {
       targetDate.getFullYear() === calDate.getFullYear();
   };
 
-
   const isDateInSelectedWeekMonth = (date, selectedWeekStart) => {
     if (!selectedWeekStart) return false;
 
@@ -911,140 +899,141 @@ const fetchOrCreateTimesheet = async () => {
   };
 
   // Enhanced field editable check based on calendar month
-const isFieldEditable = (timesheet, day, leaveType = null, calendarDate) => {
-  // Always disable Saturday and Sunday
-  if (day === 'saturday' || day === 'sunday') {
-    return false;
-  }
 
-  // Check if the date for this day is in the calendar month
-  if (calendarDate && selectedWeekStart) {
-    const dayDate = getDateForDay(selectedWeekStart, day);
-    if (dayDate && !isDateInCalendarMonth(dayDate, calendarDate)) {
-      return false; // Disable if date is outside calendar month
+  const isFieldEditable = (timesheet, day, leaveType = null, calendarDate) => {
+    // Always disable Saturday and Sunday
+    if (day === 'saturday' || day === 'sunday') {
+      return false;
     }
-  }
 
-  // SUPERADMIN and ACCOUNTS can always edit (except submitted timesheets)
-  if ((role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE") && !isSubmitted) {
+    // Check if the date for this day is in the calendar month
+    if (calendarDate && selectedWeekStart) {
+      const dayDate = getDateForDay(selectedWeekStart, day);
+      if (dayDate && !isDateInCalendarMonth(dayDate, calendarDate)) {
+        return false; // Disable if date is outside calendar month
+      }
+    }
+
+    // SUPERADMIN and ACCOUNTS can always edit (except submitted timesheets)
+    if ((role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE") && !isSubmitted) {
+      return true;
+    }
+
+    // EXTERNALEMPLOYEE follows original logic
+    if (isSubmitted || (timesheet && !timesheet.isEditable)) return false;
+
+    // For main hours row, check if any leave type has hours for this day
+    if (!leaveType) {
+      const hasSickLeave = timesheet.sickLeave && timesheet.sickLeave[day] > 0;
+      const hasHoliday = timesheet.companyHoliday && timesheet.companyHoliday[day] > 0;
+      if (hasSickLeave || hasHoliday) return false;
+    }
+
+    // For leave types, check if the opposite leave type exists
+    if (leaveType === 'sickLeave') {
+      if (timesheet.companyHoliday && timesheet.companyHoliday[day] > 0) {
+        return false;
+      }
+      // Allow editing sick leave even if regular hours exist (they'll be cleared)
+    } else if (leaveType === 'companyHoliday') {
+      if (timesheet.sickLeave && timesheet.sickLeave[day] > 0) {
+        return false;
+      }
+      // Allow editing holiday even if regular hours exist (they'll be cleared)
+    }
+
     return true;
-  }
+  };
 
-  // EXTERNALEMPLOYEE follows original logic
-  if (isSubmitted || (timesheet && !timesheet.isEditable)) return false;
-
-  // For main hours row, check if any leave type has hours for this day
-  if (!leaveType) {
-    const hasSickLeave = timesheet.sickLeave && timesheet.sickLeave[day] > 0;
-    const hasHoliday = timesheet.companyHoliday && timesheet.companyHoliday[day] > 0;
-    if (hasSickLeave || hasHoliday) return false;
-  }
-
-  // For leave types, check if the opposite leave type exists
-  if (leaveType === 'sickLeave') {
-    if (timesheet.companyHoliday && timesheet.companyHoliday[day] > 0) {
-      return false;
+  const resetToDefaultHours = (day, timesheet) => {
+    // For weekdays (Monday-Friday), default to 8 hours
+    if (['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].includes(day)) {
+      return 8;
     }
-    // Allow editing sick leave even if regular hours exist (they'll be cleared)
-  } else if (leaveType === 'companyHoliday') {
-    if (timesheet.sickLeave && timesheet.sickLeave[day] > 0) {
-      return false;
+    // For weekends, default to 0
+    return 0;
+  };
+
+  const handleHourChange = (day, value, type = 'regular') => {
+    if (!currentTimesheet || day === 'saturday' || day === 'sunday') return;
+
+    const numValue = parseFloat(value) || 0;
+
+    // Validate hour limits (maximum 8 hours for any type)
+    if (numValue < 0 || numValue > 8) {
+      if (numValue > 8) {
+        ToastService.error(`Maximum 8 hours allowed per day`);
+      }
+      return;
     }
-    // Allow editing holiday even if regular hours exist (they'll be cleared)
-  }
 
-  return true;
-};
+    console.log('Hour change:', { day, value, numValue, type });
 
-const resetToDefaultHours = (day, timesheet) => {
-  // For weekdays (Monday-Friday), default to 8 hours
-  if (['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].includes(day)) {
-    return 8;
-  }
-  // For weekends, default to 0
-  return 0;
-};
-
- const handleHourChange = (day, value, type = 'regular') => {
-  if (!currentTimesheet || day === 'saturday' || day === 'sunday') return;
-
-  const numValue = parseFloat(value) || 0;
-
-  // Validate hour limits (maximum 8 hours for any type)
-  if (numValue < 0 || numValue > 8) {
-    if (numValue > 8) {
-      ToastService.error(`Maximum 8 hours allowed per day`);
-    }
-    return;
-  }
-
-  console.log('Hour change:', { day, value, numValue, type });
-
-  // Check if field is editable based on calendar month
-  const isEditable = isFieldEditable(currentTimesheet, day, type === 'regular' ? null : type, calendarValue);
-
-  if (!isEditable) {
+    // Check if the date is in the current calendar month
     const dayDate = getDateForDay(selectedWeekStart, day);
-    const dateStr = dayDate ? dayDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : day;
+    const isInCalendarMonth = dayDate ? isDateInCalendarMonth(dayDate, calendarValue) : false;
 
-    ToastService.error(`Cannot enter hours on ${dateStr} - date is not in the current calendar month`);
-    return;
-  }
-
-  setCurrentTimesheet(prev => {
-    const updated = { ...prev };
-    
-    if (type === 'regular') {
-      // For regular hours, check if there's already leave hours for this day
-      const hasSickLeave = prev.sickLeave && prev.sickLeave[day] > 0;
-      const hasHoliday = prev.companyHoliday && prev.companyHoliday[day] > 0;
-
-      if (hasSickLeave || hasHoliday) {
-        ToastService.error(`Cannot enter regular hours on ${day} - leave/holiday already exists`);
-        return prev; // Don't update if leave/holiday exists
-      }
-
-      updated[day] = numValue;
-      
-      // If setting regular hours to > 0, clear any leave hours
-      if (numValue > 0) {
-        if (updated.sickLeave) updated.sickLeave[day] = 0;
-        if (updated.companyHoliday) updated.companyHoliday[day] = 0;
-      }
-      
-    } else if (type === 'sickLeave') {
-      // Set sick leave hours
-      updated.sickLeave = { ...prev.sickLeave, [day]: numValue };
-      
-      // If setting sick leave to > 0, clear regular hours and holiday
-      if (numValue > 0) {
-        updated[day] = 0;
-        if (updated.companyHoliday) updated.companyHoliday[day] = 0;
-      } else {
-        // If setting sick leave to 0, reset to default regular hours
-        updated[day] = resetToDefaultHours(day, prev);
-      }
-      
-    } else if (type === 'companyHoliday') {
-      // Set holiday hours
-      updated.companyHoliday = { ...prev.companyHoliday, [day]: numValue };
-      
-      // If setting holiday to > 0, clear regular hours and sick leave
-      if (numValue > 0) {
-        updated[day] = 0;
-        if (updated.sickLeave) updated.sickLeave[day] = 0;
-      } else {
-        // If setting holiday to 0, reset to default regular hours
-        updated[day] = resetToDefaultHours(day, prev);
-      }
+    if (!isInCalendarMonth) {
+      const dateStr = dayDate ? dayDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : day;
+      ToastService.error(`Cannot enter hours on ${dateStr} - date is not in the current calendar month`);
+      return;
     }
 
-    console.log('Updated timesheet after hour change:', updated);
-    return updated;
-  });
+    setCurrentTimesheet(prev => {
+      const updated = { ...prev };
 
-  setHasUnsavedChanges(true);
-};
+      if (type === 'regular') {
+        // For regular hours, check if there's already leave hours for this day
+        const hasSickLeave = prev.sickLeave && prev.sickLeave[day] > 0;
+        const hasHoliday = prev.companyHoliday && prev.companyHoliday[day] > 0;
+
+        if (hasSickLeave || hasHoliday) {
+          ToastService.error(`Cannot enter regular hours on ${day} - leave/holiday already exists`);
+          return prev; // Don't update if leave/holiday exists
+        }
+
+        updated[day] = numValue;
+
+        // If setting regular hours to > 0, clear any leave hours
+        if (numValue > 0) {
+          if (updated.sickLeave) updated.sickLeave[day] = 0;
+          if (updated.companyHoliday) updated.companyHoliday[day] = 0;
+        }
+
+      } else if (type === 'sickLeave') {
+        // Set sick leave hours
+        updated.sickLeave = { ...prev.sickLeave, [day]: numValue };
+
+        // If setting sick leave to > 0, clear regular hours and holiday
+        if (numValue > 0) {
+          updated[day] = 0;
+          if (updated.companyHoliday) updated.companyHoliday[day] = 0;
+        } else {
+          // If setting sick leave to 0, reset to default regular hours
+          updated[day] = resetToDefaultHours(day, prev);
+        }
+
+      } else if (type === 'companyHoliday') {
+        // Set holiday hours
+        updated.companyHoliday = { ...prev.companyHoliday, [day]: numValue };
+
+        // If setting holiday to > 0, clear regular hours and sick leave
+        if (numValue > 0) {
+          updated[day] = 0;
+          if (updated.sickLeave) updated.sickLeave[day] = 0;
+        } else {
+          // If setting holiday to 0, reset to default regular hours
+          updated[day] = resetToDefaultHours(day, prev);
+        }
+      }
+
+      console.log('Updated timesheet after hour change:', updated);
+      return updated;
+    });
+
+    setHasUnsavedChanges(true);
+  };
+
 
 
   const handleNotesChange = (value) => {
@@ -1057,9 +1046,22 @@ const resetToDefaultHours = (day, timesheet) => {
   };
 
   const calculatePercentage = (timesheet) => {
-    const workingDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
-    const totalHours = workingDays.reduce((total, day) => total + (timesheet[day] || 0), 0);
-    return Math.min(Math.round((totalHours / 40) * 100), 100);
+    // Calculate based on actual working days in the selected week, not calendar month
+    const weekDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+    let totalWorkingHours = 0;
+    let availableWorkingDays = 0;
+
+    weekDays.forEach(day => {
+      const dayDate = getDateForDay(selectedWeekStart, day);
+      if (dayDate) {
+        availableWorkingDays++;
+        totalWorkingHours += (timesheet[day] || 0);
+      }
+    });
+
+    // Target is 8 hours per available working day
+    const targetHours = availableWorkingDays * 8;
+    return targetHours > 0 ? Math.min(Math.round((totalWorkingHours / targetHours) * 100), 100) : 0;
   };
 
   const getWorkingDaysHours = (timesheet) => {
@@ -1154,224 +1156,214 @@ const resetToDefaultHours = (day, timesheet) => {
     setHighlightedWeek(getWeekDatesArray(new Date(currentWeek.startString)));
   };
 
-  const getEmptyTimesheet = (project = null) => ({
-    id: null,
-    project: project,
-    monday: 0,
-    tuesday: 0,
-    wednesday: 0,
-    thursday: 0,
-    friday: 0,
-    saturday: 0,
-    sunday: 0,
-    sickLeave: {
-      monday: 0, tuesday: 0, wednesday: 0, thursday: 0,
-      friday: 0, saturday: 0, sunday: 0
-    },
-    companyHoliday: {
-      monday: 0, tuesday: 0, wednesday: 0, thursday: 0,
-      friday: 0, saturday: 0, sunday: 0
-    }
-  });
+  const getEmptyTimesheet = (project = null) => {
+    const weekInfo = getWeekDates(selectedWeekStart);
+    const emptyTimesheet = {
+      id: null,
+      project: project,
+      startDate: weekInfo.startString,
+      endDate: weekInfo.endString,
+      monday: 0,
+      tuesday: 0,
+      wednesday: 0,
+      thursday: 0,
+      friday: 0,
+      saturday: 0,
+      sunday: 0,
+      sickLeave: {
+        monday: 0, tuesday: 0, wednesday: 0, thursday: 0,
+        friday: 0, saturday: 0, sunday: 0
+      },
+      companyHoliday: {
+        monday: 0, tuesday: 0, wednesday: 0, thursday: 0,
+        friday: 0, saturday: 0, sunday: 0
+      },
+      isEditable: true,
+      status: 'DRAFT'
+    };
 
-
-  //  Save Timesheet
-const saveTimesheet = async (isSubmission = false, isEdit = false) => {
-  if (!currentTimesheet) return;
-
-  const workingHours = getWorkingDaysHours(currentTimesheet);
-  const targetUserId = isAddingNewTimesheet
-    ? tempEmployeeForAdd
-    : (selectedEmployee || userId);
-
-  console.log("Saving timesheet:", { currentTimesheet, workingHours, isSubmission, targetUserId, isEdit });
-
-  setLoading(true);
-  try {
-    const workingEntries = [];
-    const nonWorkingEntries = [];
-    const days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
-
-    // Get the Monday of the selected week
-    const monday = getMondayOfWeek(calendarValue);
-
-    days.forEach((day, index) => {
-      const entryDate = new Date(monday);
-      entryDate.setDate(monday.getDate() + index);
-      const dateString = entryDate.toLocaleDateString("en-CA");
-
-      // Skip entries for dates outside selected week's month
-      if (!isDateInSelectedWeekMonth(entryDate, selectedWeekStart)) {
-        console.log('Skipping entry outside selected week month:', dateString);
-        return;
-      }
-
-      const dayHours = currentTimesheet[day] || 0;
-      const sickLeaveHours = currentTimesheet.sickLeave?.[day] || 0;
-      const holidayHours = currentTimesheet.companyHoliday?.[day] || 0;
-
-      if (dayHours > 0) {
-        workingEntries.push({
-          date: dateString,
-          project: currentTimesheet.project,
-          hours: dayHours,
-          description: `Work - ${day.charAt(0).toUpperCase() + day.slice(1)}`
-        });
-      }
-
-      if (sickLeaveHours > 0) {
-        nonWorkingEntries.push({
-          date: dateString,
-          project: currentTimesheet.project,
-          hours: sickLeaveHours,
-          description: `Sick Leave - ${day.charAt(0).toUpperCase() + day.slice(1)}`
-        });
-      }
-
-      if (holidayHours > 0) {
-        nonWorkingEntries.push({
-          date: dateString,
-          hours: holidayHours,
-          description: `Company Holiday - ${day.charAt(0).toUpperCase() + day.slice(1)}`
-        });
+    // Set default 8 hours for weekdays in current calendar month
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+    days.forEach(day => {
+      const dayDate = getDateForDay(selectedWeekStart, day);
+      const isInCalendarMonth = dayDate ? isDateInCalendarMonth(dayDate, calendarValue) : false;
+      if (isInCalendarMonth) {
+        emptyTimesheet[day] = 8;
       }
     });
 
-    const timesheetData = {
-      date: selectedWeekStart,
-      workingEntries,
-      nonWorkingEntries,
-      notes
-    };
+    return emptyTimesheet;
+  };
 
-    console.log("Sending timesheet data:", JSON.stringify(timesheetData, null, 2));
 
-    let response;
+  //  Save Timesheet
+  const saveTimesheet = async (isSubmission = false, isEdit = false) => {
+    if (!currentTimesheet) return;
 
-    // Determine which API call to use
-    const shouldUpdate = isEdit ||
-      (currentTimesheet.id !== null && currentTimesheet.id !== undefined) ||
-      (role === 'EXTERNALEMPLOYEE' && isEditMode);
+    const workingHours = getWorkingDaysHours(currentTimesheet);
+    const targetUserId = isAddingNewTimesheet
+      ? tempEmployeeForAdd
+      : (selectedEmployee || userId);
 
-    if (shouldUpdate) {
-      // Use updateTimesheet for edits or existing timesheets
-      const resultAction = await dispatch(updateTimesheet({
-        timesheetId: currentTimesheet.id,
-        userId: targetUserId,
-        timesheetData
-      }));
+    console.log("Saving timesheet:", { currentTimesheet, workingHours, isSubmission, targetUserId, isEdit });
 
-      if (updateTimesheet.fulfilled.match(resultAction)) {
-        response = resultAction.payload;
-        console.log("Updated timesheet via updateTimesheet API");
-      } else {
-        // Handle error properly - extract string message
-        const errorMessage = extractErrorMessage(resultAction.payload);
-        ToastService.error(errorMessage);
+    setLoading(true);
+    try {
+      const workingEntries = [];
+      const nonWorkingEntries = [];
+      const days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+
+      // Get the Monday of the selected week
+      const monday = getMondayOfWeek(new Date(selectedWeekStart));
+
+      days.forEach((day, index) => {
+        const entryDate = new Date(monday);
+        entryDate.setDate(monday.getDate() + index);
+        const dateString = entryDate.toLocaleDateString("en-CA");
+
+        // CHECK IF DATE IS IN THE CURRENT CALENDAR MONTH - ADD THIS FILTER
+        const isInCalendarMonth = isDateInCalendarMonth(entryDate, calendarValue);
+        if (!isInCalendarMonth) {
+          console.log(`Skipping ${day} (${dateString}) - not in calendar month`);
+          return; // Skip dates not in the current calendar month
+        }
+
+        const dayHours = currentTimesheet[day] || 0;
+        const sickLeaveHours = currentTimesheet.sickLeave?.[day] || 0;
+        const holidayHours = currentTimesheet.companyHoliday?.[day] || 0;
+
+        // Only add entries for hours > 0
+        if (dayHours > 0) {
+          workingEntries.push({
+            date: dateString,
+            project: currentTimesheet.project,
+            hours: dayHours,
+            description: `Work - ${day.charAt(0).toUpperCase() + day.slice(1)}`
+          });
+        }
+
+        if (sickLeaveHours > 0) {
+          nonWorkingEntries.push({
+            date: dateString,
+            project: currentTimesheet.project,
+            hours: sickLeaveHours,
+            description: `Sick Leave - ${day.charAt(0).toUpperCase() + day.slice(1)}`
+          });
+        }
+
+        if (holidayHours > 0) {
+          nonWorkingEntries.push({
+            date: dateString,
+            hours: holidayHours,
+            description: `Company Holiday - ${day.charAt(0).toUpperCase() + day.slice(1)}`
+          });
+        }
+      });
+
+      // Validate that we have at least one entry
+      if (workingEntries.length === 0 && nonWorkingEntries.length === 0) {
+        ToastService.error("Cannot save timesheet with no valid entries");
+        setLoading(false);
         return;
       }
-    } else {
-      // Use createTimesheet for new timesheets (Save Draft)
+
+      const timesheetPayload = {
+        date: selectedWeekStart,
+        workingEntries,
+        nonWorkingEntries,
+        notes
+      };
+
+      console.log("Sending timesheet data:", JSON.stringify(timesheetPayload, null, 2));
+
+      let response;
+
+      // ALWAYS use create API
+      console.log("Using create API for timesheet");
       const resultAction = await dispatch(createTimesheet({
         userId: targetUserId,
-        timesheetData
+        timesheetData: timesheetPayload
       }));
 
       if (createTimesheet.fulfilled.match(resultAction)) {
         response = resultAction.payload;
         console.log("Created timesheet via createTimesheet API");
       } else {
-        // Handle error properly - extract string message
         const errorMessage = extractErrorMessage(resultAction.payload);
-        
-        // Special handling for duplicate entry error
+
         if (errorMessage.toLowerCase().includes('duplicate')) {
-          ToastService.error("A timesheet already exists for this week and project. Please update the existing timesheet instead.");
+          ToastService.error("A timesheet already exists for this week and project. Please refresh the page to edit the existing timesheet.");
         } else {
           ToastService.error(errorMessage);
         }
+        setLoading(false);
         return;
       }
-    }
 
-    console.log("Save response:", response);
+      console.log("Save response:", response);
 
-    // Handle response properly - check for success flag
-    if (response?.success) {
-      let timesheetId = currentTimesheet.id;
+      if (response?.success) {
+        ToastService.success("Timesheet created successfully");
 
-      if (!shouldUpdate && response.data?.timesheetId) {
-        timesheetId = response.data.timesheetId;
-        setCurrentTimesheet(prev => ({ ...prev, id: timesheetId }));
-      }
+        // Handle attachments for EXTERNALEMPLOYEE
+        if (!isSubmission && pendingAttachments.length > 0 && response.data?.timesheetId && role === "EXTERNALEMPLOYEE") {
+          console.log("Uploading pending attachments:", pendingAttachments);
+          try {
+            const filesToUpload = pendingAttachments.map(att => att.file);
+            const uploadResponse = await uploadFilesToServer(response.data.timesheetId, filesToUpload);
 
-      // Handle attachments for EXTERNALEMPLOYEE
-      if (!isSubmission && pendingAttachments.length > 0 && timesheetId && role === "EXTERNALEMPLOYEE") {
-        console.log("Uploading pending attachments:", pendingAttachments);
-        try {
-          const filesToUpload = pendingAttachments.map(att => att.file);
-          const uploadResponse = await uploadFilesToServer(timesheetId, filesToUpload);
+            if (uploadResponse?.success) {
+              const uploadedAttachments = pendingAttachments.map(att => ({
+                ...att,
+                uploaded: true,
+                file: undefined,
+                url: uploadResponse.fileUrls?.find(url => url.includes(att.name))
+              }));
 
-          if (uploadResponse?.success) {
-            const uploadedAttachments = pendingAttachments.map(att => ({
-              ...att,
-              uploaded: true,
-              file: undefined,
-              url: uploadResponse.fileUrls?.find(url => url.includes(att.name))
-            }));
-
-            setAttachments(prev => [...prev.filter(a => a.uploaded), ...uploadedAttachments]);
-            setPendingAttachments([]);
-            ToastService.success(`Timesheet saved and ${pendingAttachments.length} attachment(s) uploaded`);
-          } else {
-            ToastService.warning(`Timesheet saved but failed to upload some attachments`);
+              setAttachments(prev => [...prev.filter(a => a.uploaded), ...uploadedAttachments]);
+              setPendingAttachments([]);
+              ToastService.success(`Timesheet saved and ${pendingAttachments.length} attachment(s) uploaded`);
+            } else {
+              ToastService.warning(`Timesheet saved but failed to upload some attachments`);
+            }
+          } catch (uploadError) {
+            console.error("Error uploading pending attachments:", uploadError);
+            ToastService.error("Failed to upload attachments after saving timesheet");
           }
-        } catch (uploadError) {
-          console.error("Error uploading pending attachments:", uploadError);
-          ToastService.error("Failed to upload attachments after saving timesheet");
         }
+
+        setHasUnsavedChanges(false);
+
+        if (isEdit || isEditMode) {
+          setIsEditMode(false);
+        }
+
+        // IMPORTANT: Refresh the timesheet data to update the UI
+        await fetchOrCreateTimesheet();
+
       } else {
-        const action = shouldUpdate ? "updated" : "created";
-        ToastService.success(`Timesheet ${action} successfully`);
-      }
+        const errorMessage = extractErrorMessage(response);
 
-      setHasUnsavedChanges(false);
-
-      // Reset edit mode if it was an edit operation
-      if (isEdit || isEditMode) {
-        setIsEditMode(false);
-        // Refresh the timesheet to get updated status
-        setTimeout(() => {
-          fetchOrCreateTimesheet();
-        }, 1000);
+        if (errorMessage.toLowerCase().includes('duplicate')) {
+          ToastService.error("A timesheet already exists for this week and project. Please refresh the page to edit the existing timesheet.");
+        } else {
+          ToastService.error(errorMessage);
+        }
       }
-    } else {
-      // Handle API error response properly - extract string message
-      const errorMessage = extractErrorMessage(response);
-      
-      // Special handling for duplicate entry error
+    } catch (error) {
+      console.error("Error saving timesheet:", error);
+
+      const errorMessage = extractErrorMessage(error);
+
       if (errorMessage.toLowerCase().includes('duplicate')) {
-        ToastService.error("A timesheet already exists for this week and project. Please update the existing timesheet instead.");
+        ToastService.error("A timesheet already exists for this week and project. Please refresh the page to edit the existing timesheet.");
       } else {
         ToastService.error(errorMessage);
       }
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error("Error saving timesheet:", error);
-    
-    // Handle network/unexpected errors - extract string message
-    const errorMessage = extractErrorMessage(error);
-    
-    // Special handling for duplicate entry error
-    if (errorMessage.toLowerCase().includes('duplicate')) {
-      ToastService.error("A timesheet already exists for this week and project. Please update the existing timesheet instead.");
-    } else {
-      ToastService.error(errorMessage);
-    }
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
 
   const handleEditTimesheet = () => {
@@ -1441,28 +1433,36 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
   }, [selectedProject, isCreateMode, isAddingNewTimesheet, tempEmployeeForAdd, selectedEmployee, selectedWeekStart]);
 
 
-
- const uploadFilesToServer = async (timesheetId, files) => {
-  console.log('Uploading files to server:', { timesheetId, files });
-
-  try {
-    const resultAction = await dispatch(uploadTimesheetAttachments({
-      timesheetId,
-      files
-    }));
-
-    if (uploadTimesheetAttachments.fulfilled.match(resultAction)) {
-      return resultAction.payload;
-    } else {
-      const errorMessage = extractErrorMessage(resultAction.payload);
-      throw new Error(errorMessage || 'Failed to upload attachments');
+  useEffect(() => {
+    // When calendar value changes, refresh the timesheet to show correct data for the new month
+    if (selectedProject && selectedWeekStart && currentTimesheet) {
+      console.log('Calendar month changed, refreshing timesheet data for new month');
+      fetchOrCreateTimesheet();
     }
-  } catch (error) {
-    console.error('Error uploading files:', error);
-    const errorMessage = extractErrorMessage(error);
-    throw new Error(errorMessage);
-  }
-};
+  }, [calendarValue.getMonth(), calendarValue.getFullYear()]);
+
+
+  const uploadFilesToServer = async (timesheetId, files) => {
+    console.log('Uploading files to server:', { timesheetId, files });
+
+    try {
+      const resultAction = await dispatch(uploadTimesheetAttachments({
+        timesheetId,
+        files
+      }));
+
+      if (uploadTimesheetAttachments.fulfilled.match(resultAction)) {
+        return resultAction.payload;
+      } else {
+        const errorMessage = extractErrorMessage(resultAction.payload);
+        throw new Error(errorMessage || 'Failed to upload attachments');
+      }
+    } catch (error) {
+      console.error('Error uploading files:', error);
+      const errorMessage = extractErrorMessage(error);
+      throw new Error(errorMessage);
+    }
+  };
 
 
   const deleteTimesheet = async () => {
@@ -1482,103 +1482,147 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
     }
   }
 
-const submitWeeklyTimesheetHandler = async () => {
-  if (!currentTimesheet) return;
+  const submitWeeklyTimesheetHandler = async () => {
+    if (!currentTimesheet) return;
 
-  try {
-    setLoading(true);
-    console.log('Submitting weekly timesheet');
+    try {
+      setLoading(true);
 
-    // First save if there are unsaved changes
-    if (hasUnsavedChanges) {
-      console.log('Saving unsaved changes before submission');
-      await saveTimesheet(false);
-      // Wait for save to complete
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
+      // First save if there are unsaved changes
+      if (hasUnsavedChanges) {
+        console.log('Saving unsaved changes before submission');
+        await saveTimesheet(false);
+        // Wait for save to complete
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
 
-    const startDate = selectedWeekStart;
-    console.log('Submitting timesheet with:', { userId, startDate });
+      // Extract timesheetType from currentTimesheet (from API response)
+      const timesheetType = currentTimesheet.timesheetType || "WEEKLY"; // Default to WEEKLY if not specified
 
-    // Use Redux action instead of direct HTTP call
-    const resultAction = await dispatch(submitWeeklyTimesheetAction({
-      userId,
-      weekStart: startDate
-    }));
+      console.log(`Submitting ${timesheetType} timesheet`);
 
-    if (submitWeeklyTimesheetAction.fulfilled.match(resultAction)) {
-      const submitResponse = resultAction.payload;
-
-      console.log('Submit response:', submitResponse);
-
-      if (submitResponse && submitResponse.success) {
-        // Upload pending attachments after successful submission
-        if (pendingAttachments.length > 0 && currentTimesheet.id) {
-          console.log('Uploading pending attachments after submission:', pendingAttachments);
-          try {
-            const filesToUpload = pendingAttachments.map(att => att.file);
-            const uploadResponse = await uploadFilesToServer(currentTimesheet.id, filesToUpload);
-            console.log('Upload response:', uploadResponse);
-
-            if (uploadResponse && uploadResponse.success) {
-              const uploadedAttachments = pendingAttachments.map(att => ({
-                ...att,
-                uploaded: true,
-                file: undefined,
-                url: uploadResponse.fileUrls?.find(url => url.includes(att.name))
-              }));
-
-              setAttachments(prev => [...prev.filter(a => a.uploaded), ...uploadedAttachments]);
-              setPendingAttachments([]);
-              ToastService.success(`Timesheet submitted successfully and ${pendingAttachments.length} attachment(s) uploaded`);
-            } else {
-              ToastService.warning('Timesheet submitted successfully but failed to upload some attachments');
-            }
-          } catch (uploadError) {
-            console.error('Error uploading pending attachments:', uploadError);
-            const uploadErrorMessage = extractErrorMessage(uploadError);
-            ToastService.error(`Timesheet submitted successfully but failed to upload attachments: ${uploadErrorMessage}`);
-          }
-        } else {
-          ToastService.success('Timesheet submitted successfully for approval');
-        }
-
-        // Mark as submitted and refresh data
-        setIsSubmitted(true);
-        setCurrentTimesheet(prev => ({
-          ...prev,
-          isEditable: false,
-          status: 'PENDING_APPROVAL'
-        }));
-        setHasUnsavedChanges(false);
-
-        // Refresh timesheet data
-        setTimeout(() => {
-          fetchOrCreateTimesheet();
-        }, 1000);
-
+      // Get the correct start date based on timesheet type
+      let startDate;
+      if (timesheetType === "MONTHLY") {
+        // For monthly, use the first day of the selected calendar month
+        const selectedDate = new Date(calendarValue);
+        const monthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+        startDate = formatDateToYMD(monthStart);
       } else {
-        // Handle API error response properly - extract string message
-        const errorMessage = extractErrorMessage(submitResponse);
+        // For weekly, use the selected week start
+        startDate = selectedWeekStart;
+      }
+
+      console.log('Submitting timesheet with:', {
+        userId,
+        startDate,
+        timesheetType,
+        timesheetId: currentTimesheet.id,
+        calendarMonth: calendarValue.getMonth() + 1,
+        calendarYear: calendarValue.getFullYear()
+      });
+
+      // Choose correct Redux action
+      const actionToDispatch = timesheetType === "MONTHLY"
+        ? submitMonthlyTimesheetAction
+        : submitWeeklyTimesheetAction;
+
+      // Dispatch action with correct parameters
+      let submitParams;
+      if (timesheetType === "MONTHLY") {
+        submitParams = {
+          userId,
+          monthStartDate: startDate // Use monthStart for monthly timesheets
+        };
+      } else {
+        submitParams = {
+          userId,
+          weekStart: startDate // Use weekStart for weekly timesheets
+        };
+      }
+
+      const resultAction = await dispatch(actionToDispatch(submitParams));
+
+      if (actionToDispatch.fulfilled.match(resultAction)) {
+        const submitResponse = resultAction.payload;
+
+        console.log('Submit response:', submitResponse);
+
+        if (submitResponse && submitResponse.success) {
+          // Upload pending attachments after successful submission
+          if (pendingAttachments.length > 0 && currentTimesheet.id) {
+            console.log('Uploading pending attachments after submission:', pendingAttachments);
+            try {
+              const filesToUpload = pendingAttachments.map(att => att.file);
+              const uploadResponse = await uploadFilesToServer(currentTimesheet.id, filesToUpload);
+              console.log('Upload response:', uploadResponse);
+
+              if (uploadResponse && uploadResponse.success) {
+                const uploadedAttachments = pendingAttachments.map(att => ({
+                  ...att,
+                  uploaded: true,
+                  file: undefined,
+                  url: uploadResponse.fileUrls?.find(url => url.includes(att.name))
+                }));
+
+                setAttachments(prev => [
+                  ...prev.filter(a => a.uploaded),
+                  ...uploadedAttachments
+                ]);
+                setPendingAttachments([]);
+                ToastService.success(
+                  `Timesheet submitted successfully and ${pendingAttachments.length} attachment(s) uploaded`
+                );
+              } else {
+                ToastService.warning(
+                  'Timesheet submitted successfully but failed to upload some attachments'
+                );
+              }
+            } catch (uploadError) {
+              console.error('Error uploading pending attachments:', uploadError);
+              const uploadErrorMessage = extractErrorMessage(uploadError);
+              ToastService.error(
+                `Timesheet submitted successfully but failed to upload attachments: ${uploadErrorMessage}`
+              );
+            }
+          } else {
+            ToastService.success('Timesheet submitted successfully for approval');
+          }
+
+          // Mark as submitted and refresh data
+          setIsSubmitted(true);
+          setCurrentTimesheet(prev => ({
+            ...prev,
+            isEditable: false,
+            status: 'PENDING_APPROVAL'
+          }));
+          setHasUnsavedChanges(false);
+
+          // Refresh timesheet data
+          setTimeout(() => {
+            fetchOrCreateTimesheet();
+          }, 1000);
+
+        } else {
+          // Handle API error response properly - extract string message
+          const errorMessage = extractErrorMessage(submitResponse);
+          ToastService.error(errorMessage);
+        }
+      } else {
+        // Handle Redux action rejection - extract string message
+        const errorMessage = extractErrorMessage(resultAction.payload);
         ToastService.error(errorMessage);
       }
-    } else {
-      // Handle Redux action rejection - extract string message
-      const errorMessage = extractErrorMessage(resultAction.payload);
+    } catch (error) {
+      console.error('Error submitting timesheet:', error);
+
+      // Handle network/unexpected errors - extract string message
+      const errorMessage = extractErrorMessage(error);
       ToastService.error(errorMessage);
+    } finally {
+      setLoading(false);
     }
-
-  } catch (error) {
-    console.error('Error submitting weekly timesheet:', error);
-    
-    // Handle network/unexpected errors - extract string message
-    const errorMessage = extractErrorMessage(error);
-    ToastService.error(errorMessage);
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   // Attachment handling functions
   const handleFileSelect = (event) => {
@@ -1587,73 +1631,73 @@ const submitWeeklyTimesheetHandler = async () => {
     setSelectedFiles(files);
   };
 
- const handleUploadAttachments = async () => {
-  if (selectedFiles.length === 0) {
-    ToastService.warning('Please select at least one file to upload');
-    return;
-  }
+  const handleUploadAttachments = async () => {
+    if (selectedFiles.length === 0) {
+      ToastService.warning('Please select at least one file to upload');
+      return;
+    }
 
-  console.log('Handling attachment upload:', selectedFiles);
+    console.log('Handling attachment upload:', selectedFiles);
 
-  setUploading(true);
+    setUploading(true);
 
-  try {
-    // If timesheet has ID, upload to server immediately
-    if (currentTimesheet && currentTimesheet.id) {
-      console.log('Timesheet has ID, uploading directly to server');
-      const uploadResponse = await uploadFilesToServer(currentTimesheet.id, selectedFiles);
+    try {
+      // If timesheet has ID, upload to server immediately
+      if (currentTimesheet && currentTimesheet.id) {
+        console.log('Timesheet has ID, uploading directly to server');
+        const uploadResponse = await uploadFilesToServer(currentTimesheet.id, selectedFiles);
 
-      if (uploadResponse && uploadResponse.success) {
-        const newAttachments = selectedFiles.map((file, index) => ({
+        if (uploadResponse && uploadResponse.success) {
+          const newAttachments = selectedFiles.map((file, index) => ({
+            id: Date.now() + Math.random() + index,
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            uploadDate: new Date(),
+            url: uploadResponse.fileUrls ? uploadResponse.fileUrls.find(url => url.includes(file.name)) : null,
+            uploaded: true
+          }));
+
+          setAttachments(prev => [...prev, ...newAttachments]);
+          ToastService.success(`${selectedFiles.length} file(s) uploaded successfully`);
+        } else {
+          const errorMessage = extractErrorMessage(uploadResponse);
+          ToastService.error(errorMessage || 'Failed to upload files to server');
+        }
+      } else {
+        // Store files temporarily if no timesheet ID - they'll be uploaded on save/submit
+        console.log('No timesheet ID, storing files for later upload');
+        const tempAttachments = selectedFiles.map((file, index) => ({
           id: Date.now() + Math.random() + index,
           name: file.name,
           size: file.size,
           type: file.type,
           uploadDate: new Date(),
-          url: uploadResponse.fileUrls ? uploadResponse.fileUrls.find(url => url.includes(file.name)) : null,
-          uploaded: true
+          file: file, // Store actual file for later upload
+          uploaded: false
         }));
 
-        setAttachments(prev => [...prev, ...newAttachments]);
-        ToastService.success(`${selectedFiles.length} file(s) uploaded successfully`);
-      } else {
-        const errorMessage = extractErrorMessage(uploadResponse);
-        ToastService.error(errorMessage || 'Failed to upload files to server');
+        setAttachments(prev => [...prev, ...tempAttachments]);
+        setPendingAttachments(prev => [...prev, ...tempAttachments]);
+        ToastService.info(`${selectedFiles.length} file(s) added and will be uploaded when timesheet is saved`);
+        setHasUnsavedChanges(true); // Mark as having unsaved changes
       }
-    } else {
-      // Store files temporarily if no timesheet ID - they'll be uploaded on save/submit
-      console.log('No timesheet ID, storing files for later upload');
-      const tempAttachments = selectedFiles.map((file, index) => ({
-        id: Date.now() + Math.random() + index,
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        uploadDate: new Date(),
-        file: file, // Store actual file for later upload
-        uploaded: false
-      }));
 
-      setAttachments(prev => [...prev, ...tempAttachments]);
-      setPendingAttachments(prev => [...prev, ...tempAttachments]);
-      ToastService.info(`${selectedFiles.length} file(s) added and will be uploaded when timesheet is saved`);
-      setHasUnsavedChanges(true); // Mark as having unsaved changes
+      setUploadDialogOpen(false);
+      setSelectedFiles([]);
+
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error) {
+      console.error('Error processing files:', error);
+      const errorMessage = extractErrorMessage(error);
+      ToastService.error(errorMessage);
+    } finally {
+      setUploading(false);
     }
-
-    setUploadDialogOpen(false);
-    setSelectedFiles([]);
-
-    // Reset file input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  } catch (error) {
-    console.error('Error processing files:', error);
-    const errorMessage = extractErrorMessage(error);
-    ToastService.error(errorMessage);
-  } finally {
-    setUploading(false);
-  }
-};
+  };
 
 
 
@@ -1766,130 +1810,130 @@ const submitWeeklyTimesheetHandler = async () => {
       .length;
   };
 
-const handleApproveTimesheet = async () => {
-  if (!currentTimesheet || !currentTimesheet.id) return;
+  const handleApproveTimesheet = async () => {
+    if (!currentTimesheet || !currentTimesheet.id) return;
 
-  setAdminActionLoading(true);
-  try {
-    const resultAction = await dispatch(approveTimesheet({
-      timesheetId: currentTimesheet.id,
-      userId
-    }));
+    setAdminActionLoading(true);
+    try {
+      const resultAction = await dispatch(approveTimesheet({
+        timesheetId: currentTimesheet.id,
+        userId
+      }));
 
-    if (approveTimesheet.fulfilled.match(resultAction)) {
-      const response = resultAction.payload;
+      if (approveTimesheet.fulfilled.match(resultAction)) {
+        const response = resultAction.payload;
 
-      if (response.success) {
-        ToastService.success('Timesheet approved successfully');
-        fetchOrCreateTimesheet();
+        if (response.success) {
+          ToastService.success('Timesheet approved successfully');
+          fetchOrCreateTimesheet();
+        } else {
+          const errorMessage = extractErrorMessage(response);
+          ToastService.error(errorMessage || 'Failed to approve timesheet');
+        }
       } else {
-        const errorMessage = extractErrorMessage(response);
+        const errorMessage = extractErrorMessage(resultAction.payload);
         ToastService.error(errorMessage || 'Failed to approve timesheet');
       }
-    } else {
-      const errorMessage = extractErrorMessage(resultAction.payload);
-      ToastService.error(errorMessage || 'Failed to approve timesheet');
+    } catch (error) {
+      console.error('Error approving timesheet:', error);
+      const errorMessage = extractErrorMessage(error);
+      ToastService.error(errorMessage);
+    } finally {
+      setAdminActionLoading(false);
     }
-  } catch (error) {
-    console.error('Error approving timesheet:', error);
-    const errorMessage = extractErrorMessage(error);
-    ToastService.error(errorMessage);
-  } finally {
-    setAdminActionLoading(false);
-  }
-};
+  };
 
- const handleRejectTimesheet = async () => {
-  if (!currentTimesheet || !currentTimesheet.id || !rejectionReason.trim()) return;
+  const handleRejectTimesheet = async () => {
+    if (!currentTimesheet || !currentTimesheet.id || !rejectionReason.trim()) return;
 
-  setAdminActionLoading(true);
-  try {
-    const resultAction = await dispatch(rejectTimesheet({
-      timesheetId: currentTimesheet.id,
-      userId,
-      reason: rejectionReason.trim()
-    }));
+    setAdminActionLoading(true);
+    try {
+      const resultAction = await dispatch(rejectTimesheet({
+        timesheetId: currentTimesheet.id,
+        userId,
+        reason: rejectionReason.trim()
+      }));
 
-    if (rejectTimesheet.fulfilled.match(resultAction)) {
-      const response = resultAction.payload;
+      if (rejectTimesheet.fulfilled.match(resultAction)) {
+        const response = resultAction.payload;
 
-      if (response.success) {
-        ToastService.success('Timesheet rejected successfully');
-        setRejectDialogOpen(false);
-        setRejectionReason('');
-        fetchOrCreateTimesheet();
+        if (response.success) {
+          ToastService.success('Timesheet rejected successfully');
+          setRejectDialogOpen(false);
+          setRejectionReason('');
+          fetchOrCreateTimesheet();
+        } else {
+          const errorMessage = extractErrorMessage(response);
+          ToastService.error(errorMessage || 'Failed to reject timesheet');
+        }
       } else {
-        const errorMessage = extractErrorMessage(response);
+        const errorMessage = extractErrorMessage(resultAction.payload);
         ToastService.error(errorMessage || 'Failed to reject timesheet');
       }
-    } else {
-      const errorMessage = extractErrorMessage(resultAction.payload);
-      ToastService.error(errorMessage || 'Failed to reject timesheet');
+    } catch (error) {
+      console.error('Error rejecting timesheet:', error);
+      const errorMessage = extractErrorMessage(error);
+      ToastService.error(errorMessage);
+    } finally {
+      setAdminActionLoading(false);
     }
-  } catch (error) {
-    console.error('Error rejecting timesheet:', error);
-    const errorMessage = extractErrorMessage(error);
-    ToastService.error(errorMessage);
-  } finally {
-    setAdminActionLoading(false);
-  }
-};
+  };
 
 
-const handleCancelTimesheet = async () => {
-  if (!currentTimesheet) return;
+  const handleCancelTimesheet = async () => {
+    if (!currentTimesheet) return;
 
-  setAdminActionLoading(true);
-  try {
-    const resultAction = await dispatch(cancelTimesheet({
-      timesheetId: currentTimesheet.id,
-      userId
-    }));
+    setAdminActionLoading(true);
+    try {
+      const resultAction = await dispatch(cancelTimesheet({
+        timesheetId: currentTimesheet.id,
+        userId
+      }));
 
-    if (cancelTimesheet.fulfilled.match(resultAction)) {
-      const response = resultAction.payload;
+      if (cancelTimesheet.fulfilled.match(resultAction)) {
+        const response = resultAction.payload;
 
-      if (response.success) {
-        ToastService.success('Timesheet cancelled successfully');
-        // Refresh the timesheet data
-        fetchOrCreateTimesheet();
+        if (response.success) {
+          ToastService.success('Timesheet cancelled successfully');
+          // Refresh the timesheet data
+          fetchOrCreateTimesheet();
+        } else {
+          const errorMessage = extractErrorMessage(response);
+          ToastService.error(errorMessage || 'Failed to cancel timesheet');
+        }
       } else {
-        const errorMessage = extractErrorMessage(response);
+        const errorMessage = extractErrorMessage(resultAction.payload);
         ToastService.error(errorMessage || 'Failed to cancel timesheet');
       }
-    } else {
-      const errorMessage = extractErrorMessage(resultAction.payload);
-      ToastService.error(errorMessage || 'Failed to cancel timesheet');
+    } catch (error) {
+      console.error('Error cancelling timesheet:', error);
+      const errorMessage = extractErrorMessage(error.errorMessage);
+      ToastService.error(errorMessage);
+    } finally {
+      setAdminActionLoading(false);
     }
-  } catch (error) {
-    console.error('Error cancelling timesheet:', error);
-    const errorMessage = extractErrorMessage(error.errorMessage);
-    ToastService.error(errorMessage);
-  } finally {
-    setAdminActionLoading(false);
-  }
-};
+  };
 
   // Timesheets.js - Add this function
- const handleViewAttachments = async (timesheet) => {
-  try {
-    if (timesheet.id) {
-      const attachments = await fetchTimesheetAttachments(timesheet.id);
-      if (attachments.length > 0) {
-        setSelectedTimesheetAttachments(attachments);
-        setAttachmentsDialogOpen(true);
+  const handleViewAttachments = async (timesheet) => {
+    try {
+      if (timesheet.id) {
+        const attachments = await fetchTimesheetAttachments(timesheet.id);
+        if (attachments.length > 0) {
+          setSelectedTimesheetAttachments(attachments);
+          setAttachmentsDialogOpen(true);
+        } else {
+          ToastService.info('No attachments found for this timesheet');
+        }
       } else {
-        ToastService.info('No attachments found for this timesheet');
+        ToastService.warning('No timesheet ID available to fetch attachments');
       }
-    } else {
-      ToastService.warning('No timesheet ID available to fetch attachments');
+    } catch (error) {
+      console.error('Error viewing attachments:', error);
+      const errorMessage = extractErrorMessage(error);
+      ToastService.error(errorMessage);
     }
-  } catch (error) {
-    console.error('Error viewing attachments:', error);
-    const errorMessage = extractErrorMessage(error);
-    ToastService.error(errorMessage);
-  }
-};
+  };
 
 
   const projectDetails = getSelectedProjectDetails();
