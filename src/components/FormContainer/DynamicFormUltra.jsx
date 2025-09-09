@@ -26,6 +26,8 @@ import {
   FormControlLabel,
   FormGroup,
   FormLabel,
+  Radio,
+  RadioGroup,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -38,6 +40,8 @@ import ImageIcon from "@mui/icons-material/Image";
 import DescriptionIcon from "@mui/icons-material/Description";
 import CheckBoxIcon from "@mui/icons-material/CheckBox";
 import CheckBoxOutlineBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank";
+import RadioButtonCheckedIcon from "@mui/icons-material/RadioButtonChecked";
+import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
 
 // ICON IMPORTS
 import LockIcon from "@mui/icons-material/Lock";
@@ -265,6 +269,8 @@ const iconMap = {
   AttachFile: <AttachFileIcon />,
   CheckBox: <CheckBoxIcon />,
   CheckBoxOutlineBlank: <CheckBoxOutlineBlankIcon />,
+  RadioButtonChecked: <RadioButtonCheckedIcon />,
+  RadioButtonUnchecked: <RadioButtonUncheckedIcon />,
 };
 
 // File type icon helper
@@ -321,8 +327,8 @@ const DynamicFormUltra = ({
         generatedInitialValues[field.name] = field.multiple ? [] : null;
       } else if (field.type === "checkbox") {
         generatedInitialValues[field.name] = field.defaultChecked || false;
-      } else if (field.type === "checkbox-group") {
-        generatedInitialValues[field.name] = [];
+      } else if (field.type === "checkbox-group" || field.type === "radio") {
+        generatedInitialValues[field.name] = "";
       } else {
         generatedInitialValues[field.name] = field.multiple ? [""] : "";
       }
@@ -358,6 +364,10 @@ const DynamicFormUltra = ({
         validationSchema[field.name] = Yup.array()
           .min(1, "At least one option must be selected")
           .required("Required");
+      } else if (field.type === "radio") {
+        validationSchema[field.name] = Yup.string().required(
+          "Please select an option"
+        );
       } else {
         validationSchema[field.name] = field.multiple
           ? Yup.array().of(Yup.string().required("Required"))
@@ -603,7 +613,14 @@ const DynamicFormUltra = ({
                 {value?.map((file, idx) => (
                   <Grid item xs={12} sm={6} md={4} key={idx}>
                     <Card variant="outlined" sx={{ height: "100%" }}>
-                      <CardContent sx={{ p: 2 }}>
+                      <CardContent
+                        sx={{
+                          p: 2,
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "space-between",
+                        }}
+                      >
                         <Box display="flex" alignItems="center" mb={1}>
                           {getFileIcon(file?.name)}
                           <Typography
@@ -614,6 +631,7 @@ const DynamicFormUltra = ({
                               overflow: "hidden",
                               textOverflow: "ellipsis",
                               whiteSpace: "nowrap",
+                              flex: 1,
                             }}
                           >
                             {file?.name}
@@ -626,7 +644,7 @@ const DynamicFormUltra = ({
                           </Typography>
                         )}
 
-                        <Box mt={1}>
+                        <Box mt={1} display="flex" justifyContent="flex-end">
                           <IconButton
                             color="error"
                             size="small"
@@ -648,10 +666,23 @@ const DynamicFormUltra = ({
                     alignItems="center"
                     justifyContent="space-between"
                   >
-                    <Box display="flex" alignItems="center">
+                    <Box
+                      display="flex"
+                      alignItems="center"
+                      flex={1}
+                      minWidth={0}
+                    >
                       {getFileIcon(value?.name)}
-                      <Box ml={1}>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      <Box ml={1} sx={{ minWidth: 0 }}>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontWeight: 500,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
                           {value?.name}
                         </Typography>
                         {value?.size && (
@@ -790,6 +821,7 @@ const DynamicFormUltra = ({
             error={Boolean(error)}
             helperText={error || field.helperText}
             InputProps={inputProps}
+            sx={{ gridColumn: "1 / -1" }}
           />
         );
 
@@ -1018,6 +1050,53 @@ const DynamicFormUltra = ({
           </FormControl>
         );
 
+      case "radio":
+        return (
+          <FormControl
+            component="fieldset"
+            error={Boolean(error)}
+            sx={{ width: "100%" }}
+          >
+            <FormLabel component="legend">{field.label}</FormLabel>
+            <RadioGroup
+              name={fieldName}
+              value={value || ""}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+            >
+              {field.options?.map((option) => (
+                <FormControlLabel
+                  key={option.value}
+                  value={option.value}
+                  control={
+                    <Radio
+                      icon={
+                        field.icon ? (
+                          iconMap[field.icon]
+                        ) : (
+                          <RadioButtonUncheckedIcon />
+                        )
+                      }
+                      checkedIcon={
+                        field.checkedIcon ? (
+                          iconMap[field.checkedIcon]
+                        ) : (
+                          <RadioButtonCheckedIcon />
+                        )
+                      }
+                    />
+                  }
+                  label={option.label}
+                />
+              ))}
+            </RadioGroup>
+            {error && <FormHelperText>{error}</FormHelperText>}
+            {field.helperText && !error && (
+              <FormHelperText>{field.helperText}</FormHelperText>
+            )}
+          </FormControl>
+        );
+
       default:
         return null;
     }
@@ -1074,14 +1153,18 @@ const DynamicFormUltra = ({
                   item
                   xs={12}
                   sm={
-                    field.type === "file" || field.type === "checkbox-group"
+                    field.type === "file" ||
+                    field.type === "checkbox-group" ||
+                    field.type === "radio" ||
+                    field.type === "textarea"
                       ? 12
                       : 6
                   }
                   md={
                     field.type === "file" ||
                     field.type === "textarea" ||
-                    field.type === "checkbox-group"
+                    field.type === "checkbox-group" ||
+                    field.type === "radio"
                       ? 12
                       : 6
                   }
@@ -1089,7 +1172,8 @@ const DynamicFormUltra = ({
                 >
                   {field.multiple &&
                   field.type !== "file" &&
-                  field.type !== "checkbox-group" ? (
+                  field.type !== "checkbox-group" &&
+                  field.type !== "radio" ? (
                     <Box>
                       <Typography variant="subtitle2" sx={{ mb: 2 }}>
                         {field.label}

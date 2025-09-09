@@ -7,6 +7,8 @@ import {
   Tooltip,
   Link,
   Typography,
+  Avatar,
+  AvatarGroup,
 } from "@mui/material";
 import Edit from "@mui/icons-material/Edit";
 import Delete from "@mui/icons-material/Delete";
@@ -29,6 +31,9 @@ import Comment from "@mui/icons-material/Comment";
 import Download from "@mui/icons-material/Download";
 import OpenInNew from "@mui/icons-material/OpenInNew";
 import Visibility from "@mui/icons-material/Visibility";
+import AssignmentInd from "@mui/icons-material/AssignmentInd";
+import Badge from "@mui/icons-material/Badge";
+import AccessTime from "@mui/icons-material/AccessTime";
 
 const renderValue = (value, width = 100, loading) =>
   loading ? <Skeleton width={width} /> : value ?? "-";
@@ -45,6 +50,7 @@ const statusColors = {
   Closed: "default",
   OnHold: "warning",
   Cancelled: "error",
+  "IN PROGRESS": "info",
 };
 
 // Job Mode → Chip Color mapping
@@ -56,10 +62,12 @@ const jobModeColors = {
 
 // Employment Type → Chip Color mapping
 const employmentTypeColors = {
-  FullTime: "success",
-  PartTime: "info",
+  "Full-time": "success",
+  "Part-time": "info",
   Contract: "warning",
   Internship: "secondary",
+  FullTime: "success",
+  PartTime: "info",
 };
 
 const formatDate = (dateString) => {
@@ -69,6 +77,11 @@ const formatDate = (dateString) => {
     month: "short",
     year: "numeric",
   });
+};
+
+const truncateText = (text, maxLength = 50) => {
+  if (!text) return "-";
+  return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
 };
 
 const getRequirementsColumns = ({
@@ -129,6 +142,24 @@ const getRequirementsColumns = ({
     minWidth: 150,
   },
   {
+    id: "jobType", // Updated field name
+    label: "Job Type",
+    render: (v) =>
+      loading ? (
+        <Skeleton width={100} />
+      ) : v ? (
+        <Chip
+          label={v}
+          size="small"
+          color={employmentTypeColors[v] || "default"}
+          variant="outlined"
+        />
+      ) : (
+        "-"
+      ),
+    minWidth: 120,
+  },
+  {
     id: "jobMode",
     label: "Work Mode",
     render: (v) =>
@@ -156,24 +187,6 @@ const getRequirementsColumns = ({
     minWidth: 120,
   },
   {
-    id: "employmentType",
-    label: "Employment Type",
-    render: (v) =>
-      loading ? (
-        <Skeleton width={100} />
-      ) : v ? (
-        <Chip
-          label={v}
-          size="small"
-          color={employmentTypeColors[v] || "default"}
-          variant="outlined"
-        />
-      ) : (
-        "-"
-      ),
-    minWidth: 120,
-  },
-  {
     id: "noOfPositions",
     label: iconLabel(Group, "Positions"),
     render: (v) => renderValue(v, 80, loading),
@@ -181,35 +194,128 @@ const getRequirementsColumns = ({
     align: "center",
   },
   {
-    id: "skills",
-    label: iconLabel(Code, "Skills"),
+    id: "experienceRequired", // Updated field name
+    label: iconLabel(Timeline, "Experience"),
+    render: (v) => renderValue(v, 100, loading),
+    minWidth: 100,
+  },
+  {
+    id: "relevantExperience",
+    label: iconLabel(TrendingUp, "Rel. Exp"),
+    render: (v) => renderValue(v, 120, loading),
+    minWidth: 120,
+  },
+  {
+    id: "qualification",
+    label: iconLabel(School, "Qualification"),
     render: (v) =>
       loading ? (
         <Skeleton width={150} />
       ) : v ? (
-        <Box sx={{ maxWidth: 200 }}>
-          <Typography variant="body2" noWrap title={v}>
-            {v}
+        <Tooltip title={v}>
+          <Typography variant="body2" noWrap sx={{ maxWidth: 150 }}>
+            {truncateText(v, 20)}
           </Typography>
-        </Box>
+        </Tooltip>
       ) : (
         "-"
       ),
     minWidth: 150,
   },
   {
-    id: "experience",
-    label: iconLabel(Timeline, "Exp (Yrs)"),
-    render: (v) => renderValue(v ? `${v}+` : null, 80, loading),
-    minWidth: 80,
-    align: "center",
+    id: "salaryPackage",
+    label: iconLabel(Payments, "Salary"),
+    render: (v) =>
+      loading ? (
+        <Skeleton width={120} />
+      ) : v ? (
+        <Typography
+          variant="body2"
+          sx={{ fontWeight: "medium", color: "success.main" }}
+        >
+          {v}
+        </Typography>
+      ) : (
+        "-"
+      ),
+    minWidth: 130,
   },
   {
-    id: "relevantExperience",
-    label: iconLabel(TrendingUp, "Rel. Exp"),
-    render: (v) => renderValue(v ? `${v}+` : null, 80, loading),
-    minWidth: 80,
-    align: "center",
+    id: "noticePeriod",
+    label: iconLabel(AccessTime, "Notice Period"),
+    render: (v) => renderValue(v, 100, loading),
+    minWidth: 120,
+  },
+  {
+    id: "visaType",
+    label: iconLabel(Badge, "Visa Type"),
+    render: (v) =>
+      loading ? (
+        <Skeleton width={80} />
+      ) : v ? (
+        <Chip label={v} size="small" color="secondary" variant="filled" />
+      ) : (
+        "-"
+      ),
+    minWidth: 100,
+  },
+  {
+    id: "assignedBy",
+    label: iconLabel(AssignmentInd, "Assigned By"),
+    render: (v) => renderValue(v, 100, loading),
+    minWidth: 120,
+  },
+  {
+    id: "assignedUsers",
+    label: iconLabel(Group, "Assigned Users"),
+    render: (v) =>
+      loading ? (
+        <Skeleton width={120} />
+      ) : v && Array.isArray(v) && v.length > 0 ? (
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <AvatarGroup
+            max={3}
+            sx={{
+              "& .MuiAvatar-root": {
+                width: 24,
+                height: 24,
+                fontSize: "0.75rem",
+              },
+            }}
+          >
+            {v.map((user, index) => (
+              <Avatar key={user.userId || index} title={user.userName}>
+                {user.userName?.charAt(0)?.toUpperCase() || "U"}
+              </Avatar>
+            ))}
+          </AvatarGroup>
+          {v.length > 3 && (
+            <Typography variant="caption" color="text.secondary">
+              +{v.length - 3}
+            </Typography>
+          )}
+        </Box>
+      ) : (
+        "-"
+      ),
+    minWidth: 140,
+  },
+  {
+    id: "jobDescription",
+    label: iconLabel(Comment, "Description"),
+    render: (v) =>
+      loading ? (
+        <Skeleton width={200} />
+      ) : v ? (
+        <Tooltip title={v}>
+          <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
+            {truncateText(v, 40)}
+          </Typography>
+        </Tooltip>
+      ) : (
+        "-"
+      ),
+    minWidth: 200,
   },
   {
     id: "status",
@@ -227,7 +333,7 @@ const getRequirementsColumns = ({
       ) : (
         "-"
       ),
-    minWidth: 100,
+    minWidth: 120,
   },
   {
     id: "jobPostedDate",

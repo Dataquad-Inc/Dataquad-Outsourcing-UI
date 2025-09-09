@@ -52,12 +52,6 @@ export const usNavItems = (role) => [
     ],
   },
   {
-    text: "Employees",
-    path: "us-employees/employeeslist",
-    icon: <BadgeIcon />,
-    roles: ["SUPERADMIN", "ADMIN"],
-  },
-  {
     text: "Yet To Onboard",
     path: "yet-to-onboard",
     icon: <HourglassIcon />,
@@ -70,6 +64,13 @@ export const usNavItems = (role) => [
       "ADMIN",
     ],
   },
+  {
+    text: "Employees",
+    path: "us-employees/employeeslist",
+    icon: <BadgeIcon />,
+    roles: ["SUPERADMIN", "ADMIN"],
+  },
+
   {
     text: "Requirements",
     path: "us-requirements",

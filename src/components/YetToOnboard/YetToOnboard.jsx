@@ -3,6 +3,7 @@ import { Box, Button } from "@mui/material";
 import { useSelector } from "react-redux";
 import CustomDataTable from "../../ui-lib/CustomDataTable";
 import getHotListColumns from "../Hotlist/hotListColumns";
+import CreateConsultant from "../Hotlist/CreateConsultant"; // Import the form component
 import { hotlistAPI } from "../../utils/api";
 import { useNavigate } from "react-router-dom";
 
@@ -11,6 +12,7 @@ import {
   showSuccessToast,
   showInfoToast,
 } from "../../utils/toastUtils";
+import showDeleteConfirm from "../../utils/showDeleteConfirm";
 
 const YetToOnboard = React.memo(() => {
   const { userId, role } = useSelector((state) => state.auth);
@@ -23,6 +25,10 @@ const YetToOnboard = React.memo(() => {
   const [search, setSearch] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
   const navigate = useNavigate();
+
+  // State for edit form
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [editingConsultant, setEditingConsultant] = useState(null);
 
   /** ---------------- Fetch Data ---------------- */
   const fetchData = useCallback(async () => {
@@ -52,6 +58,45 @@ const YetToOnboard = React.memo(() => {
     fetchData();
   }, [fetchData]);
 
+  /** ---------------- Edit Handlers ---------------- */
+  const handleEdit = useCallback((row) => {
+    // Keep all necessary data for editing, including consultantId
+    const editData = {
+      ...row,
+      consultantId: row.consultantId, // Ensure consultantId is preserved
+    };
+
+    // Remove timestamp fields that shouldn't be edited
+    const {
+      teamleadName,
+      recruiterName,
+      consultantAddedTimeStamp,
+      updatedTimeStamp,
+      ...cleanEditData
+    } = editData;
+
+    console.log("Setting edit data (YetToOnboard):", cleanEditData);
+    setEditingConsultant(cleanEditData);
+    setShowCreateForm(true);
+  }, []);
+
+  const handleFormCancel = useCallback(() => {
+    console.log("Cancel button clicked (YetToOnboard)");
+    setShowCreateForm(false);
+    setEditingConsultant(null);
+  }, []);
+
+  const handleFormSuccess = useCallback((data, action) => {
+    showSuccessToast(
+      action === "create"
+        ? "Consultant created successfully "
+        : "Consultant updated successfully "
+    );
+    setShowCreateForm(false);
+    setEditingConsultant(null);
+    setRefreshKey((prev) => prev + 1);
+  }, []);
+
   /** ---------------- Actions ---------------- */
   const handleMoveToHotlist = useCallback(async (row) => {
     try {
@@ -64,17 +109,26 @@ const YetToOnboard = React.memo(() => {
     }
   }, []);
 
-  const handleEdit = useCallback((row) => {
-    console.log("Edit consultant:", row);
-  }, []);
-
   const handleDelete = useCallback((row) => {
-    console.log("Delete consultant:", row);
-  }, []);
+    const deleteConsultantAction = async () => {
+      try {
+        const result = await hotlistAPI.deleteConsultant(
+          row.consultantId,
+          userId
+        );
+        showSuccessToast(result.message || "Consultant deleted ");
+        setRefreshKey((prev) => prev + 1);
+      } catch (error) {
+        console.error("Delete error:", error);
+        showErrorToast("Failed to delete consultant ");
+      }
+    };
+    showDeleteConfirm(deleteConsultantAction, row.name || "this consultant");
+  }, [userId]);
 
   const handleNavigate = useCallback((consultantId) => {
     navigate(`/dashboard/hotlist/consultants/${consultantId}`);
-  }, []);
+  }, [navigate]);
 
   /** ---------------- Columns ---------------- */
   const columns = [
@@ -110,30 +164,39 @@ const YetToOnboard = React.memo(() => {
   /** ---------------- Render ---------------- */
   return (
     <Box>
-      <CustomDataTable
-        title="Yet To Onboard"
-        columns={columns}
-        rows={consultants}
-        total={total}
-        page={page}
-        rowsPerPage={rowsPerPage}
-        search={search}
-        loading={loading}
-        onPageChange={(e, newPage) => setPage(newPage)}
-        onRowsPerPageChange={(e) => {
-          setRowsPerPage(parseInt(e.target.value, 10));
-          setPage(0);
-        }}
-        onSearchChange={(e) => {
-          setSearch(e.target.value);
-          setPage(0);
-        }}
-        onSearchClear={() => {
-          setSearch("");
-          setPage(0);
-        }}
-        onRefresh={() => setRefreshKey((prev) => prev + 1)}
-      />
+      {!showCreateForm ? (
+        <CustomDataTable
+          title="Yet To Onboard"
+          columns={columns}
+          rows={consultants}
+          total={total}
+          page={page}
+          rowsPerPage={rowsPerPage}
+          search={search}
+          loading={loading}
+          onPageChange={(e, newPage) => setPage(newPage)}
+          onRowsPerPageChange={(e) => {
+            setRowsPerPage(parseInt(e.target.value, 10));
+            setPage(0);
+          }}
+          onSearchChange={(e) => {
+            setSearch(e.target.value);
+            setPage(0);
+          }}
+          onSearchClear={() => {
+            setSearch("");
+            setPage(0);
+          }}
+          onRefresh={() => setRefreshKey((prev) => prev + 1)}
+        />
+      ) : (
+        <CreateConsultant
+          onClose={handleFormCancel}
+          onCancel={handleFormCancel}
+          onSuccess={handleFormSuccess}
+          initialValues={editingConsultant}
+        />
+      )}
     </Box>
   );
 });
