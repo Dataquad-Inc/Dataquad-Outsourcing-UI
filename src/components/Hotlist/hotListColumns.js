@@ -156,22 +156,22 @@ const getHotListColumns = ({
   },
   {
     id: "billRate",
-    label: "BR",
+    label: "Bill Rate",
     render: (v) => renderValue(`$${v}`, 60, loading),
   },
   {
     id: "payroll",
-    label: "PR",
+    label: "Payroll",
     render: (v) => renderValue(v, 80, loading),
   },
   {
     id: "marketingVisa",
-    label: "M.V",
+    label: "Marketing Visa",
     render: (v) => renderValue(v, 80, loading),
   },
   {
     id: "actualVisa",
-    label: "A.V",
+    label: "Actual Visa",
     render: (v) => renderValue(v, 80, loading),
   },
 ];
