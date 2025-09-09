@@ -289,7 +289,7 @@ const getHotListUserSections = (
           required: !isEditMode, // Make optional in edit mode
           multiple: true,
           accept: ".pdf,.doc,.docx",
-          maxSize: 10,
+          maxSize: 20,
           icon: "UploadFile",
         },
       ],
@@ -304,7 +304,7 @@ const getHotListUserSections = (
           required: false,
           multiple: true,
           accept: ".pdf,.jpg,.png,.doc,.docx",
-          maxSize: 10,
+          maxSize: 20,
           icon: "AttachFile",
         },
       ],
