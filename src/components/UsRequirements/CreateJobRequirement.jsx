@@ -165,7 +165,7 @@ const CreateJobRequirement = ({
         );
 
         response = await axios.post(
-          `http://localhost:8090/api/us/requirements/post-requirement/${userId}`,
+          `https://mymulya.com/api/us/requirements/post-requirement/${userId}`,
           formData,
           { headers: { "Content-Type": "multipart/form-data" } }
         );
@@ -176,7 +176,7 @@ const CreateJobRequirement = ({
         };
 
         response = await axios.post(
-          `http://localhost:8090/api/us/requirements/post-requirement/${userId}`,
+          `https://mymulya.com/api/us/requirements/post-requirement/${userId}`,
           textPayload
         );
       }
@@ -202,12 +202,24 @@ const CreateJobRequirement = ({
   };
 
   const handleCancel = () => {
-    navigate("/requirements");
+    navigate("/dashboard/us-requirements");
   };
 
   return (
-    <Paper elevation={3} sx={{ p: 4, maxWidth: 1200, mx: "auto", mt: 4 }}>
-      <Typography variant="h4" gutterBottom align="center">
+    <Paper elevation={3} sx={{ p: 3, mx: "auto", mt: 1 }}>
+      <Typography
+        variant="h4"
+        align="center"
+        gutterBottom
+        sx={{
+          fontWeight: 700,
+          color: "primary.main",
+          borderBottom: "3px solid",
+          borderColor: "primary.main",
+          display: "inline-block",
+          pb: 1,
+        }}
+      >
         {formTitle}
       </Typography>
 
@@ -224,6 +236,7 @@ const CreateJobRequirement = ({
           setFieldValue,
           handleChange,
           handleBlur,
+          resetForm,
         }) => (
           <Form>
             <Grid container spacing={3}>
@@ -295,6 +308,13 @@ const CreateJobRequirement = ({
                     onChange={handleChange}
                     onBlur={handleBlur}
                     label="Visa Type *"
+                    MenuProps={{
+                      PaperProps: {
+                        style: {
+                          maxHeight: 250, // 👈 fixed dropdown height
+                        },
+                      },
+                    }}
                   >
                     <MenuItem value="H1B">H1B</MenuItem>
                     <MenuItem value="OPT">OPT</MenuItem>
@@ -342,7 +362,7 @@ const CreateJobRequirement = ({
                     <MenuItem value="FullTime">Full Time</MenuItem>
                     <MenuItem value="PartTime">Part Time</MenuItem>
                     <MenuItem value="Contract">Contract</MenuItem>
-                    <MenuItem value="Internship">Internship</MenuItem>
+                    
                   </Select>
                   {touched.jobType && errors.jobType && (
                     <FormHelperText>{errors.jobType}</FormHelperText>
@@ -373,6 +393,7 @@ const CreateJobRequirement = ({
                   onChange={handleChange}
                   onBlur={handleBlur}
                   disabled
+                  helperText="This field is automatically populated with your name"
                 />
               </Grid>
 
@@ -408,6 +429,7 @@ const CreateJobRequirement = ({
                   value={values.relevantExperience}
                   onChange={handleChange}
                   onBlur={handleBlur}
+                  helperText="Specific experience relevant to this role"
                 />
               </Grid>
 
@@ -419,6 +441,7 @@ const CreateJobRequirement = ({
                   value={values.qualification}
                   onChange={handleChange}
                   onBlur={handleBlur}
+                  helperText="Educational or professional qualifications required"
                 />
               </Grid>
 
@@ -430,6 +453,7 @@ const CreateJobRequirement = ({
                   value={values.noticePeriod}
                   onChange={handleChange}
                   onBlur={handleBlur}
+                  helperText="Candidate's expected notice period (e.g., 2 weeks, 1 month)"
                 />
               </Grid>
 
@@ -441,6 +465,7 @@ const CreateJobRequirement = ({
                   value={values.salaryPackage}
                   onChange={handleChange}
                   onBlur={handleBlur}
+                  helperText="Expected salary range or package for this position"
                 />
               </Grid>
 
@@ -464,7 +489,7 @@ const CreateJobRequirement = ({
                     <MenuItem value="Open">Open</MenuItem>
                     <MenuItem value="Closed">Closed</MenuItem>
                     <MenuItem value="OnHold">On Hold</MenuItem>
-                    <MenuItem value="Cancelled">Cancelled</MenuItem>
+                   
                   </Select>
                   {touched.status && errors.status && (
                     <FormHelperText>{errors.status}</FormHelperText>
@@ -499,6 +524,13 @@ const CreateJobRequirement = ({
                         })}
                       </Box>
                     )}
+                    MenuProps={{
+                      PaperProps: {
+                        style: {
+                          maxHeight: 250, // 👈 fixed dropdown height
+                        },
+                      },
+                    }}
                   >
                     {employeeOptions.map((option) => (
                       <MenuItem key={option.value} value={option.value}>
@@ -506,6 +538,9 @@ const CreateJobRequirement = ({
                       </MenuItem>
                     ))}
                   </Select>
+                  <FormHelperText>
+                    Select team members to assign this requirement to
+                  </FormHelperText>
                 </FormControl>
               </Grid>
 
@@ -575,7 +610,10 @@ const CreateJobRequirement = ({
                     onChange={handleChange}
                     onBlur={handleBlur}
                     error={touched.jobDescription && errors.jobDescription}
-                    helperText={touched.jobDescription && errors.jobDescription}
+                    helperText={
+                      (touched.jobDescription && errors.jobDescription) ||
+                      "Minimum 50 characters required"
+                    }
                   />
                 </Grid>
               )}
@@ -628,7 +666,7 @@ const CreateJobRequirement = ({
                       )}
 
                     <FormHelperText>
-                      Upload job description file (.pdf, .doc, .docx, .txt)
+                      Upload job description file (.pdf, .doc, .docx, .txt) - Max 5MB
                     </FormHelperText>
                   </Box>
                 </Grid>
@@ -650,6 +688,14 @@ const CreateJobRequirement = ({
                     disabled={isSubmitting}
                   >
                     Cancel
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="error"
+                    onClick={() => resetForm()}
+                    disabled={isSubmitting}
+                  >
+                    Reset
                   </Button>
                   <Button
                     type="submit"
