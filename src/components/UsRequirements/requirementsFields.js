@@ -1,4 +1,10 @@
-const getRequirementsSections = (isEditMode = false, employees) => {
+const getRequirementsSections = (isEditMode = false, employees = []) => {
+  // Transform employees array for dropdown options
+  const employeeOptions = employees.map((emp) => ({
+    label: emp.employeeName || emp.name || emp.email,
+    value: emp.employeeId,
+  }));
+
   return [
     {
       section: "Job Details",
@@ -52,7 +58,6 @@ const getRequirementsSections = (isEditMode = false, employees) => {
           ],
           helperText: "Select the visa type required for this position",
         },
-
         {
           name: "location",
           label: "Job Location",
@@ -62,7 +67,7 @@ const getRequirementsSections = (isEditMode = false, employees) => {
           helperText: "City, State or specific office location",
         },
         {
-          name: "employmentType",
+          name: "jobType",
           label: "Employment Type",
           type: "select",
           required: true,
@@ -96,29 +101,20 @@ const getRequirementsSections = (isEditMode = false, employees) => {
       section: "Requirements",
       fields: [
         {
-          name: "skills",
-          label: "Required Skills",
+          name: "experienceRequired",
+          label: "Experience Required",
           type: "text",
           required: true,
-          icon: "Code",
-          helperText:
-            "Comma-separated list of technical skills (e.g., React, Node.js, AWS)",
-        },
-        {
-          name: "experience",
-          label: "Total Experience (Years)",
-          type: "number",
-          required: true,
           icon: "Timeline",
-          helperText: "Minimum years of professional experience required",
+          helperText:
+            "Required experience details (e.g., '5+ years in React, Node.js')",
         },
         {
           name: "relevantExperience",
-          label: "Relevant Experience (Years)",
-          type: "number",
+          label: "Relevant Experience",
+          type: "text",
           icon: "TrendingUp",
-          helperText:
-            "Years of experience specifically in this role/technology",
+          helperText: "Specific relevant experience requirements",
         },
         {
           name: "qualification",
@@ -131,9 +127,10 @@ const getRequirementsSections = (isEditMode = false, employees) => {
         {
           name: "noticePeriod",
           label: "Notice Period",
-          type: "number",
+          type: "text",
           icon: "Schedule",
-          helperText: "Maximum notice period acceptable (in days)",
+          helperText:
+            "Notice period requirements (e.g., '30 days', 'Immediate')",
         },
       ],
     },
@@ -143,26 +140,14 @@ const getRequirementsSections = (isEditMode = false, employees) => {
         {
           name: "salaryPackage",
           label: "Salary Package",
-          type: "number",
+          type: "text",
           icon: "Payments",
-          helperText: "Annual compensation in USD (if disclosed)",
-        },
-        {
-          name: "payrollType",
-          label: "Payroll Type",
-          type: "select",
-          icon: "RequestQuote",
-          options: [
-            { label: "W2", value: "W2" },
-            { label: "C2C", value: "C2C" },
-            { label: "1099", value: "1099" },
-          ],
-          helperText: "Select the employment classification",
+          helperText: "Salary details (e.g., '$120,000 per year', '$50/hour')",
         },
       ],
     },
     {
-      section: "Status & Dates",
+      section: "Status & Assignment",
       fields: [
         {
           name: "status",
@@ -179,55 +164,63 @@ const getRequirementsSections = (isEditMode = false, employees) => {
           helperText: "Current status of this job requirement",
         },
         {
-          name: "jobPostedDate",
-          label: "Job Posted Date",
-          type: "date",
-          icon: "Event",
-          helperText: "When this position was officially posted",
-        },
-        {
-          name: "jobClosingDate",
-          label: "Job Closing Date",
-          type: "date",
-          icon: "EventBusy",
-          helperText: "Last date to accept applications",
+          name: "assignedUsers",
+          label: "Assign to Users",
+          type: "multiselect",
+          icon: "Group",
+          options: employeeOptions,
+          helperText: "Select users to assign this requirement to",
         },
       ],
     },
     {
-      section: "Description & Attachments",
+      section: "Job Description",
       fields: [
+        {
+          name: "jobDescriptionType",
+          label: "How would you like to provide the job description?",
+          type: "radio",
+          required: true,
+          icon: "Description",
+          options: [
+            { label: "Enter as Text", value: "text" },
+            { label: "Upload File", value: "file" },
+          ],
+          helperText:
+            "Choose whether to type the job description or upload a file",
+          defaultValue: "text",
+        },
         {
           name: "jobDescription",
           label: "Job Description",
           type: "textarea",
-          required: false,
+          required: true,
           icon: "Description",
           helperText:
-            "Detailed description of roles, responsibilities, and expectations",
+            "Enter detailed job description, requirements, and responsibilities",
+          rows: 6,
+          placeholder: "Enter job description here...",
+          // This field should only show when jobDescriptionType is "text"
+          conditionalDisplay: {
+            field: "jobDescriptionType",
+            condition: "equals",
+            value: "text",
+          },
         },
         {
-          name: "jdFile",
-          label: "Upload Job Description File",
+          name: "jobDescriptionFile",
+          label: "Job Description File",
           type: "file",
-          required: !isEditMode,
-          multiple: false,
-          accept: ".pdf,.doc,.docx",
-          maxSize: 5,
-          icon: "UploadFile",
-          helperText: "Upload PDF or Word document (max 5MB)",
-        },
-      ],
-    },
-    {
-      section: "Additional Notes",
-      fields: [
-        {
-          name: "notes",
-          label: "Notes / Remarks",
-          type: "textarea",
-          icon: "Comment",
-          helperText: "Any additional information or special instructions",
+          required: true,
+          icon: "AttachFile",
+          helperText: "Upload job description file (.pdf, .doc, .docx, .txt)",
+          accept: ".pdf,.doc,.docx,.txt",
+          // This field should only show when jobDescriptionType is "file"
+          conditionalDisplay: {
+            field: "jobDescriptionType",
+            condition: "equals",
+            value: "file",
+          },
         },
       ],
     },
