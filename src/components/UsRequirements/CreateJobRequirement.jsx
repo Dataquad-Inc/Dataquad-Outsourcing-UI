@@ -88,7 +88,7 @@ const CreateJobRequirement = ({
       errors.noOfPositions = "Number of positions is required";
     if (!values.experienceRequired)
       errors.experienceRequired = "Experience required is required";
-    if (!values.status) errors.status = "Status is required";
+    
     if (!values.jobDescriptionType)
       errors.jobDescriptionType = "Please select job description type";
 
@@ -141,50 +141,39 @@ const CreateJobRequirement = ({
         status: values.status || "Open",
         visaType: values.visaType || "",
         assignedBy: userId,
-        userIds: values.assignedUsers || [],
+        // 👇 Always convert array to comma-separated string
+        userIds: (values.assignedUsers || []).join(","),
       };
 
-      let response;
+      // ✅ Always use FormData
+      const formData = new FormData();
+
+      Object.keys(apiPayload).forEach((key) => {
+        formData.append(key, apiPayload[key]);
+      });
 
       if (values.jobDescriptionType === "file" && values.jobDescriptionFile) {
-        const formData = new FormData();
-        Object.keys(apiPayload).forEach((key) => {
-          if (key === "userIds") {
-            apiPayload[key].forEach((id) => {
-              formData.append("userIds", id);
-            });
-          } else {
-            formData.append(key, apiPayload[key]);
-          }
-        });
-
+        // Attach file if provided
         formData.append(
           "jobDescriptionFile",
           values.jobDescriptionFile,
           values.jobDescriptionFile.name
         );
-
-        response = await axios.post(
-          `https://mymulya.com/api/us/requirements/post-requirement/${userId}`,
-          formData,
-          { headers: { "Content-Type": "multipart/form-data" } }
-        );
       } else {
-        const textPayload = {
-          ...apiPayload,
-          jobDescription: values.jobDescription?.trim() || "",
-        };
-
-        response = await axios.post(
-          `https://mymulya.com/api/us/requirements/post-requirement/${userId}`,
-          textPayload
-        );
+        // Otherwise, attach jobDescription text
+        formData.append("jobDescription", values.jobDescription?.trim() || "");
       }
+
+      const response = await axios.post(
+        `https://mymulya.com/api/us/requirements/post-requirement/${userId}`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
 
       if (response?.data?.success) {
         showSuccessToast("Requirement created successfully!");
         resetForm();
-        navigate("/requirements");
+        navigate("/dashboard/us-requirements");
       } else {
         showErrorToast(
           response?.data?.message || "Failed to create requirement"
@@ -362,7 +351,6 @@ const CreateJobRequirement = ({
                     <MenuItem value="FullTime">Full Time</MenuItem>
                     <MenuItem value="PartTime">Part Time</MenuItem>
                     <MenuItem value="Contract">Contract</MenuItem>
-                    
                   </Select>
                   {touched.jobType && errors.jobType && (
                     <FormHelperText>{errors.jobType}</FormHelperText>
@@ -484,12 +472,12 @@ const CreateJobRequirement = ({
                     value={values.status}
                     onChange={handleChange}
                     onBlur={handleBlur}
-                    label="Job Status *"
+                    label="Job Status"
                   >
-                    <MenuItem value="Open">Open</MenuItem>
-                    <MenuItem value="Closed">Closed</MenuItem>
-                    <MenuItem value="OnHold">On Hold</MenuItem>
-                   
+
+                    <MenuItem value="OPEN">Open</MenuItem>
+                    <MenuItem value="CLOSED">Closed</MenuItem>
+                    <MenuItem value="ON HOLD">On Hold</MenuItem>
                   </Select>
                   {touched.status && errors.status && (
                     <FormHelperText>{errors.status}</FormHelperText>
@@ -666,7 +654,8 @@ const CreateJobRequirement = ({
                       )}
 
                     <FormHelperText>
-                      Upload job description file (.pdf, .doc, .docx, .txt) - Max 5MB
+                      Upload job description file (.pdf, .doc, .docx, .txt) -
+                      Max 5MB
                     </FormHelperText>
                   </Box>
                 </Grid>
