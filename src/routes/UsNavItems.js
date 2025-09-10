@@ -55,14 +55,7 @@ export const usNavItems = (role) => [
     text: "Yet To Onboard",
     path: "yet-to-onboard",
     icon: <HourglassIcon />,
-    roles: [
-      "SUPERADMIN",
-      "EMPLOYEE",
-      "TEAMLEAD",
-      "RECRUITER",
-      "SALESEXECUTIVE",
-      "ADMIN",
-    ],
+    roles: ["SUPERADMIN", "TEAMLEAD", "RECRUITER", "ADMIN"],
   },
   {
     text: "Employees",
@@ -75,7 +68,7 @@ export const usNavItems = (role) => [
     text: "Requirements",
     path: "us-requirements",
     icon: <AssignmentIcon />, // more meaningful than reusing hourglass
-    roles: commonRoles,
+    roles: ["SUPERADMIN", "TEAMLEAD"],
   },
   {
     text: "Submissions",

@@ -242,33 +242,22 @@ const PlacementsList = () => {
         sortable: true,
         filterable: true,
         width: 100,
-        render: (row) => {
-          const isFullyActive = row.login === true && row.isRegister === true;
-          const isRegisteredOnly =
-            row.isRegister === true && row.login !== true;
-
-          let iconColor = "green"; // default green
-          if (isFullyActive || isRegisteredOnly) {
-            iconColor = "blue"; // blue if registered (whether logged in or not)
-          }
-
-          return (
-            <Tooltip title="Register">
-              <span>
-                <IconButton
-                  disabled={!row.isRegister} // disable if not registered
-                  onClick={() => handleRegisterUser(row.id)}
-                >
-                  {row.isRegister ? (
-                    <HowToRegRounded sx={{ color: iconColor }} />
-                  ) : (
-                    <PersonAdd sx={{ color: "green" }} />
-                  )}
-                </IconButton>
-              </span>
-            </Tooltip>
-          );
-        },
+        render: (row) => (
+          <Tooltip title="Register">
+            <span>
+              <IconButton
+                disabled={row.isRegister === true} // disable if already registered
+                onClick={() => handleRegisterUser(row.id)}
+              >
+                {row.isRegister ? (
+                  <HowToRegRounded sx={{ color: "green" }} />
+                ) : (
+                  <PersonAdd sx={{ color: "#9e9e9e" }} />
+                )}
+              </IconButton>
+            </span>
+          </Tooltip>
+        ),
       },
       {
         key: "candidateFullName",

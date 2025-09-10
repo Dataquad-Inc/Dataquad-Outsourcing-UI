@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Table,
   TableBody,
@@ -16,12 +16,31 @@ import {
   InputAdornment,
   LinearProgress,
   Backdrop,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Chip,
+  Button,
+  Collapse,
+  Checkbox,
+  Popover,
+  FormGroup,
+  FormControlLabel,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ClearIcon from "@mui/icons-material/Close";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import FilterListIcon from "@mui/icons-material/FilterList";
+import FilterListOffIcon from "@mui/icons-material/FilterListOff";
+import ViewColumnIcon from "@mui/icons-material/ViewColumn";
+import AddIcon from "@mui/icons-material/Add";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { LoadingSpinner } from "./LoadingSpinner";
-
+import ExpandLessIcon from "@mui/icons-material/ExpandLess";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 const CustomDataTable = ({
   title,
   columns,
@@ -31,13 +50,224 @@ const CustomDataTable = ({
   rowsPerPage,
   search,
   loading,
+  filters = {},
   onPageChange,
   onRowsPerPageChange,
   onSearchChange,
   onSearchClear,
   onRefresh,
+  onFiltersChange,
 }) => {
   const theme = useTheme();
+  const [showFilters, setShowFilters] = useState(false);
+  const [showAdditionalFilters, setShowAdditionalFilters] = useState(false);
+  const [localFilters, setLocalFilters] = useState(filters);
+  const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
+  const [visibleColumns, setVisibleColumns] = useState(
+    columns.reduce((acc, col) => {
+      acc[col.id] = col.hidden !== true;
+      return acc;
+    }, {})
+  );
+
+  // Fixed width for all filter fields
+  const FILTER_FIELD_WIDTH = 200;
+
+  // Get filterable columns
+  const filterableColumns = columns.filter((col) => col.applyFilter === true);
+
+  // Get initially visible filters (first 3 filterable columns)
+  const initialFilters = filterableColumns.slice(0, 3);
+  const additionalFilters = filterableColumns.slice(3);
+
+  // Handle filter change
+  const handleFilterChange = (columnId, value, filterType) => {
+    const newFilters = { ...localFilters };
+
+    if (value === "" || value === null || value === undefined) {
+      delete newFilters[columnId];
+    } else {
+      newFilters[columnId] = {
+        value,
+        type: filterType,
+      };
+    }
+
+    setLocalFilters(newFilters);
+  };
+
+  // Apply filters
+  const handleApplyFilters = () => {
+    onFiltersChange?.(localFilters);
+  };
+
+  // Clear all filters
+  const handleClearFilters = () => {
+    setLocalFilters({});
+    onFiltersChange?.({});
+  };
+
+  // Toggle column visibility
+  const toggleColumnVisibility = (columnId) => {
+    setVisibleColumns((prev) => ({
+      ...prev,
+      [columnId]: !prev[columnId],
+    }));
+  };
+
+  // Render filter input based on type
+  const renderFilterInput = (column) => {
+    const currentFilter = localFilters[column.id];
+    const currentValue = currentFilter?.value || "";
+
+    switch (column.filterType) {
+      case "select":
+        return (
+          <FormControl
+            size="small"
+            sx={{
+              minWidth: FILTER_FIELD_WIDTH,
+              maxWidth: FILTER_FIELD_WIDTH,
+              width: FILTER_FIELD_WIDTH,
+            }}
+          >
+            <InputLabel>{column.label}</InputLabel>
+            <Select
+              value={currentValue}
+              label={column.label}
+              onChange={(e) =>
+                handleFilterChange(column.id, e.target.value, "select")
+              }
+              sx={{ width: FILTER_FIELD_WIDTH }}
+            >
+              <MenuItem value="">
+                <em>All</em>
+              </MenuItem>
+              {column.filterOptions?.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        );
+
+      case "date":
+        return (
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <DatePicker
+              label={column.label}
+              value={currentValue ? new Date(currentValue) : null}
+              onChange={(date) =>
+                handleFilterChange(column.id, date?.toISOString(), "date")
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  size="small"
+                  sx={{
+                    minWidth: FILTER_FIELD_WIDTH,
+                    maxWidth: FILTER_FIELD_WIDTH,
+                    width: FILTER_FIELD_WIDTH,
+                  }}
+                />
+              )}
+            />
+          </LocalizationProvider>
+        );
+
+      case "dateRange":
+        return (
+          <Box
+            sx={{
+              display: "flex",
+              gap: 1,
+              flexDirection: "column",
+              minWidth: FILTER_FIELD_WIDTH,
+              maxWidth: FILTER_FIELD_WIDTH,
+              width: FILTER_FIELD_WIDTH,
+            }}
+          >
+            <LocalizationProvider dateAdapter={AdapterDateFns}>
+              <DatePicker
+                label={`${column.label} From`}
+                value={currentValue?.from ? new Date(currentValue.from) : null}
+                onChange={(date) =>
+                  handleFilterChange(
+                    column.id,
+                    {
+                      ...currentValue,
+                      from: date?.toISOString(),
+                    },
+                    "dateRange"
+                  )
+                }
+                renderInput={(params) => (
+                  <TextField {...params} size="small" sx={{ width: "100%" }} />
+                )}
+              />
+              <DatePicker
+                label={`${column.label} To`}
+                value={currentValue?.to ? new Date(currentValue.to) : null}
+                onChange={(date) =>
+                  handleFilterChange(
+                    column.id,
+                    {
+                      ...currentValue,
+                      to: date?.toISOString(),
+                    },
+                    "dateRange"
+                  )
+                }
+                renderInput={(params) => (
+                  <TextField {...params} size="small" sx={{ width: "100%" }} />
+                )}
+              />
+            </LocalizationProvider>
+          </Box>
+        );
+
+      case "number":
+        return (
+          <TextField
+            size="small"
+            type="number"
+            label={column.label}
+            value={currentValue}
+            onChange={(e) =>
+              handleFilterChange(column.id, e.target.value, "number")
+            }
+            sx={{
+              minWidth: FILTER_FIELD_WIDTH,
+              maxWidth: FILTER_FIELD_WIDTH,
+              width: FILTER_FIELD_WIDTH,
+            }}
+          />
+        );
+
+      case "text":
+      default:
+        return (
+          <TextField
+            size="small"
+            label={column.label}
+            value={currentValue}
+            onChange={(e) =>
+              handleFilterChange(column.id, e.target.value, "text")
+            }
+            sx={{
+              minWidth: FILTER_FIELD_WIDTH,
+              maxWidth: FILTER_FIELD_WIDTH,
+              width: FILTER_FIELD_WIDTH,
+            }}
+          />
+        );
+    }
+  };
+
+  const activeFiltersCount = Object.keys(localFilters).length;
+  const visibleColumnsCount =
+    Object.values(visibleColumns).filter(Boolean).length;
 
   return (
     <Paper
@@ -96,6 +326,53 @@ const CustomDataTable = ({
               ),
             }}
           />
+
+          {/* Column Selector Button */}
+          <IconButton
+            onClick={(e) => setColumnSelectorAnchor(e.currentTarget)}
+            sx={{
+              color: theme.palette.primary.main,
+              "&:hover": { backgroundColor: theme.palette.action.hover },
+            }}
+          >
+            <ViewColumnIcon />
+          </IconButton>
+
+          {/* Filter Toggle Button */}
+          {filterableColumns.length > 0 && (
+            <IconButton
+              onClick={() => setShowFilters(!showFilters)}
+              sx={{
+                color:
+                  showFilters || activeFiltersCount > 0
+                    ? theme.palette.primary.main
+                    : theme.palette.action.active,
+                "&:hover": { backgroundColor: theme.palette.action.hover },
+              }}
+            >
+              {activeFiltersCount > 0 ? (
+                <Box sx={{ position: "relative" }}>
+                  <FilterListIcon />
+                  <Chip
+                    size="small"
+                    label={activeFiltersCount}
+                    sx={{
+                      position: "absolute",
+                      top: -8,
+                      right: -8,
+                      minWidth: 16,
+                      height: 16,
+                      fontSize: "0.6rem",
+                    }}
+                    color="primary"
+                  />
+                </Box>
+              ) : (
+                <FilterListIcon />
+              )}
+            </IconButton>
+          )}
+
           <IconButton
             onClick={onRefresh}
             sx={{
@@ -107,6 +384,174 @@ const CustomDataTable = ({
           </IconButton>
         </Box>
       </Box>
+
+      {/* Column Selector Popover */}
+      <Popover
+        open={Boolean(columnSelectorAnchor)}
+        anchorEl={columnSelectorAnchor}
+        onClose={() => setColumnSelectorAnchor(null)}
+        anchorOrigin={{
+          vertical: "bottom",
+          horizontal: "right",
+        }}
+        transformOrigin={{
+          vertical: "top",
+          horizontal: "right",
+        }}
+      >
+        <Box sx={{ p: 2, minWidth: 200, maxHeight: 400 }}>
+          <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
+            Visible Columns
+          </Typography>
+          <FormGroup>
+            {columns.map((column) => (
+              <FormControlLabel
+                key={column.id}
+                control={
+                  <Checkbox
+                    checked={visibleColumns[column.id]}
+                    onChange={() => toggleColumnVisibility(column.id)}
+                  />
+                }
+                label={column.label}
+              />
+            ))}
+          </FormGroup>
+        </Box>
+      </Popover>
+
+      {/* Initial Filters Row */}
+      {initialFilters.length > 0 && (
+        <Box
+          sx={{
+            display: "flex",
+            gap: 2,
+            mb: 2,
+            flexWrap: "wrap",
+            alignItems: "flex-end",
+          }}
+        >
+          {initialFilters.map((column) => (
+            <Box
+              key={column.id}
+              sx={{
+                minWidth: FILTER_FIELD_WIDTH,
+                maxWidth: FILTER_FIELD_WIDTH,
+                width: FILTER_FIELD_WIDTH,
+              }}
+            >
+              {renderFilterInput(column)}
+            </Box>
+          ))}
+
+          {additionalFilters.length > 0 && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={
+                showAdditionalFilters ? <ExpandLessIcon /> : <ExpandMoreIcon />
+              }
+              onClick={() => setShowAdditionalFilters(!showAdditionalFilters)}
+            >
+              {showAdditionalFilters ? "Hide Filters" : "More Filters"}
+            </Button>
+          )}
+        </Box>
+      )}
+
+      {/* Additional Filters Accordion */}
+      <Collapse in={showAdditionalFilters}>
+        <Paper
+          sx={{
+            p: 2,
+            mb: 2,
+            backgroundColor: theme.palette.grey[50],
+            border: `1px solid ${theme.palette.divider}`,
+          }}
+        >
+          <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
+            Additional Filters
+          </Typography>
+
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+              gap: 2,
+              mb: 2,
+            }}
+          >
+            {additionalFilters.map((column) => (
+              <Box
+                key={column.id}
+                sx={{
+                  minWidth: FILTER_FIELD_WIDTH,
+                  maxWidth: FILTER_FIELD_WIDTH,
+                  width: FILTER_FIELD_WIDTH,
+                }}
+              >
+                {renderFilterInput(column)}
+              </Box>
+            ))}
+          </Box>
+
+          <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={handleClearFilters}
+              startIcon={<FilterListOffIcon />}
+            >
+              Clear All Filters
+            </Button>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={handleApplyFilters}
+              startIcon={<FilterListIcon />}
+            >
+              Apply Filters
+            </Button>
+          </Box>
+        </Paper>
+      </Collapse>
+
+      {/* Active Filters Display */}
+      {activeFiltersCount > 0 && (
+        <Box sx={{ mb: 2, display: "flex", flexWrap: "wrap", gap: 1 }}>
+          <Typography variant="body2" sx={{ mr: 1, alignSelf: "center" }}>
+            Active Filters:
+          </Typography>
+          {Object.entries(localFilters).map(([columnId, filter]) => {
+            const column = columns.find((col) => col.id === columnId);
+            const displayValue =
+              filter.type === "dateRange"
+                ? `${
+                    filter.value.from
+                      ? new Date(filter.value.from).toLocaleDateString()
+                      : ""
+                  } - ${
+                    filter.value.to
+                      ? new Date(filter.value.to).toLocaleDateString()
+                      : ""
+                  }`
+                : filter.type === "date"
+                ? new Date(filter.value).toLocaleDateString()
+                : filter.value;
+
+            return (
+              <Chip
+                key={columnId}
+                label={`${column?.label}: ${displayValue}`}
+                size="small"
+                onDelete={() => handleFilterChange(columnId, null, filter.type)}
+                color="primary"
+                variant="outlined"
+              />
+            );
+          })}
+        </Box>
+      )}
 
       {/* Table */}
       <Box sx={{ position: "relative" }}>
@@ -126,25 +571,39 @@ const CustomDataTable = ({
           <Table stickyHeader>
             <TableHead>
               <TableRow sx={{ backgroundColor: theme.palette.primary.main }}>
-                {columns.map((col, index) => (
-                  <TableCell
-                    key={col.id}
-                    sx={{
-                      backgroundColor: theme.palette.primary.main,
-                      color: theme.palette.primary.contrastText,
-                      fontWeight: 600,
-                      whiteSpace: "nowrap",
-                      "&:first-of-type": {
-                        borderTopLeftRadius: "8px",
-                      },
-                      "&:last-of-type": {
-                        borderTopRightRadius: "8px",
-                      },
-                    }}
-                  >
-                    {col.label}
-                  </TableCell>
-                ))}
+                {columns
+                  .filter((col) => visibleColumns[col.id])
+                  .map((col, index) => (
+                    <TableCell
+                      key={col.id}
+                      sx={{
+                        backgroundColor: theme.palette.primary.main,
+                        color: theme.palette.primary.contrastText,
+                        fontWeight: 600,
+                        whiteSpace: "nowrap",
+                        "&:first-of-type": {
+                          borderTopLeftRadius: "8px",
+                        },
+                        "&:last-of-type": {
+                          borderTopRightRadius: "8px",
+                        },
+                      }}
+                    >
+                      <Box
+                        sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                      >
+                        {col.label}
+                        {col.applyFilter && (
+                          <FilterListIcon
+                            sx={{
+                              fontSize: 16,
+                              opacity: localFilters[col.id] ? 1 : 0.5,
+                            }}
+                          />
+                        )}
+                      </Box>
+                    </TableCell>
+                  ))}
               </TableRow>
             </TableHead>
 
@@ -152,7 +611,7 @@ const CustomDataTable = ({
               {!loading && (!Array.isArray(rows) || rows.length === 0) ? (
                 <TableRow>
                   <TableCell
-                    colSpan={columns.length}
+                    colSpan={visibleColumnsCount}
                     align="center"
                     sx={{ borderBottom: `1px solid ${theme.palette.divider}` }}
                   >
@@ -172,18 +631,20 @@ const CustomDataTable = ({
                       },
                     }}
                   >
-                    {columns.map((col) => (
-                      <TableCell
-                        key={col.id}
-                        sx={{
-                          borderBottom: `1px solid ${theme.palette.divider}`,
-                        }}
-                      >
-                        {col.render
-                          ? col.render(row[col.id], row)
-                          : row[col.id]}
-                      </TableCell>
-                    ))}
+                    {columns
+                      .filter((col) => visibleColumns[col.id])
+                      .map((col) => (
+                        <TableCell
+                          key={col.id}
+                          sx={{
+                            borderBottom: `1px solid ${theme.palette.divider}`,
+                          }}
+                        >
+                          {col.render
+                            ? col.render(row[col.id], row)
+                            : row[col.id]}
+                        </TableCell>
+                      ))}
                   </TableRow>
                 ))
               )}

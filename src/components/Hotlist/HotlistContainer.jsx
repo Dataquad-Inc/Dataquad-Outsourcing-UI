@@ -60,14 +60,14 @@ const HotlistContainer = () => {
       });
     }
 
-    // Add Consultant tab only if NOT SALESEXECUTIVE
-    if (role !== "SALESEXECUTIVE") {
-      tabs.push({
-        label: "Add Consultant",
-        icon: <PersonAddIcon />,
-        path: "/dashboard/hotlist/create",
-      });
-    }
+    // // Add Consultant tab only if NOT SALESEXECUTIVE
+    // if (role !== "SALESEXECUTIVE") {
+    //   tabs.push({
+    //     label: "Add Consultant",
+    //     icon: <PersonAddIcon />,
+    //     path: "/dashboard/hotlist/create",
+    //   });
+    // }
   }
 
   return (

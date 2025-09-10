@@ -3,8 +3,6 @@ import { Box, IconButton, Skeleton } from "@mui/material";
 import Edit from "@mui/icons-material/Edit";
 import Delete from "@mui/icons-material/Delete";
 
-import formatPhoneNumber from "../../utils/formatPhoneNumber";
-
 // Role-based permission checker
 const hasPermission = (userRole, userId, row, action) => {
   if (userRole === "SUPERADMIN") {
@@ -36,6 +34,7 @@ const getHotListColumns = ({
   loading,
   userRole,
   userId,
+  filterOptions = {}, // Receive filter options
 }) => [
   // ✅ Actions column moved first
   {
@@ -83,11 +82,12 @@ const getHotListColumns = ({
     },
   },
 
-  // ✅ Other columns (without icons in headers)
+  // ✅ Other columns with filter options
   {
     id: "consultantId",
     label: "Consultant ID",
     filterType: "text",
+    applyFilter: true,
     render: (value, row) =>
       loading ? (
         <Skeleton width={100} />
@@ -109,69 +109,93 @@ const getHotListColumns = ({
     id: "name",
     label: "Consultant Name",
     filterType: "text",
+    applyFilter: true,
     render: (v) => renderValue(v, 120, loading),
+  },
+  {
+    id: "technology",
+    label: "Technology",
+    filterType: "select",
+    applyFilter: true,
+    filterOptions: filterOptions.technology || [],
+    render: (v) => renderValue(v, 100, loading),
   },
   {
     id: "teamleadName",
     label: "Team Lead",
+    filterType: "select",
+    applyFilter: true,
+    filterOptions: filterOptions.teamleadName || [],
     render: (v) => renderValue(v, 80, loading),
   },
   {
     id: "salesExecutive",
     label: "Sales Executive",
+    filterType: "select",
+    applyFilter: true,
+    filterOptions: filterOptions.salesExecutive || [],
     render: (v) => renderValue(v, 100, loading),
   },
   {
     id: "recruiterName",
     label: "Recruiter",
+    filterType: "select",
+    applyFilter: true,
+    filterOptions: filterOptions.recruiterName || [],
     render: (v) => renderValue(v, 80, loading),
   },
   {
     id: "reference",
     label: "Reference",
+    filterType: "select",
+    applyFilter: true,
+    filterOptions: filterOptions.reference || [],
     render: (v) => renderValue(v, 80, loading),
   },
-
-  // {
-  //   id: "technology",
-  //   label: "Technology",
-  //   render: (v) => renderValue(v, 100, loading),
-  // },
-  // {
-  //   id: "emailId",
-  //   label: "Consultant Email",
-  //   filterType: "text",
-  //   render: (v) => renderValue(v, 150, loading),
-  // },
-  // {
-  //   id: "marketingContact",
-  //   label: "Marketing Contact",
-  //   render: (v) => renderValue(v, 120, loading),
-  // },
   {
     id: "experience",
     label: "Exp (Yrs)",
     filterType: "number",
+    applyFilter: true,
     render: (v) => renderValue(v, 50, loading),
   },
+   {
+    id: "location",
+    label: "Location",
+    filterType: "text",
+    applyFilter: true,
+    render: (v) => renderValue(v, 50, loading),
+  },
+  
   {
     id: "billRate",
     label: "Bill Rate",
+    filterType: "number",
+    applyFilter: true,
     render: (v) => renderValue(`$${v}`, 60, loading),
   },
   {
     id: "payroll",
     label: "Payroll",
+    filterType: "select",
+    applyFilter: true,
+    filterOptions: filterOptions.payroll || [],
     render: (v) => renderValue(v, 80, loading),
   },
   {
     id: "marketingVisa",
     label: "Marketing Visa",
+    filterType: "select",
+    applyFilter: true,
+    filterOptions: filterOptions.marketingVisa || [],
     render: (v) => renderValue(v, 80, loading),
   },
   {
     id: "actualVisa",
     label: "Actual Visa",
+    filterType: "select",
+    applyFilter: true,
+    filterOptions: filterOptions.actualVisa || [],
     render: (v) => renderValue(v, 80, loading),
   },
 ];

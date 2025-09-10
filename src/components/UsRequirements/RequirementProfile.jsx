@@ -3,7 +3,6 @@ import {
   Box,
   Button,
   Chip,
-  Grid,
   Typography,
   Paper,
   Stack,
@@ -11,6 +10,10 @@ import {
   CircularProgress,
   Divider,
   Alert,
+  Grid,
+  IconButton,
+  Tooltip,
+  Container,
 } from "@mui/material";
 import {
   ArrowBack,
@@ -22,6 +25,8 @@ import {
   Business,
   Edit,
   FileDownload,
+  Person,
+  Visibility,
 } from "@mui/icons-material";
 import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 import { useParams, useNavigate } from "react-router-dom";
@@ -100,11 +105,29 @@ const RequirementProfile = () => {
   const handleEdit = () => console.log("Edit job");
   const handleDelete = () => console.log("Delete job");
 
+  // Reusable InfoRow component
+  const InfoRow = ({ icon: Icon, label, value, fullWidth = false }) => (
+    <Grid item xs={12} sm={fullWidth ? 12 : 6}>
+      <Stack direction="row" spacing={2} alignItems="center">
+        <Icon sx={{ color: "primary.main", fontSize: 20 }} />
+        <Box>
+          <Typography variant="body2" color="text.secondary">
+            {label}
+          </Typography>
+          <Typography variant="body1" fontWeight={500}>
+            {value}
+          </Typography>
+        </Box>
+      </Stack>
+    </Grid>
+  );
+
   if (loading)
     return (
-      <Box
+      <Container
+        maxWidth="lg"
         sx={{
-          p: 5,
+          py: 5,
           display: "flex",
           justifyContent: "center",
           minHeight: "400px",
@@ -112,12 +135,12 @@ const RequirementProfile = () => {
         }}
       >
         <CircularProgress size={60} />
-      </Box>
+      </Container>
     );
 
   if (error || !jobData)
     return (
-      <Box sx={{ p: 3, maxWidth: 600, mx: "auto" }}>
+      <Container maxWidth="lg" sx={{ py: 3 }}>
         <Alert severity="error" sx={{ mb: 2 }}>
           {error || "No job data found."}
         </Alert>
@@ -128,217 +151,319 @@ const RequirementProfile = () => {
         >
           Back
         </Button>
-      </Box>
+      </Container>
     );
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: "1200px", mx: "auto" }}>
-      {/* Back Button */}
-      <Button
-        startIcon={<ArrowBack />}
-        onClick={handleBack}
-        sx={{
-          mb: 3,
-          color: "primary.main",
-          "&:hover": { bgcolor: "primary.50" },
-        }}
-      >
-        Back to Jobs
-      </Button>
+    <Container  sx={{ py: 2 }}>
+      {/* Header with Back Button */}
+      <Box sx={{ mb: 3 }}>
+        <Button startIcon={<ArrowBack />} onClick={handleBack} sx={{ mb: 2 }}>
+          Back to Jobs
+        </Button>
+      </Box>
 
-      {/* Hero Header */}
-      <Paper
-        elevation={3}
-        sx={{
-          p: 4,
-          mb: 4,
-          borderRadius: 3,
-        }}
-      >
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          alignItems="center"
-          justifyContent="space-between"
+      {/* Single Unified Card */}
+      <Paper elevation={3} sx={{ borderRadius: 3, overflow: "hidden" }}>
+        {/* Header Section with Gradient Background */}
+        <Box
+          sx={{
+            p: 4,
+          }}
         >
-          <Box>
-            <Typography variant="h4" fontWeight="bold">
-              {jobData.jobTitle}
-            </Typography>
-            <Typography variant="subtitle1" sx={{ opacity: 0.85 }}>
-              {jobData.clientName} • {jobData.jobType} • {jobData.location}
-            </Typography>
-          </Box>
-          <Chip
-            label={jobData.status.toUpperCase()}
-            color={getStatusColor(jobData.status)}
-            sx={{ fontWeight: "bold", fontSize: "0.9rem", py: 1, px: 2 }}
-          />
-        </Stack>
-      </Paper>
-
-      <Grid container spacing={4}>
-        {/* Left Section */}
-        <Grid item xs={12} md={8}>
-          {/* Job Info Card */}
-          <Paper elevation={2} sx={{ p: 3, mb: 4, borderRadius: 3 }}>
-            <Typography variant="h6" fontWeight="bold" gutterBottom>
-              Job Details
-            </Typography>
-            <Divider sx={{ mb: 3 }} />
-            <Grid container spacing={2}>
-              {[
-                {
-                  icon: LocationOn,
-                  label: "Location",
-                  value: `${jobData.location} (${jobData.jobMode})`,
-                },
-                {
-                  icon: Work,
-                  label: "Experience Required",
-                  value: `${jobData.experienceRequired} yrs`,
-                },
-                {
-                  icon: Work,
-                  label: "Relevant Experience",
-                  value: `${jobData.relevantExperience} yrs`,
-                },
-                {
-                  icon: Schedule,
-                  label: "Notice Period",
-                  value: `${jobData.noticePeriod} days`,
-                },
-                {
-                  icon: School,
-                  label: "Qualification",
-                  value: jobData.qualification,
-                },
-                {
-                  icon: AttachMoney,
-                  label: "Package",
-                  value: `${jobData.salaryPackage} LPA`,
-                },
-                {
-                  icon: Business,
-                  label: "Positions Available",
-                  value: jobData.noOfPositions,
-                },
-                { icon: Work, label: "Visa Type", value: jobData.visaType },
-                { icon: Work, label: "Assigned By", value: jobData.assignedBy },
-              ].map((item, index) => (
-                <Grid key={index} item xs={12} sm={6}>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <item.icon sx={{ color: "primary.main" }} />
-                    <Typography>
-                      <strong>{item.label}:</strong> {item.value}
-                    </Typography>
-                  </Stack>
-                </Grid>
-              ))}
-            </Grid>
-          </Paper>
-
-          {/* Job Description Card */}
-          <Paper elevation={2} sx={{ p: 3, borderRadius: 3 }}>
-            <Typography variant="h6" fontWeight="bold" gutterBottom>
-              Job Description
-            </Typography>
-            <Divider sx={{ mb: 3 }} />
-            {jobData.jobDescription ? (
-              <Typography whiteSpace="pre-line">
-                {jobData.jobDescription}
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            justifyContent="space-between"
+            alignItems={{ xs: "flex-start", sm: "center" }}
+            spacing={2}
+          >
+            <Box>
+              <Typography variant="h4" fontWeight="bold" gutterBottom>
+                {jobData.jobTitle}
               </Typography>
-            ) : (
-              <Box textAlign="center" py={4}>
-                <FileDownload
-                  sx={{ fontSize: 50, color: "text.secondary", mb: 2 }}
-                />
-                <Typography
-                  variant="subtitle1"
-                  gutterBottom
-                  color="text.secondary"
-                >
-                  Job Description Not Available
+              <Stack
+                direction="row"
+                spacing={2}
+                alignItems="center"
+                flexWrap="wrap"
+              >
+                <Typography variant="h6" sx={{ opacity: 0.9 }}>
+                  {jobData.clientName}
                 </Typography>
-                <Button
-                  variant="contained"
-                  onClick={handleDownloadJD}
-                  disabled={downloadLoading}
-                  startIcon={
-                    downloadLoading ? (
-                      <CircularProgress size={20} />
-                    ) : (
-                      <FileDownload />
-                    )
-                  }
-                >
-                  {downloadLoading ? "Downloading..." : "Download JD"}
-                </Button>
-              </Box>
-            )}
-          </Paper>
-        </Grid>
-
-        {/* Right Section */}
-        <Grid item xs={12} md={4}>
-          {/* Assigned Team */}
-          <Paper elevation={2} sx={{ p: 3, mb: 4, borderRadius: 3 }}>
-            <Typography variant="h6" fontWeight="bold" gutterBottom>
-              Assigned Team
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            {jobData.assignedUsers?.length ? (
-              <Stack spacing={2}>
-                {jobData.assignedUsers.map((user) => (
-                  <Stack
-                    key={user.userId}
-                    direction="row"
-                    spacing={2}
-                    alignItems="center"
-                    sx={{ p: 1.5, bgcolor: "grey.50", borderRadius: 2 }}
-                  >
-                    <Avatar sx={{ bgcolor: "primary.main" }}>
-                      {user.userName[0]}
-                    </Avatar>
-                    <Typography>{user.userName}</Typography>
-                  </Stack>
-                ))}
+                <Typography variant="body1" sx={{ opacity: 0.8 }}>
+                  • {jobData.jobType}
+                </Typography>
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  <LocationOn sx={{ fontSize: 18 }} />
+                  <Typography variant="body1">{jobData.location}</Typography>
+                </Stack>
               </Stack>
-            ) : (
-              <Typography textAlign="center" color="text.secondary">
-                No users assigned
-              </Typography>
-            )}
-          </Paper>
-
-          {/* Actions */}
-          <Paper elevation={2} sx={{ p: 3, borderRadius: 3 }}>
-            <Typography variant="h6" fontWeight="bold" gutterBottom>
-              Actions
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            <Stack spacing={2}>
-              <Button
-                variant="contained"
-                fullWidth
-                startIcon={<Edit />}
-                onClick={handleEdit}
-              >
-                Edit Job
-              </Button>
-              <Button
-                variant="outlined"
-                fullWidth
-                color="error"
-                startIcon={<DeleteForeverIcon />}
-                onClick={handleDelete}
-              >
-                Delete Job
-              </Button>
+            </Box>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Chip
+                label={jobData.status.toUpperCase()}
+                color={getStatusColor(jobData.status)}
+                sx={{ fontWeight: "bold", color: "white" }}
+              />
+              <Stack direction="row" spacing={1}>
+                <Tooltip title="Edit Job">
+                  <IconButton sx={{ color: "white" }} onClick={handleEdit}>
+                    <Edit />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Delete Job">
+                  <IconButton sx={{ color: "white" }} onClick={handleDelete}>
+                    <DeleteForeverIcon />
+                  </IconButton>
+                </Tooltip>
+              </Stack>
             </Stack>
-          </Paper>
-        </Grid>
-      </Grid>
-    </Box>
+          </Stack>
+        </Box>
+
+        {/* Content Section */}
+        <Box sx={{ p: 4 }}>
+          <Grid container spacing={4}>
+            {/* Left Column - Job Details */}
+            <Grid item xs={12} lg={8}>
+              {/* Job Information Grid */}
+              <Box sx={{ mb: 4 }}>
+                <Typography variant="h6" fontWeight="bold" gutterBottom>
+                  Job Information
+                </Typography>
+                <Divider sx={{ mb: 3 }} />
+                <Grid container spacing={3}>
+                  <InfoRow
+                    icon={Work}
+                    label="Experience Required"
+                    value={`${jobData.experienceRequired} years`}
+                  />
+                  <InfoRow
+                    icon={Work}
+                    label="Relevant Experience"
+                    value={`${jobData.relevantExperience} years`}
+                  />
+                  <InfoRow
+                    icon={Schedule}
+                    label="Notice Period"
+                    value={`${jobData.noticePeriod} days`}
+                  />
+                  <InfoRow
+                    icon={AttachMoney}
+                    label="Package"
+                    value={`${jobData.salaryPackage} LPA`}
+                  />
+                  <InfoRow
+                    icon={Business}
+                    label="Positions Available"
+                    value={jobData.noOfPositions}
+                  />
+                  <InfoRow
+                    icon={Visibility}
+                    label="Job Mode"
+                    value={jobData.jobMode}
+                  />
+                  <InfoRow
+                    icon={School}
+                    label="Qualification"
+                    value={jobData.qualification}
+                    fullWidth
+                  />
+                  <InfoRow
+                    icon={Work}
+                    label="Visa Type"
+                    value={jobData.visaType}
+                  />
+                  <InfoRow
+                    icon={Person}
+                    label="Assigned By"
+                    value={jobData.assignedBy}
+                  />
+                </Grid>
+              </Box>
+
+              {/* Job Description */}
+              <Box>
+                <Stack
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  sx={{ mb: 2 }}
+                >
+                  <Typography variant="h6" fontWeight="bold">
+                    Job Description
+                  </Typography>
+                  {/* Only show download button if jobDescription is null */}
+                  {!jobData.jobDescription && (
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={
+                        downloadLoading ? (
+                          <CircularProgress size={16} />
+                        ) : (
+                          <FileDownload />
+                        )
+                      }
+                      onClick={handleDownloadJD}
+                      disabled={downloadLoading}
+                    >
+                      {downloadLoading ? "Downloading..." : "Download JD"}
+                    </Button>
+                  )}
+                </Stack>
+                <Divider sx={{ mb: 3 }} />
+
+                {jobData.jobDescription ? (
+                  <Box
+                    sx={{
+                      bgcolor: "grey.50",
+                      p: 3,
+                      borderRadius: 2,
+                      border: "1px solid",
+                      borderColor: "grey.200",
+                    }}
+                  >
+                    <Typography
+                      variant="body1"
+                      sx={{ whiteSpace: "pre-line", lineHeight: 1.6 }}
+                    >
+                      {jobData.jobDescription}
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Box
+                    sx={{
+                      textAlign: "center",
+                      py: 4,
+                      bgcolor: "grey.50",
+                      borderRadius: 2,
+                      border: "2px dashed",
+                      borderColor: "grey.300",
+                    }}
+                  >
+                    <FileDownload
+                      sx={{ fontSize: 50, color: "text.secondary", mb: 2 }}
+                    />
+                    <Typography
+                      variant="subtitle1"
+                      gutterBottom
+                      color="text.secondary"
+                    >
+                      Job Description Not Available
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      onClick={handleDownloadJD}
+                      disabled={downloadLoading}
+                      startIcon={
+                        downloadLoading ? (
+                          <CircularProgress size={20} />
+                        ) : (
+                          <FileDownload />
+                        )
+                      }
+                    >
+                      {downloadLoading ? "Downloading..." : "Download JD"}
+                    </Button>
+                  </Box>
+                )}
+              </Box>
+            </Grid>
+
+            {/* Right Column - Assigned Team & Actions */}
+            <Grid item xs={12} lg={4}>
+              <Box sx={{ bgcolor: "grey.50", p: 3, borderRadius: 2 }}>
+                {/* Assigned Team Section */}
+                <Typography variant="h6" fontWeight="bold" gutterBottom>
+                  Assigned Team
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                {jobData.assignedUsers?.length ? (
+                  <Stack spacing={2} sx={{ mb: 3 }}>
+                    {jobData.assignedUsers.map((user) => (
+                      <Stack
+                        key={user.userId}
+                        direction="row"
+                        spacing={2}
+                        alignItems="center"
+                        sx={{
+                          p: 2,
+                          bgcolor: "white",
+                          borderRadius: 2,
+                          border: "1px solid",
+                          borderColor: "grey.200",
+                        }}
+                      >
+                        <Avatar
+                          sx={{
+                            bgcolor: "primary.main",
+                            width: 40,
+                            height: 40,
+                          }}
+                        >
+                          {user.userName.charAt(0)}
+                        </Avatar>
+                        <Box>
+                          <Typography variant="body1" fontWeight={500}>
+                            {user.userName}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Team Member
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    ))}
+                  </Stack>
+                ) : (
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    textAlign="center"
+                    py={2}
+                    sx={{ mb: 3 }}
+                  >
+                    No team members assigned
+                  </Typography>
+                )}
+
+                {/* Actions Section */}
+                <Box
+                  sx={{
+                    pt: 3,
+                    borderTop: "1px solid",
+                    borderColor: "grey.300",
+                  }}
+                >
+                  <Typography variant="h6" fontWeight="bold" gutterBottom>
+                    Actions
+                  </Typography>
+                  <Stack spacing={2}>
+                    <Button
+                      variant="contained"
+                      fullWidth
+                      startIcon={<Edit />}
+                      onClick={handleEdit}
+                    >
+                      Edit Job
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      fullWidth
+                      color="error"
+                      startIcon={<DeleteForeverIcon />}
+                      onClick={handleDelete}
+                    >
+                      Delete Job
+                    </Button>
+                  </Stack>
+                </Box>
+              </Box>
+            </Grid>
+          </Grid>
+        </Box>
+      </Paper>
+    </Container>
   );
 };
 
