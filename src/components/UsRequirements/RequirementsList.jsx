@@ -6,7 +6,7 @@ import { showErrorToast } from "../../utils/toastUtils";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useSelector } from "react-redux";
-import { ConfirmDialog } from "../../ui-lib/ConfirmDialog"; // import your dialog
+import { ConfirmDialog } from "../../ui-lib/ConfirmDialog";
 
 const RequirementsList = () => {
   const navigate = useNavigate();
@@ -17,6 +17,8 @@ const RequirementsList = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState({});
+  const [filterOptions, setFilterOptions] = useState({});
 
   const { userId } = useSelector((state) => state.auth);
 
@@ -24,14 +26,98 @@ const RequirementsList = () => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteJobId, setDeleteJobId] = useState(null);
 
+  // Fetch filter options for select filters
+  const fetchFilterOptions = useCallback(async () => {
+    try {
+      const response = await axios.get(
+        "https://mymulya.com/api/us/requirements/filterOptions",
+        {
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+
+      if (response.data.success && response.data.data) {
+        setFilterOptions(response.data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching filter options:", error);
+      // Set default filter options based on your data structure
+      setFilterOptions({
+        clientName: [],
+        jobType: [],
+        location: [],
+        qualification: [],
+        visaType: [],
+        assignedBy: [],
+        status: [],
+      });
+    }
+  }, []);
+
+  // Build filter query parameters
+  const buildFilterParams = useCallback((filters) => {
+    const params = {};
+
+    Object.entries(filters).forEach(([key, filter]) => {
+      switch (filter.type) {
+        case "text":
+        case "select":
+        case "number":
+          if (filter.value) {
+            params[`${key}`] = filter.value;
+          }
+          break;
+
+        case "date":
+          if (filter.value) {
+            params[`${key}`] = new Date(filter.value)
+              .toISOString()
+              .split("T")[0];
+          }
+          break;
+
+        case "dateRange":
+          if (filter.value?.from) {
+            params[`${key}From`] = new Date(filter.value.from)
+              .toISOString()
+              .split("T")[0];
+          }
+          if (filter.value?.to) {
+            params[`${key}To`] = new Date(filter.value.to)
+              .toISOString()
+              .split("T")[0];
+          }
+          break;
+
+        default:
+          break;
+      }
+    });
+
+    return params;
+  }, []);
+
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
 
+      // Build query parameters
+      const filterParams = buildFilterParams(filters);
+      const params = {
+        page,
+        size: rowsPerPage,
+        ...filterParams,
+      };
+
+      // Add search parameter if exists
+      if (search.trim()) {
+        params.search = search.trim();
+      }
+
       const response = await axios.get(
         "https://mymulya.com/api/us/requirements/allRequirements",
         {
-          params: { page, size: rowsPerPage },
+          params,
           headers: { "Content-Type": "application/json" },
         }
       );
@@ -40,6 +126,11 @@ const RequirementsList = () => {
       if (data.success && data.data) {
         setRequirements(data.data.content || []);
         setTotal(data.data.totalElements || 0);
+
+        // Extract filter options from the response data if not already set
+        if (Object.keys(filterOptions).length === 0) {
+          extractFilterOptionsFromData(data.data.content || []);
+        }
       } else {
         showErrorToast(data.message || "Failed to load requirements");
         setRequirements([]);
@@ -55,7 +146,44 @@ const RequirementsList = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, search]);
+  }, [page, rowsPerPage, search, filters, buildFilterParams, filterOptions]);
+
+  // Extract filter options from data if API doesn't provide them
+  const extractFilterOptionsFromData = (data) => {
+    const options = {
+      clientName: [],
+      jobType: [],
+      location: [],
+      qualification: [],
+      visaType: [],
+      assignedBy: [],
+      status: [],
+    };
+
+    data.forEach((row) => {
+      // Extract unique values for each filterable field
+      Object.keys(options).forEach((field) => {
+        const value = row[field];
+        if (value && !options[field].find((opt) => opt.value === value)) {
+          options[field].push({
+            value: value,
+            label: value,
+          });
+        }
+      });
+    });
+
+    // Sort options alphabetically
+    Object.keys(options).forEach((field) => {
+      options[field].sort((a, b) => a.label.localeCompare(b.label));
+    });
+
+    setFilterOptions(options);
+  };
+
+  useEffect(() => {
+    fetchFilterOptions();
+  }, [fetchFilterOptions]);
 
   useEffect(() => {
     fetchData();
@@ -117,11 +245,18 @@ const RequirementsList = () => {
     }
   };
 
+  /** ---------------- Filter Handlers ---------------- */
+  const handleFiltersChange = (newFilters) => {
+    setFilters(newFilters);
+    setPage(0); // Reset to first page when filters change
+  };
+
   /** ---------------- Columns ---------------- */
   const columns = getRequirementsColumns({
     handleNagivateToReqProfile,
     handleDownloadJD,
-    handleDelete: handleRequestDelete, // 👈 open confirm dialog
+    handleDelete: handleRequestDelete,
+    filterOptions,
     loading,
   });
 
@@ -136,6 +271,7 @@ const RequirementsList = () => {
         rowsPerPage={rowsPerPage}
         search={search}
         loading={loading}
+        filters={filters}
         onPageChange={(e, newPage) => setPage(newPage)}
         onRowsPerPageChange={(e) => {
           setRowsPerPage(parseInt(e.target.value, 10));
@@ -150,6 +286,7 @@ const RequirementsList = () => {
           setPage(0);
         }}
         onRefresh={() => setRefreshKey((prev) => prev + 1)}
+        onFiltersChange={handleFiltersChange}
       />
 
       {/* 🔹 Confirm Delete Dialog */}

@@ -16,6 +16,14 @@ import {
   Chip,
   Button,
   Grid,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  AppBar,
+  Toolbar,
+  Slide,
+  Tabs,
+  Tab,
 } from "@mui/material";
 import {
   Download as DownloadIcon,
@@ -24,11 +32,27 @@ import {
   Assignment as AssignmentIcon,
   Upload as UploadIcon,
   Add as AddIcon,
+  Close as CloseIcon,
+  PictureAsPdf as PdfIcon,
+  Description as DocIcon,
+  Image as ImageIcon,
+  Visibility as ViewIcon,
+  OpenInNew as OpenInNewIcon,
+  TableChart as ExcelIcon,
+  Slideshow as PptIcon,
+  Audiotrack as AudioIcon,
+  Videocam as VideoIcon,
+  Archive as ZipIcon,
+  Code as CodeIcon,
 } from "@mui/icons-material";
 import { showErrorToast, showSuccessToast } from "../../utils/toastUtils";
-import { ConfirmDialog } from "../../ui-lib/ConfirmDialog"; // Import your custom ConfirmDialog
-import { CustomModal } from "../../ui-lib/CustomModal"; // Import your custom Modal
+import { ConfirmDialog } from "../../ui-lib/ConfirmDialog";
+import { CustomModal } from "../../ui-lib/CustomModal";
 import { useSelector } from "react-redux";
+
+const Transition = React.forwardRef(function Transition(props, ref) {
+  return <Slide direction="up" ref={ref} {...props} />;
+});
 
 const Documents = ({ consultantId }) => {
   const [documents, setDocuments] = useState([]);
@@ -40,6 +64,11 @@ const Documents = ({ consultantId }) => {
   const [documentFiles, setDocumentFiles] = useState([]);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewDocument, setPreviewDocument] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewContent, setPreviewContent] = useState(null);
+  const [activeTab, setActiveTab] = useState(0);
   const { userId } = useSelector((state) => state.auth);
 
   useEffect(() => {
@@ -95,6 +124,358 @@ const Documents = ({ consultantId }) => {
     }
   };
 
+  const handlePreview = async (document) => {
+    setPreviewDocument(document);
+    setPreviewOpen(true);
+    setPreviewLoading(true);
+    setPreviewContent(null);
+
+    try {
+      const res = await fetch(
+        `https://mymulya.com/hotlist/download-document/${document.documentId}`
+      );
+      if (!res.ok) throw new Error("Failed to load document for preview");
+
+      const blob = await res.blob();
+
+      // Check file type and handle accordingly
+      const fileType = getFileType(document.fileName);
+      const url = URL.createObjectURL(blob);
+
+      if (fileType === "pdf") {
+        // PDF files
+        setPreviewContent(
+          <iframe
+            src={url}
+            width="100%"
+            height="100%"
+            frameBorder="0"
+            title={document.fileName}
+            style={{ minHeight: "70vh" }}
+          />
+        );
+      } else if (fileType === "image") {
+        // Image files
+        setPreviewContent(
+          <Box sx={{ display: "flex", justifyContent: "center", p: 2 }}>
+            <img
+              src={url}
+              alt={document.fileName}
+              style={{
+                maxWidth: "100%",
+                maxHeight: "70vh",
+                objectFit: "contain",
+              }}
+            />
+          </Box>
+        );
+      } else if (fileType === "text") {
+        // Text files - read and display content
+        const text = await blob.text();
+        setPreviewContent(
+          <Box sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              {document.fileName}
+            </Typography>
+            <Paper
+              variant="outlined"
+              sx={{ p: 2, maxHeight: "60vh", overflow: "auto" }}
+            >
+              <pre
+                style={{
+                  whiteSpace: "pre-wrap",
+                  fontFamily: "monospace",
+                  margin: 0,
+                }}
+              >
+                {text}
+              </pre>
+            </Paper>
+          </Box>
+        );
+      } else if (fileType === "word") {
+        // Word documents - use Microsoft Office Online viewer
+        // First, we need to make the file publicly accessible for the viewer
+        // Since we can't do that directly, we'll provide download and open options
+        setPreviewContent(
+          <Box sx={{ textAlign: "center", p: 4 }}>
+            <DocIcon sx={{ fontSize: 60, color: "#2953ac" }} />
+            <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
+              {document.fileName}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Word document preview is available through the Office Online
+              Viewer.
+            </Typography>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "center",
+                gap: 2,
+                flexWrap: "wrap",
+              }}
+            >
+              <Button
+                variant="contained"
+                startIcon={<DownloadIcon />}
+                onClick={() =>
+                  handleDownload(document.documentId, document.fileName)
+                }
+              >
+                Download
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<OpenInNewIcon />}
+                onClick={() => {
+                  // Use Microsoft Office Online Viewer
+                  const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(
+                    url
+                  )}`;
+                  window.open(officeViewerUrl, "_blank");
+                }}
+              >
+                View Online
+              </Button>
+            </Box>
+            <Typography
+              variant="caption"
+              display="block"
+              sx={{ mt: 3, color: "text.secondary" }}
+            >
+              Note: The online viewer may take a moment to load your document.
+            </Typography>
+          </Box>
+        );
+      } else if (fileType === "excel") {
+        // Excel files
+        setPreviewContent(
+          <Box sx={{ textAlign: "center", p: 4 }}>
+            <ExcelIcon sx={{ fontSize: 60, color: "#217346" }} />
+            <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
+              {document.fileName}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Excel spreadsheet preview is available through the Office Online
+              Viewer.
+            </Typography>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "center",
+                gap: 2,
+                flexWrap: "wrap",
+              }}
+            >
+              <Button
+                variant="contained"
+                startIcon={<DownloadIcon />}
+                onClick={() =>
+                  handleDownload(document.documentId, document.fileName)
+                }
+              >
+                Download
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<OpenInNewIcon />}
+                onClick={() => {
+                  // Use Microsoft Office Online Viewer
+                  const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(
+                    url
+                  )}`;
+                  window.open(officeViewerUrl, "_blank");
+                }}
+              >
+                View Online
+              </Button>
+            </Box>
+          </Box>
+        );
+      } else if (fileType === "powerpoint") {
+        // PowerPoint files
+        setPreviewContent(
+          <Box sx={{ textAlign: "center", p: 4 }}>
+            <PptIcon sx={{ fontSize: 60, color: "#d24726" }} />
+            <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
+              {document.fileName}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              PowerPoint presentation preview is available through the Office
+              Online Viewer.
+            </Typography>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "center",
+                gap: 2,
+                flexWrap: "wrap",
+              }}
+            >
+              <Button
+                variant="contained"
+                startIcon={<DownloadIcon />}
+                onClick={() =>
+                  handleDownload(document.documentId, document.fileName)
+                }
+              >
+                Download
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<OpenInNewIcon />}
+                onClick={() => {
+                  // Use Microsoft Office Online Viewer
+                  const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(
+                    url
+                  )}`;
+                  window.open(officeViewerUrl, "_blank");
+                }}
+              >
+                View Online
+              </Button>
+            </Box>
+          </Box>
+        );
+      } else if (fileType === "audio") {
+        // Audio files
+        setPreviewContent(
+          <Box sx={{ textAlign: "center", p: 4 }}>
+            <AudioIcon sx={{ fontSize: 60, color: "#9c27b0" }} />
+            <Typography variant="h6" sx={{ mt: 2, mb: 3 }}>
+              {document.fileName}
+            </Typography>
+            <audio controls style={{ width: "100%", maxWidth: "400px" }}>
+              <source src={url} type={blob.type} />
+              Your browser does not support the audio element.
+            </audio>
+            <Box sx={{ mt: 3 }}>
+              <Button
+                variant="contained"
+                startIcon={<DownloadIcon />}
+                onClick={() =>
+                  handleDownload(document.documentId, document.fileName)
+                }
+              >
+                Download
+              </Button>
+            </Box>
+          </Box>
+        );
+      } else if (fileType === "video") {
+        // Video files
+        setPreviewContent(
+          <Box sx={{ textAlign: "center", p: 2 }}>
+            <VideoIcon sx={{ fontSize: 60, color: "#f44336" }} />
+            <Typography variant="h6" sx={{ mt: 2, mb: 2 }}>
+              {document.fileName}
+            </Typography>
+            <video controls style={{ maxWidth: "100%", maxHeight: "60vh" }}>
+              <source src={url} type={blob.type} />
+              Your browser does not support the video element.
+            </video>
+            <Box sx={{ mt: 2 }}>
+              <Button
+                variant="contained"
+                startIcon={<DownloadIcon />}
+                onClick={() =>
+                  handleDownload(document.documentId, document.fileName)
+                }
+              >
+                Download
+              </Button>
+            </Box>
+          </Box>
+        );
+      } else if (fileType === "zip") {
+        // Compressed files
+        setPreviewContent(
+          <Box sx={{ textAlign: "center", p: 4 }}>
+            <ZipIcon sx={{ fontSize: 60, color: "#795548" }} />
+            <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
+              {document.fileName}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Compressed file preview is not available. Please download to
+              extract contents.
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<DownloadIcon />}
+              onClick={() =>
+                handleDownload(document.documentId, document.fileName)
+              }
+            >
+              Download File
+            </Button>
+          </Box>
+        );
+      } else {
+        // For all other types, show download option
+        setPreviewContent(
+          <Box sx={{ textAlign: "center", p: 4 }}>
+            {getPreviewIcon(document.fileName)}
+            <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
+              {document.fileName}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Preview not available for this file type. Please download to view.
+            </Typography>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "center",
+                gap: 2,
+                flexWrap: "wrap",
+              }}
+            >
+              <Button
+                variant="contained"
+                startIcon={<DownloadIcon />}
+                onClick={() =>
+                  handleDownload(document.documentId, document.fileName)
+                }
+              >
+                Download
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<OpenInNewIcon />}
+                onClick={() => window.open(url, "_blank")}
+              >
+                Open in New Tab
+              </Button>
+            </Box>
+          </Box>
+        );
+      }
+    } catch (error) {
+      showErrorToast(`Preview failed: ${error.message}`);
+      setPreviewContent(
+        <Box sx={{ textAlign: "center", p: 4 }}>
+          <Typography color="error">
+            Failed to load preview. Please try downloading the file.
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<DownloadIcon />}
+            onClick={() =>
+              handleDownload(
+                previewDocument.documentId,
+                previewDocument.fileName
+              )
+            }
+            sx={{ mt: 2 }}
+          >
+            Download File
+          </Button>
+        </Box>
+      );
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   const handleDeleteClick = (documentId, fileName) => {
     setDocumentToDelete({ documentId, fileName });
     setDeleteConfirmOpen(true);
@@ -102,7 +483,7 @@ const Documents = ({ consultantId }) => {
 
   const handleDeleteConfirm = async () => {
     if (!documentToDelete) return;
-    
+
     try {
       const res = await fetch(
         `https://mymulya.com/hotlist/deleteDocument/${documentToDelete.documentId}/${userId}`,
@@ -111,7 +492,9 @@ const Documents = ({ consultantId }) => {
 
       if (!res.ok) throw new Error("Failed to delete document");
 
-      showSuccessToast(`Document "${documentToDelete.documentId}" deleted successfully.`);
+      showSuccessToast(
+        `Document "${documentToDelete.fileName}" deleted successfully.`
+      );
 
       setDocuments((prev) =>
         prev.filter((doc) => doc.documentId !== documentToDelete.documentId)
@@ -131,22 +514,22 @@ const Documents = ({ consultantId }) => {
     }
 
     const formData = new FormData();
-    
+
     // Add resume files as a list
     resumeFiles.forEach((file, index) => {
-      // Optional file size limit (e.g., 5MB)
       if (file.size > 5 * 1024 * 1024) {
         showErrorToast(`Resume file "${file.name}" size should not exceed 5MB`);
         return;
       }
       formData.append("resumes", file);
     });
-    
+
     // Add document files as a list
     documentFiles.forEach((file, index) => {
-      // Optional file size limit (e.g., 5MB)
       if (file.size > 5 * 1024 * 1024) {
-        showErrorToast(`Document file "${file.name}" size should not exceed 5MB`);
+        showErrorToast(
+          `Document file "${file.name}" size should not exceed 5MB`
+        );
         return;
       }
       formData.append("documents", file);
@@ -161,7 +544,7 @@ const Documents = ({ consultantId }) => {
           body: formData,
         }
       );
-      
+
       if (!res.ok) throw new Error("Failed to upload documents");
 
       const result = await res.json();
@@ -183,20 +566,20 @@ const Documents = ({ consultantId }) => {
 
   const handleResumeFileChange = (event) => {
     const files = Array.from(event.target.files);
-    setResumeFiles(prev => [...prev, ...files]);
+    setResumeFiles((prev) => [...prev, ...files]);
   };
 
   const handleDocumentFileChange = (event) => {
     const files = Array.from(event.target.files);
-    setDocumentFiles(prev => [...prev, ...files]);
+    setDocumentFiles((prev) => [...prev, ...files]);
   };
 
   const removeResumeFile = (index) => {
-    setResumeFiles(prev => prev.filter((_, i) => i !== index));
+    setResumeFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const removeDocumentFile = (index) => {
-    setDocumentFiles(prev => prev.filter((_, i) => i !== index));
+    setDocumentFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const getFileIcon = (documentType) => {
@@ -222,6 +605,79 @@ const Documents = ({ consultantId }) => {
     return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + " " + sizes[i];
   };
 
+  const getFileType = (fileName) => {
+    if (!fileName) return "other";
+
+    const extension = fileName.split(".").pop().toLowerCase();
+
+    // PDF files
+    if (["pdf"].includes(extension)) return "pdf";
+
+    // Image files
+    if (
+      ["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg", "tiff"].includes(
+        extension
+      )
+    )
+      return "image";
+
+    // Text files
+    if (
+      ["txt", "csv", "json", "xml", "html", "htm", "css", "js", "log"].includes(
+        extension
+      )
+    )
+      return "text";
+
+    // Word documents
+    if (["doc", "docx"].includes(extension)) return "word";
+
+    // Excel files
+    if (["xls", "xlsx", "xlsm"].includes(extension)) return "excel";
+
+    // PowerPoint files
+    if (["ppt", "pptx"].includes(extension)) return "powerpoint";
+
+    // Audio files
+    if (["mp3", "wav", "ogg", "m4a", "flac"].includes(extension))
+      return "audio";
+
+    // Video files
+    if (["mp4", "webm", "ogg", "mov", "avi", "wmv"].includes(extension))
+      return "video";
+
+    // Compressed files
+    if (["zip", "rar", "7z", "tar", "gz"].includes(extension)) return "zip";
+
+    return "other";
+  };
+
+  const getPreviewIcon = (fileName) => {
+    const fileType = getFileType(fileName);
+    switch (fileType) {
+      case "pdf":
+        return <PdfIcon sx={{ fontSize: 40, color: "#f40f02" }} />;
+      case "word":
+        return <DocIcon sx={{ fontSize: 40, color: "#2953ac" }} />;
+      case "excel":
+        return <ExcelIcon sx={{ fontSize: 40, color: "#217346" }} />;
+      case "powerpoint":
+        return <PptIcon sx={{ fontSize: 40, color: "#d24726" }} />;
+      case "image":
+        return <ImageIcon sx={{ fontSize: 40, color: "#2ecc71" }} />;
+      case "audio":
+        return <AudioIcon sx={{ fontSize: 40, color: "#9c27b0" }} />;
+      case "video":
+        return <VideoIcon sx={{ fontSize: 40, color: "#f44336" }} />;
+      case "zip":
+        return <ZipIcon sx={{ fontSize: 40, color: "#795548" }} />;
+      case "text":
+        return <CodeIcon sx={{ fontSize: 40, color: "#333" }} />;
+      default:
+        return <FileIcon sx={{ fontSize: 40 }} />;
+    }
+  };
+
   // Upload modal actions
   const uploadModalActions = (
     <>
@@ -229,7 +685,9 @@ const Documents = ({ consultantId }) => {
       <Button
         onClick={handleUploadSubmit}
         variant="contained"
-        disabled={uploading || (resumeFiles.length === 0 && documentFiles.length === 0)}
+        disabled={
+          uploading || (resumeFiles.length === 0 && documentFiles.length === 0)
+        }
       >
         {uploading ? "Uploading..." : "Upload"}
       </Button>
@@ -304,16 +762,30 @@ const Documents = ({ consultantId }) => {
                         px: 3,
                         "&:hover": {
                           bgcolor: "action.hover",
+                          cursor: "pointer",
                         },
                       }}
+                      onClick={() => handlePreview(doc)}
                       secondaryAction={
                         <Stack direction="row" spacing={1}>
                           <IconButton
                             edge="end"
+                            color="info"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handlePreview(doc);
+                            }}
+                            title="Preview Document"
+                          >
+                            <ViewIcon />
+                          </IconButton>
+                          <IconButton
+                            edge="end"
                             color="primary"
-                            onClick={() =>
-                              handleDownload(doc.documentId, doc.fileName)
-                            }
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDownload(doc.documentId, doc.fileName);
+                            }}
                             title="Download Document"
                           >
                             <DownloadIcon />
@@ -321,7 +793,10 @@ const Documents = ({ consultantId }) => {
                           <IconButton
                             edge="end"
                             color="error"
-                            onClick={() => handleDeleteClick(doc.documentId, doc.fileName)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteClick(doc.documentId, doc.fileName);
+                            }}
                             title="Delete Document"
                           >
                             <DeleteIcon />
@@ -455,7 +930,7 @@ const Documents = ({ consultantId }) => {
                 accept=".pdf,.doc,.docx"
               />
             </Button>
-            
+
             {resumeFiles.length > 0 && (
               <Box>
                 <Typography variant="caption" color="text.secondary">
@@ -463,7 +938,7 @@ const Documents = ({ consultantId }) => {
                 </Typography>
                 <List dense>
                   {resumeFiles.map((file, index) => (
-                    <ListItem 
+                    <ListItem
                       key={index}
                       secondaryAction={
                         <IconButton
@@ -485,7 +960,7 @@ const Documents = ({ consultantId }) => {
               </Box>
             )}
           </Grid>
-          
+
           <Grid item xs={12} md={6}>
             <Typography variant="subtitle2" gutterBottom>
               Other Documents
@@ -506,7 +981,7 @@ const Documents = ({ consultantId }) => {
                 accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
               />
             </Button>
-            
+
             {documentFiles.length > 0 && (
               <Box>
                 <Typography variant="caption" color="text.secondary">
@@ -514,7 +989,7 @@ const Documents = ({ consultantId }) => {
                 </Typography>
                 <List dense>
                   {documentFiles.map((file, index) => (
-                    <ListItem 
+                    <ListItem
                       key={index}
                       secondaryAction={
                         <IconButton
@@ -545,12 +1020,86 @@ const Documents = ({ consultantId }) => {
         onClose={() => setDeleteConfirmOpen(false)}
         onConfirm={handleDeleteConfirm}
         title="Delete Document"
-        message={`Are you sure you want to delete "${documentToDelete?.fileName || 'this document'}"? This action cannot be undone.`}
+        message={`Are you sure you want to delete "${
+          documentToDelete?.fileName || "this document"
+        }"? This action cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
         type="error"
         loading={uploading}
       />
+
+      {/* Document Preview Dialog */}
+      <Dialog
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        maxWidth="lg"
+        fullWidth
+        fullScreen
+        TransitionComponent={Transition}
+      >
+        <AppBar position="sticky" elevation={1} color="default">
+          <Toolbar>
+            <Box sx={{ display: "flex", alignItems: "center", flexGrow: 1 }}>
+              {previewDocument && getPreviewIcon(previewDocument.fileName)}
+              <Box sx={{ ml: 2 }}>
+                <Typography variant="h6" noWrap>
+                  {previewDocument?.fileName}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  {previewDocument && formatFileSize(previewDocument.fileSize)}
+                </Typography>
+              </Box>
+            </Box>
+            <Button
+              startIcon={<DownloadIcon />}
+              onClick={() =>
+                handleDownload(
+                  previewDocument.documentId,
+                  previewDocument.fileName
+                )
+              }
+              sx={{ mr: 2 }}
+            >
+              Download
+            </Button>
+            <IconButton
+              edge="end"
+              color="inherit"
+              onClick={() => setPreviewOpen(false)}
+              aria-label="close"
+            >
+              <CloseIcon />
+            </IconButton>
+          </Toolbar>
+        </AppBar>
+        <DialogContent
+          sx={{
+            p: 0,
+            backgroundColor: "#f5f5f5",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            minHeight: "80vh",
+          }}
+        >
+          {previewLoading ? (
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                height: "100%",
+              }}
+            >
+              <CircularProgress />
+              <Typography sx={{ ml: 2 }}>Loading preview...</Typography>
+            </Box>
+          ) : (
+            previewContent
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
