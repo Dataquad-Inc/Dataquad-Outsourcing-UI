@@ -10,11 +10,13 @@ const hasPermission = (userRole, userId, row, action) => {
   }
 
   if (userRole === "TEAMLEAD") {
-    return row.teamleadId === userId;
+    // return row.teamleadId === userId;
+     return true;
   }
 
   if (userRole === "RECRUITER") {
-    return row.recruiterId === userId;
+    // return row.recruiterId === userId;
+     return true;
   }
 
   if (userRole === "SALESEXECUTIVE") {
