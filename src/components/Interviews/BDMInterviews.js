@@ -220,12 +220,7 @@ const BDMInterviews = () => {
     }
   };
 
-  const toggleRowExpansion = (interviewId) => {
-    setExpandedRows((prev) => ({
-      ...prev,
-      [interviewId]: !prev[interviewId],
-    }));
-  };
+
 
   const handleOpenFeedbackDialog = (interview) => {
     setFeedbackDialog({
@@ -282,107 +277,7 @@ const BDMInterviews = () => {
     }
   };
 
-  const renderExpandedContent = (row) => {
-    if (
-      (loading && !showCoordinatorView) ||
-      (coordinatorLoading && showCoordinatorView)
-    ) {
-      return (
-        <Box sx={{ p: 2 }}>
-          <CircularProgress size={24} sx={{ mr: 2 }} />
-          <Typography variant="body2">Loading details...</Typography>
-        </Box>
-      );
-    }
 
-    return (
-      <Box sx={{ p: 2, backgroundColor: "#f5f5f5" }}>
-        <Typography variant="h6" gutterBottom>
-          Interview Details
-        </Typography>
-        <Typography variant="body2" color="text.secondary" gutterBottom>
-          {row.notes || "No additional notes available."}
-        </Typography>
-
-        <Box sx={{ mt: 2 }}>
-          <Typography variant="subtitle1" gutterBottom>
-            Candidate Information
-          </Typography>
-          <Typography variant="body2">
-            Name: {row.candidateFullName || "-"}
-          </Typography>
-          <Typography variant="body2">
-            Email: {row.candidateEmailId || "-"}
-          </Typography>
-          {!showCoordinatorView && (
-            <Typography variant="body2">
-              Contact: {row.candidateContactNo || "-"}
-            </Typography>
-          )}
-        </Box>
-
-        <Box sx={{ mt: 2 }}>
-          <Typography variant="subtitle1" gutterBottom>
-            {showCoordinatorView ? "Interview Details" : "Schedule Details"}
-          </Typography>
-          <Typography variant="body2">
-            Interview Date & Time:{" "}
-            {formatDateTime(row.interviewDateTime) || "-"}
-          </Typography>
-          {!showCoordinatorView && (
-            <Typography variant="body2">
-              Duration: {row.duration || "-"}
-            </Typography>
-          )}
-          <Typography variant="body2">
-            Level: {row.interviewLevel || "-"}
-          </Typography>
-          <Typography variant="body2">
-            Status: {row.latestInterviewStatus || "-"}
-          </Typography>
-        </Box>
-
-        {!showCoordinatorView && (
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="subtitle1" gutterBottom>
-              Job Information
-            </Typography>
-            <Typography variant="body2">Job ID: {row.jobId || "-"}</Typography>
-            <Typography variant="body2">
-              Client: {row.clientName || "-"}
-            </Typography>
-            <Typography variant="body2">
-              Scheduled By: {row.userEmail || "-"}
-            </Typography>
-          </Box>
-        )}
-
-        <Box sx={{ mt: 2, display: "flex", gap: 1 }}>
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<EditIcon fontSize="small" />}
-            onClick={() => handleEdit(row)}
-            sx={{ mr: 1 }}
-          >
-            Edit Interview
-          </Button>
-
-          {!showCoordinatorView && (
-            <Button
-              variant="outlined"
-              size="small"
-              color="error"
-              startIcon={<DeleteIcon fontSize="small" />}
-              onClick={() => handleDelete(row)}
-            >
-              Delete Interview
-            </Button>
-          )}
-        </Box>
-      </Box>
-    );
-  };
 
   const getColumns = () => {
     const baseColumns = [
@@ -533,15 +428,7 @@ const BDMInterviews = () => {
 
     return (
       <Box sx={{ display: "flex", gap: 1 }}>
-        <Tooltip title="View Details">
-          <IconButton
-            size="small"
-            color="primary"
-            onClick={() => toggleRowExpansion(row.interviewId)}
-          >
-            <VisibilityIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+       
 
         <IconButton
           onClick={() => handleEdit(row)}
@@ -607,8 +494,7 @@ const BDMInterviews = () => {
       ? []
       : getDisplayData().map((row) => ({
           ...row,
-          expandContent: renderExpandedContent(row),
-          isExpanded: expandedRows[row.interviewId],
+        
         }));
 
   return (
@@ -760,9 +646,7 @@ const BDMInterviews = () => {
               rowHover: "#f5f5f5",
               selectedRow: "#e3f2fd",
             }}
-            uniqueId="interviewId"
-            enableRowExpansion={true}
-            onRowExpandToggle={toggleRowExpansion}
+           
           />
 
           <Drawer
