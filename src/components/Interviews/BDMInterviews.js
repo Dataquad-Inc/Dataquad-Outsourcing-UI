@@ -15,7 +15,7 @@ import {
   Drawer,
   ToggleButtonGroup,
   ToggleButton,
-  TextField
+  TextField,
 } from "@mui/material";
 import {
   Edit as EditIcon,
@@ -35,7 +35,6 @@ import DateRangeFilter from "../muiComponents/DateRangeFilter";
 import { getStatusChip, getInterviewLevelChip } from "../../utils/statusUtils";
 import ConfirmDialog from "../muiComponents/ConfirmDialog";
 import EditInterviewForm from "./EditInterviewForm";
-import ReusableExpandedContent from "../muiComponents/ReusableExpandedContent";
 import InternalFeedbackCell from "./FeedBack";
 import DownloadResume from "../../utils/DownloadResume";
 import MoveToBench from "./MoveToBench";
@@ -45,7 +44,8 @@ const processInterviewData = (interviews) => {
   if (!Array.isArray(interviews)) return [];
   return interviews.map((interview) => ({
     ...interview,
-    interviewId: interview.interviewId || `${interview.candidateId}_${interview.jobId}`,
+    interviewId:
+      interview.interviewId || `${interview.candidateId}_${interview.jobId}`,
     interviewStatus: interview.latestInterviewStatus,
   }));
 };
@@ -126,8 +126,10 @@ const BDMInterviews = () => {
   const filterInterviewsByLevel = (interviews) => {
     if (levelFilter === "ALL") return interviews;
     return interviews.filter((interview) => {
-      if (levelFilter === "INTERNAL") return interview.interviewLevel === "INTERNAL";
-      if (levelFilter === "EXTERNAL") return interview.interviewLevel !== "INTERNAL";
+      if (levelFilter === "INTERNAL")
+        return interview.interviewLevel === "INTERNAL";
+      if (levelFilter === "EXTERNAL")
+        return interview.interviewLevel !== "INTERNAL";
       if (levelFilter === "L1") return interview.interviewLevel === "L1";
       if (levelFilter === "L2") return interview.interviewLevel === "L2";
       if (levelFilter === "L3") return interview.interviewLevel === "L3";
@@ -149,29 +151,29 @@ const BDMInterviews = () => {
     navigate(`/dashboard/requirements/job-details/${jobId}`);
   };
 
- const handleEdit = (row, isReschedule = false, isScheduleJoining = false) => {
-  let formType;
-  
-  if (isScheduleJoining) {
-    formType = "schedule";
-  } else if (isReschedule) {
-    formType = "reschedule"; 
-  } else {
-    formType = "edit";
-  }
+  const handleEdit = (row, isReschedule = false, isScheduleJoining = false) => {
+    let formType;
 
-  setEditDrawer({
-    open: true,
-    data: { 
-      ...row, 
-      formType, // This is now explicitly set
-      isReschedule,
-      isScheduleJoining,
-      fromView: showCoordinatorView ? "coordinator" : "recruiter",
-      isCoordinatorView: showCoordinatorView 
-    },
-  });
-};
+    if (isScheduleJoining) {
+      formType = "schedule";
+    } else if (isReschedule) {
+      formType = "reschedule";
+    } else {
+      formType = "edit";
+    }
+
+    setEditDrawer({
+      open: true,
+      data: {
+        ...row,
+        formType, // This is now explicitly set
+        isReschedule,
+        isScheduleJoining,
+        fromView: showCoordinatorView ? "coordinator" : "recruiter",
+        isCoordinatorView: showCoordinatorView,
+      },
+    });
+  };
 
   const handleCloseEditDrawer = () => {
     setEditDrawer({ open: false, data: null });
@@ -280,112 +282,6 @@ const BDMInterviews = () => {
     }
   };
 
-  const getExpandedContentConfig = (row) => {
-    if (showCoordinatorView) {
-      return {
-        title: "Interview Details",
-        description: {
-          key: "notes",
-          fallback: "No additional notes available.",
-        },
-        backgroundColor: "#f5f5f5",
-        sections: [
-          {
-            title: "Candidate Information",
-            fields: [
-              { label: "Name", key: "candidateFullName", fallback: "-" },
-              { label: "Email", key: "candidateEmailId", fallback: "-" },
-            ],
-          },
-          {
-            title: "Interview Details",
-            fields: [
-              {
-                label: "Interview Date & Time",
-                key: "interviewDateTime",
-                fallback: "-",
-                format: (value) => formatDateTime(value),
-              },
-              { label: "Level", key: "interviewLevel", fallback: "-" },
-              { label: "Status", key: "latestInterviewStatus", fallback: "-" },
-            ],
-          },
-        ],
-        actions: [
-          {
-          label: "Edit Interview",
-          icon: <EditIcon fontSize="small" />,
-          onClick: (row) => handleEdit(row),
-          variant: "outlined",
-          size: "small",
-          color: "primary",
-          sx: { mr: 1 },
-        },
-        ],
-      };
-    }
-
-    return {
-      title: "Interview Details",
-      description: {
-        key: "notes",
-        fallback: "No additional notes available.",
-      },
-      backgroundColor: "#f5f5f5",
-      sections: [
-        {
-          title: "Candidate Information",
-          fields: [
-            { label: "Name", key: "candidateFullName", fallback: "-" },
-            { label: "Email", key: "candidateEmailId", fallback: "-" },
-            { label: "Contact", key: "candidateContactNo", fallback: "-" },
-          ],
-        },
-        {
-          title: "Schedule Details",
-          fields: [
-            {
-              label: "Interview Date & Time",
-              key: "interviewDateTime",
-              fallback: "-",
-              format: (value) => formatDateTime(value),
-            },
-            { label: "Duration", key: "duration", fallback: "-" },
-            { label: "Level", key: "interviewLevel", fallback: "-" },
-            { label: "Status", key: "latestInterviewStatus", fallback: "-" },
-          ],
-        },
-        {
-          title: "Job Information",
-          fields: [
-            { label: "Job ID", key: "jobId", fallback: "-" },
-            { label: "Client", key: "clientName", fallback: "-" },
-            { label: "Scheduled By", key: "userEmail", fallback: "-" },
-          ],
-        },
-      ],
-      actions: [
-        {
-          label: "Edit Interview",
-          icon: <EditIcon fontSize="small" />,
-          onClick: (row) => handleEdit(row),
-          variant: "outlined",
-          size: "small",
-          color: "primary",
-          sx: { mr: 1 },
-        },
-        {
-          label: "Delete Interview",
-          icon: <DeleteIcon fontSize="small" />,
-          onClick: (row) => handleDelete(row),
-          variant: "outlined",
-          size: "small",
-          color: "error",
-        },
-      ],
-    };
-  };
-
   const renderExpandedContent = (row) => {
     if (
       (loading && !showCoordinatorView) ||
@@ -398,7 +294,94 @@ const BDMInterviews = () => {
         </Box>
       );
     }
-    return <ReusableExpandedContent row={row} config={getExpandedContentConfig(row)} />;
+
+    return (
+      <Box sx={{ p: 2, backgroundColor: "#f5f5f5" }}>
+        <Typography variant="h6" gutterBottom>
+          Interview Details
+        </Typography>
+        <Typography variant="body2" color="text.secondary" gutterBottom>
+          {row.notes || "No additional notes available."}
+        </Typography>
+
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="subtitle1" gutterBottom>
+            Candidate Information
+          </Typography>
+          <Typography variant="body2">
+            Name: {row.candidateFullName || "-"}
+          </Typography>
+          <Typography variant="body2">
+            Email: {row.candidateEmailId || "-"}
+          </Typography>
+          {!showCoordinatorView && (
+            <Typography variant="body2">
+              Contact: {row.candidateContactNo || "-"}
+            </Typography>
+          )}
+        </Box>
+
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="subtitle1" gutterBottom>
+            {showCoordinatorView ? "Interview Details" : "Schedule Details"}
+          </Typography>
+          <Typography variant="body2">
+            Interview Date & Time:{" "}
+            {formatDateTime(row.interviewDateTime) || "-"}
+          </Typography>
+          {!showCoordinatorView && (
+            <Typography variant="body2">
+              Duration: {row.duration || "-"}
+            </Typography>
+          )}
+          <Typography variant="body2">
+            Level: {row.interviewLevel || "-"}
+          </Typography>
+          <Typography variant="body2">
+            Status: {row.latestInterviewStatus || "-"}
+          </Typography>
+        </Box>
+
+        {!showCoordinatorView && (
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle1" gutterBottom>
+              Job Information
+            </Typography>
+            <Typography variant="body2">Job ID: {row.jobId || "-"}</Typography>
+            <Typography variant="body2">
+              Client: {row.clientName || "-"}
+            </Typography>
+            <Typography variant="body2">
+              Scheduled By: {row.userEmail || "-"}
+            </Typography>
+          </Box>
+        )}
+
+        <Box sx={{ mt: 2, display: "flex", gap: 1 }}>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<EditIcon fontSize="small" />}
+            onClick={() => handleEdit(row)}
+            sx={{ mr: 1 }}
+          >
+            Edit Interview
+          </Button>
+
+          {!showCoordinatorView && (
+            <Button
+              variant="outlined"
+              size="small"
+              color="error"
+              startIcon={<DeleteIcon fontSize="small" />}
+              onClick={() => handleDelete(row)}
+            >
+              Delete Interview
+            </Button>
+          )}
+        </Box>
+      </Box>
+    );
   };
 
   const getColumns = () => {
@@ -462,44 +445,18 @@ const BDMInterviews = () => {
         width: 140,
         render: (row) => getStatusChip(row.latestInterviewStatus, row),
       },
+
       {
-        key: "zoomLink",
-        label: "Meeting",
-        width: 120,
-        render: (row) =>
-          row.zoomLink ? (
-            <Button
-              size="small"
-              variant="outlined"
-              color="primary"
-              startIcon={<VideoCallIcon />}
-              href={row.zoomLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              sx={{ px: 1, py: 0.5 }}
-            >
-              Join
-            </Button>
-          ) : (
-            <Typography variant="body2" color="text.secondary">
-              No link
-            </Typography>
-          ),
+        key: "moveToBench",
+        label: "Move to Bench",
+        sortable: false,
+        filterable: false,
+        width: 130,
+        align: "center",
+        render: (row) => (
+          <MoveToBench row={row} onSuccess={handleBenchSuccess} />
+        ),
       },
-       {
-              key: "moveToBench",
-              label: "Move to Bench",
-              sortable: false,
-              filterable: false,
-              width: 130,
-              align: "center",
-              render: (row) => (
-                <MoveToBench
-                  row={row}
-                  onSuccess={handleBenchSuccess}
-                />
-              ),
-        }
     ];
 
     if (showCoordinatorView) {
@@ -509,36 +466,36 @@ const BDMInterviews = () => {
         width: 120,
       });
 
-      baseColumns.push({
-        key: "comments",
-        label: "Recruiter Comments",
-        sortable: false,
-        filterable: false,
-        width: 160,
-        render: (row) => (
-          <InternalFeedbackCell
-            value={row.comments}
-            loading={coordinatorLoading}
-            isCoordinator={false}
-            candidateName={row.candidateFullName}
-            type="comments"
-          />
-        ),
-      },
-      {
-        key: "internalFeedback",
-        label: "Internal Feedback",
-        render: (row) => (
-          <InternalFeedbackCell
-            value={row.internalFeedback}
-            loading={loading}
-            // isCoordinator={true}
-            candidateName={row.candidateFullName}
-            type="feedback"
-          />
-        ),
-      }
-    );
+      baseColumns.push(
+        {
+          key: "comments",
+          label: "Recruiter Comments",
+          sortable: false,
+          filterable: false,
+          width: 160,
+          render: (row) => (
+            <InternalFeedbackCell
+              value={row.comments}
+              loading={coordinatorLoading}
+              isCoordinator={false}
+              candidateName={row.candidateFullName}
+              type="comments"
+            />
+          ),
+        },
+        {
+          key: "internalFeedback",
+          label: "Internal Feedback",
+          render: (row) => (
+            <InternalFeedbackCell
+              value={row.internalFeedback}
+              loading={loading}
+              candidateName={row.candidateFullName}
+              type="feedback"
+            />
+          ),
+        }
+      );
     } else {
       baseColumns.push({
         key: "internalFeedback",
@@ -547,7 +504,6 @@ const BDMInterviews = () => {
           <InternalFeedbackCell
             value={row.internalFeedback}
             loading={loading}
-            // isCoordinator={true}
             candidateName={row.candidateFullName}
           />
         ),
@@ -560,16 +516,18 @@ const BDMInterviews = () => {
   const getActionButtons = (row) => {
     const status = row.latestInterviewStatus?.toUpperCase();
     const showReschedule =
-      ["CANCELLED","NO_SHOW"].includes(status) &&
-      !showCoordinatorView;
+      ["CANCELLED", "NO_SHOW"].includes(status) && !showCoordinatorView;
 
     const getButtonText = () => {
       switch (status) {
-        case "SELECTED": return "Schedule Joining";
+        case "SELECTED":
+          return "Schedule Joining";
         case "CANCELLED":
         case "RESCHEDULED":
-        case "NO_SHOW": return "Reschedule";
-        default: return "Update";
+        case "NO_SHOW":
+          return "Reschedule";
+        default:
+          return "Update";
       }
     };
 
@@ -585,20 +543,21 @@ const BDMInterviews = () => {
           </IconButton>
         </Tooltip>
 
-         <IconButton
-              onClick={() => handleEdit(row)}
-              color="primary"
-              size="small"
-              title="Edit Interview"
-            >
-              <EditIcon fontSize="small" />
-            </IconButton>
+        <IconButton
+          onClick={() => handleEdit(row)}
+          color="primary"
+          size="small"
+          title="Edit Interview"
+        >
+          <EditIcon fontSize="small" />
+        </IconButton>
 
-            <DownloadResume 
-                        candidate={{ ...row, jobId: row.jobId }}
-                        getDownloadUrl={(candidate, format) =>
-                          `${API_BASE_URL}/candidate/download-resume/${candidate.candidateId}/${candidate.jobId}?format=${format}`}
-                      />
+        <DownloadResume
+          candidate={{ ...row, jobId: row.jobId }}
+          getDownloadUrl={(candidate, format) =>
+            `${API_BASE_URL}/candidate/download-resume/${candidate.candidateId}/${candidate.jobId}?format=${format}`
+          }
+        />
 
         {!showCoordinatorView && (
           <>
@@ -612,7 +571,6 @@ const BDMInterviews = () => {
             </IconButton>
           </>
         )}
-
 
         {showReschedule && (
           <Button
@@ -726,56 +684,68 @@ const BDMInterviews = () => {
               <DateRangeFilter component="InterviewsForRecruiter" />
             </Box>
           </Stack>
-    {!showCoordinatorView && (
-      <>
-          <Box sx={{ mb: 2, display: "flex", justifyContent: "start" }}>
-            <ToggleButtonGroup
-              value={levelFilter}
-              exclusive
-              onChange={handleLevelFilterChange}
-              aria-label="interview level filter"
-              sx={{
-                flexWrap: "wrap",
-                justifyContent: "center",
-                gap: 1,
-                "& .MuiToggleButton-root": {
-                  px: 2,
-                  py: 1,
-                  borderRadius: 1,
-                  border: "1px solid rgba(25, 118, 210, 0.5)",
-                  "&.Mui-selected": {
-                    backgroundColor: "#1976d2",
-                    color: "white",
-                    "&:hover": {
-                      backgroundColor: "#1565c0",
+          {!showCoordinatorView && (
+            <>
+              <Box sx={{ mb: 2, display: "flex", justifyContent: "start" }}>
+                <ToggleButtonGroup
+                  value={levelFilter}
+                  exclusive
+                  onChange={handleLevelFilterChange}
+                  aria-label="interview level filter"
+                  sx={{
+                    flexWrap: "wrap",
+                    justifyContent: "center",
+                    gap: 1,
+                    "& .MuiToggleButton-root": {
+                      px: 2,
+                      py: 1,
+                      borderRadius: 1,
+                      border: "1px solid rgba(25, 118, 210, 0.5)",
+                      "&.Mui-selected": {
+                        backgroundColor: "#1976d2",
+                        color: "white",
+                        "&:hover": {
+                          backgroundColor: "#1565c0",
+                        },
+                      },
+                      "&:hover": {
+                        backgroundColor: "rgba(25, 118, 210, 0.08)",
+                      },
                     },
-                  },
-                  "&:hover": {
-                    backgroundColor: "rgba(25, 118, 210, 0.08)",
-                  },
-                },
-              }}
-            >
-              <ToggleButton value="ALL" aria-label="all interviews">
-                ALL
-              </ToggleButton>
-              <ToggleButton value="INTERNAL" aria-label="internal interviews">
-                INTERNAL
-              </ToggleButton>
-              <ToggleButton value="EXTERNAL" aria-label="external interviews">
-                EXTERNAL
-              </ToggleButton>
-            </ToggleButtonGroup>
-          </Box>
-          </>
-          ) 
-          }
+                  }}
+                >
+                  <ToggleButton value="ALL" aria-label="all interviews">
+                    ALL
+                  </ToggleButton>
+                  <ToggleButton
+                    value="INTERNAL"
+                    aria-label="internal interviews"
+                  >
+                    INTERNAL
+                  </ToggleButton>
+                  <ToggleButton
+                    value="EXTERNAL"
+                    aria-label="external interviews"
+                  >
+                    EXTERNAL
+                  </ToggleButton>
+                </ToggleButtonGroup>
+              </Box>
+            </>
+          )}
 
           <DataTable
             data={processedData || []}
             columns={columns}
-            title={ showCoordinatorView ? "Coordinator Interviews" : levelFilter === "INTERNAL" ? "Internal Interviews" : levelFilter === "EXTERNAL" 
-              ? "External Interviews" : "Interviews"}
+            title={
+              showCoordinatorView
+                ? "Coordinator Interviews"
+                : levelFilter === "INTERNAL"
+                ? "Internal Interviews"
+                : levelFilter === "EXTERNAL"
+                ? "External Interviews"
+                : "Interviews"
+            }
             enableSelection={false}
             defaultSortColumn="interviewDateTime"
             defaultSortDirection="desc"
@@ -794,7 +764,7 @@ const BDMInterviews = () => {
             enableRowExpansion={true}
             onRowExpandToggle={toggleRowExpansion}
           />
- 
+
           <Drawer
             anchor="right"
             open={editDrawer.open}
@@ -804,13 +774,13 @@ const BDMInterviews = () => {
             }}
           >
             {editDrawer.data && (
-               <InterviewFormWrapper
-                    formType={editDrawer.data.formType || "edit"} 
-                    data={editDrawer.data}
-                    onClose={handleCloseEditDrawer}
-                    onSuccess={handleInterviewUpdated}
-                    showCoordinatorView={showCoordinatorView}
-                />
+              <InterviewFormWrapper
+                formType={editDrawer.data.formType || "edit"}
+                data={editDrawer.data}
+                onClose={handleCloseEditDrawer}
+                onSuccess={handleInterviewUpdated}
+                showCoordinatorView={showCoordinatorView}
+              />
             )}
           </Drawer>
 
