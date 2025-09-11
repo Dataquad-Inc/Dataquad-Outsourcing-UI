@@ -792,7 +792,7 @@ const AllInterviews = () => {
               rowHover: "#f5f5f5",
               selectedRow: "#e3f2fd",
             }}
-            uniqueId="interviewId"
+           
           />
 
           <Drawer

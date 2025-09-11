@@ -328,12 +328,7 @@ const handleEdit = (row, isReschedule = false, isScheduleJoining = false) => {
     }
   };
 
-  const toggleRowExpansion = (interviewId) => {
-    setExpandedRows((prev) => ({
-      ...prev,
-      [interviewId]: !prev[interviewId],
-    }));
-  };
+
 
   const handleCoordinatorViewToggle = () => {
     setShowCoordinatorView(!showCoordinatorView);
@@ -508,15 +503,7 @@ const handleEdit = (row, isReschedule = false, isScheduleJoining = false) => {
 
     return (
       <Box sx={{ display: "flex", gap: 1 }}>
-        <Tooltip title="View Details">
-          <IconButton
-            size="small"
-            color="primary"
-            onClick={() => toggleRowExpansion(row.interviewId)}
-          >
-            <Visibility fontSize="small" />
-          </IconButton>
-        </Tooltip>
+       
 
         {/* Edit Button - always visible except in coordinator view */}
         {!showCoordinatorView && (
@@ -803,7 +790,7 @@ const handleEdit = (row, isReschedule = false, isScheduleJoining = false) => {
               rowHover: "#f5f5f5",
               selectedRow: "#e3f2fd",
             }}
-            uniqueId="interviewId"
+            
            
           />
 

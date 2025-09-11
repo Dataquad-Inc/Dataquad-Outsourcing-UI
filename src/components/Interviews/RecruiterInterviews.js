@@ -40,28 +40,32 @@ import ReusableExpandedContent from "../muiComponents/ReusableExpandedContent";
 import MoveToBench from "./MoveToBench";
 import DownloadResume from "../../utils/DownloadResume";
 import InternalFeedbackCell from "./FeedBack";
-import { clearFilteredData, clearRecruiterFilter } from "../../redux/interviewSlice"; // Import the action
+import {
+  clearFilteredData,
+  clearRecruiterFilter,
+} from "../../redux/interviewSlice"; // Import the action
 import InterviewFormWrapper from "./InterviewFormWrapper";
 
 const processInterviewData = (interviews) => {
   if (!Array.isArray(interviews)) return [];
   return interviews.map((interview) => ({
     ...interview,
-    interviewId: interview.interviewId || `${interview.candidateId}_${interview.jobId}`,
+    interviewId:
+      interview.interviewId || `${interview.candidateId}_${interview.jobId}`,
     interviewStatus: interview.latestInterviewStatus,
   }));
 };
 
 const RecruiterInterviews = () => {
   const dispatch = useDispatch();
-  const { userId,role } = useSelector((state) => state.auth);
-  const { 
-    isFilteredDataRequested, 
+  const { userId, role } = useSelector((state) => state.auth);
+  const {
+    isFilteredDataRequested,
     isRecruiterFilterActive,
     filterInterviewsForRecruiter,
-    loading: reduxLoading 
+    loading: reduxLoading,
   } = useSelector((state) => state.interview);
-  
+
   const [interviews, setInterviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -105,9 +109,13 @@ const RecruiterInterviews = () => {
     console.log("Filter state changed:", {
       isFilteredDataRequested,
       isRecruiterFilterActive,
-      filterInterviewsForRecruiter: filterInterviewsForRecruiter.length
+      filterInterviewsForRecruiter: filterInterviewsForRecruiter.length,
     });
-  }, [isFilteredDataRequested, isRecruiterFilterActive, filterInterviewsForRecruiter]);
+  }, [
+    isFilteredDataRequested,
+    isRecruiterFilterActive,
+    filterInterviewsForRecruiter,
+  ]);
 
   const handleBenchSuccess = (row) => {
     setInterviews((prevInterviews) =>
@@ -119,8 +127,10 @@ const RecruiterInterviews = () => {
     if (levelFilter === "ALL") return interviews;
 
     return interviews.filter((interview) => {
-      if (levelFilter === "INTERNAL") return interview.interviewLevel === "INTERNAL";
-      if (levelFilter === "EXTERNAL") return interview.interviewLevel !== "INTERNAL";
+      if (levelFilter === "INTERNAL")
+        return interview.interviewLevel === "INTERNAL";
+      if (levelFilter === "EXTERNAL")
+        return interview.interviewLevel !== "INTERNAL";
       if (levelFilter === "L1") return interview.interviewLevel === "L1";
       if (levelFilter === "L2") return interview.interviewLevel === "L2";
       if (levelFilter === "L3") return interview.interviewLevel === "L3";
@@ -136,25 +146,25 @@ const RecruiterInterviews = () => {
     navigate(`/dashboard/requirements/job-details/${jobId}`);
   };
 
-const handleEdit = (row, isReschedule = false, isScheduleJoining = false) => {
-  let formType = "edit"; // Default to edit
+  const handleEdit = (row, isReschedule = false, isScheduleJoining = false) => {
+    let formType = "edit"; // Default to edit
 
-  if (isReschedule) {
-    formType = "reschedule";
-  } else if (isScheduleJoining) {
-    formType = "schedule";
-  }
+    if (isReschedule) {
+      formType = "reschedule";
+    } else if (isScheduleJoining) {
+      formType = "schedule";
+    }
 
-  setEditDrawer({
-    open: true,
-    data: { 
-      ...row, 
-      formType,
-      isReschedule,
-      isScheduleJoining
-    },
-  });
-};
+    setEditDrawer({
+      open: true,
+      data: {
+        ...row,
+        formType,
+        isReschedule,
+        isScheduleJoining,
+      },
+    });
+  };
 
   const handleCloseEditDrawer = () => {
     setEditDrawer({ open: false, data: null });
@@ -192,17 +202,6 @@ const handleEdit = (row, isReschedule = false, isScheduleJoining = false) => {
       setConfirmDialog({ open: false, interview: null });
     }
   };
-
-  const toggleRowExpansion = (interviewId) => {
-    setExpandedRows((prev) => ({
-      ...prev,
-      [interviewId]: !prev[interviewId],
-    }));
-  };
-
- 
-
- 
 
   const columns = [
     {
@@ -281,30 +280,30 @@ const handleEdit = (row, isReschedule = false, isScheduleJoining = false) => {
             />
           ),
     },
-    {
-      key: "zoomLink",
-      label: "Meeting",
-      width: 120,
-      render: (row) =>
-        row.zoomLink ? (
-          <Button
-            size="small"
-            variant="outlined"
-            color="primary"
-            startIcon={<VideoCallIcon />}
-            href={row.zoomLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            sx={{ px: 1, py: 0.5 }}
-          >
-            Join
-          </Button>
-        ) : (
-          <Typography variant="body2" color="text.secondary">
-            No link
-          </Typography>
-        ),
-    },
+    // {
+    //   key: "zoomLink",
+    //   label: "Meeting",
+    //   width: 120,
+    //   render: (row) =>
+    //     row.zoomLink ? (
+    //       <Button
+    //         size="small"
+    //         variant="outlined"
+    //         color="primary"
+    //         startIcon={<VideoCallIcon />}
+    //         href={row.zoomLink}
+    //         target="_blank"
+    //         rel="noopener noreferrer"
+    //         sx={{ px: 1, py: 0.5 }}
+    //       >
+    //         Join
+    //       </Button>
+    //     ) : (
+    //       <Typography variant="body2" color="text.secondary">
+    //         No link
+    //       </Typography>
+    //     ),
+    // },
     {
       key: "internalFeedback",
       label: "Internal Feedback",
@@ -317,79 +316,69 @@ const handleEdit = (row, isReschedule = false, isScheduleJoining = false) => {
         />
       ),
     },
-{
-  key: "actions",
-  label: "Actions",
-  width: 200,
-  render: (row) => {
-    const status = row.latestInterviewStatus?.toUpperCase();
-    const showReschedule = ["CANCELLED","NO_SHOW"].includes(status);
-    const showScheduleJoining = status === "SELECTED";
+    {
+      key: "actions",
+      label: "Actions",
+      width: 200,
+      render: (row) => {
+        const status = row.latestInterviewStatus?.toUpperCase();
+        const showReschedule = ["CANCELLED", "NO_SHOW"].includes(status);
+        const showScheduleJoining = status === "SELECTED";
 
-    return (
-      <Box sx={{ display: "flex", gap: 1 }}>
-        <Tooltip title="View Details">
-          <IconButton
-            size="small"
-            color="primary"
-            onClick={() => toggleRowExpansion(row.interviewId)}
-          >
-            <VisibilityIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-        
-        {/* Regular Edit Button - always shows edit form */}
-        <IconButton
-          onClick={() => handleEdit(row)}
-          color="primary"
-          size="small"
-          title="Edit Interview"
-        >
-          <EditIcon fontSize="small" />
-        </IconButton>
-        
-        <IconButton
-          onClick={() => handleDelete(row)}
-          color="error"
-          size="small"
-          title="Delete Interview"
-        >
-          <DeleteIcon fontSize="small" />
-        </IconButton>
+        return (
+          <Box sx={{ display: "flex", gap: 1 }}>
+            {/* Regular Edit Button - always shows edit form */}
+            <IconButton
+              onClick={() => handleEdit(row)}
+              color="primary"
+              size="small"
+              title="Edit Interview"
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
 
-        <DownloadResume
-          candidate={row}
-          getDownloadUrl={(candidate, format) =>
-            `${API_BASE_URL}/candidate/download-resume/${candidate.candidateId}/${candidate.jobId}?format=${format}`
-          }
-        />
+            <IconButton
+              onClick={() => handleDelete(row)}
+              color="error"
+              size="small"
+              title="Delete Interview"
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
 
-        {/* Conditional Buttons */}
-        {showReschedule && (
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={() => handleEdit(row, true)}
-            sx={{ px: 1, py: 0.5 }}
-          >
-            Reschedule
-          </Button>
-        )}
-        
-        {showScheduleJoining && (
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={() => handleEdit(row, false, true)}
-            sx={{ px: 1, py: 0.5 }}
-          >
-            Schedule Joining
-          </Button>
-        )}
-      </Box>
-    );
-  },
-}
+            <DownloadResume
+              candidate={row}
+              getDownloadUrl={(candidate, format) =>
+                `${API_BASE_URL}/candidate/download-resume/${candidate.candidateId}/${candidate.jobId}?format=${format}`
+              }
+            />
+
+            {/* Conditional Buttons */}
+            {showReschedule && (
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => handleEdit(row, true)}
+                sx={{ px: 1, py: 0.5 }}
+              >
+                Reschedule
+              </Button>
+            )}
+
+            {showScheduleJoining && (
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => handleEdit(row, false, true)}
+                sx={{ px: 1, py: 0.5 }}
+              >
+                Schedule Joining
+              </Button>
+            )}
+          </Box>
+        );
+      },
+    },
   ];
 
   // Updated function to get display data with better logic
@@ -397,7 +386,10 @@ const handleEdit = (row, isReschedule = false, isScheduleJoining = false) => {
     if (isRecruiterFilterActive && filterInterviewsForRecruiter.length > 0) {
       // Use filtered data from Redux
       return processInterviewData(filterInterviewsForRecruiter);
-    } else if (isFilteredDataRequested && filterInterviewsForRecruiter.length === 0) {
+    } else if (
+      isFilteredDataRequested &&
+      filterInterviewsForRecruiter.length === 0
+    ) {
       // Filter was applied but no results
       return [];
     } else {
@@ -416,12 +408,12 @@ const handleEdit = (row, isReschedule = false, isScheduleJoining = false) => {
   const displayData = getDisplayData();
   const filteredData = filterInterviewsByLevel(displayData);
 
-  const processedData = (loading || reduxLoading)
-    ? []
-    : filteredData.map((row) => ({
-        ...row,
-      
-      }));
+  const processedData =
+    loading || reduxLoading
+      ? []
+      : filteredData.map((row) => ({
+          ...row,
+        }));
 
   return (
     <Box sx={{ p: 1 }}>
@@ -469,7 +461,6 @@ const handleEdit = (row, isReschedule = false, isScheduleJoining = false) => {
             </Box>
             <DateRangeFilter component="InterviewsForRecruiter" />
           </Stack>
-
 
           <Box sx={{ mb: 2, display: "flex", justifyContent: "start" }}>
             <ToggleButtonGroup
@@ -527,8 +518,6 @@ const handleEdit = (row, isReschedule = false, isScheduleJoining = false) => {
               rowHover: "#f5f5f5",
               selectedRow: "#e3f2fd",
             }}
-            uniqueId="interviewId"
-           
             loading={loading || reduxLoading}
           />
 
@@ -541,13 +530,13 @@ const handleEdit = (row, isReschedule = false, isScheduleJoining = false) => {
             }}
           >
             {editDrawer.data && (
-               <InterviewFormWrapper
+              <InterviewFormWrapper
                 formType={editDrawer.data.formType || "edit"} // Default to edit if not specified
                 data={editDrawer.data}
                 onClose={handleCloseEditDrawer}
                 onSuccess={handleInterviewUpdated}
                 //  showCoordinatorView={showCoordinatorView}
-               />
+              />
             )}
           </Drawer>
 
