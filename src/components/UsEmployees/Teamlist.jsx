@@ -4,15 +4,16 @@ import {
   Typography,
   LinearProgress,
   Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Paper,
   IconButton,
   Tooltip,
+  Chip,
+  Stack,
+  Grid,
+  Card,
+  CardContent,
+  CardHeader,
+  Divider,
 } from "@mui/material";
 import { Edit, Trash2 as Delete, Users as Group } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -53,13 +54,7 @@ const Teamlist = () => {
           mb: 3,
         }}
       >
-        <Typography
-          variant="h4"
-          fontWeight="bold"
-          sx={{
-            color:"primary"
-          }}
-        >
+        <Typography variant="h4" fontWeight="bold" color="primary">
           Teams
         </Typography>
       </Box>
@@ -71,68 +66,122 @@ const Teamlist = () => {
       )}
 
       {teams.length > 0 ? (
-        <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
-          <Table>
-            <TableHead sx={{ backgroundColor: theme.palette.grey[200] }}>
-              <TableRow>
-                <TableCell sx={{ fontWeight: "bold" }}>#</TableCell>
-                <TableCell sx={{ fontWeight: "bold" }}>Team Name</TableCell>
-                <TableCell sx={{ fontWeight: "bold" }}>Team Lead</TableCell>
-                <TableCell sx={{ fontWeight: "bold" }}>Recruiters</TableCell>
-                <TableCell sx={{ fontWeight: "bold" }}>
-                  Sales Executives
-                </TableCell>
-                <TableCell sx={{ fontWeight: "bold" }}>Members Count</TableCell>
-                <TableCell align="right" sx={{ fontWeight: "bold" }}>
-                  Actions
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {teams.map((team, index) => {
-                const recruiters =
-                  team.recruiters?.map((r) => r.userName).join(", ") || "None";
-                const salesExecs =
-                  team.salesExecutives?.map((s) => s.userName).join(", ") ||
-                  "None";
-                const membersCount =
-                  (team.recruiters?.length || 0) +
-                  (team.salesExecutives?.length || 0);
+        <Grid container spacing={3}>
+          {teams.map((team, index) => {
+            const recruiters = team.recruiters || [];
+            const salesExecs = team.salesExecutives || [];
+            const membersCount = recruiters.length + salesExecs.length;
 
-                return (
-                  <TableRow key={index} hover>
-                    <TableCell>{index + 1}</TableCell>
-                    <TableCell>{team.teamName || "Unnamed Team"}</TableCell>
-                    <TableCell>{team.teamLeadName || "Not Assigned"}</TableCell>
-                    <TableCell>{recruiters}</TableCell>
-                    <TableCell>{salesExecs}</TableCell>
-                    <TableCell>{membersCount}</TableCell>
-                    <TableCell align="right">
-                      <Tooltip title="Edit Team">
-                        <IconButton
-                          size="small"
-                          color="primary"
-                          onClick={() =>
-                            navigate("/dashboard/us-employees/editteam", {
-                              state: { team },
-                            })
-                          }
-                        >
-                          <Edit size={18} />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Delete Team">
-                        <IconButton size="small" color="error">
-                          <Delete size={18} />
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
+            return (
+              <Grid item xs={12} sm={6} md={4} key={index}>
+                <Card
+                  sx={{
+                    borderRadius: 3,
+                    boxShadow: 3,
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
+                >
+                  <CardHeader
+                    title={team.teamName || "Unnamed Team"}
+                    subheader={`Team Lead: ${
+                      team.teamLeadName || "Not Assigned"
+                    }`}
+                    action={
+                      <Stack direction="row" spacing={1}>
+                        <Tooltip title="Edit Team">
+                          <IconButton
+                            size="small"
+                            color="primary"
+                            onClick={() =>
+                              navigate("/dashboard/us-employees/editteam", {
+                                state: { team },
+                              })
+                            }
+                          >
+                            <Edit size={18} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete Team">
+                          <IconButton size="small" color="error">
+                            <Delete size={18} />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    }
+                  />
+                  <Divider />
+                  <CardContent sx={{ flexGrow: 1 }}>
+                    {/* Recruiters */}
+                    <Typography
+                      variant="subtitle2"
+                      fontWeight="bold"
+                      gutterBottom
+                    >
+                      Recruiters
+                    </Typography>
+                    {recruiters.length > 0 ? (
+                      <Stack direction="row" spacing={1} flexWrap="wrap" mb={2}>
+                        {recruiters.map((r, i) => (
+                          <Chip
+                            key={i}
+                            label={r.userName}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                          />
+                        ))}
+                      </Stack>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary" mb={2}>
+                        None
+                      </Typography>
+                    )}
+
+                    {/* Sales Executives */}
+                    <Typography
+                      variant="subtitle2"
+                      fontWeight="bold"
+                      gutterBottom
+                    >
+                      Sales Executives
+                    </Typography>
+                    {salesExecs.length > 0 ? (
+                      <Stack direction="row" spacing={1} flexWrap="wrap" mb={2}>
+                        {salesExecs.map((s, i) => (
+                          <Chip
+                            key={i}
+                            label={s.userName}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                          />
+                        ))}
+                      </Stack>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary" mb={2}>
+                        None
+                      </Typography>
+                    )}
+
+                    {/* Members Count */}
+                    <Typography
+                      variant="subtitle2"
+                      fontWeight="bold"
+                      gutterBottom
+                    >
+                      Members Count
+                    </Typography>
+                    <Typography variant="body2" color="text.primary">
+                      {membersCount}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            );
+          })}
+        </Grid>
       ) : (
         !loading && (
           <Box

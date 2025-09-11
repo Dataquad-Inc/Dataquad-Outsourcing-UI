@@ -517,7 +517,7 @@ const Documents = ({ consultantId }) => {
 
     // Add resume files as a list
     resumeFiles.forEach((file, index) => {
-      if (file.size > 5 * 1024 * 1024) {
+      if (file.size > 30 * 1024 * 1024) {
         showErrorToast(`Resume file "${file.name}" size should not exceed 5MB`);
         return;
       }
@@ -526,7 +526,7 @@ const Documents = ({ consultantId }) => {
 
     // Add document files as a list
     documentFiles.forEach((file, index) => {
-      if (file.size > 5 * 1024 * 1024) {
+      if (file.size > 30 * 1024 * 1024) {
         showErrorToast(
           `Document file "${file.name}" size should not exceed 5MB`
         );
