@@ -215,7 +215,7 @@ const handleMoveToBench = async (e) => {
       <Button
         variant="outlined"
         size="small"
-        color="secondary"
+        color="primary"
         onClick={handleOpen}
         disabled={isLoading}
         sx={{

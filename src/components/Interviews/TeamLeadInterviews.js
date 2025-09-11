@@ -342,96 +342,9 @@ const handleEdit = (row, isReschedule = false, isScheduleJoining = false) => {
     }
   };
 
-  const getExpandedContentConfig = (isCoordinator = false) => {
-    return {
-      title: "Interview Details",
-      description: {
-        key: "notes",
-        fallback: "No additional notes available.",
-      },
-      backgroundColor: "#f5f5f5",
-      sections: [
-        {
-          title: "Candidate Information",
-          fields: [
-            { label: "Name", key: "candidateFullName", fallback: "-" },
-            { label: "Email", key: "candidateEmailId", fallback: "-" },
-            { label: "Contact", key: "candidateContactNo", fallback: "-" },
-          ],
-        },
-        {
-          title: "Schedule Details",
-          fields: [
-            {
-              label: "Interview Date & Time",
-              key: "interviewDateTime",
-              fallback: "-",
-              format: (value) => formatDateTime(value),
-            },
-            { label: "Duration", key: "duration", fallback: "-" },
-            { label: "Level", key: "interviewLevel", fallback: "-" },
-            { label: "Status", key: "latestInterviewStatus", fallback: "-" },
-          ],
-        },
-        {
-          title: "Job Information",
-          fields: [
-            { label: "Job ID", key: "jobId", fallback: "-" },
-            { label: "Client", key: "clientName", fallback: "-" },
-            { label: "Scheduled By", key: "userEmail", fallback: "-" },
-          ],
-        },
-      ],
-      actions: isCoordinator
-        ? [
-             {
-              label: "Edit Interview",
-              icon: <EditIcon fontSize="small" />,
-              onClick: (row) => handleEdit(row),
-              variant: "outlined",
-              size: "small",
-              color: "primary",
-              sx: { mr: 1 },
-            }
-          ]
-        : [
-            {
-              label: "Edit Interview",
-              icon: <EditIcon fontSize="small" />,
-              onClick: (row) => handleEdit(row),
-              variant: "outlined",
-              size: "small",
-              color: "primary",
-              sx: { mr: 1 },
-            },
-            {
-              label: "Delete Interview",
-              icon: <DeleteIcon fontSize="small" />,
-              onClick: (row) => handleDelete(row),
-              variant: "outlined",
-              size: "small",
-              color: "error",
-            },
-          ],
-    };
-  };
+ 
 
-  const renderExpandedContent = (row) => {
-    if (loading || coordinatorLoading) {
-      return (
-        <Box sx={{ p: 2 }}>
-          <CircularProgress size={24} sx={{ mr: 2 }} />
-          <Typography variant="body2">Loading details...</Typography>
-        </Box>
-      );
-    }
-    return (
-      <ReusableExpandedContent 
-        row={row} 
-        config={getExpandedContentConfig(showCoordinatorView)} 
-      />
-    );
-  };
+  
 
   const getTableColumns = () => {
     const baseColumns = [
@@ -697,8 +610,7 @@ const handleEdit = (row, isReschedule = false, isScheduleJoining = false) => {
   const mapDataWithExpandedContent = (data) => {
     return data.map((row) => ({
       ...row,
-      expandContent: renderExpandedContent,
-      isExpanded: expandedRows[row.interviewId],
+
     }));
   };
 
@@ -892,8 +804,7 @@ const handleEdit = (row, isReschedule = false, isScheduleJoining = false) => {
               selectedRow: "#e3f2fd",
             }}
             uniqueId="interviewId"
-            enableRowExpansion={true}
-            onRowExpandToggle={toggleRowExpansion}
+           
           />
 
           <Drawer

@@ -69,6 +69,7 @@ const YetToOnboard = lazy(() =>
   import("../components/YetToOnboard/YetToOnboard")
 );
 const UsEmployees = lazy(() => import("../components/UsEmployees/UsEmployees"));
+const EditTeam = lazy(() => import("../components/UsEmployees/EditTeam"));
 const CreateTeam = lazy(() => import("../components/UsEmployees/CreateTeam"));
 const Teamlist = lazy(() => import("../components/UsEmployees/Teamlist"));
 const OnBoardNewEmployee = lazy(() =>
@@ -639,6 +640,10 @@ const routeConfig = [
                   {
                     path: "teamlist", // /dashboard/us-employees/teamlist
                     element: Loadable(Teamlist),
+                  },
+                  {
+                    path: "editteam", // /dashboard/us-employees/teamlist
+                    element: Loadable(EditTeam),
                   },
                 ],
               },

@@ -5,8 +5,8 @@ import { AccessTime } from "@mui/icons-material";
 import { TextField } from "@mui/material";
 import { validateIfPlaced } from "./validatePlacedUtil";
 
-import { CheckCircle as SuccessIcon } from '@mui/icons-material';
-import { Link } from 'react-router-dom';
+import { CheckCircle as SuccessIcon } from "@mui/icons-material";
+import { Link } from "react-router-dom";
 
 export const getStatusColor = (status) => {
   const normalized = status?.trim().toUpperCase();
@@ -18,7 +18,7 @@ export const getStatusColor = (status) => {
     PLACED: { bg: "#F3E8FF", text: "#7E22CE" },
     SELECTED: { bg: "#E0F2F1", text: "#00695C" },
     REJECTED: { bg: "#FFEBEE", text: "#D32F2F" },
-    FEEDBACK_PENDING: { bg: "#FFFDE7", text: "#F9A825" } // <-- Added this line
+    FEEDBACK_PENDING: { bg: "#FFFDE7", text: "#F9A825" }, // <-- Added this line
   };
 
   return statusColors[normalized] || { bg: "#F3F4F6", text: "#374151" };
@@ -60,23 +60,7 @@ export const getStatusChip = (status, row, dispatch) => {
   if (canAddToPlacement) {
     // If placed and not moved to placement, show the Add to Placement button
     return (
-      <Button
-        variant="text"
-        onClick={() => validateIfPlaced(status, row, dispatch)}
-        sx={{
-          color: '#1B56FD',
-          textDecoration: "underline",
-          fontWeight: "normal",
-          fontSize: "0.75rem",
-          padding: "4px 8px",
-          minWidth: "auto",
-          textTransform: "none",
-          '&:hover': {
-            backgroundColor: 'transparent',
-            textDecoration: "underline",
-          }
-        }}
-      >
+      <Button variant="contained" onClick={() => validateIfPlaced(status, row, dispatch)}>
         Add to Placement
       </Button>
     );
@@ -193,8 +177,12 @@ export const generateMobileNumberChip = (value) => {
     if (!value) return value;
     const phoneNumber = value.replace(/\D/g, "");
     if (phoneNumber.length < 4) return phoneNumber;
-    if (phoneNumber.length < 7) return `${phoneNumber.slice(0, 3)} ${phoneNumber.slice(3)}`;
-    return `${phoneNumber.slice(0, 3)} ${phoneNumber.slice(3, 6)} ${phoneNumber.slice(6, 10)}`;
+    if (phoneNumber.length < 7)
+      return `${phoneNumber.slice(0, 3)} ${phoneNumber.slice(3)}`;
+    return `${phoneNumber.slice(0, 3)} ${phoneNumber.slice(
+      3,
+      6
+    )} ${phoneNumber.slice(6, 10)}`;
   };
 
   return (

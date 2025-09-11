@@ -1,34 +1,34 @@
 import React, { useState, useEffect } from "react";
 import {
   Box,
-  Card,
-  CardContent,
   Typography,
-  Chip,
+  LinearProgress,
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
   IconButton,
   Tooltip,
-  Grid,
-  Divider,
 } from "@mui/material";
-import {
-  Edit,
-  Trash2 as Delete,
-  Users as Group,
-  User as People,
-  UserCog as SupervisorAccount,
-} from "lucide-react";
+import { Edit, Trash2 as Delete, Users as Group } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useTheme } from "@mui/material/styles";
 
 const Teamlist = () => {
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(false);
+  const theme = useTheme();
+  const navigate = useNavigate();
 
   // Fetch Teams
   const fetchTeams = async () => {
     setLoading(true);
     try {
-      const res = await fetch(
-        "https://mymulya.com/users/AllAssociatedUsers"
-      );
+      const res = await fetch("https://mymulya.com/users/AllAssociatedUsers");
       const data = await res.json();
       setTeams(data || []);
     } catch (error) {
@@ -43,108 +43,123 @@ const Teamlist = () => {
   }, []);
 
   return (
-    <Box sx={{ p: 1 }}>
-      <Grid container spacing={2}>
-        {teams.map((team, index) => (
-          <Grid item xs={12} sm={6} md={4} key={index}>
-            <Card sx={{ p: 2, borderRadius: 2, boxShadow: 3 }}>
-              <CardContent>
-                {/* Team Header */}
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <Typography
-                    variant="h6"
-                    sx={{ display: "flex", alignItems: "center", gap: 1 }}
-                  >
-                    <Group size={18} /> {team.teamName}
-                  </Typography>
-                  <Box>
-                    <Tooltip title="Edit Team">
-                      <IconButton color="primary" size="small">
-                        <Edit size={16} />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete Team">
-                      <IconButton color="error" size="small">
-                        <Delete size={16} />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                </Box>
-
-                {/* Team Lead & Superadmin */}
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  mt={1}
-                ></Typography>
-                <Typography variant="body2" color="text.secondary">
-                  <People size={14} style={{ marginRight: 4 }} />
-                  Team Lead: <strong>{team.teamLeadName || "N/A"}</strong>
-                </Typography>
-
-                <Divider sx={{ my: 1.5 }} />
-
-                {/* Recruiters */}
-                <Typography variant="subtitle2" gutterBottom>
-                  Recruiters:
-                </Typography>
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                  {team.recruiters?.length > 0 ? (
-                    team.recruiters.map((rec) => (
-                      <Chip
-                        key={rec.userId}
-                        label={rec.userName}
-                        size="small"
-                        variant="outlined"
-                        color="primary"
-                      />
-                    ))
-                  ) : (
-                    <Typography variant="caption" color="text.secondary">
-                      No Recruiters
-                    </Typography>
-                  )}
-                </Box>
-
-                <Divider sx={{ my: 1.5 }} />
-
-                {/* Sales Executives */}
-                <Typography variant="subtitle2" gutterBottom>
-                  Sales Executives:
-                </Typography>
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                  {team.salesExecutives?.length > 0 ? (
-                    team.salesExecutives.map((exec) => (
-                      <Chip
-                        key={exec.userId}
-                        label={exec.userName}
-                        size="small"
-                        variant="outlined"
-                        color="primary"
-                      />
-                    ))
-                  ) : (
-                    <Typography variant="caption" color="text.secondary">
-                      No Sales Executives
-                    </Typography>
-                  )}
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+    <Box sx={{ p: 3 }}>
+      {/* Header */}
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 3,
+        }}
+      >
+        <Typography
+          variant="h4"
+          fontWeight="bold"
+          sx={{
+            color:"primary"
+          }}
+        >
+          Teams
+        </Typography>
+      </Box>
 
       {loading && (
-        <Typography align="center" color="text.secondary" mt={2}>
-          Loading teams...
-        </Typography>
+        <Box sx={{ width: "100%", mb: 2 }}>
+          <LinearProgress />
+        </Box>
+      )}
+
+      {teams.length > 0 ? (
+        <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+          <Table>
+            <TableHead sx={{ backgroundColor: theme.palette.grey[200] }}>
+              <TableRow>
+                <TableCell sx={{ fontWeight: "bold" }}>#</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>Team Name</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>Team Lead</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>Recruiters</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>
+                  Sales Executives
+                </TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>Members Count</TableCell>
+                <TableCell align="right" sx={{ fontWeight: "bold" }}>
+                  Actions
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {teams.map((team, index) => {
+                const recruiters =
+                  team.recruiters?.map((r) => r.userName).join(", ") || "None";
+                const salesExecs =
+                  team.salesExecutives?.map((s) => s.userName).join(", ") ||
+                  "None";
+                const membersCount =
+                  (team.recruiters?.length || 0) +
+                  (team.salesExecutives?.length || 0);
+
+                return (
+                  <TableRow key={index} hover>
+                    <TableCell>{index + 1}</TableCell>
+                    <TableCell>{team.teamName || "Unnamed Team"}</TableCell>
+                    <TableCell>{team.teamLeadName || "Not Assigned"}</TableCell>
+                    <TableCell>{recruiters}</TableCell>
+                    <TableCell>{salesExecs}</TableCell>
+                    <TableCell>{membersCount}</TableCell>
+                    <TableCell align="right">
+                      <Tooltip title="Edit Team">
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          onClick={() =>
+                            navigate("/dashboard/us-employees/editteam", {
+                              state: { team },
+                            })
+                          }
+                        >
+                          <Edit size={18} />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete Team">
+                        <IconButton size="small" color="error">
+                          <Delete size={18} />
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      ) : (
+        !loading && (
+          <Box
+            sx={{
+              textAlign: "center",
+              py: 8,
+              backgroundColor: "grey.50",
+              borderRadius: 3,
+              mt: 2,
+            }}
+          >
+            <Group
+              size={56}
+              color={theme.palette.grey[400]}
+              style={{ margin: "0 auto 16px" }}
+            />
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              No Teams Found
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Start building your organization by creating a new team
+            </Typography>
+            <Button variant="contained" sx={{ mt: 3, borderRadius: 2 }}>
+              Create Team
+            </Button>
+          </Box>
+        )
       )}
     </Box>
   );
