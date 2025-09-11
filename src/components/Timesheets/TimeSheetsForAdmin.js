@@ -33,9 +33,10 @@ import {
 import axios from 'axios';
 import dayjs from 'dayjs';
 import ToastService from '../../Services/toastService';
-import { handleEmployeeNameClick,getCurrentUserRole  } from './navigationHelpers';
+import { handleEmployeeNameClick, getCurrentUserRole, clearPrepopulatedEmployeeData } from './navigationHelpers';
 import { useSelector } from 'react-redux';
 import httpService from '../../Services/httpService';
+
 
 // Main TimeSheetsForAdmin Component
 const TimeSheetsForAdmin = () => {
@@ -50,7 +51,7 @@ const TimeSheetsForAdmin = () => {
 // Wrapper to import the separate EmployeeTimesheetDetail component
 const EmployeeTimesheetDetailWrapper = () => {
   const EmployeeTimesheetDetail = React.lazy(() => import('./EmployeeTimesheetDetail'));
-  
+
   return (
     <React.Suspense fallback={
       <Box sx={{ p: 3, backgroundColor: '#f8fafc', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
@@ -123,31 +124,32 @@ const TimesheetList = () => {
   const Years = Array.from({ length: 5 }, (_, i) => currentYear - 1 + i);
 
   const columns = [
- {
-      key: 'employeeName',
-      label: 'Employee Name',
-      render: row => (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Person sx={{ fontSize: 18, color: 'primary.main' }} />
-          <Typography
-            variant="body2"
-            fontWeight={500}
-            sx={{
-              cursor: 'pointer',
-              color: 'primary.main',
-              textDecoration: 'underline',
-              '&:hover': {
-                color: 'primary.dark'
-              }
-            }}
-            onClick={() => handleEmployeeNameClick(row, navigate, role)}
-          >
-            {row?.employeeName}
-          </Typography>
-        </Box>
-      ),
-      width: 150
-    },
+// TimeSheetsForAdmin.js - Update the employeeName column
+{
+  key: 'employeeName',
+  label: 'Employee Name',
+  render: row => (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Person sx={{ fontSize: 18, color: 'primary.main' }} />
+      <Typography
+        variant="body2"
+        fontWeight={500}
+        sx={{
+          cursor: 'pointer',
+          color: 'primary.main',
+          textDecoration: 'underline',
+          '&:hover': {
+            color: 'primary.dark'
+          }
+        }}
+        onClick={() => handleEmployeeNameClick(row, navigate, role, selectedMonth, selectedYear)}
+      >
+        {row?.employeeName}
+      </Typography>
+    </Box>
+  ),
+  width: 150
+},
     {
       key: 'employeeType',
       label: 'Employee Type',
@@ -156,7 +158,7 @@ const TimesheetList = () => {
           label={row?.employeeType}
           size="small"
           variant="outlined"
-          sx={{ 
+          sx={{
             borderColor: theme.palette.primary.light,
             backgroundColor: alpha(theme.palette.primary.light, 0.1)
           }}
@@ -190,85 +192,85 @@ const TimesheetList = () => {
       ),
       width: 140
     },
-    { 
-      key: 'week1Hours', 
-      label: 'Week 1', 
+    {
+      key: 'week1Hours',
+      label: 'Week 1',
       render: row => (
-        <Chip 
-          label={`${row?.week1Hours}h`} 
-          size="small" 
+        <Chip
+          label={`${row?.week1Hours}h`}
+          size="small"
           variant="outlined"
-          sx={{ 
+          sx={{
             borderColor: theme.palette.info.light,
             backgroundColor: alpha(theme.palette.info.light, 0.1)
           }}
         />
-      ), 
-      width: 100 
+      ),
+      width: 100
     },
-    { 
-      key: 'week2Hours', 
-      label: 'Week 2', 
+    {
+      key: 'week2Hours',
+      label: 'Week 2',
       render: row => (
-        <Chip 
-          label={`${row?.week2Hours}h`} 
-          size="small" 
+        <Chip
+          label={`${row?.week2Hours}h`}
+          size="small"
           variant="outlined"
-          sx={{ 
+          sx={{
             borderColor: theme.palette.info.light,
             backgroundColor: alpha(theme.palette.info.light, 0.1)
           }}
         />
-      ), 
-      width: 100 
+      ),
+      width: 100
     },
-    { 
-      key: 'week3Hours', 
-      label: 'Week 3', 
+    {
+      key: 'week3Hours',
+      label: 'Week 3',
       render: row => (
-        <Chip 
-          label={`${row?.week3Hours}h`} 
-          size="small" 
+        <Chip
+          label={`${row?.week3Hours}h`}
+          size="small"
           variant="outlined"
-          sx={{ 
+          sx={{
             borderColor: theme.palette.info.light,
             backgroundColor: alpha(theme.palette.info.light, 0.1)
           }}
         />
-      ), 
-      width: 100 
+      ),
+      width: 100
     },
-    { 
-      key: 'week4Hours', 
-      label: 'Week 4', 
+    {
+      key: 'week4Hours',
+      label: 'Week 4',
       render: row => (
-        <Chip 
-          label={`${row?.week4Hours}h`} 
-          size="small" 
+        <Chip
+          label={`${row?.week4Hours}h`}
+          size="small"
           variant="outlined"
-          sx={{ 
+          sx={{
             borderColor: theme.palette.info.light,
             backgroundColor: alpha(theme.palette.info.light, 0.1)
           }}
         />
-      ), 
-      width: 100 
+      ),
+      width: 100
     },
-    { 
-      key: 'week5Hours', 
-      label: 'Week 5', 
+    {
+      key: 'week5Hours',
+      label: 'Week 5',
       render: row => (
-        <Chip 
-          label={`${row?.week5Hours}h`} 
-          size="small" 
+        <Chip
+          label={`${row?.week5Hours}h`}
+          size="small"
           variant="outlined"
-          sx={{ 
+          sx={{
             borderColor: theme.palette.info.light,
             backgroundColor: alpha(theme.palette.info.light, 0.1)
           }}
         />
-      ), 
-      width: 100 
+      ),
+      width: 100
     },
     {
       key: 'totalWorkingHours',
@@ -292,7 +294,7 @@ const TimesheetList = () => {
           label={`${row?.totalWorkingDays} days`}
           size="small"
           variant="outlined"
-          sx={{ 
+          sx={{
             borderColor: theme.palette.success.light,
             backgroundColor: alpha(theme.palette.success.light, 0.1),
             color: 'success.dark',
@@ -310,7 +312,7 @@ const TimesheetList = () => {
           label={row?.availableLeaves}
           size="small"
           variant="outlined"
-          sx={{ 
+          sx={{
             borderColor: theme.palette.warning.light,
             backgroundColor: alpha(theme.palette.warning.light, 0.1),
             color: 'warning.dark',
@@ -328,7 +330,7 @@ const TimesheetList = () => {
           label={row?.takenLeaves}
           size="small"
           variant="outlined"
-          sx={{ 
+          sx={{
             borderColor: theme.palette.error.light,
             backgroundColor: alpha(theme.palette.error.light, 0.1),
             color: 'error.dark',
@@ -346,7 +348,7 @@ const TimesheetList = () => {
           label={row?.leaveBalance}
           size="small"
           variant="outlined"
-          sx={{ 
+          sx={{
             borderColor: theme.palette.success.light,
             backgroundColor: alpha(theme.palette.success.light, 0.1),
             color: 'success.dark',
@@ -360,9 +362,9 @@ const TimesheetList = () => {
       key: 'status',
       label: 'Status',
       render: row => {
-        const statusColor = row?.status === 'Approved' ? 'success' : 
-                           row?.status === 'Pending' ? 'warning' : 
-                           row?.status === 'Rejected' ? 'error' : 'default';
+        const statusColor = row?.status === 'Approved' ? 'success' :
+          row?.status === 'Pending' ? 'warning' :
+            row?.status === 'Rejected' ? 'error' : 'default';
         return (
           <Chip
             label={row?.status}
@@ -374,71 +376,8 @@ const TimesheetList = () => {
       },
       width: 120
     },
-    // {
-    //   key: 'action',
-    //   label: 'Actions',
-    //   render: row => (
-    //     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-    //       <Tooltip title="View">
-    //         <IconButton
-    //           color="info"
-    //           size="small"
-    //           sx={{ 
-    //             backgroundColor: alpha(theme.palette.info.main, 0.1),
-    //             '&:hover': {
-    //               backgroundColor: alpha(theme.palette.info.main, 0.2)
-    //             }
-    //           }}
-    //         >
-    //           <Visibility fontSize="small" />
-    //         </IconButton>
-    //       </Tooltip>
-    //       <Tooltip title="Edit">
-    //         <IconButton
-    //           color="primary"
-    //           size="small"
-    //           sx={{ 
-    //             backgroundColor: alpha(theme.palette.primary.main, 0.1),
-    //             '&:hover': {
-    //               backgroundColor: alpha(theme.palette.primary.main, 0.2)
-    //             }
-    //           }}
-    //         >
-    //           <Edit fontSize="small" />
-    //         </IconButton>
-    //       </Tooltip>
-    //     </Box>
-    //   ),
-    //   width: 100
-    // }
-    
   ];
 
-  // TimeSheetsForAdmin.js - Add this function
-const handleViewAttachments = async (row) => {
-  try {
-    // Fetch timesheet details to get attachments
-    const response = await httpService.get(`/timesheet/getTimesheetsByUserId?userId=${row.userId}`);
-    
-    if (response.data && response.data.data) {
-      const timesheets = response.data.data;
-      // Find the relevant timesheet and its attachments
-      // You might need to adjust this logic based on your data structure
-      const attachments = timesheets.flatMap(ts => ts.attachments || []);
-      
-      if (attachments.length > 0) {
-        // Open attachments dialog or show in a modal
-        console.log('Attachments:', attachments);
-        // Implement your attachment viewing logic here
-      } else {
-        ToastService.info('No attachments found for this employee');
-      }
-    }
-  } catch (error) {
-    console.error('Error fetching attachments:', error);
-    ToastService.error('Failed to fetch attachments');
-  }
-};
 
   return (
     <Box sx={{ p: 3, backgroundColor: '#f8fafc', minHeight: '100vh' }}>
@@ -504,10 +443,26 @@ const handleViewAttachments = async (row) => {
             </Grid>
 
             <Grid item>
+
               <Button
                 variant="contained"
                 startIcon={<Add />}
-               onClick={() => navigate('/dashboard/timesheets/create')}
+                onClick={() => {
+                  // Clear any navigation state before going to create mode
+                  clearPrepopulatedEmployeeData();
+                  sessionStorage.removeItem('prepopulatedEmployee');
+                  sessionStorage.removeItem('selectedEmployeeData');
+
+                  // Navigate with explicit state to ensure create mode
+                  navigate('/dashboard/timesheets/create', {
+                    state: {
+                      forceCreateMode: true,
+                      from: '/dashboard/timesheetsForAdmins',
+                      timestamp: Date.now()
+                    },
+                    replace: true // Use replace to avoid adding to history stack
+                  });
+                }}
                 sx={{
                   px: 3,
                   py: 1,
@@ -532,13 +487,13 @@ const handleViewAttachments = async (row) => {
       {/* Error State */}
       {error && (
         <Fade in={!!error}>
-          <Alert 
-            severity="error" 
-            sx={{ 
-              mb: 3, 
+          <Alert
+            severity="error"
+            sx={{
+              mb: 3,
               borderRadius: 2,
               boxShadow: 1
-            }} 
+            }}
             variant="filled"
           >
             {error}
