@@ -68,7 +68,7 @@ export const usNavItems = (role) => [
     text: "Requirements",
     path: "us-requirements",
     icon: <AssignmentIcon />, // more meaningful than reusing hourglass
-    roles: ["SUPERADMIN", "TEAMLEAD"],
+    roles: ["SUPERADMIN", "TEAMLEAD","ADMIN"],
   },
   {
     text: "Submissions",
