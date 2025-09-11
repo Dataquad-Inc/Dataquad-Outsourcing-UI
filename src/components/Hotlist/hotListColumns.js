@@ -20,10 +20,15 @@ const hasPermission = (userRole, userId, row, action) => {
   }
 
   if (userRole === "SALESEXECUTIVE") {
-    return row.salesExecutiveId === userId;
+    // return row.salesExecutiveId === userId;
+         return true;
+  }
+  if (userRole === "ADMIN") {
+    // return row.salesExecutiveId === userId;
+         return true;
   }
 
-  return false;
+  return true;
 };
 
 const renderValue = (value, width = 100, loading) =>
