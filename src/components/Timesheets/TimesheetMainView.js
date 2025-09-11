@@ -6,9 +6,10 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
 import { PickersDay } from '@mui/x-date-pickers/PickersDay';
-import { AccessTime, AttachFile, Delete, CloudUpload, ThumbDown, Visibility } from '@mui/icons-material';
+import { AccessTime, AttachFile, Delete, CloudUpload, ThumbDown, Visibility, CalendarMonth, Person, Work } from '@mui/icons-material';
 import TimesheetTableSection from './TimesheetTableSection';
 import enGB from 'date-fns/locale/en-GB';
+import AttachmentHandlers from './AttachmentHanlders';
 
 const TimesheetMainView = (props) => {
   // All props are passed from TimeSheets.js
@@ -40,7 +41,133 @@ const TimesheetMainView = (props) => {
     getDateForDay,
     isDateInSelectedWeekMonth,
     isDateInCalendarMonth,
+    monthlyTimesheetData,
+    currentMonthWeeks,
+    monthlyViewMode,
+    fetchMonthlyTimesheetData,
+    selectedMonthRange,
+    navigationSource,
+    handleViewAttachmentFile,
+    handleDownloadAttachmentFile, viewLoading, AttachmentViewDialog,downloadLoading,getAttachmentViewDialog
+
   } = props;
+
+  // FIXED: Determine when to show calendar and table sections
+  const shouldShowCalendar = selectedProject &&
+    !monthlyViewMode &&
+    (role === 'EXTERNALEMPLOYEE' || isCreateMode || isAddingNewTimesheet);
+
+  const shouldShowTimesheetSection = selectedProject && !loading &&
+    ((selectedWeekStart && currentTimesheet && !monthlyViewMode) ||
+      (monthlyViewMode && monthlyTimesheetData && monthlyTimesheetData.length > 0));
+
+  const safeGetWorkingDaysHours = (timesheet) => {
+    if (!timesheet) return 0;
+    return ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+      .reduce((total, day) => total + (timesheet[day] || 0), 0);
+  };
+
+  const safeCalculatePercentage = (timesheet) => {
+    if (!timesheet) return 0;
+    return calculatePercentage(timesheet);
+  };
+
+  // const safeIsFieldEditable = (timesheet, day, leaveType, calendarDate) => {
+  //   if (!timesheet) return false;
+  //   return isFieldEditable(timesheet, day, leaveType, calendarDate);
+  // };
+
+  const safeIsFieldEditable = (timesheet, day, leaveType, calendarDate) => {
+    if (!timesheet) return false;
+    
+    if (day === 'saturday' || day === 'sunday') {
+    return false;
+  }
+    // SPECIAL CASE: Allow editing for rejected timesheets for EXTERNALEMPLOYEE
+    const isRejectedAndExternalEmployee = timesheet.status === 'REJECTED' &&
+      role === 'EXTERNALEMPLOYEE';
+
+    if (isRejectedAndExternalEmployee) {
+      return true; // Allow editing for rejected timesheets for EXTERNALEMPLOYEE
+    }
+
+    return isFieldEditable(timesheet, day, leaveType, calendarDate);
+  };
+  // Calculate total hours for monthly view
+  const calculateMonthlyTotalHours = () => {
+    if (!monthlyTimesheetData || monthlyTimesheetData.length === 0) return 0;
+
+    return monthlyTimesheetData.reduce((total, weekData) => {
+      if (weekData.timesheet) {
+        return total + safeGetWorkingDaysHours(weekData.timesheet);
+      }
+      return total;
+    }, 0);
+  };
+
+  // Calculate submitted vs pending timesheets for monthly view
+  const calculateMonthlyStatus = () => {
+    if (!monthlyTimesheetData || monthlyTimesheetData.length === 0) {
+      return { submitted: 0, pending: 0 };
+    }
+
+    const submitted = monthlyTimesheetData.filter(
+      weekData => weekData.timesheet && weekData.timesheet.status === 'SUBMITTED'
+    ).length;
+
+    const pending = monthlyTimesheetData.filter(
+      weekData => weekData.timesheet && weekData.timesheet.status === 'PENDING'
+    ).length;
+
+    return { submitted, pending };
+  };
+
+  const monthlyStatus = calculateMonthlyStatus();
+  const monthlyTotalHours = calculateMonthlyTotalHours();
+
+  console.log('TimesheetMainView render state:', {
+    selectedProject,
+    monthlyViewMode,
+    shouldShowCalendar,
+    shouldShowTimesheetSection,
+    role,
+    selectedEmployee,
+    monthlyTimesheetData: monthlyTimesheetData?.length,
+    currentTimesheet: !!currentTimesheet
+  });
+
+  const getDisplayMonth = () => {
+    console.log('getDisplayMonth called with:', {
+      selectedMonthRange,
+      navigationSource,
+      calendarValue
+    });
+
+    // If we have selectedMonthRange from prepopulated data AND it matches the navigation source, use that
+    if (selectedMonthRange && selectedMonthRange.start) {
+      // Check if this is from a valid prepopulation source
+      const isValidPrepopulatedSource = navigationSource === 'url' ||
+        navigationSource === 'state' ||
+        navigationSource === 'timesheetsForAdmins';
+
+      if (isValidPrepopulatedSource) {
+        console.log('Using prepopulated month for display:', selectedMonthRange.start);
+        return new Date(selectedMonthRange.start);
+      }
+    }
+
+    // Otherwise use calendarValue
+    console.log('Using calendar value for display:', calendarValue);
+    return calendarValue;
+  };
+
+  const startDate = selectedMonthRange ? new Date(selectedMonthRange.start) : null;
+  const monthName = startDate
+    ? startDate.toLocaleString('default', { month: 'long' })
+    : '';
+
+  console.log('Determined monthName:', monthName, 'from startDate:', startDate);
+
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -68,7 +195,10 @@ const TimesheetMainView = (props) => {
             Timesheet Management
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Manage your work hours and leave
+            {monthlyViewMode
+              ? `Monthly view for ${selectedEmployee ? externalEmployeesOptions?.find(emp => emp.value === selectedEmployee)?.label || 'selected employee' : 'employee'}`
+              : 'Manage your work hours and leave'
+            }
           </Typography>
         </Box>
       </Box>
@@ -77,161 +207,332 @@ const TimesheetMainView = (props) => {
       <Card sx={{ mb: 3, borderRadius: 3, boxShadow: 3 }}>
         <CardContent sx={{ p: 2 }}>
           <Typography variant="h6" fontWeight="bold" sx={{ mb: 3 }}>
-            Select Project and Week
+            {monthlyViewMode ? 'Employee and Project (Monthly View)' : 'Select Project and Week'}
           </Typography>
 
           <Grid container spacing={3} alignItems="flex-start">
             {/* Left Side: Project & Employee + Calendar */}
-            <Grid item xs={12} md={5}>
-              <Grid container spacing={2}>
-                {((role === "SUPERADMIN" || role === "ACCOUNTS" || role === "INVOICE") || (isCreateMode && isAddingNewTimesheet)) && (
-                  <Grid item xs={12} md={6}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel id="employee-select-label">Select Employee</InputLabel>
-                      <Select
-                        labelId="employee-select-label"
-                        value={isAddingNewTimesheet ? tempEmployeeForAdd : selectedEmployee}
-                        label="Select Employee"
-                        onChange={(e) => handleEmployeeChange(e.target.value)}
-                        disabled={loadingEmployeeProjects}
-                      >
-                        <MenuItem value="">Choose an employee...</MenuItem>
-
-                        {/* Show loading state */}
-                        {loadingEmployeeProjects && (
-                          <MenuItem value="" disabled>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <CircularProgress size={16} />
-                              Loading employees...
-                            </Box>
-                          </MenuItem>
-                        )}
-
-                        {/* Show prepopulated employee as selected if available */}
-                        {prepopulatedEmployee && !loadingEmployeeProjects && (
-                          <MenuItem
-                            value={prepopulatedEmployee.userId}
-                            selected
-                            sx={{ backgroundColor: 'primary.light', color: 'primary.contrastText' }}
-                          >
-                            {prepopulatedEmployee.employeeName} (Prepopulated)
-                          </MenuItem>
-                        )}
-
-                        {externalEmployeesOptions && externalEmployeesOptions.map((emp) => (
-                          <MenuItem
-                            key={emp.value}
-                            value={emp.value}
-                            disabled={prepopulatedEmployee && emp.value === prepopulatedEmployee.userId}
-                          >
-                            {emp.label}
-                            {prepopulatedEmployee && emp.value === prepopulatedEmployee.userId && ' (Prepopulated)'}
-                          </MenuItem>
-                        ))}
-                      </Select>
-
-                      {/* Loading indicator */}
-                      {loadingEmployeeProjects && (
-                        <FormHelperText>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <CircularProgress size={16} />
-                            Loading employee data...
-                          </Box>
-                        </FormHelperText>
-                      )}
-
-                      {/* Prepopulation status */}
-                      {prepopulatedEmployee && !loadingEmployeeProjects && (
-                        <FormHelperText sx={{ color: 'primary.main', fontWeight: 'bold' }}>
-                          Prepopulated: {prepopulatedEmployee.employeeName}
-                        </FormHelperText>
-                      )}
-                    </FormControl>
-                  </Grid>
-                )}
-
-                {/* Project Dropdown */}
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel id="project-select-label">Select Project</InputLabel>
+            <Grid item xs={12} md={monthlyViewMode ? 8 : 5}>
+              {/* Employee and Project dropdowns in row for createMode and monthlyViewMode */}
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  alignItems: 'flex-start',
+                  gap: 2,
+                  flexWrap: 'wrap'
+                }}
+              >
+                {/* Employee Selection - Show for admin roles or create mode */}
+                {((role === "SUPERADMIN" || role === "ACCOUNTS" || role === "INVOICE") || (isCreateMode || isAddingNewTimesheet)) && (
+                  <FormControl
+                    size="small"
+                    sx={{
+                      flex: 1,
+                      width: '10%'
+                    }}
+                  >
+                    <InputLabel id="employee-select-label">Select Employee</InputLabel>
                     <Select
-                      labelId="project-select-label"
-                      value={selectedProject}
-                      label="Select Project"
+                      labelId="employee-select-label"
+                      value={isAddingNewTimesheet ? tempEmployeeForAdd : selectedEmployee}
+                      label="Select Employee"
                       onChange={(e) => {
-                        console.log('Project selected:', e.target.value);
-                        setSelectedProject(e.target.value);
+                        console.log('Employee selection changed:', e.target.value);
+                        handleEmployeeChange(e.target.value);
                       }}
-                      disabled={
-                        loading ||
-                        loadingEmployeeProjects ||
-                        ((role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === 'INVOICE') &&
-                          (!selectedEmployee && !tempEmployeeForAdd))
-                      }
+                      disabled={loadingEmployeeProjects}
                     >
-                      <MenuItem value="">Choose a project...</MenuItem>
+                      <MenuItem value="">
+                        {loadingEmployeeProjects ? 'Loading employees...' : 'Choose an employee...'}
+                      </MenuItem>
 
-                      {/* Loading state */}
+                      {/* Show loading state */}
                       {loadingEmployeeProjects && (
                         <MenuItem value="" disabled>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <CircularProgress size={16} />
-                            Loading projects...
+                            Loading employees...
                           </Box>
                         </MenuItem>
                       )}
 
-                      {/* Auto-select first project when prepopulated */}
-                      {prepopulatedEmployee && employeeProjects && employeeProjects.length > 0 && !loadingEmployeeProjects && (
+                      {!loadingEmployeeProjects && externalEmployeesOptions && externalEmployeesOptions.map((emp) => (
                         <MenuItem
-                          value={employeeProjects[0].projectName || employeeProjects[0].name || employeeProjects[0]}
-                          selected
-                          sx={{ backgroundColor: 'primary.light', color: 'primary.contrastText' }}
+                          key={emp.value}
+                          value={emp.value}
                         >
-                          {employeeProjects[0].projectName || employeeProjects[0].name || employeeProjects[0]} (Auto-selected)
+                          {emp.label}
+                          {monthlyViewMode && selectedEmployee === emp.value}
                         </MenuItem>
-                      )}
-
-                      {/* Show employee projects when employee is selected (admin roles) */}
-                      {(role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === 'INVOICE') && (selectedEmployee || tempEmployeeForAdd) && !loadingEmployeeProjects ? (
-                        employeeProjects && employeeProjects.length > 0 ? (
-                          employeeProjects.map((project, index) => (
-                            <MenuItem
-                              key={project.projectId || project.id || project || index}
-                              value={project.projectName || project.name || project}
-                              disabled={prepopulatedEmployee && index === 0} // Disable auto-selected item to prevent confusion
-                            >
-                              {project.projectName || project.name || project}
-                              {prepopulatedEmployee && index === 0 && ' (Auto-selected)'}
-                            </MenuItem>
-                          ))
-                        ) : (
-                          <MenuItem value="" disabled>
-                            No projects found for this employee
-                          </MenuItem>
-                        )
-                      ) : (
-                        // For EXTERNALEMPLOYEE role, show regular clients
-                        role === 'EXTERNALEMPLOYEE' && clients && clients.map((clientName, index) => (
-                          <MenuItem key={index} value={clientName}>
-                            {clientName}
-                          </MenuItem>
-                        ))
-                      )}
+                      ))}
                     </Select>
 
-                    {/* Prepopulation status for projects */}
-                    {prepopulatedEmployee && employeeProjects && employeeProjects.length > 0 && !loadingEmployeeProjects && (
+                    {/* Loading indicator */}
+                    {loadingEmployeeProjects && (
+                      <FormHelperText>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <CircularProgress size={12} />
+                          Loading employee data...
+                        </Box>
+                      </FormHelperText>
+                    )}
+
+                    {/* Monthly view indicator */}
+                    {monthlyViewMode && selectedEmployee && !loadingEmployeeProjects && (
                       <FormHelperText sx={{ color: 'primary.main', fontWeight: 'bold' }}>
-                        Auto-selected first project for {prepopulatedEmployee.employeeName}
+                        Monthly View Mode - Showing timesheet data by month
                       </FormHelperText>
                     )}
                   </FormControl>
-                </Grid>
-              </Grid>
+                )}
 
-              {/* Calendar */}
-              {selectedProject && (
+                {/* Project Dropdown */}
+                <FormControl
+                  size="small"
+                  sx={{
+                    flex: 1,
+                    minWidth: "10%",
+                    ...(role === 'EXTERNALEMPLOYEE' && {
+                      width: '50%',
+                      maxWidth: '50%'
+                    })
+                  }}
+                >
+                  <InputLabel id="project-select-label">
+                    {monthlyViewMode ? 'Filter by Project (Optional)' : 'Select Project'}
+                  </InputLabel>
+                  <Select
+                    labelId="project-select-label"
+                    value={selectedProject}
+                    label={monthlyViewMode ? 'Filter by Project (Optional)' : 'Select Project'}
+                    onChange={(e) => {
+                      console.log('Project selected:', e.target.value);
+                      setSelectedProject(e.target.value);
+
+                      // If in monthly view mode, refresh data with the new project filter
+                      if (monthlyViewMode && selectedEmployee) {
+                        console.log('Refreshing monthly data with project filter');
+                        fetchMonthlyTimesheetData(selectedEmployee);
+                      }
+                    }}
+                    disabled={
+                      loading ||
+                      loadingEmployeeProjects ||
+                      ((role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === 'INVOICE') &&
+                        (!selectedEmployee && !tempEmployeeForAdd))
+                    }
+                  >
+                    <MenuItem value="">
+                      {monthlyViewMode ? 'All Projects' : 'Choose a project...'}
+                    </MenuItem>
+
+                    {/* Loading state */}
+                    {loadingEmployeeProjects && (
+                      <MenuItem value="" disabled>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <CircularProgress size={16} />
+                          Loading projects...
+                        </Box>
+                      </MenuItem>
+                    )}
+
+                    {/* Show employee projects when employee is selected (admin roles) */}
+                    {(role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === 'INVOICE') && (selectedEmployee || tempEmployeeForAdd) && !loadingEmployeeProjects ? (
+                      employeeProjects && employeeProjects.length > 0 ? (
+                        employeeProjects.map((project, index) => (
+                          <MenuItem
+                            key={project.projectId || project.id || project || index}
+                            value={project.projectName || project.name || project}
+                          >
+                            {project.projectName || project.name || project}
+                          </MenuItem>
+                        ))
+                      ) : (
+                        <MenuItem value="" disabled>
+                          No projects found for this employee
+                        </MenuItem>
+                      )
+                    ) : (
+                      // For EXTERNALEMPLOYEE role, show regular clients
+                      role === 'EXTERNALEMPLOYEE' && clients && clients.map((clientName, index) => (
+                        <MenuItem key={index} value={clientName}>
+                          {clientName}
+                        </MenuItem>
+                      ))
+                    )}
+                  </Select>
+
+                  {/* Project filter help text for monthly view */}
+                  {monthlyViewMode && !loadingEmployeeProjects && (
+                    <FormHelperText sx={{ color: 'info.main' }}>
+                      {selectedProject
+                        ? `Filtering by project: ${selectedProject}`
+                        : 'Showing all projects - select a project to filter'
+                      }
+                    </FormHelperText>
+                  )}
+                </FormControl>
+              </Box>
+
+              {/* Monthly Summary - Moved below the dropdowns */}
+              {monthlyViewMode && (
+                <Box sx={{ mt: 3 }}>
+                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                    Monthly Summary {selectedMonthRange
+                      ? new Date(selectedMonthRange.start).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+                      : calendarValue.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                  </Typography>
+
+                  {/* Employee Info Card */}
+                  <Card variant="outlined" sx={{ mb: 2, bgcolor: 'grey.50' }}>
+                    <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                      {/* Date range from selectedMonthRange */}
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                        <CalendarMonth color="primary" sx={{ fontSize: 20, mr: 1 }} />
+                        <Typography variant="subtitle2" color="primary.main">
+                          Date Range
+                        </Typography>
+                      </Box>
+                      <Grid container spacing={1}>
+                        <Grid item xs={6}>
+                          <Typography variant="body2" color="text.secondary">From Date</Typography>
+                          <Typography variant="body2" fontWeight="medium">
+                            {selectedMonthRange?.start ? new Date(selectedMonthRange.start).toLocaleDateString('en-GB') : 'N/A'}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={6}>
+                          <Typography variant="body2" color="text.secondary">To Date</Typography>
+                          <Typography variant="body2" fontWeight="medium">
+                            {selectedMonthRange?.end ? new Date(selectedMonthRange.end).toLocaleDateString('en-GB') : 'N/A'}
+                          </Typography>
+                        </Grid>
+                      </Grid>
+
+                      {/* Rest of the employee info */}
+                      {timesheetData && timesheetData.length > 0 && (
+                        <>
+                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, mt: 2 }}>
+                            <Work color="primary" sx={{ fontSize: 20, mr: 1 }} />
+                            <Typography variant="subtitle2" color="primary.main">
+                              Project Information
+                            </Typography>
+                          </Box>
+                          <Grid container spacing={1}>
+                            <Grid item xs={6}>
+                              <Typography variant="body2" color="text.secondary">Approver</Typography>
+                              <Typography variant="body2" fontWeight="medium">
+                                {timesheetData[0].approver || 'N/A'}
+                              </Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                              <Typography variant="body2" color="text.secondary">Target %</Typography>
+                              <Typography variant="body2" fontWeight="medium">
+                                {timesheetData[0].percentageOfTarget ? `${timesheetData[0].percentageOfTarget}%` : 'N/A'}
+                              </Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                              <Typography variant="body2" color="text.secondary">Frequency</Typography>
+                              <Typography variant="body2" fontWeight="medium">
+                                {timesheetData[0].timesheetType || 'N/A'}
+                              </Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                              <Typography variant="body2" color="text.secondary">Client</Typography>
+                              <Typography variant="body2" fontWeight="medium">
+                                {timesheetData[0].clientName || 'N/A'}
+                              </Typography>
+                            </Grid>
+                          </Grid>
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Box>
+              )}
+
+
+              {monthlyViewMode && (
+                <Box sx={{ mt: 3 }}>
+                  {/* Attachments Card */}
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                      Attachments
+                    </Typography>
+                    <Card variant="outlined" sx={{ bgcolor: 'grey.50' }}>
+                      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                        {timesheetData && timesheetData.length > 0 && timesheetData.some(ts => ts.attachments?.length > 0) ? (
+                          <Box>
+                            <List dense sx={{ maxHeight: 200, overflow: 'auto' }}>
+                              {timesheetData.flatMap((timesheet) =>
+                                timesheet?.attachments
+                                  ?.filter((att) => att.uploaded !== false) // Show all attachments that aren't explicitly marked as not uploaded
+                                  .map((attachment, index) => (
+                                    <ListItem
+                                      key={`${timesheet.timesheetId}-${attachment.id || index}`}
+                                      secondaryAction={
+                                        <Box sx={{ display: 'flex', gap: 1 }}>
+                                          <IconButton
+                                            edge="end"
+                                            size="small"
+                                            onClick={() => handleViewAttachmentFile(attachment, timesheet)}
+                                            title="View Attachment"
+                                            disabled={viewLoading}
+                                          >
+                                            {viewLoading ? <CircularProgress size={16} /> : <Visibility fontSize="small" />}
+                                          </IconButton>
+                                          <IconButton
+                                            edge="end"
+                                            size="small"
+                                            onClick={() => handleDownloadAttachmentFile(attachment, timesheet)}
+                                            title="Download Attachment"
+                                          >
+                                            <CloudUpload fontSize="small" />
+                                          </IconButton>
+                                        </Box>
+                                      }
+                                    >
+                                      <ListItemAvatar>
+                                        <Avatar sx={{ width: 24, height: 24, bgcolor: 'success.main' }}>
+                                          <AttachFile sx={{ fontSize: 14 }} />
+                                        </Avatar>
+                                      </ListItemAvatar>
+                                      <ListItemText
+                                        primary={
+                                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Typography variant="body2">
+                                              {attachment.filename || attachment.name || `Attachment ${index + 1}`}
+                                            </Typography>
+                                            <Chip label="Uploaded" size="small" color="success" variant="outlined" />
+                                          </Box>
+                                        }
+                                        secondary={`${formatFileSize(attachment.size || 0)} • ${new Date(
+                                          attachment.uploadedAt || attachment.uploadDate
+                                        ).toLocaleDateString()} • Week: ${new Date(timesheet.weekStartDate).toLocaleDateString()} - ${new Date(timesheet.weekEndDate).toLocaleDateString()}`}
+                                        primaryTypographyProps={{ variant: "body2" }}
+                                        secondaryTypographyProps={{ variant: "caption" }}
+                                      />
+                                    </ListItem>
+                                  ))
+                              )}
+                            </List>
+                            {/* Fixed: Remove the problematic "View All Attachments" button or fix it */}
+                            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                              {timesheetData.reduce((total, ts) => total + (ts.attachments?.length || 0), 0)} attachment(s) found across all weeks
+                            </Typography>
+                          </Box>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary" fontStyle="italic">
+                            No uploaded attachments found for this period
+                          </Typography>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </Box>
+                </Box>
+              )}
+              {/* Calendar - Only show for non-monthly view */}
+              {shouldShowCalendar && (
                 <Box
                   sx={{
                     border: "1px solid",
@@ -249,13 +550,19 @@ const TimesheetMainView = (props) => {
                     flexDirection: "column",
                   }}
                 >
+                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
+                    Select Week
+                  </Typography>
                   <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={enGB}>
                     <DateCalendar
                       value={calendarValue}
-                      onChange={(newValue) => setCalendarValue(newValue)}
+                      onChange={(newValue) => {
+                        console.log('Calendar date changed:', newValue);
+                        setCalendarValue(newValue);
+                      }}
                       slots={{ day: CustomDay }}
-                      showDaysOutsideCurrentMonth={true} // Show days but they'll be disabled
-                      disableFuture={false} // Allow future dates if needed
+                      showDaysOutsideCurrentMonth={true}
+                      disableFuture={false}
                       sx={{
                         width: "100%",
                         maxWidth: "100%",
@@ -316,7 +623,6 @@ const TimesheetMainView = (props) => {
                             backgroundColor: "primary.light",
                             borderRadius: 0,
                           },
-                          // Style for disabled days (outside current month)
                           "&.Mui-disabled": {
                             color: "text.disabled",
                             backgroundColor: "grey.50",
@@ -333,69 +639,75 @@ const TimesheetMainView = (props) => {
                         "& .MuiPickersDay-dayOutsideMonth": {
                           color: "text.disabled",
                           backgroundColor: "grey.50",
-                          pointerEvents: "none", // Disable interaction
-                        },
-                        "& .MuiPickersCalendarHeader-root": {
-                          px: 1,
-                          py: 0.5,
-                        },
-                        "& .MuiPickersCalendarHeader-labelContainer": {
-                          fontSize: { xs: "0.9rem", sm: "1rem" },
+                          pointerEvents: "none",
                         },
                       }}
                     />
                   </LocalizationProvider>
                 </Box>
               )}
+
             </Grid>
 
-            {/* Right Side: Project Details */}
-            <Grid item xs={12} md={7}>
-              {projectDetails && (
+            {/* Right Side: Project Details or Monthly View Info */}
+            <Grid item xs={12} md={monthlyViewMode ? 4 : 7}>
+              {monthlyViewMode ? (
                 <Box>
-                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-                    Project Details
-                  </Typography>
-                  <Grid container spacing={2}>
-                    {/* Client */}
-                    <Grid item xs={6}>
-                      <Typography variant="body2" color="text.secondary">Client</Typography>
-                      <Typography variant="body1" fontWeight="medium">{selectedProject}</Typography>
-                    </Grid>
-                    {/* Start Date */}
-                    <Grid item xs={6}>
-                      <Typography variant="body2" color="text.secondary">Start Date</Typography>
-                      <Typography variant="body1" fontWeight="medium">{projectDetails.startDate}</Typography>
-                    </Grid>
-                    {/* Approver */}
-                    <Grid item xs={6}>
-                      <Typography variant="body2" color="text.secondary">Approver</Typography>
-                      <Typography variant="body1" fontWeight="medium">{projectDetails.approver}</Typography>
-                    </Grid>
-                    {/* Frequency */}
-                    <Grid item xs={6}>
-                      <Typography variant="body2" color="text.secondary">Frequency</Typography>
-                      <Typography variant="body1" fontWeight="medium">{projectDetails.frequency}</Typography>
-                    </Grid>
-                    {/* Working Days */}
-                    <Grid item xs={6}>
-                      <Typography variant="body2" color="text.secondary">Working Days</Typography>
-                      <Typography variant="body1" fontWeight="medium">
-                        {selectedWeekStart
-                          ? getWeekDates(selectedWeekStart).weekDays.filter(
-                            (day) => day.getDay() >= 1 && day.getDay() <= 5
-                          ).length + " days"
-                          : "0 days"}
-                      </Typography>
-                    </Grid>
+                  {/* Monthly Summary content removed from here - it's now above */}
+                  {/* Keep any other content you want to show in the right column during monthly view */}
+                </Box>
+              ) : (
+                /* Weekly View Project Details - Show for all roles including INVOICE and ACCOUNTS */
+                projectDetails && (
+                  <Box>
+                    <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                      Project Details
+                    </Typography>
 
+                    <Card variant="outlined" sx={{ bgcolor: 'grey.50' }}>
+                      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                        <Grid container spacing={2}>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" color="text.secondary">Client</Typography>
+                            <Typography variant="body1" fontWeight="medium">{selectedProject}</Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" color="text.secondary">Start Date</Typography>
+                            <Typography variant="body1" fontWeight="medium">{projectDetails.startDate}</Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" color="text.secondary">Approver</Typography>
+                            <Typography variant="body1" fontWeight="medium">{projectDetails.approver}</Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" color="text.secondary">Frequency</Typography>
+                            <Typography variant="body1" fontWeight="medium">{projectDetails.frequency}</Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" color="text.secondary">Working Days</Typography>
+                            <Typography variant="body1" fontWeight="medium">
+                              {selectedWeekStart
+                                ? getWeekDates(selectedWeekStart).weekDays.filter(
+                                  (day) => day.getDay() >= 1 && day.getDay() <= 5
+                                ).length + " days"
+                                : "0 days"}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" color="text.secondary">Target %</Typography>
+                            <Typography variant="body1" fontWeight="medium">
+                              {projectDetails.targetPercentage || 'N/A'}
+                            </Typography>
+                          </Grid>
 
-                    {/* Attachments */}
-                    <Grid item xs={12} sx={{ mt: 1 }}>
-                      {/* Header Row */}
+                        </Grid>
+                      </CardContent>
+                    </Card>
+
+                    {/* Attachments Section */}
+                    <Box sx={{ mt: 2 }}>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                        <Typography variant="subtitle2"
-                          sx={{ color: "primary.main", fontWeight: "bold" }}>
+                        <Typography variant="subtitle1" fontWeight="bold">
                           Attachments
                         </Typography>
                         {(role === "EXTERNALEMPLOYEE") && (
@@ -410,19 +722,9 @@ const TimesheetMainView = (props) => {
                         )}
                       </Box>
 
-                      {/* EXTERNALEMPLOYEE View - Show their own attachments */}
                       {role === "EXTERNALEMPLOYEE" ? (
                         attachments.length > 0 ? (
-                          <List
-                            dense
-                            sx={{
-                              border: "1px solid",
-                              borderColor: "divider",
-                              borderRadius: 1,
-                              maxHeight: 200,
-                              overflow: "auto",
-                            }}
-                          >
+                          <List dense sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, maxHeight: 200, overflow: "auto" }}>
                             {attachments.map((file) => (
                               <ListItem
                                 key={file.id}
@@ -438,28 +740,20 @@ const TimesheetMainView = (props) => {
                                 }
                               >
                                 <ListItemAvatar>
-                                  <Avatar
-                                    sx={{
-                                      width: 24,
-                                      height: 24,
-                                      bgcolor: file.uploaded ? "success.main" : "warning.main",
-                                    }}
-                                  >
+                                  <Avatar sx={{ width: 24, height: 24, bgcolor: file.uploaded ? "success.main" : "warning.main" }}>
                                     <AttachFile sx={{ fontSize: 14 }} />
                                   </Avatar>
                                 </ListItemAvatar>
                                 <ListItemText
                                   primary={
-                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                       <Typography variant="body2">{file.name}</Typography>
                                       {!file.uploaded && (
                                         <Chip label="Pending" size="small" color="warning" variant="outlined" />
                                       )}
                                     </Box>
                                   }
-                                  secondary={
-                                    formatFileSize(file.size) + " • " + file.uploadDate.toLocaleDateString()
-                                  }
+                                  secondary={formatFileSize(file.size) + " • " + file.uploadDate.toLocaleDateString()}
                                   primaryTypographyProps={{ variant: "body2" }}
                                   secondaryTypographyProps={{ variant: "caption" }}
                                 />
@@ -472,19 +766,9 @@ const TimesheetMainView = (props) => {
                           </Typography>
                         )
                       ) : (
-                        /* SUPERADMIN/ACCOUNTS View - Show all uploaded attachments */
                         timesheetData && Array.isArray(timesheetData) && timesheetData.length > 0 && timesheetData.some(ts => ts.attachments?.length > 0) ? (
                           <Box>
-                            <List
-                              dense
-                              sx={{
-                                border: "1px solid",
-                                borderColor: "divider",
-                                borderRadius: 1,
-                                maxHeight: 200,
-                                overflow: "auto",
-                              }}
-                            >
+                            <List dense sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, maxHeight: 200, overflow: "auto" }}>
                               {timesheetData.flatMap((timesheet) =>
                                 timesheet?.attachments
                                   ?.filter((att) => att.uploaded)
@@ -492,11 +776,7 @@ const TimesheetMainView = (props) => {
                                     <ListItem
                                       key={attachment.id}
                                       secondaryAction={
-                                        <IconButton
-                                          edge="end"
-                                          size="small"
-                                          onClick={() => handleViewAttachments(timesheet)}
-                                        >
+                                        <IconButton edge="end" size="small" onClick={() => handleViewAttachmentFile(attachment, timesheet)}>
                                           <Visibility fontSize="small" />
                                         </IconButton>
                                       }
@@ -508,7 +788,7 @@ const TimesheetMainView = (props) => {
                                       </ListItemAvatar>
                                       <ListItemText
                                         primary={
-                                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                             <Typography variant="body2">
                                               {attachment.filename || attachment.name}
                                             </Typography>
@@ -540,18 +820,29 @@ const TimesheetMainView = (props) => {
                           </Typography>
                         )
                       )}
-                    </Grid>
-
-                  </Grid>
-                </Box>
+                    </Box>
+                  </Box>
+                )
               )}
             </Grid>
           </Grid>
         </CardContent>
       </Card>
 
-      {/* Timesheet Calendar View */}
-      {selectedProject && selectedWeekStart && currentTimesheet && (
+      {/* Loading State for Monthly View */}
+      {monthlyViewMode && loading && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent sx={{ p: 4, textAlign: 'center' }}>
+            <CircularProgress sx={{ mb: 2 }} />
+            <Typography variant="body1" color="text.secondary">
+              Loading monthly timesheet data...
+            </Typography>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Timesheet Table Section - Show for both weekly and monthly views */}
+      {shouldShowTimesheetSection && !loading && (
         <TimesheetTableSection
           selectedProject={selectedProject}
           currentTimesheet={currentTimesheet}
@@ -560,11 +851,11 @@ const TimesheetMainView = (props) => {
           pendingAttachments={pendingAttachments}
           loading={loading}
           getProjectConfig={getProjectConfig}
-          getWorkingDaysHours={getWorkingDaysHours}
+          getWorkingDaysHours={safeGetWorkingDaysHours}
           getPercentageColor={getPercentageColor}
-          calculatePercentage={calculatePercentage}
+          calculatePercentage={safeCalculatePercentage}
           handleHourChange={handleHourChange}
-          isFieldEditable={isFieldEditable}
+          isFieldEditable={safeIsFieldEditable}
           notes={notes}
           handleNotesChange={handleNotesChange}
           fetchOrCreateTimesheet={fetchOrCreateTimesheet}
@@ -587,16 +878,24 @@ const TimesheetMainView = (props) => {
           isEditMode={isEditMode}
           calendarValue={calendarValue}
           isDateInCalendarMonth={isDateInCalendarMonth}
+          monthlyTimesheetData={monthlyTimesheetData}
+          currentMonthWeeks={currentMonthWeeks}
+          monthlyViewMode={monthlyViewMode}
+          selectedMonthRange={selectedMonthRange}
+          getDisplayMonth={getDisplayMonth}
+          handleViewAttachmentFile={handleViewAttachmentFile}
+          handleDownloadAttachmentFile={handleDownloadAttachmentFile}
         />
       )}
 
-      {selectedWeekStart && !isPresentWeek(selectedWeekStart) && (
+      {/* Week-specific alerts - Only show for non-monthly view */}
+      {!monthlyViewMode && selectedWeekStart && !isPresentWeek(selectedWeekStart) && (
         <Alert severity="info" sx={{ mb: 2 }}>
           This is a previous week's timesheet and cannot be edited or submitted.
         </Alert>
       )}
 
-      {isPresentWeek(selectedWeekStart) && !isFridayInPresentWeek() && (
+      {!monthlyViewMode && isPresentWeek(selectedWeekStart) && !isFridayInPresentWeek() && (
         <Alert severity="info" sx={{ mb: 2 }}>
           Timesheet can only be submitted on Friday of the current week.
         </Alert>
@@ -639,7 +938,7 @@ const TimesheetMainView = (props) => {
                     <ListItem key={index}>
                       <ListItemText
                         primary={file.name}
-                        secondary={props.formatFileSize(file.size)}
+                        secondary={formatFileSize(file.size)}
                       />
                     </ListItem>
                   ))}
@@ -669,6 +968,7 @@ const TimesheetMainView = (props) => {
         </DialogActions>
       </Dialog>
 
+      {/* Reject Timesheet Dialog */}
       <Dialog
         open={rejectDialogOpen}
         onClose={() => setRejectDialogOpen(false)}
@@ -682,7 +982,6 @@ const TimesheetMainView = (props) => {
             margin="dense"
             label="Rejection Reason"
             type="text"
-            fullWidth
             variant="outlined"
             multiline
             rows={4}
@@ -704,21 +1003,56 @@ const TimesheetMainView = (props) => {
         </DialogActions>
       </Dialog>
 
-      {/* Empty State */}
-      {!selectedProject && (
+      {/* Empty State - Show when no project is selected */}
+      {!selectedProject && !loading && (
         <Card>
           <CardContent sx={{ p: 6, textAlign: 'center' }}>
             <AccessTime sx={{ fontSize: 60, color: 'grey.400', mb: 2 }} />
             <Typography variant="h6" color="text.secondary" gutterBottom>
-              No Project Selected
+              {monthlyViewMode
+                ? (selectedEmployee ? 'Select a Project to Filter Data' : 'Select Employee to View Monthly Timesheets')
+                : 'No Project Selected'
+              }
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Please select a project to start managing your timesheet
+              {monthlyViewMode
+                ? (selectedEmployee
+                  ? 'Choose a project to filter timesheet data, or leave empty to view all projects'
+                  : 'Please select an employee to view their monthly timesheet data'
+                )
+                : 'Please select a project to start managing your timesheet'
+              }
             </Typography>
           </CardContent>
         </Card>
       )}
-      {props.AttachmentsDialog && <props.AttachmentsDialog />}
+
+      {/* Monthly View Empty State - Show when employee selected but no data */}
+      {monthlyViewMode && selectedEmployee && !loading && monthlyTimesheetData?.length === 0 && (
+        <Card>
+          <CardContent sx={{ p: 6, textAlign: 'center' }}>
+            <AccessTime sx={{ fontSize: 60, color: 'grey.400', mb: 2 }} />
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              No Timesheet Data Found
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              No timesheet data available for {externalEmployeesOptions?.find(emp => emp.value === selectedEmployee)?.label || 'selected employee'}
+              {' '}in {selectedMonthRange
+                ? new Date(selectedMonthRange.start).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+                : calendarValue.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              {selectedProject && (
+                <><br />Project filter: {selectedProject}</>
+              )}
+            </Typography>
+          </CardContent>
+        </Card>
+      )}
+
+      {AttachmentViewDialog && <AttachmentViewDialog />}
+  
+   
+      {/* Render Attachments Dialog */}
+      {AttachmentsDialog && <AttachmentsDialog />}
     </Container>
   );
 };
