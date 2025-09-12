@@ -3,32 +3,12 @@ import { Box, IconButton, Skeleton } from "@mui/material";
 import Edit from "@mui/icons-material/Edit";
 import Delete from "@mui/icons-material/Delete";
 
-// Role-based permission checker
-const hasPermission = (userRole, userId, row, action) => {
-  if (userRole === "SUPERADMIN") {
-    return true;
-  }
-
-  if (userRole === "TEAMLEAD") {
-    // return row.teamleadId === userId;
-     return true;
-  }
-
-  if (userRole === "RECRUITER") {
-    // return row.recruiterId === userId;
-     return true;
-  }
-
+// ✅ Permission logic
+const hasPermission = (userRole) => {
   if (userRole === "SALESEXECUTIVE") {
-    // return row.salesExecutiveId === userId;
-         return true;
+    return false; // ❌ No permission
   }
-  if (userRole === "ADMIN") {
-    // return row.salesExecutiveId === userId;
-         return true;
-  }
-
-  return true;
+  return true; // ✅ Everyone else has permission
 };
 
 const renderValue = (value, width = 100, loading) =>
@@ -40,10 +20,10 @@ const getHotListColumns = ({
   handleDelete,
   loading,
   userRole,
-  userId,
-  filterOptions = {}, // Receive filter options
+  userId, // still passed but not used
+  filterOptions = {},
 }) => [
-  // ✅ Actions column moved first
+  // ✅ Actions column first
   {
     id: "actions",
     label: "Actions",
@@ -57,8 +37,8 @@ const getHotListColumns = ({
         );
       }
 
-      const canEdit = hasPermission(userRole, userId, row, "edit");
-      const canDelete = hasPermission(userRole, userId, row, "delete");
+      const canEdit = hasPermission(userRole);
+      const canDelete = hasPermission(userRole);
 
       if (!canEdit && !canDelete) {
         return <Box sx={{ minWidth: 80 }}>-</Box>;
@@ -166,14 +146,13 @@ const getHotListColumns = ({
     applyFilter: true,
     render: (v) => renderValue(v, 50, loading),
   },
-   {
+  {
     id: "location",
     label: "Location",
     filterType: "text",
     applyFilter: true,
     render: (v) => renderValue(v, 50, loading),
   },
-  
   {
     id: "billRate",
     label: "Bill Rate",
