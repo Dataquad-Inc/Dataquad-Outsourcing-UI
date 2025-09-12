@@ -48,7 +48,7 @@ const TimesheetMainView = (props) => {
     selectedMonthRange,
     navigationSource,
     handleViewAttachmentFile,
-    handleDownloadAttachmentFile, viewLoading, AttachmentViewDialog,downloadLoading,getAttachmentViewDialog
+    handleDownloadAttachmentFile, viewLoading, AttachmentViewDialog, downloadLoading, getAttachmentViewDialog, monthlyTotalWorkingHours
 
   } = props;
 
@@ -79,10 +79,10 @@ const TimesheetMainView = (props) => {
 
   const safeIsFieldEditable = (timesheet, day, leaveType, calendarDate) => {
     if (!timesheet) return false;
-    
+
     if (day === 'saturday' || day === 'sunday') {
-    return false;
-  }
+      return false;
+    }
     // SPECIAL CASE: Allow editing for rejected timesheets for EXTERNALEMPLOYEE
     const isRejectedAndExternalEmployee = timesheet.status === 'REJECTED' &&
       role === 'EXTERNALEMPLOYEE';
@@ -168,6 +168,27 @@ const TimesheetMainView = (props) => {
 
   console.log('Determined monthName:', monthName, 'from startDate:', startDate);
 
+  const getMonthNameFromApi = () => {
+    if (timesheetData && timesheetData.monthStartDate) {
+      const monthStartDate = new Date(timesheetData.monthStartDate);
+      return monthStartDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+    }
+    return '';
+  };
+
+  // Get month range from API response
+  const getMonthRangeFromApi = () => {
+    if (timesheetData && timesheetData.monthStartDate && timesheetData.monthEndDate) {
+      return {
+        start: timesheetData.monthStartDate,
+        end: timesheetData.monthEndDate
+      };
+    }
+    return selectedMonthRange;
+  };
+
+  const apiMonthRange = getMonthRangeFromApi();
+  const apiMonthName = getMonthNameFromApi();
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -398,13 +419,15 @@ const TimesheetMainView = (props) => {
                         <Grid item xs={6}>
                           <Typography variant="body2" color="text.secondary">From Date</Typography>
                           <Typography variant="body2" fontWeight="medium">
-                            {selectedMonthRange?.start ? new Date(selectedMonthRange.start).toLocaleDateString('en-GB') : 'N/A'}
+                            {apiMonthRange?.start ? new Date(apiMonthRange.start).toLocaleDateString('en-GB') :
+                              selectedMonthRange?.start ? new Date(selectedMonthRange.start).toLocaleDateString('en-GB') : 'N/A'}
                           </Typography>
                         </Grid>
                         <Grid item xs={6}>
                           <Typography variant="body2" color="text.secondary">To Date</Typography>
                           <Typography variant="body2" fontWeight="medium">
-                            {selectedMonthRange?.end ? new Date(selectedMonthRange.end).toLocaleDateString('en-GB') : 'N/A'}
+                            {apiMonthRange?.end ? new Date(apiMonthRange.end).toLocaleDateString('en-GB') :
+                              selectedMonthRange?.end ? new Date(selectedMonthRange.end).toLocaleDateString('en-GB') : 'N/A'}
                           </Typography>
                         </Grid>
                       </Grid>
@@ -426,9 +449,10 @@ const TimesheetMainView = (props) => {
                               </Typography>
                             </Grid>
                             <Grid item xs={6}>
-                              <Typography variant="body2" color="text.secondary">Target %</Typography>
+                              <Typography variant="body2" color="text.secondary">Total Working Hours</Typography>
                               <Typography variant="body2" fontWeight="medium">
-                                {timesheetData[0].percentageOfTarget ? `${timesheetData[0].percentageOfTarget}%` : 'N/A'}
+
+                                {monthlyTotalWorkingHours}
                               </Typography>
                             </Grid>
                             <Grid item xs={6}>
@@ -441,6 +465,12 @@ const TimesheetMainView = (props) => {
                               <Typography variant="body2" color="text.secondary">Client</Typography>
                               <Typography variant="body2" fontWeight="medium">
                                 {timesheetData[0].clientName || 'N/A'}
+                              </Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                              <Typography variant="body2" color="text.secondary">Start Date</Typography>
+                              <Typography variant="body2" fontWeight="medium">
+                                {timesheetData[0].startDate || 'N/A'}
                               </Typography>
                             </Grid>
                           </Grid>
@@ -1049,8 +1079,8 @@ const TimesheetMainView = (props) => {
       )}
 
       {AttachmentViewDialog && <AttachmentViewDialog />}
-  
-   
+
+
       {/* Render Attachments Dialog */}
       {AttachmentsDialog && <AttachmentsDialog />}
     </Container>
