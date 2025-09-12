@@ -41,6 +41,7 @@ import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { LoadingSpinner } from "./LoadingSpinner";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+
 const CustomDataTable = ({
   title,
   columns,
@@ -60,7 +61,6 @@ const CustomDataTable = ({
 }) => {
   const theme = useTheme();
   const [showFilters, setShowFilters] = useState(false);
-  const [showAdditionalFilters, setShowAdditionalFilters] = useState(false);
   const [localFilters, setLocalFilters] = useState(filters);
   const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
   const [visibleColumns, setVisibleColumns] = useState(
@@ -75,10 +75,6 @@ const CustomDataTable = ({
 
   // Get filterable columns
   const filterableColumns = columns.filter((col) => col.applyFilter === true);
-
-  // Get initially visible filters (first 3 filterable columns)
-  const initialFilters = filterableColumns.slice(0, 3);
-  const additionalFilters = filterableColumns.slice(3);
 
   // Handle filter change
   const handleFilterChange = (columnId, value, filterType) => {
@@ -139,6 +135,13 @@ const CustomDataTable = ({
                 handleFilterChange(column.id, e.target.value, "select")
               }
               sx={{ width: FILTER_FIELD_WIDTH }}
+              MenuProps={{
+                PaperProps: {
+                  sx: {
+                    maxHeight: 350,
+                  },
+                },
+              }}
             >
               <MenuItem value="">
                 <em>All</em>
@@ -420,8 +423,8 @@ const CustomDataTable = ({
         </Box>
       </Popover>
 
-      {/* Initial Filters Row */}
-      {initialFilters.length > 0 && (
+      {/* First 4 Filters Row */}
+      {filterableColumns.length > 0 && (
         <Box
           sx={{
             display: "flex",
@@ -431,7 +434,7 @@ const CustomDataTable = ({
             alignItems: "flex-end",
           }}
         >
-          {initialFilters.map((column) => (
+          {filterableColumns.slice(0, 4).map((column) => (
             <Box
               key={column.id}
               sx={{
@@ -444,65 +447,14 @@ const CustomDataTable = ({
             </Box>
           ))}
 
-          {additionalFilters.length > 0 && (
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={
-                showAdditionalFilters ? <ExpandLessIcon /> : <ExpandMoreIcon />
-              }
-              onClick={() => setShowAdditionalFilters(!showAdditionalFilters)}
-            >
-              {showAdditionalFilters ? "Hide Filters" : "More Filters"}
-            </Button>
-          )}
-        </Box>
-      )}
-
-      {/* Additional Filters Accordion */}
-      <Collapse in={showAdditionalFilters}>
-        <Paper
-          sx={{
-            p: 2,
-            mb: 2,
-            backgroundColor: theme.palette.grey[50],
-            border: `1px solid ${theme.palette.divider}`,
-          }}
-        >
-          <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
-            Additional Filters
-          </Typography>
-
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-              gap: 2,
-              mb: 2,
-            }}
-          >
-            {additionalFilters.map((column) => (
-              <Box
-                key={column.id}
-                sx={{
-                  minWidth: FILTER_FIELD_WIDTH,
-                  maxWidth: FILTER_FIELD_WIDTH,
-                  width: FILTER_FIELD_WIDTH,
-                }}
-              >
-                {renderFilterInput(column)}
-              </Box>
-            ))}
-          </Box>
-
-          <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
+          <Box sx={{ display: "flex", gap: 1 }}>
             <Button
               variant="outlined"
               size="small"
               onClick={handleClearFilters}
               startIcon={<FilterListOffIcon />}
             >
-              Clear All Filters
+              Clear All
             </Button>
             <Button
               variant="contained"
@@ -510,11 +462,62 @@ const CustomDataTable = ({
               onClick={handleApplyFilters}
               startIcon={<FilterListIcon />}
             >
-              Apply Filters
+              Apply
             </Button>
           </Box>
-        </Paper>
-      </Collapse>
+
+          {filterableColumns.length > 4 && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={showFilters ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              {showFilters ? "Hide More" : "More Filters"}
+            </Button>
+          )}
+        </Box>
+      )}
+
+      {/* Additional Filters Accordion */}
+      {filterableColumns.length > 4 && (
+        <Collapse in={showFilters}>
+          <Paper
+            sx={{
+              p: 2,
+              mb: 2,
+              backgroundColor: theme.palette.grey[50],
+              border: `1px solid ${theme.palette.divider}`,
+              borderRadius: 1,
+            }}
+          >
+            <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
+              Additional Filters
+            </Typography>
+
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+                gap: 2,
+              }}
+            >
+              {filterableColumns.slice(4).map((column) => (
+                <Box
+                  key={column.id}
+                  sx={{
+                    minWidth: FILTER_FIELD_WIDTH,
+                    maxWidth: FILTER_FIELD_WIDTH,
+                    width: FILTER_FIELD_WIDTH,
+                  }}
+                >
+                  {renderFilterInput(column)}
+                </Box>
+              ))}
+            </Box>
+          </Paper>
+        </Collapse>
+      )}
 
       {/* Active Filters Display */}
       {activeFiltersCount > 0 && (
@@ -544,7 +547,16 @@ const CustomDataTable = ({
                 key={columnId}
                 label={`${column?.label}: ${displayValue}`}
                 size="small"
-                onDelete={() => handleFilterChange(columnId, null, filter.type)}
+                onDelete={() => {
+                  handleFilterChange(columnId, null, filter.type);
+                  onFiltersChange?.(
+                    Object.fromEntries(
+                      Object.entries(localFilters).filter(
+                        ([id]) => id !== columnId
+                      )
+                    )
+                  );
+                }}
                 color="primary"
                 variant="outlined"
               />

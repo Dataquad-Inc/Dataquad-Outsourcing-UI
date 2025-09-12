@@ -12,7 +12,6 @@ import {
 import showDeleteConfirm from "../../utils/showDeleteConfirm";
 import { hotlistAPI } from "../../utils/api";
 import { useSelector } from "react-redux";
-import ConsultantProfile from "./ConsultantProfile";
 
 const HotList = React.memo(() => {
   const theme = useTheme();
@@ -27,14 +26,68 @@ const HotList = React.memo(() => {
   const [search, setSearch] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // filters
+  const [filters, setFilters] = useState({});
+  const [filterOptions, setFilterOptions] = useState({});
+
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingConsultant, setEditingConsultant] = useState(null);
+
+  /** ---------------- Extract Filter Options from Data ---------------- */
+  const extractFilterOptionsFromData = useCallback((data) => {
+    const options = {
+      technology: [],
+      teamleadName: [],
+      recruiterName: [],
+      salesExecutive: [],
+      reference: [],
+      payroll: [],
+      marketingVisa: [],
+      actualVisa: [],
+    };
+
+    data.forEach((consultant) => {
+      Object.keys(options).forEach((field) => {
+        const value = consultant[field];
+        if (value && !options[field].find((opt) => opt.value === value)) {
+          options[field].push({ value, label: value });
+        }
+      });
+    });
+
+    Object.keys(options).forEach((field) => {
+      options[field].sort((a, b) => a.label?.localeCompare(b.label || "") || 0);
+    });
+
+    setFilterOptions(options);
+  }, []);
 
   /** ---------------- Fetch Data ---------------- */
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const params = { page, size: rowsPerPage, keyword: search };
+
+      // build filter params
+      const filterParams = {};
+      Object.entries(filters).forEach(([key, filter]) => {
+        if (filter.value) {
+          if (filter.type === "dateRange") {
+            if (filter.value.from)
+              filterParams[`${key}From`] = filter.value.from;
+            if (filter.value.to) filterParams[`${key}To`] = filter.value.to;
+          } else {
+            filterParams[key] = filter.value;
+          }
+        }
+      });
+
+      const params = {
+        page,
+        size: rowsPerPage,
+        ...(search ? { keyword: search } : {}),
+        ...filterParams,
+      };
+
       let result = null;
       if (role === "SALESEXECUTIVE") {
         result = await hotlistAPI.getSalesExecConsultants(userId, params);
@@ -44,6 +97,11 @@ const HotList = React.memo(() => {
 
       setConsultants(result?.data?.content || []);
       setTotal(result?.data?.totalElements || 0);
+
+      if (Object.keys(filterOptions).length === 0 && result?.data?.content) {
+        extractFilterOptionsFromData(result.data.content);
+      }
+
       showInfoToast("Hotlist loaded successfully ");
     } catch (err) {
       console.error("Error fetching hotlist:", err);
@@ -51,30 +109,36 @@ const HotList = React.memo(() => {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, userId, search, refreshKey]);
+  }, [
+    page,
+    rowsPerPage,
+    userId,
+    search,
+    filters,
+    role,
+    filterOptions,
+    extractFilterOptionsFromData,
+  ]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData, refreshKey]);
 
+  /** ---------------- Filter Handler ---------------- */
+  const handleFiltersChange = useCallback((newFilters) => {
+    setFilters(newFilters);
+    setPage(0);
+  }, []);
+
   /** ---------------- CRUD Handlers ---------------- */
   const handleEdit = useCallback((row) => {
-    // Keep all necessary data for editing, including consultantId
-    const editData = {
-      ...row,
-      consultantId: row.consultantId, // Ensure consultantId is preserved
-    };
-
-    // Remove timestamp fields that shouldn't be edited
     const {
       teamleadName,
       recruiterName,
       consultantAddedTimeStamp,
       updatedTimeStamp,
       ...cleanEditData
-    } = editData;
-
-    console.log("Setting edit data:", cleanEditData); // Debug log
+    } = row;
     setEditingConsultant(cleanEditData);
     setShowCreateForm(true);
   }, []);
@@ -85,7 +149,6 @@ const HotList = React.memo(() => {
   }, []);
 
   const handleFormCancel = useCallback(() => {
-    console.log("Cancel button clicked"); // Debug log
     setShowCreateForm(false);
     setEditingConsultant(null);
   }, []);
@@ -126,8 +189,9 @@ const HotList = React.memo(() => {
     handleEdit,
     handleDelete,
     loading,
-    userRole: role, // Pass user role
-    userId: userId, // Pass user ID
+    userRole: role,
+    userId: userId,
+    filterOptions, // pass filter options
   });
 
   /** ---------------- Render ---------------- */
@@ -143,6 +207,7 @@ const HotList = React.memo(() => {
           rowsPerPage={rowsPerPage}
           search={search}
           loading={loading}
+          filters={filters}
           onPageChange={(e, newPage) => setPage(newPage)}
           onRowsPerPageChange={(e) => {
             setRowsPerPage(parseInt(e.target.value, 10));
@@ -157,12 +222,13 @@ const HotList = React.memo(() => {
             setPage(0);
           }}
           onRefresh={() => setRefreshKey((prev) => prev + 1)}
+          onFiltersChange={handleFiltersChange}
           onCreateNew={handleCreateNew}
         />
       ) : (
         <CreateConsultant
           onClose={handleFormCancel}
-          onCancel={handleFormCancel} // Add explicit onCancel prop
+          onCancel={handleFormCancel}
           onSuccess={handleFormSuccess}
           initialValues={editingConsultant}
         />
