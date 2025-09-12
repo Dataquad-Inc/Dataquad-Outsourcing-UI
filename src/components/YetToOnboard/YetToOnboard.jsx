@@ -3,7 +3,7 @@ import { Box, Button } from "@mui/material";
 import { useSelector } from "react-redux";
 import CustomDataTable from "../../ui-lib/CustomDataTable";
 import getHotListColumns from "../Hotlist/hotListColumns";
-import CreateConsultant from "../Hotlist/CreateConsultant"; // Import the form component
+import CreateConsultant from "../Hotlist/CreateConsultant";
 import { hotlistAPI } from "../../utils/api";
 import { useNavigate } from "react-router-dom";
 
@@ -14,6 +14,16 @@ import {
 } from "../../utils/toastUtils";
 import showDeleteConfirm from "../../utils/showDeleteConfirm";
 
+// Debounce hook (for search)
+const useDebounce = (value, delay) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
+};
+
 const YetToOnboard = React.memo(() => {
   const { userId, role } = useSelector((state) => state.auth);
 
@@ -23,8 +33,13 @@ const YetToOnboard = React.memo(() => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 500);
   const [refreshKey, setRefreshKey] = useState(0);
   const navigate = useNavigate();
+
+  // Filters
+  const [filters, setFilters] = useState({});
+  const [appliedFilters, setAppliedFilters] = useState({});
 
   // State for edit form
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -36,9 +51,10 @@ const YetToOnboard = React.memo(() => {
       setLoading(true);
 
       const params = {
-        page, // 0-based index (backend should handle conversion if needed)
+        page,
         size: rowsPerPage,
-        keyword: search,
+        ...(debouncedSearch ? { keyword: debouncedSearch } : {}),
+        ...appliedFilters, // include applied filters
       };
 
       const result = await hotlistAPI.getYetToOnboardConsultants(params);
@@ -52,7 +68,7 @@ const YetToOnboard = React.memo(() => {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, search, refreshKey]);
+  }, [page, rowsPerPage, debouncedSearch, appliedFilters, refreshKey]);
 
   useEffect(() => {
     fetchData();
@@ -60,13 +76,8 @@ const YetToOnboard = React.memo(() => {
 
   /** ---------------- Edit Handlers ---------------- */
   const handleEdit = useCallback((row) => {
-    // Keep all necessary data for editing, including consultantId
-    const editData = {
-      ...row,
-      consultantId: row.consultantId, // Ensure consultantId is preserved
-    };
+    const editData = { ...row, consultantId: row.consultantId };
 
-    // Remove timestamp fields that shouldn't be edited
     const {
       teamleadName,
       recruiterName,
@@ -109,26 +120,62 @@ const YetToOnboard = React.memo(() => {
     }
   }, []);
 
-  const handleDelete = useCallback((row) => {
-    const deleteConsultantAction = async () => {
-      try {
-        const result = await hotlistAPI.deleteConsultant(
-          row.consultantId,
-          userId
-        );
-        showSuccessToast(result.message || "Consultant deleted ");
-        setRefreshKey((prev) => prev + 1);
-      } catch (error) {
-        console.error("Delete error:", error);
-        showErrorToast("Failed to delete consultant ");
-      }
-    };
-    showDeleteConfirm(deleteConsultantAction, row.name || "this consultant");
-  }, [userId]);
+  const handleDelete = useCallback(
+    (row) => {
+      const deleteConsultantAction = async () => {
+        try {
+          const result = await hotlistAPI.deleteConsultant(
+            row.consultantId,
+            userId
+          );
+          showSuccessToast(result.message || "Consultant deleted ");
+          setRefreshKey((prev) => prev + 1);
+        } catch (error) {
+          console.error("Delete error:", error);
+          showErrorToast("Failed to delete consultant ");
+        }
+      };
+      showDeleteConfirm(deleteConsultantAction, row.name || "this consultant");
+    },
+    [userId]
+  );
 
-  const handleNavigate = useCallback((consultantId) => {
-    navigate(`/dashboard/hotlist/consultants/${consultantId}`);
-  }, [navigate]);
+  const handleNavigate = useCallback(
+    (consultantId) => {
+      navigate(`/dashboard/hotlist/consultants/${consultantId}`);
+    },
+    [navigate]
+  );
+
+  /** ---------------- Filter Handlers ---------------- */
+  const handleFilterChange = useCallback((field, value) => {
+    setFilters((prev) => ({ ...prev, [field]: value }));
+  }, []);
+
+  const applyFilters = useCallback(() => {
+    setAppliedFilters(filters);
+    setPage(0);
+  }, [filters]);
+
+  const clearFilter = useCallback((field) => {
+    setFilters((prev) => {
+      const updated = { ...prev };
+      delete updated[field];
+      return updated;
+    });
+    setAppliedFilters((prev) => {
+      const updated = { ...prev };
+      delete updated[field];
+      return updated;
+    });
+    setPage(0);
+  }, []);
+
+  const clearAllFilters = useCallback(() => {
+    setFilters({});
+    setAppliedFilters({});
+    setPage(0);
+  }, []);
 
   /** ---------------- Columns ---------------- */
   const columns = [
@@ -151,7 +198,7 @@ const YetToOnboard = React.memo(() => {
           disabled={loading}
           onClick={() => handleMoveToHotlist(row)}
           sx={{
-            textTransform: "none", // keep normal casing
+            textTransform: "none",
             minWidth: 180,
           }}
         >
@@ -174,6 +221,12 @@ const YetToOnboard = React.memo(() => {
           rowsPerPage={rowsPerPage}
           search={search}
           loading={loading}
+          filters={filters}
+          appliedFilters={appliedFilters}
+          onFilterChange={handleFilterChange}
+          onApplyFilters={applyFilters}
+          onClearFilter={clearFilter}
+          onClearAllFilters={clearAllFilters}
           onPageChange={(e, newPage) => setPage(newPage)}
           onRowsPerPageChange={(e) => {
             setRowsPerPage(parseInt(e.target.value, 10));

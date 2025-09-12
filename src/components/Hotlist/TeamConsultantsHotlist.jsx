@@ -26,7 +26,7 @@ const useDebounce = (value, delay) => {
 const TeamConsultantsHotlist = React.memo(() => {
   const theme = useTheme();
   const navigate = useNavigate();
-  const { userId, role } = useSelector((state) => state.auth); // Get both userId and role
+  const { userId, role } = useSelector((state) => state.auth);
 
   const [consultants, setConsultants] = useState([]);
   const [total, setTotal] = useState(0);
@@ -37,17 +37,62 @@ const TeamConsultantsHotlist = React.memo(() => {
   const debouncedSearch = useDebounce(search, 500);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // NEW: filters state
+  const [filters, setFilters] = useState({});
+  const [filterOptions, setFilterOptions] = useState({});
+
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingConsultant, setEditingConsultant] = useState(null);
+
+  /** ---------------- Fetch Filter Options ---------------- */
+  const fetchFilterOptions = useCallback(async () => {
+    try {
+      const result = await hotlistAPI.getFilterOptions();
+      if (result?.data) {
+        setFilterOptions(result.data);
+      }
+    } catch (error) {
+      console.error("Error fetching filter options:", error);
+      setFilterOptions({
+        technology: [],
+        teamleadName: [],
+        salesExecutive: [],
+        recruiterName: [],
+        reference: [],
+        payroll: [],
+        marketingVisa: [],
+        actualVisa: [],
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchFilterOptions();
+  }, [fetchFilterOptions]);
 
   /** ---------------- Fetch Data ---------------- */
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
+
+      // Build filter params
+      const filterParams = {};
+      Object.entries(filters).forEach(([key, filter]) => {
+        if (filter.value) {
+          if (filter.type === "dateRange") {
+            if (filter.value.from) filterParams[`${key}From`] = filter.value.from;
+            if (filter.value.to) filterParams[`${key}To`] = filter.value.to;
+          } else {
+            filterParams[key] = filter.value;
+          }
+        }
+      });
+
       const params = {
         page,
         size: rowsPerPage,
         ...(debouncedSearch ? { keyword: debouncedSearch } : {}),
+        ...filterParams,
       };
 
       const result = await hotlistAPI.getTeamConsultants(userId, params);
@@ -62,21 +107,25 @@ const TeamConsultantsHotlist = React.memo(() => {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, userId, debouncedSearch]);
+  }, [page, rowsPerPage, userId, debouncedSearch, filters]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData, refreshKey]);
 
+  /** ---------------- Filter Handlers ---------------- */
+  const handleFiltersChange = useCallback((newFilters) => {
+    setFilters(newFilters);
+    setPage(0);
+  }, []);
+
   /** ---------------- CRUD Handlers ---------------- */
   const handleEdit = useCallback((row) => {
-    // Keep all necessary data for editing, including consultantId
     const editData = {
       ...row,
-      consultantId: row.consultantId, // Ensure consultantId is preserved
+      consultantId: row.consultantId,
     };
 
-    // Remove timestamp fields that shouldn't be edited
     const {
       teamleadName,
       recruiterName,
@@ -85,7 +134,6 @@ const TeamConsultantsHotlist = React.memo(() => {
       ...cleanEditData
     } = editData;
 
-    console.log("Setting edit data (TeamConsultantsHotlist):", cleanEditData); // Debug log
     setEditingConsultant(cleanEditData);
     setShowCreateForm(true);
   }, []);
@@ -96,7 +144,6 @@ const TeamConsultantsHotlist = React.memo(() => {
   }, []);
 
   const handleFormCancel = useCallback(() => {
-    console.log("Cancel button clicked (TeamConsultantsHotlist)"); // Debug log
     setShowCreateForm(false);
     setEditingConsultant(null);
   }, []);
@@ -137,8 +184,9 @@ const TeamConsultantsHotlist = React.memo(() => {
     handleEdit,
     handleDelete,
     loading,
-    userRole: role, // Pass user role
-    userId: userId, // Pass user ID
+    userRole: role,
+    userId: userId,
+    filterOptions, // Pass filter options here
   });
 
   /** ---------------- Render ---------------- */
@@ -154,6 +202,8 @@ const TeamConsultantsHotlist = React.memo(() => {
           rowsPerPage={rowsPerPage}
           search={search}
           loading={loading}
+          filters={filters}
+          onFiltersChange={handleFiltersChange}
           onPageChange={(e, newPage) => setPage(newPage)}
           onRowsPerPageChange={(e) => {
             setRowsPerPage(parseInt(e.target.value, 10));
@@ -173,9 +223,9 @@ const TeamConsultantsHotlist = React.memo(() => {
       ) : (
         <CreateConsultant
           onClose={handleFormCancel}
-          onCancel={handleFormCancel} // Add explicit onCancel prop
+          onCancel={handleFormCancel}
           onSuccess={handleFormSuccess}
-          initialValues={editingConsultant} // Changed from editingConsultant to initialValues
+          initialValues={editingConsultant}
         />
       )}
     </Box>

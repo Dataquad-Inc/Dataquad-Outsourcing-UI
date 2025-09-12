@@ -65,16 +65,16 @@ const SimpleDocumentsDisplay = ({ consultantId }) => {
           {documents.map((doc, index) => (
             <React.Fragment key={index}>
               <ListItem
-                secondaryAction={
-                  <Tooltip title="Open Document">
-                    <IconButton
-                      edge="end"
-                      onClick={() => window.open(doc.fileUrl, "_blank")}
-                    >
-                      <OpenInNewIcon />
-                    </IconButton>
-                  </Tooltip>
-                }
+                // secondaryAction={
+                //   <Tooltip title="Open Document">
+                //     <IconButton
+                //       edge="end"
+                //       onClick={() => window.open(doc.fileUrl, "_blank")}
+                //     >
+                //       <OpenInNewIcon />
+                //     </IconButton>
+                //   </Tooltip>
+                // }
               >
                 <ListItemAvatar>
                   <Avatar sx={{ bgcolor: "primary.main" }}>

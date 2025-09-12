@@ -4,6 +4,7 @@ import { Box, Tooltip, Typography } from "@mui/material";
 import { AccessTime } from "@mui/icons-material";
 import { TextField } from "@mui/material";
 import { validateIfPlaced } from "./validatePlacedUtil";
+import { useDispatch } from "react-redux"; // Add this import
 
 import { CheckCircle as SuccessIcon } from "@mui/icons-material";
 import { Link } from "react-router-dom";
@@ -18,15 +19,17 @@ export const getStatusColor = (status) => {
     PLACED: { bg: "#F3E8FF", text: "#7E22CE" },
     SELECTED: { bg: "#E0F2F1", text: "#00695C" },
     REJECTED: { bg: "#FFEBEE", text: "#D32F2F" },
-    FEEDBACK_PENDING: { bg: "#FFFDE7", text: "#F9A825" }, // <-- Added this line
+    FEEDBACK_PENDING: { bg: "#FFFDE7", text: "#F9A825" },
   };
 
   return statusColors[normalized] || { bg: "#F3F4F6", text: "#374151" };
 };
 
-export const getStatusChip = (status, row, dispatch) => {
+// Create a separate component for the status chip that can use hooks
+const StatusChipWithDispatch = ({ status, row }) => {
+  const dispatch = useDispatch();
   const normalized = status?.trim().toUpperCase();
-  const isMovedToPlacement = row.isPlaced || row.placed; // Get the value from the row object
+  const isMovedToPlacement = row.isPlaced || row.placed;
   const { bg, text } = getStatusColor(status);
   const label = normalized || "SCHEDULED";
   const isPlacedWord = normalized === "PLACED";
@@ -60,7 +63,10 @@ export const getStatusChip = (status, row, dispatch) => {
   if (canAddToPlacement) {
     // If placed and not moved to placement, show the Add to Placement button
     return (
-      <Button variant="contained" onClick={() => validateIfPlaced(status, row, dispatch)}>
+      <Button 
+        variant="contained" 
+        onClick={() => validateIfPlaced(status, row, dispatch)}
+      >
         Add to Placement
       </Button>
     );
@@ -85,6 +91,11 @@ export const getStatusChip = (status, row, dispatch) => {
       }}
     />
   );
+};
+
+export const getStatusChip = (status, row) => {
+  // Remove dispatch parameter and use the component instead
+  return <StatusChipWithDispatch status={status} row={row} />;
 };
 
 // interview levels and other functions remain the same...
