@@ -139,6 +139,7 @@ const Timesheets = () => {
   const [currentAttachment, setCurrentAttachment] = useState(null);
   const [attachmentContent, setAttachmentContent] = useState(null);
   const [attachmentType, setAttachmentType] = useState('');
+  const [monthlyTotalWorkingHours, setMonthlyTotalWorkingHours] = useState(0);
 
   const dispatch = useDispatch();
 
@@ -600,24 +601,6 @@ const Timesheets = () => {
 
     handlePrepopulation();
   }, [prepopulatedEmployee, role, selectedMonthRange]);
-
-  useEffect(() => {
-
-    if (monthlyViewMode && selectedMonthRange && navigationSource !== 'url' && navigationSource !== 'state') {
-      const currentMonth = new Date(calendarValue).getMonth();
-      const currentYear = new Date(calendarValue).getFullYear();
-
-      const selectedMonth = new Date(selectedMonthRange.start).getMonth();
-      const selectedYear = new Date(selectedMonthRange.start).getFullYear();
-
-      if (selectedMonth !== currentMonth || selectedYear !== currentYear) {
-        setSelectedMonthRange(null);
-        console.log('Cleared selected month range due to manual calendar change');
-      }
-    }
-  }, [calendarValue, monthlyViewMode, selectedMonthRange, navigationSource]);
-
-
 
   const handleProjectPrepopulation = (projectsData) => {
     if (projectsData.length > 0 && prepopulatedEmployee) {
@@ -1224,7 +1207,6 @@ const Timesheets = () => {
       return;
     }
 
-    // FIXED: Prevent multiple simultaneous calls
     if (loading) {
       console.log('Already loading, skipping duplicate call');
       return;
@@ -1234,7 +1216,6 @@ const Timesheets = () => {
     try {
       let monthStartStr, monthEndStr;
 
-      // FIXED: Always prioritize selectedMonthRange from prepopulation over calendarValue
       if (selectedMonthRange && (navigationSource === 'url' || navigationSource === 'state')) {
         monthStartStr = selectedMonthRange.start;
         monthEndStr = selectedMonthRange.end;
@@ -1249,7 +1230,6 @@ const Timesheets = () => {
         console.log('Using calendar value for month range:', { monthStartStr, monthEndStr });
       }
 
-
       const resultAction = await dispatch(fetchTimesheetsByUserIdWithDateRange({
         userId: employeeId,
         monthStart: monthStartStr,
@@ -1260,10 +1240,18 @@ const Timesheets = () => {
         const response = resultAction.payload;
         const timesheetData = response?.data?.timesheets || [];
 
-        console.log('Monthly timesheet data received:', timesheetData);
+        // EXTRACT TOTAL WORKING HOURS FROM API RESPONSE
+        const totalWorkingHours = response?.data?.totalWorkingHours || 0;
+        setMonthlyTotalWorkingHours(totalWorkingHours);
+
+        console.log('Monthly timesheet data received:', {
+          timesheetData,
+          totalWorkingHours,
+          fullResponse: response
+        });
+
         setTimeSheetData(timesheetData);
 
-        // Generate weeks for the correct month (use selectedMonthRange if available from prepopulation)
         const targetDate = (selectedMonthRange && (navigationSource === 'url' || navigationSource === 'state'))
           ? new Date(selectedMonthRange.start)
           : new Date(calendarValue);
@@ -1294,18 +1282,19 @@ const Timesheets = () => {
         const errorMessage = extractErrorMessage(resultAction.payload);
         ToastService.error(errorMessage);
         setMonthlyTimesheetData([]);
+        setMonthlyTotalWorkingHours(0);
       }
     } catch (error) {
       console.error("Error fetching monthly timesheet:", error);
       const errorMessage = extractErrorMessage(error);
       ToastService.error(errorMessage);
       setMonthlyTimesheetData([]);
+      setMonthlyTotalWorkingHours(0);
     } finally {
       setLoading(false);
     }
   };
-
-
+  console.log("monthly data..", monthlyTimesheetData)
   const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) => {
     if (!apiTimesheet) return null;
 
@@ -1430,7 +1419,7 @@ const Timesheets = () => {
       return false;
     }
     if (day === 'saturday' || day === 'sunday') {
-      return false; 
+      return false;
     }
     if (calendarDate && selectedWeekStart) {
       const dayDate = getDateForDay(selectedWeekStart, day);
@@ -1536,11 +1525,14 @@ const Timesheets = () => {
 
         // If setting sick leave to > 0, clear regular hours and holiday
         if (numValue > 0) {
-          updated[day] = 0;
+          updated[day] = 0; // Clear work hours
           if (updated.companyHoliday) updated.companyHoliday[day] = 0;
         } else {
-          // If setting sick leave to 0, reset to default regular hours
-          updated[day] = resetToDefaultHours(day, prev);
+          // If setting sick leave to 0, set default work hours ONLY if no other leave exists
+          const hasHoliday = prev.companyHoliday && prev.companyHoliday[day] > 0;
+          if (!hasHoliday) {
+            updated[day] = resetToDefaultHours(day, prev);
+          }
         }
 
       } else if (type === 'companyHoliday') {
@@ -1549,11 +1541,14 @@ const Timesheets = () => {
 
         // If setting holiday to > 0, clear regular hours and sick leave
         if (numValue > 0) {
-          updated[day] = 0;
+          updated[day] = 0; // Clear work hours
           if (updated.sickLeave) updated.sickLeave[day] = 0;
         } else {
-          // If setting holiday to 0, reset to default regular hours
-          updated[day] = resetToDefaultHours(day, prev);
+          // If setting holiday to 0, set default work hours ONLY if no other leave exists
+          const hasSickLeave = prev.sickLeave && prev.sickLeave[day] > 0;
+          if (!hasSickLeave) {
+            updated[day] = resetToDefaultHours(day, prev);
+          }
         }
       }
 
@@ -1775,7 +1770,7 @@ const Timesheets = () => {
               date: dateStr,
               hours: currentTimesheet.sickLeave[day],
               description: 'Sick Leave',
-              type: 'SICK_LEAVE'
+              // type: 'SICK_LEAVE'
             });
           }
 
@@ -1785,7 +1780,7 @@ const Timesheets = () => {
               date: dateStr,
               hours: currentTimesheet.companyHoliday[day],
               description: 'Company Holiday',
-              type: 'COMPANY_HOLIDAY'
+              // type: 'COMPANY_HOLIDAY'
             });
           }
         });
@@ -1914,7 +1909,7 @@ const Timesheets = () => {
               date: dateStr,
               hours: currentTimesheet.sickLeave[day],
               description: 'Sick Leave',
-              type: 'SICK_LEAVE'
+              // type: 'SICK_LEAVE'
             });
           }
 
@@ -1924,7 +1919,7 @@ const Timesheets = () => {
               date: dateStr,
               hours: currentTimesheet.companyHoliday[day],
               description: 'Company Holiday',
-              type: 'COMPANY_HOLIDAY'
+              // type: 'COMPANY_HOLIDAY'
             });
           }
         });
@@ -2047,7 +2042,7 @@ const Timesheets = () => {
             date: dateStr,
             hours: currentTimesheet.sickLeave[day],
             description: 'Sick Leave',
-            type: 'SICK_LEAVE'
+            // type: 'SICK_LEAVE'
           });
         }
 
@@ -2057,7 +2052,7 @@ const Timesheets = () => {
             date: dateStr,
             hours: currentTimesheet.companyHoliday[day],
             description: 'Company Holiday',
-            type: 'COMPANY_HOLIDAY'
+            // type: 'COMPANY_HOLIDAY'
           });
         }
       });
@@ -3265,27 +3260,7 @@ const Timesheets = () => {
         }}
       >
         <DialogTitle>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <AttachFile />
-            <Typography variant="h6" component="span" sx={{ flexGrow: 1 }}>
-              {currentAttachment?.filename || 'Attachment'}
-            </Typography>
-            <IconButton
-              size="small"
-              onClick={handleDownload}
-              title="Download"
-              disabled={viewLoading}
-            >
-              <CloudDownload />
-            </IconButton>
-            <IconButton
-              size="small"
-              onClick={handleClose}
-              title="Close"
-            >
-              <Close />
-            </IconButton>
-          </Box>
+          <Typography variant='h4'>Attachments</Typography>
         </DialogTitle>
 
         <DialogContent dividers sx={{ p: 0, overflow: 'hidden' }}>
@@ -3497,6 +3472,7 @@ const Timesheets = () => {
       viewLoading={viewLoading}
       downloadLoading={downloadLoading}
       AttachmentViewDialog={AttachmentViewDialog}
+      monthlyTotalWorkingHours={monthlyTotalWorkingHours}
     />
   );
 };

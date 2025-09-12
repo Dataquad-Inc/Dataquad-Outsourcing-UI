@@ -79,7 +79,7 @@ const TimesheetTableSection = ({
             size="small"
           />
           {/* Status chip for admin roles */}
-          {(role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE") && currentTimesheet && (
+          {(role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE" || role === 'EXTERNALEMPLOYEE') && currentTimesheet && (
             <Chip
               label={currentTimesheet.status || 'DRAFT'}
               color={
@@ -302,7 +302,6 @@ const TimesheetTableSection = ({
                     const dayDate = getDateForDay(selectedWeekStart, day);
                     const isInCalendarMonth = dayDate ? isDateInCalendarMonth(dayDate, calendarValue) : false;
                     const isEditable = isFieldEditable(currentTimesheet, day, null, calendarValue) && isInCalendarMonth;
-
                     return (
                       <TableCell key={day} align="center" sx={{
                         py: 1,
@@ -313,7 +312,7 @@ const TimesheetTableSection = ({
                           type="text"
                           value={currentTimesheet[day] || 0}
                           onChange={(e) => handleHourChange(day, e.target.value)}
-                          disabled={!isEditable}
+                          disabled={!isEditable || (isAddingNewTimesheet && isSubmitted)}
                           inputProps={{
                             min: 0,
                             max: 8,
@@ -366,7 +365,7 @@ const TimesheetTableSection = ({
                             const value = Number(e.target.value);
                             handleHourChange(day, value === 8 ? value : '', 'sickLeave');
                           }}
-                          disabled={!isEditable}
+                          disabled={!isEditable || (isAddingNewTimesheet && isSubmitted)}
                           inputProps={{
                             min: 0,
                             max: 8,
@@ -433,13 +432,13 @@ const TimesheetTableSection = ({
                 Refresh
               </Button>
 
-              {/* Edit button for rejected timesheets */}
-              {role === 'EXTERNALEMPLOYEE' && canEditTimesheet && currentTimesheet?.status === 'REJECTED' && !isEditMode && (
+              {/* Edit button for rejected timesheets - Show for all roles */}
+              {currentTimesheet?.status === 'REJECTED' && !isEditMode && (
                 <Button
                   variant="outlined"
                   color="primary"
                   startIcon={<Edit />}
-                  onClick={saveTimesheet}
+                  onClick={handleEditTimesheet}
                   disabled={loading || adminActionLoading}
                   sx={{ minWidth: 120 }}
                 >
@@ -522,7 +521,6 @@ const TimesheetTableSection = ({
                       color="success"
                       startIcon={loading ? <CircularProgress size={16} /> : <CheckCircle />}
                       onClick={submitWeeklyTimesheet}
-                      // disabled={loading || (role === 'EXTERNALEMPLOYEE' && (isSubmitted || !isFridayInPresentWeek()))}
                       sx={{ minWidth: 140 }}
                     >
                       {loading ? 'Submitting...' : 'Submit for Approval'}
@@ -537,8 +535,7 @@ const TimesheetTableSection = ({
 
       {/* Actions Section for ACCOUNTS and INVOICE roles */}
       {(role === 'ACCOUNTS' || role === 'INVOICE') && (
-        <Box sx={{ mt: 4, p: 3, }}>
-
+        <Box sx={{ mt: 4, p: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 2 }}>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               <Button
@@ -550,6 +547,20 @@ const TimesheetTableSection = ({
                 Refresh
               </Button>
 
+              {/* Edit button for rejected timesheets in ACCOUNTS/INVOICE view */}
+              {currentTimesheet?.status === 'REJECTED' && !isEditMode && (
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  startIcon={<Edit />}
+                  onClick={handleEditTimesheet}
+                  disabled={loading || adminActionLoading}
+                  sx={{ minWidth: 120 }}
+                >
+                  Edit
+                </Button>
+              )}
+
               {/* Admin action buttons - only show if employee is selected and timesheet exists */}
               {selectedEmployee && monthlyTimesheetData && monthlyTimesheetData.length > 0 && (
                 <>
@@ -557,7 +568,6 @@ const TimesheetTableSection = ({
                     onClick={() => onApprove(null, monthlyTimesheetData[0])}
                     variant="contained"
                     color="success"
-                    // disabled={adminActionLoading || monthlyTimesheetData.every(week => week.status === 'APPROVED')}
                     startIcon={adminActionLoading ? <CircularProgress size={16} /> : <ThumbUp />}
                   >
                     {adminActionLoading ? 'Processing...' : 'Approve'}
@@ -567,7 +577,7 @@ const TimesheetTableSection = ({
                     onClick={() => onReject()}
                     variant="contained"
                     color="error"
-                    disabled={adminActionLoading || monthlyTimesheetData.every(week => week.status === 'REJECTED')}
+                    disabled={adminActionLoading}
                     startIcon={adminActionLoading ? <CircularProgress size={16} /> : <ThumbDown />}
                   >
                     {adminActionLoading ? 'Processing...' : 'Reject'}
@@ -593,7 +603,6 @@ const TimesheetTableSection = ({
                     color="success"
                     startIcon={loading ? <CircularProgress size={16} /> : <CheckCircle />}
                     onClick={submitWeeklyTimesheet}
-                    // disabled={loading || (role === 'EXTERNALEMPLOYEE' && (isSubmitted || !isFridayInPresentWeek()))}
                     sx={{ minWidth: 140 }}
                   >
                     {loading ? 'Submitting...' : 'Submit for Approval'}
