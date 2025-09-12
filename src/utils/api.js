@@ -333,6 +333,9 @@ export const hotlistAPI = {
   moveToHotlist: async (consultantId) => {
     return apiPatch(`hotlist/moveToHotlist/${consultantId}`);
   },
+   moveToYetToOnboard: async (consultantId) => {
+    return apiPatch(`hotlist/moveToYetToOnBoard/${consultantId}`);
+  },
 };
 
 // ========== File Management APIs ==========

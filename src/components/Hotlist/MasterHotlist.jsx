@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useState } from "react";
-import { useTheme, Box } from "@mui/material";
+import { useTheme, Box, Button } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import CustomDataTable from "../../ui-lib/CustomDataTable";
 import getHotListColumns from "./hotListColumns";
@@ -47,7 +47,7 @@ const MasterHotlist = React.memo(() => {
       // You can either call a dedicated API endpoint for filter options
       // or extract them from the existing data
       const result = await hotlistAPI.getFilterOptions();
-      
+
       if (result?.data) {
         setFilterOptions(result.data);
       }
@@ -144,7 +144,14 @@ const MasterHotlist = React.memo(() => {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, debouncedSearch, filters, filterOptions, extractFilterOptionsFromData]);
+  }, [
+    page,
+    rowsPerPage,
+    debouncedSearch,
+    filters,
+    filterOptions,
+    extractFilterOptionsFromData,
+  ]);
 
   useEffect(() => {
     fetchFilterOptions();
@@ -203,37 +210,72 @@ const MasterHotlist = React.memo(() => {
   }, []);
 
   /** ---------------- Delete ---------------- */
-  const handleDelete = useCallback((row) => {
-    const deleteConsultantAction = async () => {
-      try {
-        const result = await hotlistAPI.deleteConsultant(
-          row.consultantId,
-          userId
-        );
-        showSuccessToast(result.message || "Consultant deleted ");
-        setRefreshKey((prev) => prev + 1);
-      } catch (error) {
-        console.error("Delete error:", error);
-        showErrorToast("Failed to delete consultant ");
-      }
-    };
-    showDeleteConfirm(deleteConsultantAction, row.name || "this consultant");
-  }, [userId]);
+  const handleDelete = useCallback(
+    (row) => {
+      const deleteConsultantAction = async () => {
+        try {
+          const result = await hotlistAPI.deleteConsultant(
+            row.consultantId,
+            userId
+          );
+          showSuccessToast(result.message || "Consultant deleted ");
+          setRefreshKey((prev) => prev + 1);
+        } catch (error) {
+          console.error("Delete error:", error);
+          showErrorToast("Failed to delete consultant ");
+        }
+      };
+      showDeleteConfirm(deleteConsultantAction, row.name || "this consultant");
+    },
+    [userId]
+  );
 
   const handleNavigate = (consultantId) => {
     navigate(`/dashboard/hotlist/master/${consultantId}`);
   };
 
+  const handleMoveToYetToOnboard = useCallback(async (row) => {
+    try {
+      const result = await hotlistAPI.moveToYetToOnboard(row.consultantId);
+      showSuccessToast(result.message || "Consultant moved to hotlist");
+      setRefreshKey((prev) => prev + 1);
+    } catch (error) {
+      console.error("Move error:", error);
+      showErrorToast("Failed to move consultant to hotlist");
+    }
+  }, []);
+
   /** ---------------- Columns ---------------- */
-  const columns = getHotListColumns({
-    handleNavigate,
-    handleEdit,
-    handleDelete,
-    loading,
-    userRole: role,
-    userId: userId,
-    filterOptions, // Pass filter options to columns
-  });
+  const columns = [
+    ...getHotListColumns({
+      handleNavigate,
+      handleEdit,
+      handleDelete,
+      loading,
+      userRole: role,
+      userId,
+      filterOptions, // Pass filter options to columns (same as MasterHotlist)
+    }),
+    {
+      id: "Yet-To-OnBoard",
+      label: "Move Yet-To-OnBoard",
+      width: 180,
+      render: (_, row) => (
+        <Button
+          variant="text"
+          color="primary"
+          disabled={loading}
+          onClick={() => handleMoveToYetToOnboard(row)}
+          sx={{
+            textTransform: "none",
+            minWidth: 180,
+          }}
+        >
+          Move Yet-To-OnBoard
+        </Button>
+      ),
+    },
+  ];
 
   /** ---------------- Render ---------------- */
   return (
