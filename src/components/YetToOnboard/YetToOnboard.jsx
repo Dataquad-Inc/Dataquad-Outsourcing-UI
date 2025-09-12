@@ -37,30 +37,110 @@ const YetToOnboard = React.memo(() => {
   const [refreshKey, setRefreshKey] = useState(0);
   const navigate = useNavigate();
 
-  // Filters
+  // Advanced Filters (similar to MasterHotlist)
   const [filters, setFilters] = useState({});
-  const [appliedFilters, setAppliedFilters] = useState({});
+  const [filterOptions, setFilterOptions] = useState({});
 
   // State for edit form
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingConsultant, setEditingConsultant] = useState(null);
+
+  // Fetch filter options
+  const fetchFilterOptions = useCallback(async () => {
+    try {
+      // You can either call a dedicated API endpoint for filter options
+      // or extract them from the existing data
+      const result = await hotlistAPI.getFilterOptions();
+      
+      if (result?.data) {
+        setFilterOptions(result.data);
+      }
+    } catch (error) {
+      console.error("Error fetching filter options:", error);
+      // Set default empty options if API fails
+      setFilterOptions({
+        technology: [],
+        teamleadName: [],
+        salesExecutive: [],
+        recruiterName: [],
+        reference: [],
+        payroll: [],
+        marketingVisa: [],
+        actualVisa: [],
+      });
+    }
+  }, []);
+
+  // Extract filter options from consultants data
+  const extractFilterOptionsFromData = useCallback((data) => {
+    const options = {
+      technology: [],
+      teamleadName: [],
+      salesExecutive: [],
+      recruiterName: [],
+      reference: [],
+      payroll: [],
+      marketingVisa: [],
+      actualVisa: [],
+    };
+
+    data.forEach((consultant) => {
+      // Extract unique values for each filterable field
+      Object.keys(options).forEach((field) => {
+        const value = consultant[field];
+        if (value && !options[field].find((opt) => opt.value === value)) {
+          options[field].push({
+            value: value,
+            label: value,
+          });
+        }
+      });
+    });
+
+    // Sort options alphabetically
+    Object.keys(options).forEach((field) => {
+      options[field].sort((a, b) => a.label?.localeCompare(b.label || "") || 0);
+    });
+
+    setFilterOptions(options);
+  }, []);
 
   /** ---------------- Fetch Data ---------------- */
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
 
+      // Build filter parameters (similar to MasterHotlist)
+      const filterParams = {};
+      Object.entries(filters).forEach(([key, filter]) => {
+        if (filter.value) {
+          if (filter.type === "dateRange") {
+            if (filter.value.from)
+              filterParams[`${key}From`] = filter.value.from;
+            if (filter.value.to) filterParams[`${key}To`] = filter.value.to;
+          } else {
+            filterParams[key] = filter.value;
+          }
+        }
+      });
+
       const params = {
         page,
         size: rowsPerPage,
         ...(debouncedSearch ? { keyword: debouncedSearch } : {}),
-        ...appliedFilters, // include applied filters
+        ...filterParams, // include filter parameters
       };
 
       const result = await hotlistAPI.getYetToOnboardConsultants(params);
 
       setConsultants(result?.data?.content || []);
       setTotal(result?.data?.totalElements || 0);
+
+      // Extract filter options from the data if not already set
+      if (Object.keys(filterOptions).length === 0 && result?.data?.content) {
+        extractFilterOptionsFromData(result.data.content);
+      }
+
       showInfoToast("Yet-to-onboard consultants loaded successfully");
     } catch (err) {
       console.error("Error fetching consultants:", err);
@@ -68,11 +148,21 @@ const YetToOnboard = React.memo(() => {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, debouncedSearch, appliedFilters, refreshKey]);
+  }, [page, rowsPerPage, debouncedSearch, filters, filterOptions, extractFilterOptionsFromData]);
+
+  useEffect(() => {
+    fetchFilterOptions();
+  }, [fetchFilterOptions]);
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+  }, [fetchData, refreshKey, debouncedSearch]);
+
+  /** ---------------- Filter Handlers ---------------- */
+  const handleFiltersChange = useCallback((newFilters) => {
+    setFilters(newFilters);
+    setPage(0); // Reset to first page when filters change
+  }, []);
 
   /** ---------------- Edit Handlers ---------------- */
   const handleEdit = useCallback((row) => {
@@ -88,6 +178,11 @@ const YetToOnboard = React.memo(() => {
 
     console.log("Setting edit data (YetToOnboard):", cleanEditData);
     setEditingConsultant(cleanEditData);
+    setShowCreateForm(true);
+  }, []);
+
+  const handleCreateNew = useCallback(() => {
+    setEditingConsultant(null);
     setShowCreateForm(true);
   }, []);
 
@@ -147,36 +242,6 @@ const YetToOnboard = React.memo(() => {
     [navigate]
   );
 
-  /** ---------------- Filter Handlers ---------------- */
-  const handleFilterChange = useCallback((field, value) => {
-    setFilters((prev) => ({ ...prev, [field]: value }));
-  }, []);
-
-  const applyFilters = useCallback(() => {
-    setAppliedFilters(filters);
-    setPage(0);
-  }, [filters]);
-
-  const clearFilter = useCallback((field) => {
-    setFilters((prev) => {
-      const updated = { ...prev };
-      delete updated[field];
-      return updated;
-    });
-    setAppliedFilters((prev) => {
-      const updated = { ...prev };
-      delete updated[field];
-      return updated;
-    });
-    setPage(0);
-  }, []);
-
-  const clearAllFilters = useCallback(() => {
-    setFilters({});
-    setAppliedFilters({});
-    setPage(0);
-  }, []);
-
   /** ---------------- Columns ---------------- */
   const columns = [
     ...getHotListColumns({
@@ -186,6 +251,7 @@ const YetToOnboard = React.memo(() => {
       loading,
       userRole: role,
       userId,
+      filterOptions, // Pass filter options to columns (same as MasterHotlist)
     }),
     {
       id: "moveToHotlist",
@@ -222,11 +288,6 @@ const YetToOnboard = React.memo(() => {
           search={search}
           loading={loading}
           filters={filters}
-          appliedFilters={appliedFilters}
-          onFilterChange={handleFilterChange}
-          onApplyFilters={applyFilters}
-          onClearFilter={clearFilter}
-          onClearAllFilters={clearAllFilters}
           onPageChange={(e, newPage) => setPage(newPage)}
           onRowsPerPageChange={(e) => {
             setRowsPerPage(parseInt(e.target.value, 10));
@@ -241,6 +302,8 @@ const YetToOnboard = React.memo(() => {
             setPage(0);
           }}
           onRefresh={() => setRefreshKey((prev) => prev + 1)}
+          onFiltersChange={handleFiltersChange}
+          onCreateNew={handleCreateNew}
         />
       ) : (
         <CreateConsultant

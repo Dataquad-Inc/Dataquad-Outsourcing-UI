@@ -163,7 +163,7 @@ const TeamConsultantsHotlist = React.memo(() => {
   const handleDelete = useCallback((row) => {
     const deleteConsultantAction = async () => {
       try {
-        const result = await hotlistAPI.deleteConsultant(row.consultantId);
+        const result = await hotlistAPI.deleteConsultant(row.consultantId,userId);
         showSuccessToast(result.message || "Consultant deleted ");
         setRefreshKey((prev) => prev + 1);
       } catch (error) {
