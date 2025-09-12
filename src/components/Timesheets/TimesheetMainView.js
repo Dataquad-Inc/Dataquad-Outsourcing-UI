@@ -48,7 +48,7 @@ const TimesheetMainView = (props) => {
     selectedMonthRange,
     navigationSource,
     handleViewAttachmentFile,
-    handleDownloadAttachmentFile, viewLoading, AttachmentViewDialog, downloadLoading, getAttachmentViewDialog, monthlyTotalWorkingHours
+    handleDownloadAttachmentFile, viewLoading, AttachmentViewDialog, downloadLoading, getAttachmentViewDialog, monthlyTotalWorkingHours,monthlyTotalWorkingHoursForEmployee
 
   } = props;
 
@@ -77,22 +77,66 @@ const TimesheetMainView = (props) => {
   //   return isFieldEditable(timesheet, day, leaveType, calendarDate);
   // };
 
-  const safeIsFieldEditable = (timesheet, day, leaveType, calendarDate) => {
-    if (!timesheet) return false;
+const safeIsFieldEditable = (timesheet, day, leaveType, calendarDate) => {
+  if (!timesheet) return false;
 
-    if (day === 'saturday' || day === 'sunday') {
+  if (day === 'saturday' || day === 'sunday') {
+    return false;
+  }
+
+  // In edit mode, allow editing regardless of calendar month (except weekends)
+  if (isEditMode) {
+    return true;
+  }
+
+  // SPECIAL CASE: Allow editing for rejected timesheets for EXTERNALEMPLOYEE
+  const isRejectedAndExternalEmployee = timesheet.status === 'REJECTED' &&
+    role === 'EXTERNALEMPLOYEE';
+
+  if (isRejectedAndExternalEmployee) {
+    return true; // Allow editing for rejected timesheets for EXTERNALEMPLOYEE
+  }
+
+  // For SUPERADMIN and ACCOUNTS, allow editing if not submitted
+  if ((role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE") && !isSubmitted) {
+    return true;
+  }
+
+  // For other cases, use the original function but bypass calendar month check
+  // if we're dealing with a rejected timesheet
+  if (timesheet.status === 'REJECTED') {
+    // Skip calendar month validation for rejected timesheets
+    
+    // For EXTERNALEMPLOYEE, check if timesheet is editable and not submitted
+    if (role === 'EXTERNALEMPLOYEE' && (isSubmitted || (timesheet && !timesheet.isEditable))) {
       return false;
     }
-    // SPECIAL CASE: Allow editing for rejected timesheets for EXTERNALEMPLOYEE
-    const isRejectedAndExternalEmployee = timesheet.status === 'REJECTED' &&
-      role === 'EXTERNALEMPLOYEE';
 
-    if (isRejectedAndExternalEmployee) {
-      return true; // Allow editing for rejected timesheets for EXTERNALEMPLOYEE
+    // For main hours row, check if any leave type has hours for this day
+    if (!leaveType) {
+      const hasSickLeave = timesheet.sickLeave && timesheet.sickLeave[day] > 0;
+      const hasHoliday = timesheet.companyHoliday && timesheet.companyHoliday[day] > 0;
+      if (hasSickLeave || hasHoliday) return false;
     }
 
-    return isFieldEditable(timesheet, day, leaveType, calendarDate);
-  };
+    // For leave types, check if the opposite leave type exists
+    if (leaveType === 'sickLeave') {
+      if (timesheet.companyHoliday && timesheet.companyHoliday[day] > 0) {
+        return false;
+      }
+    } else if (leaveType === 'companyHoliday') {
+      if (timesheet.sickLeave && timesheet.sickLeave[day] > 0) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  // For non-rejected timesheets, use original validation
+  return isFieldEditable(timesheet, day, leaveType, calendarDate);
+};
+
   // Calculate total hours for monthly view
   const calculateMonthlyTotalHours = () => {
     if (!monthlyTimesheetData || monthlyTimesheetData.length === 0) return 0;
@@ -451,7 +495,7 @@ const TimesheetMainView = (props) => {
                             <Grid item xs={6}>
                               <Typography variant="body2" color="text.secondary">Total Working Hours</Typography>
                               <Typography variant="body2" fontWeight="medium">
-
+                                {/* {currentTimesheet ? safeGetWorkingDaysHours(currentTimesheet) : '0'} */}
                                 {monthlyTotalWorkingHours}
                               </Typography>
                             </Grid>
@@ -724,9 +768,10 @@ const TimesheetMainView = (props) => {
                             </Typography>
                           </Grid>
                           <Grid item xs={6}>
-                            <Typography variant="body2" color="text.secondary">Target %</Typography>
+                            <Typography variant="body2" color="text.secondary">Total Working Hours</Typography>
                             <Typography variant="body1" fontWeight="medium">
-                              {projectDetails.targetPercentage || 'N/A'}
+                               {/* {currentTimesheet ? safeGetWorkingDaysHours(currentTimesheet) : '0'} */}
+                               {monthlyTotalWorkingHoursForEmployee}
                             </Typography>
                           </Grid>
 
@@ -885,7 +930,7 @@ const TimesheetMainView = (props) => {
           getPercentageColor={getPercentageColor}
           calculatePercentage={safeCalculatePercentage}
           handleHourChange={handleHourChange}
-          isFieldEditable={safeIsFieldEditable}
+          safeIsFieldEditable={safeIsFieldEditable}
           notes={notes}
           handleNotesChange={handleNotesChange}
           fetchOrCreateTimesheet={fetchOrCreateTimesheet}

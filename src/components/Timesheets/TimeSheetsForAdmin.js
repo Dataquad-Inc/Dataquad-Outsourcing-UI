@@ -43,7 +43,7 @@ const TimeSheetsForAdmin = () => {
   return (
     <Routes>
       <Route path="/" element={<TimesheetList />} />
-      <Route path="/employee/:userId/:employeeName" element={<EmployeeTimesheetDetailWrapper />} />
+      <Route path="/employee/:userId" element={<EmployeeTimesheetDetailWrapper />} />
     </Routes>
   );
 };
@@ -75,6 +75,21 @@ const TimesheetList = () => {
 
   const { role } = useSelector((state) => state.auth);
 
+  // Check if we should restore month/year from navigation state
+  useEffect(() => {
+    const handlePopState = (event) => {
+      if (event.state?.selectedMonth !== undefined) {
+        setSelectedMonth(event.state.selectedMonth);
+      }
+      if (event.state?.selectedYear !== undefined) {
+        setSelectedYear(event.state.selectedYear);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   // ✅ Always compute based on state
   const monthStart = dayjs(`${selectedYear}-${selectedMonth + 1}-01`)
     .startOf('month')
@@ -88,12 +103,14 @@ const TimesheetList = () => {
     setError(null);
     try {
       const url = `/timesheet/monthly-timesheets?monthStart=${start}&monthEnd=${end}`;
+      console.log('Fetching timesheet data with URL:', url);
       const response = await httpService.get(url);
 
       const rows = Array.isArray(response.data)
         ? response.data
         : response.data?.data || [];
 
+      console.log('Received timesheet data:', rows.length, 'rows');
       setTotalTimesheetData(rows);
     } catch (err) {
       console.error('Error fetching timesheet data:', err);
@@ -110,11 +127,15 @@ const TimesheetList = () => {
   }, [selectedMonth, selectedYear]);
 
   const handleMonthChange = (event) => {
-    setSelectedMonth(event.target.value);
+    const newMonth = event.target.value;
+    console.log('Month changed to:', newMonth);
+    setSelectedMonth(newMonth);
   };
 
   const handleYearChange = (event) => {
-    setSelectedYear(event.target.value);
+    const newYear = event.target.value;
+    console.log('Year changed to:', newYear);
+    setSelectedYear(newYear);
   };
 
   const Month = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
@@ -124,32 +145,36 @@ const TimesheetList = () => {
   const Years = Array.from({ length: 5 }, (_, i) => currentYear - 1 + i);
 
   const columns = [
-// TimeSheetsForAdmin.js - Update the employeeName column
-{
-  key: 'employeeName',
-  label: 'Employee Name',
-  render: row => (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <Person sx={{ fontSize: 18, color: 'primary.main' }} />
-      <Typography
-        variant="body2"
-        fontWeight={500}
-        sx={{
-          cursor: 'pointer',
-          color: 'primary.main',
-          textDecoration: 'underline',
-          '&:hover': {
-            color: 'primary.dark'
-          }
-        }}
-        onClick={() => handleEmployeeNameClick(row, navigate, role, selectedMonth, selectedYear)}
-      >
-        {row?.employeeName}
-      </Typography>
-    </Box>
-  ),
-  width: 150
-},
+    // Updated employeeName column to pass month/year data
+    {
+      key: 'employeeName',
+      label: 'Employee Name',
+      render: row => (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Person sx={{ fontSize: 18, color: 'primary.main' }} />
+          <Typography
+            variant="body2"
+            fontWeight={500}
+            sx={{
+              cursor: (role === 'ACCOUNTS' || role === 'INVOICE' || role === 'SUPERADMIN') ? 'pointer' : 'default',
+              color: (role === 'ACCOUNTS' || role === 'INVOICE' || role === 'SUPERADMIN') ? 'primary.main' : 'text.primary',
+              textDecoration: (role === 'ACCOUNTS' || role === 'INVOICE' || role === 'SUPERADMIN') ? 'underline' : 'none',
+              '&:hover': (role === 'ACCOUNTS' || role === 'INVOICE' || role === 'SUPERADMIN') ? {
+                color: 'primary.dark'
+              } : {}
+            }}
+            onClick={() => {
+              if (role === 'ACCOUNTS' || role === 'INVOICE' || role === 'SUPERADMIN') {
+                handleEmployeeNameClick(row, navigate, role, selectedMonth, selectedYear);
+              }
+            }}
+          >
+            {row?.employeeName}
+          </Typography>
+        </Box>
+      ),
+      width: 150
+    },
     {
       key: 'employeeType',
       label: 'Employee Type',
@@ -443,7 +468,6 @@ const TimesheetList = () => {
             </Grid>
 
             <Grid item>
-
               <Button
                 variant="contained"
                 startIcon={<Add />}

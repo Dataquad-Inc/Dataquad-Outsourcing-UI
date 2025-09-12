@@ -14,16 +14,18 @@ import {formatDateToYMD} from './timesheetUtils';
  * @param {Object} row - The employee row data
  * @param {Function} navigate - React Router navigate function
  * @param {string} userRole - Current user's role
- * @param {string} [basePath='/dashboard/timesheetsForAdmins'] - Base path for navigation
+ * @param {number} selectedMonth - Selected month index (0-11)
+ * @param {number} selectedYear - Selected year
  */
-// navigationHelpers.js - Updated handleEmployeeNameClick function
-
-// Update handleEmployeeNameClick function:
 export const handleEmployeeNameClick = (row, navigate, role, selectedMonth = null, selectedYear = null) => {
+  console.log('handleEmployeeNameClick called with:', { role, selectedMonth, selectedYear, row });
+  
+  // Use current month/year as fallback
+  const month = selectedMonth !== null ? selectedMonth : new Date().getMonth();
+  const year = selectedYear !== null ? selectedYear : new Date().getFullYear();
+  
   if (role === 'ACCOUNTS' || role === 'INVOICE') {
-    const month = selectedMonth !== null ? selectedMonth : new Date().getMonth();
-    const year = selectedYear !== null ? selectedYear : new Date().getFullYear();
-    
+    // For ACCOUNTS/INVOICE roles, navigate to the timesheet form with prepopulated data
     const monthStart = new Date(year, month, 1);
     const monthEnd = new Date(year, month + 1, 0);
     
@@ -65,6 +67,30 @@ export const handleEmployeeNameClick = (row, navigate, role, selectedMonth = nul
       state: {
         prepopulatedEmployee: prepopulatedData,
         monthlyView: true,
+        from: '/dashboard/timesheetsForAdmins'
+      }
+    });
+  } else if (role === 'SUPERADMIN') {
+    // SUPERADMIN should navigate to EmployeeTimesheetDetail with month/year context
+    const employeeName = row.employeeName || 'Unknown';
+    const employeeId = row.userId || row.employeeId;
+    
+    console.log('Navigating SUPERADMIN to EmployeeTimesheetDetail with month:', month, 'year:', year);
+    
+    navigate(`/dashboard/timesheetsForAdmins/employee/${employeeId}`, {
+      state: {
+        employeeData: {
+          userId: employeeId,
+          employeeName: employeeName,
+          employeeType: row.employeeType,
+          clientName: row.clientName,
+          totalWorkingHours: row.totalWorkingHours,
+          totalWorkingDays: row.totalWorkingDays,
+          totalLeavesEntitled: row.totalLeavesEntitled,
+          totalLeavesSpent: row.totalLeavesSpent
+        },
+        selectedMonth: month,
+        selectedYear: year,
         from: '/dashboard/timesheetsForAdmins'
       }
     });
@@ -135,19 +161,22 @@ export const generateTimesheetPaths = (userRole, userId, employeeName, basePath 
   const encodedName = encodeURIComponent(employeeName);
   
   const paths = {
-    employeeDetail: userRole === 'ACCOUNTS' || userRole === "INVOICE" ? '/dashboard/timesheets' : `${basePath}/employee/${userId}`,
+    employeeDetail: (userRole === 'ACCOUNTS' || userRole === 'INVOICE') 
+      ? '/dashboard/timesheets' 
+      : `${basePath}/employee/${userId}`,
     employeeList: basePath,
     addTimesheet: '/dashboard/timesheets',
-    shouldRedirectToTimesheets: userRole === 'ACCOUNTS' || userRole === "INVOICE",
-    shouldUseMonthlyView: userRole === 'ACCOUNTS' || userRole === "INVOICE"
+    shouldRedirectToTimesheets: userRole === 'ACCOUNTS' || userRole === 'INVOICE',
+    shouldUseMonthlyView: userRole === 'ACCOUNTS' || userRole === 'INVOICE'
   };
   
   console.log('Generated timesheet paths for role', userRole, ':', paths);
   return paths;
 };
 
-
-// navigationHelpers.js - Add this function
+/**
+ * Clears all navigation state from storage
+ */
 export const clearAllNavigationState = () => {
   try {
     // Clear all storage locations
