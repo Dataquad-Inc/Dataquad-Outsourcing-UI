@@ -302,8 +302,8 @@ const TimesheetTableSection = ({
                   {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => {
                     const dayDate = getDateForDay(selectedWeekStart, day);
                     const isInCalendarMonth = dayDate ? isDateInCalendarMonth(dayDate, calendarValue) : false;
-                  const isEditable = safeIsFieldEditable(currentTimesheet, day, null, calendarValue) && 
-  !((isAddingNewTimesheet && isSubmitted));
+                    const isEditable = safeIsFieldEditable(currentTimesheet, day, null, calendarValue, isEditMode) &&
+                      !((isAddingNewTimesheet && isSubmitted));
                     return (
                       <TableCell key={day} align="center" sx={{
                         py: 1,
@@ -352,7 +352,7 @@ const TimesheetTableSection = ({
                     const isWeekend = day === 'saturday' || day === 'sunday';
                     const dayDate = getDateForDay(selectedWeekStart, day);
                     const isInCalendarMonth = dayDate ? isDateInCalendarMonth(dayDate, calendarValue) : false;
-                    const isEditable = safeIsFieldEditable(currentTimesheet, day, 'sickLeave', calendarValue) && !isWeekend;
+                    const isEditable = safeIsFieldEditable(currentTimesheet, day, 'sickLeave', calendarValue, isEditMode) && !isWeekend;
                     return (
                       <TableCell key={day} align="center" sx={{
                         py: 1,
@@ -417,7 +417,7 @@ const TimesheetTableSection = ({
               }
             }}
             placeholder="Notes and comments about this timesheet..."
-            disabled={role === 'EXTERNALEMPLOYEE' ? (isSubmitted || !currentTimesheet.isEditable) : false}
+            disabled={role === 'EXTERNALEMPLOYEE' ? (isSubmitted || currentTimesheet.isEditable) : false}
             sx={{ mb: 3, width: '100%' }}
           />
 
@@ -481,7 +481,7 @@ const TimesheetTableSection = ({
                     <Button
                       variant="outlined"
                       startIcon={loading ? <CircularProgress size={16} /> : <Save />}
-                       onClick={() => saveTimesheet(false, true)}
+                      onClick={() => saveTimesheet(false, true)}
                       disabled={loading}
                       sx={{ minWidth: 120 }}
                     >
@@ -524,6 +524,7 @@ const TimesheetTableSection = ({
                       startIcon={loading ? <CircularProgress size={16} /> : <CheckCircle />}
                       onClick={submitWeeklyTimesheet}
                       sx={{ minWidth: 140 }}
+                      disabled={currentTimesheet?.status === "PENDING_APPROVAL"}
                     >
                       {loading ? 'Submitting...' : 'Submit for Approval'}
                     </Button>
