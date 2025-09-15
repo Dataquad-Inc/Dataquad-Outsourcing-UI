@@ -210,7 +210,7 @@ const EditInterviewForm = ({
         userEmail: data.userEmail,
         interviewLevel: values.interviewLevel,
         interviewStatus: values.interviewStatus,
-        internalFeedback: values.internalFeedback,
+        internalFeedBack: values.internalFeedback,
         externalInterviewDetails: values.externalInterviewDetails,
         skipNotification: values.skipNotification,
         assignedTo: values.assignedTo,
