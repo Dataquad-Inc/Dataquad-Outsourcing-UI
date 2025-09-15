@@ -33,10 +33,13 @@ import {
 import axios from 'axios';
 import dayjs from 'dayjs';
 import ToastService from '../../Services/toastService';
-import { handleEmployeeNameClick, getCurrentUserRole, clearPrepopulatedEmployeeData } from './navigationHelpers';
+import { 
+  handleEmployeeNameClick, 
+  getCurrentUserRole, 
+  clearPrepopulatedEmployeeData 
+} from './navigationHelpers';
 import { useSelector } from 'react-redux';
 import httpService from '../../Services/httpService';
-
 
 // Main TimeSheetsForAdmin Component
 const TimeSheetsForAdmin = () => {
@@ -138,6 +141,29 @@ const TimesheetList = () => {
     setSelectedYear(newYear);
   };
 
+  // Safe navigation handler with error handling
+  const handleEmployeeClick = (row) => {
+    try {
+      console.log('Employee click handler called with:', { row, role, selectedMonth, selectedYear });
+      
+      if (!handleEmployeeNameClick) {
+        console.error('handleEmployeeNameClick is not available');
+        ToastService.error('Navigation function is not available');
+        return;
+      }
+
+      if (role === 'ACCOUNTS' || role === 'INVOICE' || role === 'SUPERADMIN') {
+        handleEmployeeNameClick(row, navigate, role, selectedMonth, selectedYear);
+      } else {
+        console.warn('User role does not have permission to view employee details:', role);
+        ToastService.warning('You do not have permission to view employee details');
+      }
+    } catch (error) {
+      console.error('Error in employee click handler:', error);
+      ToastService.error('Failed to navigate to employee details');
+    }
+  };
+
   const Month = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
   // ✅ Generate years dynamically (last 5 → next 1)
@@ -145,7 +171,7 @@ const TimesheetList = () => {
   const Years = Array.from({ length: 5 }, (_, i) => currentYear - 1 + i);
 
   const columns = [
-    // Updated employeeName column to pass month/year data
+    // Updated employeeName column to use safe navigation handler
     {
       key: 'employeeName',
       label: 'Employee Name',
@@ -163,11 +189,7 @@ const TimesheetList = () => {
                 color: 'primary.dark'
               } : {}
             }}
-            onClick={() => {
-              if (role === 'ACCOUNTS' || role === 'INVOICE' || role === 'SUPERADMIN') {
-                handleEmployeeNameClick(row, navigate, role, selectedMonth, selectedYear);
-              }
-            }}
+            onClick={() => handleEmployeeClick(row)}
           >
             {row?.employeeName}
           </Typography>
@@ -402,7 +424,6 @@ const TimesheetList = () => {
       width: 120
     },
   ];
-
 
   return (
     <Box sx={{ p: 3, backgroundColor: '#f8fafc', minHeight: '100vh' }}>

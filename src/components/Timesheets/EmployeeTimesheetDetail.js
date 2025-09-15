@@ -48,26 +48,48 @@ const EmployeeTimesheetDetail = () => {
     const location = useLocation();
     const [loading, setLoading] = useState(true);
     const [timesheets, setTimesheets] = useState([]);
+    const [filteredTimesheets, setFilteredTimesheets] = useState([]);
     const [error, setError] = useState(null);
     const [selectedTab, setSelectedTab] = useState(0);
 
     // Get employee data from navigation state
     const navigationData = location?.state?.employeeData || {};
+    const selectedMonth = location?.state?.selectedMonth;
+    const selectedYear = location?.state?.selectedYear;
+
+    // Create month range for filtering
+    const monthStart = selectedMonth !== undefined && selectedYear !== undefined 
+        ? dayjs().year(selectedYear).month(selectedMonth).startOf('month')
+        : null;
+    const monthEnd = selectedMonth !== undefined && selectedYear !== undefined 
+        ? dayjs().year(selectedYear).month(selectedMonth).endOf('month')
+        : null;
 
     const fetchEmployeeTimesheet = async () => {
         setLoading(true);
         setError(null);
 
         try {
-            const url = `/timesheet/getTimesheetsByUserId?userId=${userId}`;
+            let url = `/timesheet/getTimesheetsByUserId?userId=${userId}`;
+            
+            // If we have month/year context, add them as parameters
+            if (selectedMonth !== undefined && selectedYear !== undefined) {
+                const monthStartStr = monthStart.format('YYYY-MM-DD');
+                const monthEndStr = monthEnd.format('YYYY-MM-DD');
+                url += `&monthStart=${monthStartStr}&monthEnd=${monthEndStr}`;
+            }
+
             const response = await httpService.get(url);
 
-            if (response.data && Array.isArray(response.data.data)) {
+            if (response.data && Array.isArray(response.data.data.timesheets)) {
                 // Sort timesheets by date to ensure chronological order
-                const sortedTimesheets = response.data.data.sort((a, b) => {
+                const sortedTimesheets = response.data.data.timesheets.sort((a, b) => {
                     return new Date(a.weekStartDate) - new Date(b.weekStartDate);
                 });
                 setTimesheets(sortedTimesheets);
+                
+                // Filter timesheets if we have month/year context
+                filterTimesheetsByMonth(sortedTimesheets);
             } else {
                 setError('Invalid data format received from server');
             }
@@ -80,11 +102,38 @@ const EmployeeTimesheetDetail = () => {
         }
     };
 
+    const filterTimesheetsByMonth = (timesheetData) => {
+        if (!monthStart || !monthEnd) {
+            // If no month context, show all timesheets
+            setFilteredTimesheets(timesheetData);
+            return;
+        }
+
+        const filtered = timesheetData.filter(timesheet => {
+            const weekStart = dayjs(timesheet.weekStartDate);
+            const weekEnd = dayjs(timesheet.weekEndDate);
+            
+            // Include timesheet if it overlaps with the selected month
+            return (
+                (weekStart.isBefore(monthEnd) || weekStart.isSame(monthEnd, 'day')) &&
+                (weekEnd.isAfter(monthStart) || weekEnd.isSame(monthStart, 'day'))
+            );
+        });
+
+        console.log(`Filtered ${filtered.length} timesheets out of ${timesheetData.length} for month ${selectedMonth + 1}/${selectedYear}`);
+        setFilteredTimesheets(filtered);
+        
+        // Reset selected tab if current tab is out of bounds
+        if (selectedTab >= filtered.length && filtered.length > 0) {
+            setSelectedTab(0);
+        }
+    };
+
     useEffect(() => {
         if (userId) {
             fetchEmployeeTimesheet();
         }
-    }, [userId]);
+    }, [userId, selectedMonth, selectedYear]);
 
     const handleBackClick = () => {
         handleBackNavigation(navigate, location);
@@ -105,37 +154,53 @@ const EmployeeTimesheetDetail = () => {
         );
     }
 
-    // if (error) {
-    //     return (
-    //         <Box sx={{ p: 3, backgroundColor: '#f8fafc', minHeight: '100vh' }}>
-    //             <Card sx={{ mb: 3, borderRadius: 2 }}>
-    //                 <CardContent>
-    //                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-    //                         <IconButton onClick={handleBackClick} sx={{ mr: 1 }}>
-    //                             <ArrowBack />
-    //                         </IconButton>
-    //                         <Typography variant="h6">Back to Timesheets</Typography>
-    //                     </Box>
-    //                 </CardContent>
-    //             </Card>
-    //             <Alert severity="error" sx={{ borderRadius: 2 }}>
-    //                 {error}
-    //             </Alert>
-    //         </Box>
-    //     );
-    // }
-
-    if (!timesheets || timesheets.length === 0) {
+    if (error) {
         return (
             <Box sx={{ p: 3, backgroundColor: '#f8fafc', minHeight: '100vh' }}>
-                <Alert severity="info" sx={{ borderRadius: 2 }}>
-                    No timesheet data found for this employee.
+                <Card sx={{ mb: 3, borderRadius: 2 }}>
+                    <CardContent>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                            <IconButton onClick={handleBackClick} sx={{ mr: 1 }}>
+                                <ArrowBack />
+                            </IconButton>
+                            <Typography variant="h6">Back to Timesheets</Typography>
+                        </Box>
+                    </CardContent>
+                </Card>
+                <Alert severity="error" sx={{ borderRadius: 2 }}>
+                    {error}
                 </Alert>
             </Box>
         );
     }
 
-    const currentTimesheet = timesheets[selectedTab];
+    // Use filtered timesheets instead of all timesheets
+    const displayTimesheets = filteredTimesheets.length > 0 ? filteredTimesheets : timesheets;
+
+    if (!displayTimesheets || displayTimesheets.length === 0) {
+        return (
+            <Box sx={{ p: 3, backgroundColor: '#f8fafc', minHeight: '100vh' }}>
+                <Card sx={{ mb: 3, borderRadius: 2 }}>
+                    <CardContent>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                            <IconButton onClick={handleBackClick} sx={{ mr: 1 }}>
+                                <ArrowBack />
+                            </IconButton>
+                            <Typography variant="h6">Back to Timesheets</Typography>
+                        </Box>
+                    </CardContent>
+                </Card>
+                <Alert severity="info" sx={{ borderRadius: 2 }}>
+                    {selectedMonth !== undefined && selectedYear !== undefined 
+                        ? `No timesheet data found for this employee in ${dayjs().month(selectedMonth).format('MMMM')} ${selectedYear}.`
+                        : 'No timesheet data found for this employee.'
+                    }
+                </Alert>
+            </Box>
+        );
+    }
+
+    const currentTimesheet = displayTimesheets[selectedTab] || displayTimesheets[0];
 
     return (
         <Box sx={{ p: 3, backgroundColor: '#f8fafc', minHeight: '100vh' }}>
@@ -161,31 +226,38 @@ const EmployeeTimesheetDetail = () => {
                             <Typography variant="h5" component="h1" sx={{ fontWeight: 600 }}>
                                 Timesheet Details - {navigationData.employeeName || currentTimesheet.employeeName || 'Unknown Employee'}
                             </Typography>
-                            {/* <Typography variant="body2" color="text.secondary">
-                                User ID: {userId} | {timesheets.length} timesheet(s) found
-                            </Typography> */}
+                            {selectedMonth !== undefined && selectedYear !== undefined && (
+                                <Typography variant="body2" color="text.secondary">
+                                    {dayjs().month(selectedMonth).format('MMMM')} {selectedYear} | {displayTimesheets.length} timesheet(s) found
+                                </Typography>
+                            )}
                         </Box>
                     </Box>
                 </CardContent>
             </Card>
 
             {/* Timesheet Selection Tabs */}
-            {timesheets.length > 1 && (
+            {displayTimesheets.length > 1 && (
                 <Card elevation={2} sx={{ mb: 3, borderRadius: 2 }}>
                     <CardContent>
                         <Typography variant="h6" gutterBottom>
                             Select Timesheet Period
+                            {selectedMonth !== undefined && selectedYear !== undefined && (
+                                <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                                    (Filtered for {dayjs().month(selectedMonth).format('MMMM')} {selectedYear})
+                                </Typography>
+                            )}
                         </Typography>
                         <Tabs 
-                            value={selectedTab} 
+                            value={selectedTab >= displayTimesheets.length ? 0 : selectedTab} 
                             onChange={handleTabChange} 
                             variant="scrollable"
                             scrollButtons="auto"
                         >
-                            {timesheets.map((timesheet, index) => (
+                            {displayTimesheets.map((timesheet, index) => (
                                 <Tab
                                     key={timesheet.timesheetId}
-                                    label={`Week ${index + 1} `}
+                                    label={`Week ${index + 1}`}
                                 />
                             ))}
                         </Tabs>

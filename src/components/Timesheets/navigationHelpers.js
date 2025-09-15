@@ -4,7 +4,6 @@
  */
 
 import dayjs from "dayjs";
-
 import ToastService from "../../Services/toastService";
 import httpService from "../../Services/httpService";
 import {formatDateToYMD} from './timesheetUtils';
@@ -20,6 +19,12 @@ import {formatDateToYMD} from './timesheetUtils';
 export const handleEmployeeNameClick = (row, navigate, role, selectedMonth = null, selectedYear = null) => {
   console.log('handleEmployeeNameClick called with:', { role, selectedMonth, selectedYear, row });
   
+  // Validate parameters
+  if (!row || !navigate || !role) {
+    console.error('Missing required parameters for handleEmployeeNameClick');
+    return;
+  }
+
   // Use current month/year as fallback
   const month = selectedMonth !== null ? selectedMonth : new Date().getMonth();
   const year = selectedYear !== null ? selectedYear : new Date().getFullYear();
@@ -75,6 +80,12 @@ export const handleEmployeeNameClick = (row, navigate, role, selectedMonth = nul
     const employeeName = row.employeeName || 'Unknown';
     const employeeId = row.userId || row.employeeId;
     
+    if (!employeeId) {
+      console.error('Employee ID is missing for SUPERADMIN navigation');
+      ToastService.error('Unable to navigate: Employee ID is missing');
+      return;
+    }
+    
     console.log('Navigating SUPERADMIN to EmployeeTimesheetDetail with month:', month, 'year:', year);
     
     navigate(`/dashboard/timesheetsForAdmins/employee/${employeeId}`, {
@@ -94,6 +105,9 @@ export const handleEmployeeNameClick = (row, navigate, role, selectedMonth = nul
         from: '/dashboard/timesheetsForAdmins'
       }
     });
+  } else {
+    console.warn('Unhandled user role:', role);
+    ToastService.warning('Navigation not available for your role');
   }
 };
 
