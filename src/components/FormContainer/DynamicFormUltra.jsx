@@ -28,6 +28,8 @@ import {
   FormLabel,
   Radio,
   RadioGroup,
+  ListSubheader,
+  Autocomplete,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -42,6 +44,7 @@ import CheckBoxIcon from "@mui/icons-material/CheckBox";
 import CheckBoxOutlineBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank";
 import RadioButtonCheckedIcon from "@mui/icons-material/RadioButtonChecked";
 import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
+import SearchIcon from "@mui/icons-material/Search";
 
 // ICON IMPORTS
 import LockIcon from "@mui/icons-material/Lock";
@@ -228,6 +231,184 @@ const PhoneInput = ({
   );
 };
 
+// Searchable Select Component
+const SearchableSelect = ({
+  options = [],
+  value,
+  onChange,
+  onBlur,
+  label,
+  name,
+  error,
+  helperText,
+  icon,
+  required = false,
+  placeholder = "Search and select...",
+}) => {
+  const theme = useTheme();
+  const [searchText, setSearchText] = useState("");
+
+  // Filter options based on search text
+  const filteredOptions = options.filter((option) =>
+    option.label.toLowerCase().includes(searchText.toLowerCase())
+  );
+
+  const selectedOption = options.find((opt) => opt.value === value) || null;
+
+  return (
+    <FormControl fullWidth error={Boolean(error)}>
+      <Autocomplete
+        options={filteredOptions}
+        value={selectedOption}
+        onChange={(event, newValue) => {
+          const syntheticEvent = {
+            target: {
+              name,
+              value: newValue ? newValue.value : "",
+            },
+          };
+          onChange(syntheticEvent);
+        }}
+        onBlur={onBlur}
+        getOptionLabel={(option) => option.label}
+        isOptionEqualToValue={(option, value) => option.value === value?.value}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label={label}
+            name={name}
+            required={required}
+            error={Boolean(error)}
+            helperText={error || helperText}
+            InputProps={{
+              ...params.InputProps,
+              startAdornment: icon ? (
+                <InputAdornment position="start">{icon}</InputAdornment>
+              ) : null,
+            }}
+          />
+        )}
+        renderOption={(props, option) => (
+          <Box component="li" {...props}>
+            <Typography variant="body2">{option.label}</Typography>
+          </Box>
+        )}
+        noOptionsText="No options found"
+        placeholder={placeholder}
+        clearOnBlur
+        selectOnFocus
+        handleHomeEndKeys
+        sx={{
+          "& .MuiAutocomplete-popupIndicator": {
+            color: theme.palette.text.secondary,
+          },
+        }}
+      />
+    </FormControl>
+  );
+};
+
+// Searchable Multi-Select Component
+const SearchableMultiSelect = ({
+  options = [],
+  value = [],
+  onChange,
+  onBlur,
+  label,
+  name,
+  error,
+  helperText,
+  icon,
+  required = false,
+  placeholder = "Search and select multiple...",
+}) => {
+  const theme = useTheme();
+
+  // filter options to match the values
+  const selectedOptions = options.filter((opt) => value.includes(opt.value));
+
+  return (
+    <FormControl fullWidth error={Boolean(error)}>
+      <Autocomplete
+        multiple
+        options={options}
+        value={selectedOptions}
+        onChange={(event, newValue) => {
+          const selectedValues = newValue.map((option) => option.value);
+          const syntheticEvent = {
+            target: {
+              name,
+              value: selectedValues,
+            },
+          };
+          onChange(syntheticEvent);
+        }}
+        onBlur={onBlur}
+        getOptionLabel={(option) => option.label}
+        isOptionEqualToValue={(option, val) => option.value === val.value}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label={label}
+            name={name}
+            required={required}
+            error={Boolean(error)}
+            helperText={error || helperText}
+            InputProps={{
+              ...params.InputProps,
+              startAdornment: icon ? (
+                <InputAdornment position="start">{icon}</InputAdornment>
+              ) : null,
+            }}
+          />
+        )}
+        renderTags={(tagValue, getTagProps) =>
+          tagValue.map((option, index) => (
+            <Chip
+              variant="outlined"
+              label={option.label}
+              size="small"
+              {...getTagProps({ index })}
+              key={option.value}
+            />
+          ))
+        }
+        renderOption={(props, option, { selected }) => (
+          <Box component="li" {...props}>
+            <Checkbox
+              checked={selected}
+              style={{ marginRight: 8 }}
+              color="primary"
+              size="small"
+            />
+            <Typography variant="body2">{option.label}</Typography>
+          </Box>
+        )}
+        noOptionsText="No options found"
+        placeholder={placeholder}
+        clearOnBlur
+        selectOnFocus
+        handleHomeEndKeys
+        sx={{
+          "& .MuiAutocomplete-popupIndicator": {
+            color: theme.palette.text.secondary,
+          },
+        }}
+      />
+
+      {/* Show selected options below */}
+      {selectedOptions.length > 0 && (
+        <Box mt={2} display="flex" flexWrap="wrap" gap={1}>
+          {selectedOptions.map((opt) => (
+            <Chip key={opt.value} label={opt.label} color="primary" />
+          ))}
+        </Box>
+      )}
+    </FormControl>
+  );
+};
+
+
 // ICON MAP
 const iconMap = {
   id: <DialpadIcon />,
@@ -271,6 +452,7 @@ const iconMap = {
   CheckBoxOutlineBlank: <CheckBoxOutlineBlankIcon />,
   RadioButtonChecked: <RadioButtonCheckedIcon />,
   RadioButtonUnchecked: <RadioButtonUncheckedIcon />,
+  Search: <SearchIcon />,
 };
 
 // File type icon helper
@@ -310,70 +492,64 @@ const DynamicFormUltra = ({
 
   const allFields = config.flatMap((section) => section.fields);
 
-  // 🔧 FIX 1: Process all initial values, not just config fields
+  // Process all initial values, not just config fields
   Object.keys(initialValues).forEach((key) => {
     generatedInitialValues[key] = initialValues[key];
   });
 
-  allFields.forEach((field) => {
-    if (initialValues[field.name] !== undefined) {
-      generatedInitialValues[field.name] = field.multiple
-        ? [...initialValues[field.name]]
-        : initialValues[field.name];
+ allFields.forEach((field) => {
+  if (initialValues[field.name] !== undefined) {
+    generatedInitialValues[field.name] = field.multiple
+      ? [...initialValues[field.name]]
+      : initialValues[field.name];
+  } else {
+    if (field.type === "multiselect") {
+      generatedInitialValues[field.name] = [];
+    } else if (field.type === "file") {
+      generatedInitialValues[field.name] = field.multiple ? [] : null;
+    } else if (field.type === "checkbox") {
+      generatedInitialValues[field.name] = field.defaultChecked || false;
+    } else if (field.type === "checkbox-group" || field.type === "radio") {
+      generatedInitialValues[field.name] = "";
     } else {
-      if (field.type === "multiselect") {
-        generatedInitialValues[field.name] = [];
-      } else if (field.type === "file") {
-        generatedInitialValues[field.name] = field.multiple ? [] : null;
-      } else if (field.type === "checkbox") {
-        generatedInitialValues[field.name] = field.defaultChecked || false;
-      } else if (field.type === "checkbox-group" || field.type === "radio") {
-        generatedInitialValues[field.name] = "";
-      } else {
-        generatedInitialValues[field.name] = field.multiple ? [""] : "";
-      }
+      generatedInitialValues[field.name] = field.multiple ? [""] : "";
     }
+  }
 
     // Initialize country code for phone fields
     if (field.type === "phone") {
       if (!countryCodes[field.name]) {
         setCountryCodes((prev) => ({
           ...prev,
-          [field.name]: "+1", // Default to India
+          [field.name]: "+1",
         }));
       }
     }
 
     // Validation schema setup
-    if (field.required) {
-      if (field.type === "multiselect") {
-        validationSchema[field.name] = Yup.array()
-          .min(1, "At least one option must be selected")
-          .required("Required");
-      } else if (field.type === "file") {
-        validationSchema[field.name] = field.multiple
-          ? Yup.array()
-              .min(1, "At least one file must be selected")
-              .required("Required")
-          : Yup.mixed().required("A file is required");
-      } else if (field.type === "checkbox") {
-        validationSchema[field.name] = Yup.boolean()
-          .oneOf([true], "This field must be checked")
-          .required("Required");
-      } else if (field.type === "checkbox-group") {
-        validationSchema[field.name] = Yup.array()
-          .min(1, "At least one option must be selected")
-          .required("Required");
-      } else if (field.type === "radio") {
-        validationSchema[field.name] = Yup.string().required(
-          "Please select an option"
-        );
-      } else {
-        validationSchema[field.name] = field.multiple
-          ? Yup.array().of(Yup.string().required("Required"))
-          : Yup.string().required("Required");
-      }
+    if (field.required && field.type !== "file") { // Add this condition
+    if (field.type === "multiselect") {
+      validationSchema[field.name] = Yup.array()
+        .min(1, "At least one option must be selected")
+        .required("Required");
+    } else if (field.type === "checkbox") {
+      validationSchema[field.name] = Yup.boolean()
+        .oneOf([true], "This field must be checked")
+        .required("Required");
+    } else if (field.type === "checkbox-group") {
+      validationSchema[field.name] = Yup.array()
+        .min(1, "At least one option must be selected")
+        .required("Required");
+    } else if (field.type === "radio") {
+      validationSchema[field.name] = Yup.string().required(
+        "Please select an option"
+      );
+    } else {
+      validationSchema[field.name] = field.multiple
+        ? Yup.array().of(Yup.string().required("Required"))
+        : Yup.string().required("Required");
     }
+  }
 
     // Add email validation
     if (field.type === "email") {
@@ -408,24 +584,24 @@ const DynamicFormUltra = ({
     }
 
     // Add file size validation
-    if (field.type === "file" && field.maxSize) {
-      const maxSizeInBytes = field.maxSize * 1024 * 1024;
-      if (field.multiple) {
-        validationSchema[field.name] = Yup.array().of(
-          Yup.mixed().test(
-            "fileSize",
-            `File size must be less than ${field.maxSize}MB`,
-            (value) => !value || value.size <= maxSizeInBytes
-          )
-        );
-      } else {
-        validationSchema[field.name] = Yup.mixed().test(
-          "fileSize",
-          `File size must be less than ${field.maxSize}MB`,
-          (value) => !value || value.size <= maxSizeInBytes
-        );
-      }
-    }
+    // if (field.type === "file" && field.maxSize) {
+    //   const maxSizeInBytes = field.maxSize * 1024 * 1024;
+    //   if (field.multiple) {
+    //     validationSchema[field.name] = Yup.array().of(
+    //       Yup.mixed().test(
+    //         "fileSize",
+    //         `File size must be less than ${field.maxSize}MB`,
+    //         (value) => !value || value.size <= maxSizeInBytes
+    //       )
+    //     );
+    //   } else {
+    //     validationSchema[field.name] = Yup.mixed().test(
+    //       "fileSize",
+    //       `File size must be less than ${field.maxSize}MB`,
+    //       (value) => !value || value.size <= maxSizeInBytes
+    //     );
+    //   }
+    // }
   });
 
   const formik = useFormik({
@@ -434,7 +610,7 @@ const DynamicFormUltra = ({
     onSubmit: (values, formikHelpers) => {
       const formData = new FormData();
 
-      // 🔧 FIX 4: Process ALL form values, not just config fields
+      // Process ALL form values, not just config fields
       Object.entries(values).forEach(([key, val]) => {
         // Skip file fields - handle them separately
         const field = allFields.find((f) => f.name === key);
@@ -483,8 +659,7 @@ const DynamicFormUltra = ({
         appendFiles(val);
       });
 
-      // 🔧 FIX 5: Pass the form values directly to onSubmit (not formData)
-      // This ensures all values including consultantId are passed
+      // Pass the form values directly to onSubmit (not formData)
       onSubmit(values, formikHelpers);
     },
     enableReinitialize: true,
@@ -843,6 +1018,31 @@ const DynamicFormUltra = ({
         );
 
       case "select":
+        // Check if field has searchable property or has many options (>10)
+        if (field.searchable || (field.options && field.options.length > 10)) {
+          return (
+            <SearchableSelect
+              options={field.options || []}
+              value={value}
+              onChange={(e) => {
+                formik.handleChange(e);
+                if (field.onChange) {
+                  field.onChange(e.target.value);
+                }
+              }}
+              onBlur={formik.handleBlur}
+              label={field.label}
+              name={field.name}
+              error={error}
+              helperText={field.helperText}
+              icon={icon}
+              required={field.required}
+              placeholder={field.placeholder || "Search and select..."}
+            />
+          );
+        }
+        
+        // Regular select for fields with fewer options
         return (
           <TextField
             fullWidth
@@ -851,9 +1051,9 @@ const DynamicFormUltra = ({
             label={field.label}
             value={value}
             onChange={(e) => {
-              formik.handleChange(e); // Call formik's handleChange
+              formik.handleChange(e);
               if (field.onChange) {
-                field.onChange(e.target.value); // Call custom onChange if provided
+                field.onChange(e.target.value);
               }
             }}
             onBlur={formik.handleBlur}
@@ -894,54 +1094,19 @@ const DynamicFormUltra = ({
 
       case "multiselect":
         return (
-          <FormControl fullWidth error={Boolean(error)}>
-            <InputLabel>{field.label}</InputLabel>
-            <Select
-              multiple
-              name={field.name}
-              value={value || []}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              input={<OutlinedInput label={field.label} />}
-              renderValue={(selected) => (
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                  {selected.map((val) => {
-                    const option = field.options?.find(
-                      (opt) => opt.value === val
-                    );
-                    return (
-                      <Chip
-                        key={val}
-                        label={option?.label || val}
-                        size="small"
-                      />
-                    );
-                  })}
-                </Box>
-              )}
-              startAdornment={
-                icon && <InputAdornment position="start">{icon}</InputAdornment>
-              }
-              MenuProps={{
-                PaperProps: {
-                  sx: {
-                    maxHeight: 240, // Fixed height for dropdown list
-                    overflowY: "auto",
-                  },
-                },
-              }}
-            >
-              {field.options?.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </Select>
-            {error && <FormHelperText>{error}</FormHelperText>}
-            {field.helperText && !error && (
-              <FormHelperText>{field.helperText}</FormHelperText>
-            )}
-          </FormControl>
+          <SearchableMultiSelect
+            options={field.options || []}
+            value={value || []}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            label={field.label}
+            name={field.name}
+            error={error}
+            helperText={field.helperText}
+            icon={icon}
+            required={field.required}
+            placeholder={field.placeholder || "Search and select multiple..."}
+          />
         );
 
       case "checkbox":

@@ -111,6 +111,10 @@ const RequirementProfile = lazy(() =>
   import("../components/UsRequirements/RequirementProfile")
 );
 
+const EditJobRequirement = lazy(() =>
+  import("../components/UsRequirements/EditJobRequirement")
+);
+
 //Timesheets
 const Timesheets = lazy(() => import("../components/Timesheets/TimeSheets"));
 const TimesheetsForAdmin = lazy(() =>
@@ -602,6 +606,10 @@ const routeConfig = [
                   {
                     path: ":jobId",
                     element: Loadable(RequirementProfile),
+                  },
+                    {
+                    path: "edit/:jobId",
+                    element: Loadable(EditJobRequirement),
                   },
                 ],
               },

@@ -102,15 +102,14 @@ const getHotListColumns = ({
   {
     id: "technology",
     label: "Technology",
-    filterType: "select",
+    filterType: "text",
     applyFilter: true,
-    filterOptions: filterOptions.technology || [],
     render: (v) => renderValue(v, 100, loading),
   },
   {
     id: "teamleadName",
     label: "Team Lead",
-    filterType: "select",
+    filterType: "text",
     applyFilter: true,
     filterOptions: filterOptions.teamleadName || [],
     render: (v) => renderValue(v, 80, loading),
@@ -118,7 +117,7 @@ const getHotListColumns = ({
   {
     id: "salesExecutive",
     label: "Sales Executive",
-    filterType: "select",
+    filterType: "text",
     applyFilter: true,
     filterOptions: filterOptions.salesExecutive || [],
     render: (v) => renderValue(v, 100, loading),
@@ -126,7 +125,7 @@ const getHotListColumns = ({
   {
     id: "recruiterName",
     label: "Recruiter",
-    filterType: "select",
+    filterType: "text",
     applyFilter: true,
     filterOptions: filterOptions.recruiterName || [],
     render: (v) => renderValue(v, 80, loading),
@@ -134,7 +133,7 @@ const getHotListColumns = ({
   {
     id: "reference",
     label: "Reference",
-    filterType: "select",
+    filterType: "text",
     applyFilter: true,
     filterOptions: filterOptions.reference || [],
     render: (v) => renderValue(v, 80, loading),
@@ -163,7 +162,7 @@ const getHotListColumns = ({
   {
     id: "payroll",
     label: "Payroll",
-    filterType: "select",
+    filterType: "text",
     applyFilter: true,
     filterOptions: filterOptions.payroll || [],
     render: (v) => renderValue(v, 80, loading),
@@ -171,7 +170,7 @@ const getHotListColumns = ({
   {
     id: "marketingVisa",
     label: "Marketing Visa",
-    filterType: "select",
+    filterType: "text",
     applyFilter: true,
     filterOptions: filterOptions.marketingVisa || [],
     render: (v) => renderValue(v, 80, loading),
@@ -179,7 +178,7 @@ const getHotListColumns = ({
   {
     id: "actualVisa",
     label: "Actual Visa",
-    filterType: "select",
+    filterType: "text",
     applyFilter: true,
     filterOptions: filterOptions.actualVisa || [],
     render: (v) => renderValue(v, 80, loading),

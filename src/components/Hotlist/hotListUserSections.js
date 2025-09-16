@@ -7,7 +7,6 @@ const getHotListUserSections = (
   salesExecutives,
   onTeamleadChange = null,
   isEditMode = false
- 
 ) => {
   return [
     {
@@ -34,6 +33,8 @@ const getHotListUserSections = (
           label: "Teamlead",
           type: "select",
           icon: "Group",
+          searchable: true, // Force searchable
+          placeholder: "Search team lead...", // Custom placeholder
           // required: true,
           options: employees.map((emp) => ({
             label: emp.employeeName,
@@ -46,28 +47,34 @@ const getHotListUserSections = (
           label: "Select Sales Executive",
           type: "select",
           icon: "BusinessCenter",
+          searchable: true, // Force searchable
+          placeholder: "Search Sales Executive...", // Custom placeholder
           options: salesExecutives.map((emp) => ({
             label: emp.userName,
             value: emp.userId,
           })),
           // In edit mode, if no options available but we have a value, show placeholder
-          placeholder: isEditMode && salesExecutives.length === 0 
-            ? "Sales Executive will load when team lead is selected"
-            : undefined,
+          placeholder:
+            isEditMode && salesExecutives.length === 0
+              ? "Sales Executive will load when team lead is selected"
+              : undefined,
         },
         {
           name: "recruiterId",
           label: "Select Recruiter",
           type: "select",
           icon: "BusinessCenter",
+          searchable: true, // Force searchable
+          placeholder: "Search recruiter...",
           options: recruiters.map((emp) => ({
             label: emp.userName,
             value: emp.userId,
           })),
           // In edit mode, if no options available but we have a value, show placeholder
-          placeholder: isEditMode && recruiters.length === 0 
-            ? "Recruiter will load when team lead is selected"
-            : undefined,
+          placeholder:
+            isEditMode && recruiters.length === 0
+              ? "Recruiter will load when team lead is selected"
+              : undefined,
         },
       ],
     },
@@ -95,12 +102,12 @@ const getHotListUserSections = (
           type: "text",
           icon: "LocationOn",
         },
-         {
+        {
           name: "isAssignAll",
           label: "Assign to All",
           type: "checkbox",
           required: false,
-          icon: "CheckBox", 
+          icon: "CheckBox",
           defaultChecked: false,
         },
       ],
@@ -128,7 +135,6 @@ const getHotListUserSections = (
           type: "link",
           icon: "LinkedIn",
         },
-       
       ],
     },
 
@@ -176,6 +182,8 @@ const getHotListUserSections = (
           label: "Marketing Visa",
           type: "select",
           required: true,
+          searchable: true, // Force searchable
+          placeholder: "Search visa...", // Custom placeholder
           icon: "VerifiedUser",
           options: [
             { value: "H1B", label: "H1B" },
@@ -196,6 +204,8 @@ const getHotListUserSections = (
           type: "select",
           required: true,
           icon: "Gavel",
+          searchable: true, // Force searchable
+          placeholder: "Search visa...", // Custom placeholder
           options: [
             { value: "H1B", label: "H1B" },
             { value: "OPT", label: "OPT" },
