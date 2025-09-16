@@ -235,7 +235,7 @@ export const generateColumns = (role, handleEmployeeClick, loading = false) => {
           <Chip
             label="Team Lead"
             size="small"
-            color="primary"
+            color="info"
             variant="outlined"
           />
         ),
@@ -255,7 +255,7 @@ export const generateColumns = (role, handleEmployeeClick, loading = false) => {
           <Chip
             label="Employee"
             size="small"
-            color="secondary"
+            color="info"
             variant="outlined"
           />
         ),
@@ -323,7 +323,7 @@ export const generateColumns = (role, handleEmployeeClick, loading = false) => {
             label={row.submissionCount || 0}
             size="small"
             variant="outlined"
-            color="secondary"
+            color="info"
           />
         ),
       },
@@ -421,7 +421,7 @@ export const generateColumns = (role, handleEmployeeClick, loading = false) => {
             label={row.numberOfSubmissions || 0}
             size="small"
             variant="outlined"
-            color="secondary"
+            color="info"
           />
         ),
       },

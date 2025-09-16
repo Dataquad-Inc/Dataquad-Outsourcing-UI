@@ -595,7 +595,7 @@ const TimesheetTableSection = ({
                     variant="outlined"
                     startIcon={loading ? <CircularProgress size={16} /> : <Save />}
                     onClick={() => saveTimesheet(false)}
-                    disabled={loading}
+                    disabled={loading || (role === 'EXTERNALEMPLOYEE' && isSubmitted) || currentTimesheet?.status === 'REJECTED' ||  currentTimesheet?.status === "PENDING_APPROVAL" }
                     sx={{ minWidth: 120 }}
                   >
                     {loading ? 'Saving...' : 'Save'}
@@ -605,7 +605,8 @@ const TimesheetTableSection = ({
                     variant="contained"
                     color="success"
                     startIcon={loading ? <CircularProgress size={16} /> : <CheckCircle />}
-                    onClick={submitWeeklyTimesheet}
+                    onClick={submitWeeklyTimesheet || currentTimesheet?.status}
+                    disabled={currentTimesheet?.status === "PENDING_APPROVAL"}
                     sx={{ minWidth: 140 }}
                   >
                     {loading ? 'Submitting...' : 'Submit for Approval'}
