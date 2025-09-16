@@ -251,10 +251,16 @@ const RequirementsList = () => {
     setPage(0); // Reset to first page when filters change
   };
 
+
+  const handleEdit = (jobId) => {
+  navigate(`/dashboard/us-requirements/edit/${jobId}`);
+};
+
   /** ---------------- Columns ---------------- */
   const columns = getRequirementsColumns({
     handleNagivateToReqProfile,
     handleDownloadJD,
+    handleEdit,
     handleDelete: handleRequestDelete,
     filterOptions,
     loading,

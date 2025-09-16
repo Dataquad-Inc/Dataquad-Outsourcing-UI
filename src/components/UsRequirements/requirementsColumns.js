@@ -40,7 +40,7 @@ const getRequirementsColumns = ({
     id: "clientName",
     label: "Client",
     applyFilter: true,
-    filterType: "select",
+    filterType: "text",
     filterOptions: filterOptions.clientName || [],
     render: (v) => renderValue(v),
   },
@@ -66,7 +66,7 @@ const getRequirementsColumns = ({
     id: "jobType",
     label: "Job Type",
     applyFilter: true,
-    filterType: "select",
+    filterType: "text",
     filterOptions: filterOptions.jobType || [],
     render: (v) => (v ? <Chip label={v} size="small" /> : "-"),
   },
@@ -74,7 +74,7 @@ const getRequirementsColumns = ({
     id: "location",
     label: "Location",
     applyFilter: true,
-    filterType: "select",
+    filterType: "text",
     filterOptions: filterOptions.location || [],
     render: (v) => renderValue(v),
   },
@@ -96,7 +96,7 @@ const getRequirementsColumns = ({
     id: "qualification",
     label: "Qualification",
     applyFilter: true,
-    filterType: "select",
+    filterType: "text",
     filterOptions: filterOptions.qualification || [],
     render: (v) => renderValue(v),
   },
@@ -118,7 +118,7 @@ const getRequirementsColumns = ({
     id: "visaType",
     label: "Visa Type",
     applyFilter: true,
-    filterType: "select",
+    filterType: "text",
     filterOptions: filterOptions.visaType || [],
     render: (v) => renderValue(v),
   },
@@ -126,14 +126,14 @@ const getRequirementsColumns = ({
     id: "assignedBy",
     label: "Assigned By",
     applyFilter: true,
-    filterType: "select",
+    filterType: "text",
     filterOptions: filterOptions.assignedBy || [],
     render: (v) => renderValue(v),
   },
   {
     id: "assignedUsers",
     label: "Assigned Users",
-    applyFilter: false, // Complex data structure, disable filtering for now
+    applyFilter: false,
     render: (v) =>
       v && v.length
         ? v.map((user) => (
@@ -149,7 +149,7 @@ const getRequirementsColumns = ({
   {
     id: "jobDescription",
     label: "Description",
-    applyFilter: false, // Text-heavy field, disable filtering
+    applyFilter: false,
     render: (v, row) =>
       v ? (
         <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
@@ -173,7 +173,7 @@ const getRequirementsColumns = ({
     id: "status",
     label: "Status",
     applyFilter: true,
-    filterType: "select",
+    filterType: "text",
     filterOptions: filterOptions.status || [],
     render: (v) => (v ? <Chip label={v} size="small" /> : "-"),
   },
@@ -194,12 +194,12 @@ const getRequirementsColumns = ({
   {
     id: "actions",
     label: "Actions",
-    applyFilter: false, // Actions column should not be filterable
+    applyFilter: false,
     render: (_, row) => (
       <Box sx={{ display: "flex", gap: 1 }}>
-        {/* <IconButton color="primary" onClick={() => handleEdit(row)}>
+        <IconButton onClick={() => handleEdit(row.jobId)}>
           <Edit fontSize="small" />
-        </IconButton> */}
+        </IconButton>
         <IconButton color="error" onClick={() => handleDelete(row.jobId)}>
           <Delete fontSize="small" />
         </IconButton>

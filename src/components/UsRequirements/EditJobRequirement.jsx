@@ -1,19 +1,16 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { showSuccessToast, showErrorToast } from "../../utils/toastUtils";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 
-import DynamicFormUltra from "../FormContainer/DynamicFormUltra"; // Adjust the import path as needed
+import DynamicFormUltra from "../FormContainer/DynamicFormUltra";
 import { fetchEmployeesUs } from "../../redux/usEmployees";
 
-const CreateJobRequirement = ({
-  formTitle = "Post New Requirement",
-  formInitialValues = {},
-  submitButtonText = "Create Requirement",
-}) => {
+const EditJobRequirement = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const { jobId } = useParams(); // Get jobId from URL params
 
   // Get employees and current user from Redux
   const { employees = [], loadingEmployees } = useSelector(
@@ -21,9 +18,12 @@ const CreateJobRequirement = ({
   );
   const { userName, userId } = useSelector((state) => state.auth);
 
+  const [initialData, setInitialData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
   // Transform employees for multiselect
   const employeeOptions = employees.map((emp) => ({
-    label: emp.employeeName ,
+    label: emp.employeeName,
     value: emp.employeeId,
   }));
 
@@ -31,30 +31,86 @@ const CreateJobRequirement = ({
     dispatch(fetchEmployeesUs("TEAMLEAD"));
   }, []);
 
-  // Default form values
-  const defaultInitialValues = {
-    clientName: "",
-    jobTitle: "",
-    jobMode: "",
-    visaType: "",
-    location: "",
-    jobType: "",
-    noOfPositions: 1,
-    assignedBy: userName || "",
-    experienceRequired: "",
-    relevantExperience: "",
-    qualification: "",
-    noticePeriod: "",
-    salaryPackage: "",
-    status: "Open",
-    assignedUsers: [],
-    jobDescriptionType: "text",
-    jobDescription: "",
-    jobDescriptionFile: null,
-    ...formInitialValues,
+  useEffect(() => {
+    if (employees.length > 0) {
+      fetchRequirementData();
+    }
+  }, [jobId, employees]);
+
+  // Fetch existing requirement data
+  const fetchRequirementData = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(
+        `https://mymulya.com/api/us/requirements/requirement-id/${jobId}`
+      );
+
+      if (response.data.success && response.data.data) {
+        const data = response.data.data;
+        
+        // Transform assignedUserIds to match the multiselect format
+        let assignedUsersArray = [];
+        if (data.assignedUserIds) {
+          // Split the comma-separated string and convert to numbers if needed
+          const userIds = data.assignedUserIds.split(",").map(id => {
+            // Handle both string and number IDs
+            const trimmedId = id.toString().trim();
+            // Try to convert to number if it's a numeric string
+            const numericId = !isNaN(trimmedId) ? parseInt(trimmedId) : trimmedId;
+            return numericId;
+          });
+          
+          // Filter to only include IDs that exist in employeeOptions
+          assignedUsersArray = userIds.filter(id => 
+            employeeOptions.some(emp => emp.value === id)
+          );
+        }
+        
+        // Alternative approach: if you have assignedUsers array in the response
+        // You can also try using data.assignedUsers if it exists
+        if (data.assignedUsers && Array.isArray(data.assignedUsers)) {
+          assignedUsersArray = data.assignedUsers.map(user => user.userId || user.employeeId);
+        }
+        
+        // Transform the API data to match form structure
+        const formData = {
+          clientName: data.clientName || "",
+          jobTitle: data.jobTitle || "",
+          jobMode: data.jobMode || "",
+          visaType: data.visaType || "",
+          location: data.location || "",
+          jobType: data.jobType || "",
+          noOfPositions: data.noOfPositions || 1,
+          assignedBy: data.assignedBy || userName || "",
+          experienceRequired: data.experienceRequired || "",
+          relevantExperience: data.relevantExperience || "",
+          qualification: data.qualification || "",
+          noticePeriod: data.noticePeriod || "",
+          salaryPackage: data.salaryPackage || "",
+          status: data.status || "Open",
+          assignedUsers: assignedUsersArray, // Use the processed array
+          jobDescription: data.jobDescription || "",
+          // Note: jobDescriptionFile will be handled separately if needed
+        };
+        
+        console.log("Form data with assigned users:", formData.assignedUsers);
+        console.log("Available employee options:", employeeOptions);
+        
+        setInitialData(formData);
+      } else {
+        showErrorToast("Failed to load requirement data");
+        navigate("/dashboard/us-requirements");
+      }
+    } catch (error) {
+      console.error("Error fetching requirement:", error);
+      showErrorToast("Failed to load requirement data");
+      navigate("/dashboard/us-requirements");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Form configuration
+  // Form configuration (same as CreateJobRequirement)
   const formConfig = [
     {
       section: "Job Details",
@@ -214,26 +270,22 @@ const CreateJobRequirement = ({
           name: "jobDescription",
           label: "Job Description",
           type: "textarea",
-          // required: true,
-          // condition: (values) => values.jobDescriptionType === "text",
           helperText: "Minimum 50 characters required",
         },
         {
           name: "jobDescriptionFile",
-          label: "Job Description File",
+          label: "Update Job Description File",
           type: "file",
-          // required: true,
-          // condition: (values) => values.jobDescriptionType === "file",
           accept: ".pdf,.doc,.docx,.txt",
           maxSize: 5,
           helperText:
-            "Upload job description file (.pdf, .doc, .docx, .txt) - Max 5MB",
+            "Upload new job description file (.pdf, .doc, .docx, .txt) - Max 5MB",
         },
       ],
     },
   ];
 
-  // Handle form submission
+  // Handle form submission for editing
   const handleSubmit = async (values, { setSubmitting, resetForm }) => {
     try {
       const apiPayload = {
@@ -261,7 +313,7 @@ const CreateJobRequirement = ({
         formData.append(key, apiPayload[key]);
       });
 
-      if (values.jobDescriptionType === "file" && values.jobDescriptionFile) {
+      if (values.jobDescriptionFile) {
         formData.append(
           "jobDescriptionFile",
           values.jobDescriptionFile,
@@ -271,25 +323,25 @@ const CreateJobRequirement = ({
         formData.append("jobDescription", values.jobDescription?.trim() || "");
       }
 
+      // Use the same endpoint but with PUT method and jobId as parameter
       const response = await axios.post(
-        `https://mymulya.com/api/us/requirements/post-requirement/${userId}`,
+        `https://mymulya.com/api/us/requirements/post-requirement/${jobId}?userId=${userId}`,
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
 
       if (response?.data?.success) {
-        showSuccessToast("Requirement created successfully!");
-        resetForm();
-        navigate("/dashboard/us-requirements");
+        showSuccessToast("Requirement updated successfully!");
+        navigate(`/dashboard/us-requirements`);
       } else {
         showErrorToast(
-          response?.data?.message || "Failed to create requirement"
+          response?.data?.message || "Failed to update requirement"
         );
       }
     } catch (error) {
-      console.error("Error creating requirement:", error);
+      console.error("Error updating requirement:", error);
       showErrorToast(
-        error.response?.data?.message || "Failed to create requirement"
+        error.response?.data?.message || "Failed to update requirement"
       );
     } finally {
       setSubmitting(false);
@@ -297,7 +349,7 @@ const CreateJobRequirement = ({
   };
 
   const handleCancel = () => {
-    navigate("/dashboard/us-requirements");
+    navigate(`/dashboard/us-requirements/${jobId}`);
   };
 
   // Custom validation function
@@ -320,17 +372,21 @@ const CreateJobRequirement = ({
     return errors;
   };
 
+  if (loading || loadingEmployees) {
+    return <div>Loading requirement data...</div>;
+  }
+
   return (
     <DynamicFormUltra
       config={formConfig}
       onSubmit={handleSubmit}
-      title={formTitle}
-      initialValues={defaultInitialValues}
+      title="Edit Job Requirement"
+      initialValues={initialData}
       onCancel={handleCancel}
-      submitButtonText={submitButtonText}
+      submitButtonText="Update Requirement"
       validate={validateForm}
     />
   );
 };
 
-export default CreateJobRequirement;
+export default EditJobRequirement;
