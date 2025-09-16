@@ -2902,7 +2902,7 @@ const Timesheets = () => {
       client: currentTimesheet.clientName || 'N/A',
       approver: currentTimesheet.approver || 'N/A',
       location: 'N/A', // You might need to add this to your API response
-      frequency: 'Weekly',
+      frequency: currentTimesheet.timesheetType || "N/A",
       startDate: currentTimesheet.startDate || 'N/A'
     };
   };

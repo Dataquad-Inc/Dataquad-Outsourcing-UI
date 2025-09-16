@@ -35,13 +35,13 @@ export const inNavItems = [
     text: "Clients",
     path: "clients",
     icon: <BusinessIcon />,
-    roles: [ "SUPERADMIN", "BDM", "PARTNER","INVOICE"],
+    roles: [ "SUPERADMIN", "BDM", "PARTNER","INVOICE","COORDINATOR"],
   },
    {
     text: "Requirements",
     path: "requirements",
     icon: <ListAltIcon />,
-    roles: [ "SUPERADMIN", "BDM", "TEAMLEAD"],
+    roles: [ "SUPERADMIN", "BDM", "TEAMLEAD","COORDINATOR"],
   },
   {
     text: "Assigned",

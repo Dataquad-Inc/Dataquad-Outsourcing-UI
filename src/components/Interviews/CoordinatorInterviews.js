@@ -290,6 +290,32 @@ const CoordinatorInterviews = () => {
       width: 140,
       render: (row) => getStatusChip(row.latestInterviewStatus, row),
     },
+          {
+        key: "zoomLink",
+        label: "Meeting",
+        width: 120,
+        render: (row) =>
+          loading ? (
+            <Skeleton variant="rectangular" width={120} height={24} />
+          ) : row.zoomLink ? (
+            <Button
+              size="small"
+              variant="outlined"
+              color="primary"
+              startIcon={<VideoCallIcon />}
+              href={row.zoomLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              sx={{ px: 1, py: 0.5 }}
+            >
+              Join
+            </Button>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              No link
+            </Typography>
+          ),
+      },
     {
       key: "comments",
       label: "Recruiter Comments",

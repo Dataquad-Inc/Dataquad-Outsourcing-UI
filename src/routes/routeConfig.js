@@ -333,7 +333,7 @@ const routeConfig = [
             path: "clients",
             element: (
               <ProtectedRoute
-                allowedRoles={["ADMIN", "SUPERADMIN", "BDM", "INVOICE"]}
+                allowedRoles={["ADMIN", "SUPERADMIN", "BDM", "INVOICE","COORDINATOR"]}
                 allowedEntities={["IN"]}
               />
             ),
@@ -345,7 +345,7 @@ const routeConfig = [
             path: "addNewClient",
             element: (
               <ProtectedRoute
-                allowedRoles={["ADMIN", "SUPERADMIN", "BDM", "INVOICE"]}
+                allowedRoles={["ADMIN", "SUPERADMIN", "BDM", "INVOICE","COORDINATOR"]}
                 allowedEntities={["IN"]}
               />
             ),

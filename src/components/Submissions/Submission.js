@@ -46,7 +46,7 @@ import { filterSubmissionsByTeamlead } from "../../redux/submissionSlice";
 
 
 const topOffset = 68; // Height of the header
-const bottomOffset =5;
+const bottomOffset = 5;
 
 
 const Submission = () => {
@@ -339,17 +339,17 @@ const Submission = () => {
       render: loading
         ? () => <Skeleton variant="text" width={80} />
         : (row) => (
-            <Typography
-              variant="body2"
-              sx={{
-                fontWeight: 500,
-                color: "primary.main",
-                fontFamily: "monospace",
-              }}
-            >
-              {row.candidateId}
-            </Typography>
-          ),
+          <Typography
+            variant="body2"
+            sx={{
+              fontWeight: 500,
+              color: "primary.main",
+              fontFamily: "monospace",
+            }}
+          >
+            {row.candidateId}
+          </Typography>
+        ),
     },
     {
       key: "fullName",
@@ -361,18 +361,18 @@ const Submission = () => {
       render: loading
         ? () => <Skeleton variant="text" width={120} />
         : (row) => (
-            <Typography
-              variant="body1"
-              sx={{
-                fontWeight: 450,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              {row.fullName}
-            </Typography>
-          ),
+          <Typography
+            variant="body1"
+            sx={{
+              fontWeight: 450,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {row.fullName}
+          </Typography>
+        ),
     },
     {
       key: "clientName",
@@ -384,19 +384,19 @@ const Submission = () => {
       render: loading
         ? () => <Skeleton variant="text" width={100} />
         : (row) => (
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-              }}
-            >
-              <BusinessIcon fontSize="small" color="action" />
-              <Typography variant="body2" sx={{ fontStyle: "italic" }}>
-                {row.clientName}
-              </Typography>
-            </Box>
-          ),
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+            }}
+          >
+            <BusinessIcon fontSize="small" color="action" />
+            <Typography variant="body2" sx={{ fontStyle: "italic" }}>
+              {row.clientName}
+            </Typography>
+          </Box>
+        ),
     },
     {
       key: "recruiterName",
@@ -408,19 +408,19 @@ const Submission = () => {
       render: loading
         ? () => <Skeleton variant="text" width={100} />
         : (row) => (
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-              }}
-            >
-              <BusinessIcon fontSize="small" color="action" />
-              <Typography variant="body2" sx={{ fontStyle: "italic" }}>
-                {row.recruiterName}
-              </Typography>
-            </Box>
-          ),
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+            }}
+          >
+            <BusinessIcon fontSize="small" color="action" />
+            <Typography variant="body2" sx={{ fontStyle: "italic" }}>
+              {row.recruiterName}
+            </Typography>
+          </Box>
+        ),
     },
     {
       key: "jobId",
@@ -432,14 +432,14 @@ const Submission = () => {
       render: loading
         ? () => <Skeleton variant="text" width={60} />
         : (row) => (
-            <Chip
-              label={row.jobId}
-              size="small"
-              color="info"
-              variant="outlined"
-              sx={{ fontWeight: 500 }}
-            />
-          ),
+          <Chip
+            label={row.jobId}
+            size="small"
+            color="info"
+            variant="outlined"
+            sx={{ fontWeight: 500 }}
+          />
+        ),
     },
     {
       key: "candidateEmailId",
@@ -451,32 +451,31 @@ const Submission = () => {
       render: loading
         ? () => <Skeleton variant="text" width={180} />
         : (row) => (
-            <Box
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+            }}
+          >
+            <EmailIcon fontSize="small" color="action" />
+            <Typography
+              variant="body2"
               sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
+                color: "#7d1fcfff",
+                textDecoration: "underline",
+                cursor: "pointer",
+                // "&:hover": { color: "secondary.dark" },
               }}
+              onClick={() =>
+              (window.location.href = `mailto:${row.candidateEmailId || row.candidateEmailId
+                }`)
+              }
             >
-              <EmailIcon fontSize="small" color="action" />
-              <Typography
-                variant="body2"
-                sx={{
-                  color: "secondary.main",
-                  textDecoration: "underline",
-                  cursor: "pointer",
-                  "&:hover": { color: "secondary.dark" },
-                }}
-                onClick={() =>
-                  (window.location.href = `mailto:${
-                    row.candidateEmailId || row.candidateEmailId
-                  }`)
-                }
-              >
-                {row.emailId || row.candidateEmailId}
-              </Typography>
-            </Box>
-          ),
+              {row.emailId || row.candidateEmailId}
+            </Typography>
+          </Box>
+        ),
     },
     {
       key: "contactNumber",
@@ -488,17 +487,17 @@ const Submission = () => {
       render: loading
         ? () => <Skeleton variant="text" width={80} />
         : (row) => (
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-              }}
-            >
-              <PhoneIcon fontSize="small" color="action" />
-              <Typography variant="body2">{row.contactNumber}</Typography>
-            </Box>
-          ),
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+            }}
+          >
+            <PhoneIcon fontSize="small" color="action" />
+            <Typography variant="body2">{row.contactNumber}</Typography>
+          </Box>
+        ),
     },
     {
       key: "status",
@@ -511,31 +510,31 @@ const Submission = () => {
       render: loading
         ? () => <Skeleton variant="text" width={120} />
         : (row) => {
-            const getStatusColor = (status) => {
-              switch (status) {
-                case "PROCESSED FOR INTERVIEW":
-                  return "success";
-                case "MOVED TO INTERVIEW":
-                  return "primary";
-                case "SCREEN REJECT":
-                case "CLIENT REJECT":
-                  return "error";
-                case "DUPLICATE":
-                  return "warning";
-                default:
-                  return "default";
-              }
-            };
+          const getStatusColor = (status) => {
+            switch (status) {
+              case "PROCESSED FOR INTERVIEW":
+                return "success";
+              case "MOVED TO INTERVIEW":
+                return "primary";
+              case "SCREEN REJECT":
+              case "CLIENT REJECT":
+                return "error";
+              case "DUPLICATE":
+                return "warning";
+              default:
+                return "default";
+            }
+          };
 
-            return (
-              <Chip
-                label={row.status}
-                variant="outlined"
-                size="small"
-                color={getStatusColor(row.status)}
-              />
-            );
-          },
+          return (
+            <Chip
+              label={row.status}
+              variant="outlined"
+              size="small"
+              color={getStatusColor(row.status)}
+            />
+          );
+        },
     },
 
     {
@@ -548,26 +547,22 @@ const Submission = () => {
       render: loading
         ? () => <Skeleton variant="text" width={100} />
         : (row) => (
-            <Button
-              variant="outlined"
-              size="small"
-              color="secondary"
-              onClick={(e) => handleMoveToBenchClick(row, e)}
-              disabled={moveToBenchLoading}
-              sx={{
-                textTransform: "none",
-                borderRadius: 2,
-                px: 2,
-                py: 0.5,
-                "&:hover": {
-                  backgroundColor: "secondary.light",
-                  color: "secondary.contrastText",
-                },
-              }}
-            >
-              {moveToBenchLoading ? <CircularProgress size={20} /> : "To Bench"}
-            </Button>
-          ),
+          <Button
+            variant="outlined"
+            size="small"
+            color="primary"
+            onClick={(e) => handleMoveToBenchClick(row, e)}
+            disabled={moveToBenchLoading}
+            sx={{
+              textTransform: "none",
+              borderRadius: 2,
+              px: 2,
+              py: 0.5,
+            }}
+          >
+            {moveToBenchLoading ? <CircularProgress size={20} /> : "To Bench"}
+          </Button>
+        ),
     },
     {
       key: "schedule",
@@ -579,22 +574,22 @@ const Submission = () => {
       render: loading
         ? () => <Skeleton variant="text" width={120} />
         : (row) => (
-            <Button
-              variant="outlined"
-              size="small"
-              color="primary"
-              startIcon={<CalendarTodayIcon fontSize="small" />}
-              onClick={(e) => openScheduleDrawer(row, e)}
-              sx={{
-                textTransform: "none",
-                borderRadius: 2,
-                px: 2,
-                py: 0.5,
-              }}
-            >
-              Schedule
-            </Button>
-          ),
+          <Button
+            variant="outlined"
+            size="small"
+            color="primary"
+            startIcon={<CalendarTodayIcon fontSize="small" />}
+            onClick={(e) => openScheduleDrawer(row, e)}
+            sx={{
+              textTransform: "none",
+              borderRadius: 2,
+              px: 2,
+              py: 0.5,
+            }}
+          >
+            Schedule
+          </Button>
+        ),
     },
     {
       key: "actions",
@@ -605,54 +600,54 @@ const Submission = () => {
       align: "center",
       render: loading
         ? () => (
-            <Box sx={{ display: "flex", justifyContent: "center", gap: 1 }}>
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} variant="circular" width={32} height={32} />
-              ))}
-            </Box>
-          )
+          <Box sx={{ display: "flex", justifyContent: "center", gap: 1 }}>
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} variant="circular" width={32} height={32} />
+            ))}
+          </Box>
+        )
         : (row) => (
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "center",
-                gap: 1,
-                "& .MuiIconButton-root": {
-                  backgroundColor: "action.hover",
-                  "&:hover": {
-                    backgroundColor: "action.selected",
-                  },
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              gap: 1,
+              "& .MuiIconButton-root": {
+                backgroundColor: "action.hover",
+                "&:hover": {
+                  backgroundColor: "action.selected",
                 },
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <DownloadResume
-                candidate={{ ...row, jobId: row.jobId }}
-                getDownloadUrl={(candidate, format) =>
-                  `${API_BASE_URL}/candidate/download-resume/${candidate.candidateId}/${candidate.jobId}?format=${format}`
-                }
-              />
+              },
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <DownloadResume
+              candidate={{ ...row, jobId: row.jobId }}
+              getDownloadUrl={(candidate, format) =>
+                `${API_BASE_URL}/candidate/download-resume/${candidate.candidateId}/${candidate.jobId}?format=${format}`
+              }
+            />
 
-              <Tooltip title="Edit Candidate">
-                <IconButton
-                  size="small"
-                  onClick={(e) => handleEdit(row, e)}
-                  sx={{ color: "info.main" }}
-                >
-                  <Edit fontSize="small" />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Delete Candidate">
-                <IconButton
-                  size="small"
-                  onClick={(e) => handleDelete(row.submissionId, e)}
-                  sx={{ color: "error.main" }}
-                >
-                  <Delete fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </Box>
-          ),
+            <Tooltip title="Edit Candidate">
+              <IconButton
+                size="small"
+                onClick={(e) => handleEdit(row, e)}
+                sx={{ color: "info.main" }}
+              >
+                <Edit fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Delete Candidate">
+              <IconButton
+                size="small"
+                onClick={(e) => handleDelete(row.submissionId, e)}
+                sx={{ color: "error.main" }}
+              >
+                <Delete fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        ),
     },
   ];
 
@@ -746,10 +741,10 @@ const Submission = () => {
                     : selfSubmissionsTL
                   : filteredSubmissionsForRecruiter
                 : role === "TEAMLEAD"
-                ? isTeamData
-                  ? teamSubmissionsTL
-                  : selfSubmissionsTL
-                : data || []
+                  ? isTeamData
+                    ? teamSubmissionsTL
+                    : selfSubmissionsTL
+                  : data || []
             }
             columns={columns}
             title="Candidate Submissions"
