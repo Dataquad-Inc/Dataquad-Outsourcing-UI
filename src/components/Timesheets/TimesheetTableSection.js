@@ -399,8 +399,10 @@ const TimesheetTableSection = ({
           </Box>
         )
       )}
-      {/* Notes and Actions Section - Hide for ACCOUNTS and INVOICE roles */}
-      {(role !== 'ACCOUNTS' && role !== 'INVOICE') && (
+      
+      {/* Notes and Actions Section - Show for all roles except when in monthly view */}
+      {((role === 'EXTERNALEMPLOYEE' || role === 'SUPERADMIN') || 
+        ((role === 'ACCOUNTS' || role === 'INVOICE') && !(monthlyTimesheetData && monthlyTimesheetData.length > 0))) && (
         <Box sx={{ mt: 4, p: 3, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
           <Typography variant="h6" gutterBottom>
             Notes & Additional Information
@@ -439,8 +441,7 @@ const TimesheetTableSection = ({
                   variant="outlined"
                   color="primary"
                   startIcon={<Edit />}
-                  // onClick={handleEditTimesheet}
-                  onClick={() => saveTimesheet(false)}
+                  onClick={handleEditTimesheet}
                   disabled={loading || adminActionLoading}
                   sx={{ minWidth: 120 }}
                 >
@@ -452,7 +453,7 @@ const TimesheetTableSection = ({
               {(role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE") && !isAddingNewTimesheet && !isCreateMode ? (
                 <>
                   {/* Admin action buttons */}
-                  {selectedEmployee && monthlyTimesheetData && monthlyTimesheetData.length > 0 && (
+                  {selectedEmployee && (
                     <>
                       <Button
                         onClick={() => { onApprove(currentTimesheet) }}
@@ -536,8 +537,8 @@ const TimesheetTableSection = ({
         </Box>
       )}
 
-      {/* Actions Section for ACCOUNTS and INVOICE roles */}
-      {(role === 'ACCOUNTS' || role === 'INVOICE') && (
+      {/* Actions Section for ACCOUNTS and INVOICE roles in monthly view */}
+      {(role === 'ACCOUNTS' || role === 'INVOICE') && monthlyTimesheetData && monthlyTimesheetData.length > 0 && (
         <Box sx={{ mt: 4, p: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 2 }}>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -549,20 +550,6 @@ const TimesheetTableSection = ({
               >
                 Refresh
               </Button>
-
-              {/* Edit button for rejected timesheets in ACCOUNTS/INVOICE view */}
-              {currentTimesheet?.status === 'REJECTED' && !isEditMode && (
-                <Button
-                  variant="outlined"
-                  color="primary"
-                  startIcon={<Edit />}
-                  onClick={handleEditTimesheet}
-                  disabled={loading || adminActionLoading}
-                  sx={{ minWidth: 120 }}
-                >
-                  Edit
-                </Button>
-              )}
 
               {/* Admin action buttons - only show if employee is selected and timesheet exists */}
               {selectedEmployee && monthlyTimesheetData && monthlyTimesheetData.length > 0 && (
@@ -584,32 +571,6 @@ const TimesheetTableSection = ({
                     startIcon={adminActionLoading ? <CircularProgress size={16} /> : <ThumbDown />}
                   >
                     {adminActionLoading ? 'Processing...' : 'Reject'}
-                  </Button>
-                </>
-              )}
-
-              {/* Save button for admins (can save anytime) */}
-              {selectedEmployee && currentTimesheet && (
-                <>
-                  <Button
-                    variant="outlined"
-                    startIcon={loading ? <CircularProgress size={16} /> : <Save />}
-                    onClick={() => saveTimesheet(false)}
-                    disabled={loading || (role === 'EXTERNALEMPLOYEE' && isSubmitted) || currentTimesheet?.status === 'REJECTED' ||  currentTimesheet?.status === "PENDING_APPROVAL" }
-                    sx={{ minWidth: 120 }}
-                  >
-                    {loading ? 'Saving...' : 'Save'}
-                  </Button>
-
-                  <Button
-                    variant="contained"
-                    color="success"
-                    startIcon={loading ? <CircularProgress size={16} /> : <CheckCircle />}
-                    onClick={submitWeeklyTimesheet || currentTimesheet?.status}
-                    disabled={currentTimesheet?.status === "PENDING_APPROVAL"}
-                    sx={{ minWidth: 140 }}
-                  >
-                    {loading ? 'Submitting...' : 'Submit for Approval'}
                   </Button>
                 </>
               )}

@@ -95,6 +95,9 @@ const Requirements = () => {
         } else if (role === "TEAMLEAD") {
           response = await httpService.get(`/requirements/teamleadrequirements/${userId}`);
         }
+        else if (role === "COORDINATOR") {
+          response = await httpService.get(`/requirements/coordinatorRequirements/${userId}`)
+        }
         else if (role === "BDM") {
           dispatch(fetchAllRequirementsBDM());
           dispatch(fetchRequirementsBdmSelf());

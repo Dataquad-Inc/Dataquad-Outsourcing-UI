@@ -170,7 +170,7 @@ const PlacementsList = () => {
     } catch (error) {
       ToastService.error(
         error.response?.data?.message ||
-          "Failed to send Link. Please try again."
+        "Failed to send Link. Please try again."
       );
     } finally {
       setIsLoading(false);
@@ -221,8 +221,8 @@ const PlacementsList = () => {
     }
     return value
       ? `₹${parseFloat(value).toLocaleString("en-IN", {
-          maximumFractionDigits: 2,
-        })}`
+        maximumFractionDigits: 2,
+      })}`
       : "-";
   };
 
@@ -249,7 +249,9 @@ const PlacementsList = () => {
                 disabled={row.isRegister === true} // disable if already registered
                 onClick={() => handleRegisterUser(row.id)}
               >
-                {row.isRegister ? (
+                {row.login ? (
+                  <HowToRegRounded sx={{ color: "blue" }} />
+                ) : row.isRegister ? (
                   <HowToRegRounded sx={{ color: "green" }} />
                 ) : (
                   <PersonAdd sx={{ color: "#9e9e9e" }} />
