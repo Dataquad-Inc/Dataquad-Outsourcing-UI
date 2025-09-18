@@ -68,7 +68,7 @@ const TimesheetTableSection = ({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <Typography variant="h6" fontWeight="bold">
             Timesheet for {selectedProject}
-            {(role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE") && selectedEmployee && (
+            {(role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE" || role === "ADMIN") && selectedEmployee && (
               <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
                 (Employee: {selectedEmployee})
               </Typography>
@@ -80,7 +80,7 @@ const TimesheetTableSection = ({
             size="small"
           />
           {/* Status chip for admin roles */}
-          {(role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE" || role === 'EXTERNALEMPLOYEE') && currentTimesheet && (
+          {(role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE" || role === 'EXTERNALEMPLOYEE' || role === "ADMIN") && currentTimesheet && (
             <Chip
               label={currentTimesheet.status || 'DRAFT'}
               color={
@@ -114,7 +114,7 @@ const TimesheetTableSection = ({
         </Alert>
       )}
 
-      {(role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE") && !selectedEmployee && (
+      {(role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE" || role === "ADMIN") && !selectedEmployee && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           Please select an employee to view and manage their timesheet.
         </Alert>
@@ -132,7 +132,7 @@ const TimesheetTableSection = ({
         </Box>
       ) : (
         // Check if we should render monthly view (ACCOUNTS/INVOICE roles)
-        (role === 'ACCOUNTS' || role === 'INVOICE') && monthlyTimesheetData && monthlyTimesheetData.length > 0 ? (
+        (role === 'ACCOUNTS' || role === 'ADMIN') && monthlyTimesheetData && monthlyTimesheetData.length > 0 ? (
           // Monthly view - render multiple week tables
           <Box sx={{ mt: 2 }}>
             <Typography variant="h6" sx={{ mb: 3, color: 'primary.main' }}>
@@ -400,30 +400,31 @@ const TimesheetTableSection = ({
         )
       )}
       
-      {/* Notes and Actions Section - Show for all roles except when in monthly view */}
-      {((role === 'EXTERNALEMPLOYEE' || role === 'SUPERADMIN') || 
-        ((role === 'ACCOUNTS' || role === 'INVOICE') && !(monthlyTimesheetData && monthlyTimesheetData.length > 0))) && (
-        <Box sx={{ mt: 4, p: 3, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-          <Typography variant="h6" gutterBottom>
-            Notes & Additional Information
-          </Typography>
+      {/* Notes and Actions Section - Always render notes field for all roles, but conditionally show actions */}
+      <Box sx={{ mt: 4, p: 3, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+        <Typography variant="h6" gutterBottom>
+          Notes & Additional Information
+        </Typography>
 
-          <TextField
-            multiline
-            rows={3}
-            value={notes}
-            onChange={(e) => {
-              // Only allow editing for EXTERNALEMPLOYEE or in create/add modes
-              if (role === 'EXTERNALEMPLOYEE' || isCreateMode || isAddingNewTimesheet) {
-                handleNotesChange(e.target.value);
-              }
-            }}
-            placeholder="Notes and comments about this timesheet..."
-            disabled={role === 'EXTERNALEMPLOYEE' ? (isSubmitted || currentTimesheet.isEditable) : false}
-            sx={{ mb: 3, width: '100%' }}
-          />
+        <TextField
+          multiline
+          rows={3}
+          value={notes}
+          onChange={(e) => {
+            // Only allow editing for EXTERNALEMPLOYEE or in create/add modes
+            if (role === 'EXTERNALEMPLOYEE' || isCreateMode || isAddingNewTimesheet) {
+              handleNotesChange(e.target.value);
+            }
+          }}
+          placeholder="Notes and comments about this timesheet..."
+          // disabled={role === 'EXTERNALEMPLOYEE' ? (isSubmitted || currentTimesheet.isEditable) : false}
+          disabled={currentTimesheet?.status==="PENDING_APPROVAL" || currentTimesheet?.status==="APROVED"}
+          sx={{ mb: 3, width: '100%' }}
+        />
 
-          {/* Progress and Actions */}
+        {/* Progress and Actions */}
+        {/* Only show action buttons for non-ACCOUNTS/INVOICE roles */}
+        {(role !== 'ACCOUNTS' && role !== 'ADMIN') && (
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 2 }}>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               <Button
@@ -441,7 +442,8 @@ const TimesheetTableSection = ({
                   variant="outlined"
                   color="primary"
                   startIcon={<Edit />}
-                  onClick={handleEditTimesheet}
+                  // onClick={handleEditTimesheet}
+                  onClick={() => saveTimesheet(false)}
                   disabled={loading || adminActionLoading}
                   sx={{ minWidth: 120 }}
                 >
@@ -450,10 +452,10 @@ const TimesheetTableSection = ({
               )}
 
               {/* Show different buttons based on role and mode */}
-              {(role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE") && !isAddingNewTimesheet && !isCreateMode ? (
+              {(role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE" || role === "ADMIN") && !isAddingNewTimesheet && !isCreateMode ? (
                 <>
                   {/* Admin action buttons */}
-                  {selectedEmployee && (
+                  {selectedEmployee && monthlyTimesheetData && monthlyTimesheetData.length > 0 && (
                     <>
                       <Button
                         onClick={() => { onApprove(currentTimesheet) }}
@@ -534,11 +536,11 @@ const TimesheetTableSection = ({
               )}
             </Box>
           </Box>
-        </Box>
-      )}
+        )}
+      </Box>
 
-      {/* Actions Section for ACCOUNTS and INVOICE roles in monthly view */}
-      {(role === 'ACCOUNTS' || role === 'INVOICE') && monthlyTimesheetData && monthlyTimesheetData.length > 0 && (
+      {/* Actions Section for ACCOUNTS and INVOICE roles */}
+      {(role === 'ACCOUNTS' || role === 'ADMIN') && (
         <Box sx={{ mt: 4, p: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 2 }}>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -550,6 +552,20 @@ const TimesheetTableSection = ({
               >
                 Refresh
               </Button>
+
+              {/* Edit button for rejected timesheets in ACCOUNTS/INVOICE view */}
+              {currentTimesheet?.status === 'REJECTED' && !isEditMode && (
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  startIcon={<Edit />}
+                  onClick={handleEditTimesheet}
+                  disabled={loading || adminActionLoading}
+                  sx={{ minWidth: 120 }}
+                >
+                  Edit
+                </Button>
+              )}
 
               {/* Admin action buttons - only show if employee is selected and timesheet exists */}
               {selectedEmployee && monthlyTimesheetData && monthlyTimesheetData.length > 0 && (
@@ -571,6 +587,32 @@ const TimesheetTableSection = ({
                     startIcon={adminActionLoading ? <CircularProgress size={16} /> : <ThumbDown />}
                   >
                     {adminActionLoading ? 'Processing...' : 'Reject'}
+                  </Button>
+                </>
+              )}
+
+              {/* Save button for admins (can save anytime) */}
+              {selectedEmployee && currentTimesheet && (
+                <>
+                  <Button
+                    variant="outlined"
+                    startIcon={loading ? <CircularProgress size={16} /> : <Save />}
+                    onClick={() => saveTimesheet(false)}
+                    disabled={loading || (role === 'EXTERNALEMPLOYEE' && isSubmitted) || currentTimesheet?.status === 'REJECTED' ||  currentTimesheet?.status === "PENDING_APPROVAL" }
+                    sx={{ minWidth: 120 }}
+                  >
+                    {loading ? 'Saving...' : 'Save'}
+                  </Button>
+
+                  <Button
+                    variant="contained"
+                    color="success"
+                    startIcon={loading ? <CircularProgress size={16} /> : <CheckCircle />}
+                    onClick={submitWeeklyTimesheet || currentTimesheet?.status}
+                    disabled={currentTimesheet?.status === "PENDING_APPROVAL"}
+                    sx={{ minWidth: 140 }}
+                  >
+                    {loading ? 'Submitting...' : 'Submit for Approval'}
                   </Button>
                 </>
               )}

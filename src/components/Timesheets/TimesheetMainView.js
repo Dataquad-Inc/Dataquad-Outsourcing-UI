@@ -104,7 +104,7 @@ const TimesheetMainView = (props) => {
     }
 
     // For SUPERADMIN and ACCOUNTS, allow editing if not submitted
-    if ((role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE") && !isSubmitted) {
+    if ((role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE" || role === "ADMIN") && !isSubmitted) {
       return true;
     }
 
@@ -289,7 +289,7 @@ const TimesheetMainView = (props) => {
                 }}
               >
                 {/* Employee Selection - Show for admin roles or create mode */}
-                {((role === "SUPERADMIN" || role === "ACCOUNTS" || role === "INVOICE") || (isCreateMode || isAddingNewTimesheet)) && (
+                {((role === "SUPERADMIN" || role === "ACCOUNTS" || role === "INVOICE" || role === "ADMIN") || (isCreateMode || isAddingNewTimesheet)) && (
                   <FormControl
                     size="small"
                     sx={{
@@ -384,7 +384,7 @@ const TimesheetMainView = (props) => {
                     disabled={
                       loading ||
                       loadingEmployeeProjects ||
-                      ((role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === 'INVOICE') &&
+                      ((role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === 'INVOICE' || role === 'ADMIN') &&
                         (!selectedEmployee && !tempEmployeeForAdd))
                     }
                   >
@@ -403,7 +403,7 @@ const TimesheetMainView = (props) => {
                     )}
 
                     {/* Show employee projects when employee is selected (admin roles) */}
-                    {(role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === 'INVOICE') && (selectedEmployee || tempEmployeeForAdd) && !loadingEmployeeProjects ? (
+                    {(role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === 'INVOICE' || role === 'ADMIN') && (selectedEmployee || tempEmployeeForAdd) && !loadingEmployeeProjects ? (
                       employeeProjects && employeeProjects.length > 0 ? (
                         employeeProjects.map((project, index) => (
                           <MenuItem
