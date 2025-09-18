@@ -423,7 +423,7 @@ const validationSchema = useMemo(() => Yup.object().shape({
         };
 
         const responseData = await httpService.post(
-          `/candidate/interview-schedule/${values.userId}`,
+          `/candidate/interview-schedule/${userId}`,
           payload
         );
 
