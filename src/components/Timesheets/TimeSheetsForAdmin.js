@@ -33,10 +33,10 @@ import {
 import axios from 'axios';
 import dayjs from 'dayjs';
 import ToastService from '../../Services/toastService';
-import { 
-  handleEmployeeNameClick, 
-  getCurrentUserRole, 
-  clearPrepopulatedEmployeeData 
+import {
+  handleEmployeeNameClick,
+  getCurrentUserRole,
+  clearPrepopulatedEmployeeData
 } from './navigationHelpers';
 import { useSelector } from 'react-redux';
 import httpService from '../../Services/httpService';
@@ -145,7 +145,7 @@ const TimesheetList = () => {
   const handleEmployeeClick = (row) => {
     try {
       console.log('Employee click handler called with:', { row, role, selectedMonth, selectedYear });
-      
+
       if (!handleEmployeeNameClick) {
         console.error('handleEmployeeNameClick is not available');
         ToastService.error('Navigation function is not available');
@@ -183,7 +183,7 @@ const TimesheetList = () => {
             fontWeight={500}
             sx={{
               cursor: (role === 'ACCOUNTS' || role === 'SUPERADMIN' || role === 'ADMIN') ? 'pointer' : 'default',
-              color: (role === 'ACCOUNTS' ||role === 'SUPERADMIN' || role === 'ADMIN') ? 'primary.main' : 'text.primary',
+              color: (role === 'ACCOUNTS' || role === 'SUPERADMIN' || role === 'ADMIN') ? 'primary.main' : 'text.primary',
               textDecoration: (role === 'ACCOUNTS' || role === 'SUPERADMIN' || role === 'ADMIN') ? 'underline' : 'none',
               '&:hover': (role === 'ACCOUNTS' || role === 'SUPERADMIN' || role === 'ADMIN') ? {
                 color: 'primary.dark'
@@ -488,42 +488,45 @@ const TimesheetList = () => {
               </Box>
             </Grid>
 
-            <Grid item>
-              <Button
-                variant="contained"
-                startIcon={<Add />}
-                onClick={() => {
-                  // Clear any navigation state before going to create mode
-                  clearPrepopulatedEmployeeData();
-                  sessionStorage.removeItem('prepopulatedEmployee');
-                  sessionStorage.removeItem('selectedEmployeeData');
 
-                  // Navigate with explicit state to ensure create mode
-                  navigate('/dashboard/timesheets/create', {
-                    state: {
-                      forceCreateMode: true,
-                      from: '/dashboard/timesheetsForAdmins',
-                      timestamp: Date.now()
+            <Grid item>
+              {(role === 'SUPERADMIN' || role === 'ADMIN') && (
+                <Button
+                  variant="contained"
+                  startIcon={<Add />}
+                  onClick={() => {
+                    // Clear any navigation state before going to create mode
+                    clearPrepopulatedEmployeeData();
+                    sessionStorage.removeItem('prepopulatedEmployee');
+                    sessionStorage.removeItem('selectedEmployeeData');
+
+                    // Navigate with explicit state to ensure create mode
+                    navigate('/dashboard/timesheets/create', {
+                      state: {
+                        forceCreateMode: true,
+                        from: '/dashboard/timesheetsForAdmins',
+                        timestamp: Date.now()
+                      },
+                      replace: true // Use replace to avoid adding to history stack
+                    });
+                  }}
+                  sx={{
+                    px: 3,
+                    py: 1,
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    boxShadow: 2,
+                    '&:hover': {
+                      boxShadow: 4,
+                      transform: 'translateY(-2px)'
                     },
-                    replace: true // Use replace to avoid adding to history stack
-                  });
-                }}
-                sx={{
-                  px: 3,
-                  py: 1,
-                  borderRadius: 2,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  boxShadow: 2,
-                  '&:hover': {
-                    boxShadow: 4,
-                    transform: 'translateY(-2px)'
-                  },
-                  transition: 'all 0.2s ease-in-out'
-                }}
-              >
-                Add Timesheet
-              </Button>
+                    transition: 'all 0.2s ease-in-out'
+                  }}
+                >
+                  Add Timesheet
+                </Button>
+              )}
             </Grid>
           </Grid>
         </CardContent>

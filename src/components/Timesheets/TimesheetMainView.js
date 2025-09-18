@@ -837,7 +837,7 @@ const TimesheetMainView = (props) => {
                           </List>
                         ) : (
                           <Typography variant="body2" color="text.secondary" fontStyle="italic">
-                            No attachments added to this timesheet
+                            Kindly upload attachments here
                           </Typography>
                         )
                       ) : (

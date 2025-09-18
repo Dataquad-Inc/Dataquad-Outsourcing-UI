@@ -527,7 +527,7 @@ const TimesheetTableSection = ({
                       startIcon={loading ? <CircularProgress size={16} /> : <CheckCircle />}
                       onClick={submitWeeklyTimesheet}
                       sx={{ minWidth: 140 }}
-                      disabled={currentTimesheet?.status === "PENDING_APPROVAL"}
+                      disabled={currentTimesheet?.status === "PENDING_APPROVAL" ||currentTimesheet?.status === "APPROVED" }
                     >
                       {loading ? 'Submitting...' : 'Submit for Approval'}
                     </Button>
