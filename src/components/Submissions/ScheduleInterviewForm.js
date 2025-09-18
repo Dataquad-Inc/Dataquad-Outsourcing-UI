@@ -416,7 +416,7 @@ const validationSchema = useMemo(() => Yup.object().shape({
           clientName: values.clientName,
           jobId: values.jobId,
           userEmail: values.userEmail,
-          userId: values.userId,
+          userId: userId,
           externalInterviewDetails: values.externalInterviewDetails,
           skipNotification: values.skipNotification,
           assignedTo: values.assignedTo || null,
