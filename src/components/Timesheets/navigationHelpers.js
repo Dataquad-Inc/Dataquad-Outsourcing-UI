@@ -29,8 +29,8 @@ export const handleEmployeeNameClick = (row, navigate, role, selectedMonth = nul
   const month = selectedMonth !== null ? selectedMonth : new Date().getMonth();
   const year = selectedYear !== null ? selectedYear : new Date().getFullYear();
   
-  if (role === 'ACCOUNTS' || role === 'INVOICE') {
-    // For ACCOUNTS/INVOICE roles, navigate to the timesheet form with prepopulated data
+  if (role === 'ACCOUNTS' || role === 'ADMIN') {
+    // For ACCOUNTS/ADMIN roles, navigate to the timesheet form with prepopulated data
     const monthStart = new Date(year, month, 1);
     const monthEnd = new Date(year, month + 1, 0);
     
@@ -175,13 +175,13 @@ export const generateTimesheetPaths = (userRole, userId, employeeName, basePath 
   const encodedName = encodeURIComponent(employeeName);
   
   const paths = {
-    employeeDetail: (userRole === 'ACCOUNTS' || userRole === 'INVOICE') 
+    employeeDetail: (userRole === 'ACCOUNTS' || userRole === 'ADMIN') 
       ? '/dashboard/timesheets' 
       : `${basePath}/employee/${userId}`,
     employeeList: basePath,
     addTimesheet: '/dashboard/timesheets',
-    shouldRedirectToTimesheets: userRole === 'ACCOUNTS' || userRole === 'INVOICE',
-    shouldUseMonthlyView: userRole === 'ACCOUNTS' || userRole === 'INVOICE'
+    shouldRedirectToTimesheets: userRole === 'ACCOUNTS'|| userRole === 'ADMIN',
+    shouldUseMonthlyView: userRole === 'ACCOUNTS' || userRole === 'ADMIN'
   };
   
   console.log('Generated timesheet paths for role', userRole, ':', paths);
@@ -410,7 +410,7 @@ export const getPrepopulatedEmployeeData = (location) => {
  * @returns {boolean} Whether to use monthly view
  */
 export const shouldUseMonthlyView = (userRole, employeeData = null) => {
-  const isAccountsOrInvoice = userRole === 'ACCOUNTS' || userRole === 'INVOICE';
+  const isAccountsOrInvoice = userRole === 'ACCOUNTS' || userRole === 'ADMIN';
   const hasMonthlyViewFlag = employeeData?.enableMonthlyView || employeeData?.forceMonthlyView;
   
   const useMonthlyView = isAccountsOrInvoice && (hasMonthlyViewFlag || true); // Default to true for ACCOUNTS/INVOICE

@@ -117,6 +117,6 @@ export const inNavItems = [
     text:"Timesheets",
     path:"timesheetsForAdmins",
     icon:<AssignmentTurnedInIcon/>,
-    roles:["SUPERADMIN","ADMIN","ACCOUNTS","INVOICE"]
+    roles:["SUPERADMIN","ADMIN","ACCOUNTS","INVOICE","ADMIN"]
   }
 ];

@@ -152,7 +152,7 @@ const TimesheetList = () => {
         return;
       }
 
-      if (role === 'ACCOUNTS' || role === 'INVOICE' || role === 'SUPERADMIN') {
+      if (role === 'ACCOUNTS' || role === 'SUPERADMIN' || role === 'ADMIN') {
         handleEmployeeNameClick(row, navigate, role, selectedMonth, selectedYear);
       } else {
         console.warn('User role does not have permission to view employee details:', role);
@@ -182,10 +182,10 @@ const TimesheetList = () => {
             variant="body2"
             fontWeight={500}
             sx={{
-              cursor: (role === 'ACCOUNTS' || role === 'INVOICE' || role === 'SUPERADMIN') ? 'pointer' : 'default',
-              color: (role === 'ACCOUNTS' || role === 'INVOICE' || role === 'SUPERADMIN') ? 'primary.main' : 'text.primary',
-              textDecoration: (role === 'ACCOUNTS' || role === 'INVOICE' || role === 'SUPERADMIN') ? 'underline' : 'none',
-              '&:hover': (role === 'ACCOUNTS' || role === 'INVOICE' || role === 'SUPERADMIN') ? {
+              cursor: (role === 'ACCOUNTS' || role === 'SUPERADMIN' || role === 'ADMIN') ? 'pointer' : 'default',
+              color: (role === 'ACCOUNTS' ||role === 'SUPERADMIN' || role === 'ADMIN') ? 'primary.main' : 'text.primary',
+              textDecoration: (role === 'ACCOUNTS' || role === 'SUPERADMIN' || role === 'ADMIN') ? 'underline' : 'none',
+              '&:hover': (role === 'ACCOUNTS' || role === 'SUPERADMIN' || role === 'ADMIN') ? {
                 color: 'primary.dark'
               } : {}
             }}

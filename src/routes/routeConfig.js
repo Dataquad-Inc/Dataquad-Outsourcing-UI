@@ -453,7 +453,7 @@ const routeConfig = [
             path: "timesheets",
             element: (
               <ProtectedRoute
-                allowedRoles={["EXTERNALEMPLOYEE", "SUPERADMIN", "ACCOUNTS","INVOICE"]}
+                allowedRoles={["EXTERNALEMPLOYEE", "SUPERADMIN", "ACCOUNTS","INVOICE","ADMIN"]}
                 allowedEntities={["IN"]}
               />
             ),
@@ -463,7 +463,7 @@ const routeConfig = [
                 path: "create",
                 element: (
                   <ProtectedRoute
-                    allowedRoles={["SUPERADMIN", "ACCOUNTS", "INVOICE"]}
+                    allowedRoles={["SUPERADMIN", "ACCOUNTS", "INVOICE","ADMIN"]}
                     allowedEntities={["IN"]}
                   />
                 ),

@@ -68,7 +68,7 @@ const TimesheetTableSection = ({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <Typography variant="h6" fontWeight="bold">
             Timesheet for {selectedProject}
-            {(role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE") && selectedEmployee && (
+            {(role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE" || role === "ADMIN") && selectedEmployee && (
               <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
                 (Employee: {selectedEmployee})
               </Typography>
@@ -80,7 +80,7 @@ const TimesheetTableSection = ({
             size="small"
           />
           {/* Status chip for admin roles */}
-          {(role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE" || role === 'EXTERNALEMPLOYEE') && currentTimesheet && (
+          {(role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE" || role === 'EXTERNALEMPLOYEE' || role === "ADMIN") && currentTimesheet && (
             <Chip
               label={currentTimesheet.status || 'DRAFT'}
               color={
@@ -114,7 +114,7 @@ const TimesheetTableSection = ({
         </Alert>
       )}
 
-      {(role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE") && !selectedEmployee && (
+      {(role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE" || role === "ADMIN") && !selectedEmployee && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           Please select an employee to view and manage their timesheet.
         </Alert>
@@ -132,7 +132,7 @@ const TimesheetTableSection = ({
         </Box>
       ) : (
         // Check if we should render monthly view (ACCOUNTS/INVOICE roles)
-        (role === 'ACCOUNTS' || role === 'INVOICE') && monthlyTimesheetData && monthlyTimesheetData.length > 0 ? (
+        (role === 'ACCOUNTS' || role === 'ADMIN') && monthlyTimesheetData && monthlyTimesheetData.length > 0 ? (
           // Monthly view - render multiple week tables
           <Box sx={{ mt: 2 }}>
             <Typography variant="h6" sx={{ mb: 3, color: 'primary.main' }}>
@@ -424,7 +424,7 @@ const TimesheetTableSection = ({
 
         {/* Progress and Actions */}
         {/* Only show action buttons for non-ACCOUNTS/INVOICE roles */}
-        {(role !== 'ACCOUNTS' && role !== 'INVOICE') && (
+        {(role !== 'ACCOUNTS' && role !== 'ADMIN') && (
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 2 }}>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               <Button
@@ -452,7 +452,7 @@ const TimesheetTableSection = ({
               )}
 
               {/* Show different buttons based on role and mode */}
-              {(role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE") && !isAddingNewTimesheet && !isCreateMode ? (
+              {(role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE" || role === "ADMIN") && !isAddingNewTimesheet && !isCreateMode ? (
                 <>
                   {/* Admin action buttons */}
                   {selectedEmployee && monthlyTimesheetData && monthlyTimesheetData.length > 0 && (
@@ -540,7 +540,7 @@ const TimesheetTableSection = ({
       </Box>
 
       {/* Actions Section for ACCOUNTS and INVOICE roles */}
-      {(role === 'ACCOUNTS' || role === 'INVOICE') && (
+      {(role === 'ACCOUNTS' || role === 'ADMIN') && (
         <Box sx={{ mt: 4, p: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 2 }}>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
