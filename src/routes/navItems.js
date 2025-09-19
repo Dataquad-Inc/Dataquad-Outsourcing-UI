@@ -26,6 +26,12 @@ export const inNavItems = [
     roles: ["ADMIN", "SUPERADMIN","INVOICE","COORDINATOR"],
   },
   {
+    text: "Team",
+    path: "ind-team",
+    icon: <GroupIcon />,
+    roles: ["ADMIN", "SUPERADMIN","INVOICE","COORDINATOR"],
+  },
+  {
     text: "Team Metrices",
     path: "team-metrics",
     icon: <InsightsIcon />,

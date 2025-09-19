@@ -40,6 +40,14 @@ const Submission = lazy(() => import("../components/Submissions/Submission"));
 const AllSubmissions = lazy(() =>
   import("../components/Submissions/AllSubmissions")
 );
+
+//----------IND Team Creation--------------
+
+const IndTeamList = lazy(() => import("../components/Users/IndTeamList"));
+const IndTeamCreate = lazy(() => import("../components/Users/IndTeamCreate"));
+
+//---------------------------------------
+
 const Assigned = lazy(() => import("../components/Assigned/Assigned"));
 const Requirements = lazy(() =>
   import("../components/Requirements/Requirements")
@@ -328,12 +336,33 @@ const routeConfig = [
             children: [{ index: true, element: Loadable(UsersList) }],
           },
 
+          //----IND TEAM Routes
+          {
+            path: "ind-team",
+            element: (
+              <ProtectedRoute
+                allowedRoles={["ADMIN", "SUPERADMIN", "COORDINATOR", "INVOICE"]}
+                allowedEntities={["IN"]}
+              />
+            ),
+            children: [
+              { index: true, element: Loadable(IndTeamCreate) }, // default route
+              { path: "list", element: Loadable(IndTeamList) }, // child route
+            ],
+          },
+
           // CLIENTS (IN)
           {
             path: "clients",
             element: (
               <ProtectedRoute
-                allowedRoles={["ADMIN", "SUPERADMIN", "BDM", "INVOICE","COORDINATOR"]}
+                allowedRoles={[
+                  "ADMIN",
+                  "SUPERADMIN",
+                  "BDM",
+                  "INVOICE",
+                  "COORDINATOR",
+                ]}
                 allowedEntities={["IN"]}
               />
             ),
@@ -345,7 +374,13 @@ const routeConfig = [
             path: "addNewClient",
             element: (
               <ProtectedRoute
-                allowedRoles={["ADMIN", "SUPERADMIN", "BDM", "INVOICE","COORDINATOR"]}
+                allowedRoles={[
+                  "ADMIN",
+                  "SUPERADMIN",
+                  "BDM",
+                  "INVOICE",
+                  "COORDINATOR",
+                ]}
                 allowedEntities={["IN"]}
               />
             ),
@@ -607,7 +642,7 @@ const routeConfig = [
                     path: ":jobId",
                     element: Loadable(RequirementProfile),
                   },
-                    {
+                  {
                     path: "edit/:jobId",
                     element: Loadable(EditJobRequirement),
                   },
