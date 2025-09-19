@@ -418,7 +418,7 @@ const TimesheetTableSection = ({
           }}
           placeholder="Notes and comments about this timesheet..."
           // disabled={role === 'EXTERNALEMPLOYEE' ? (isSubmitted || currentTimesheet.isEditable) : false}
-          disabled={currentTimesheet?.status==="PENDING_APPROVAL" || currentTimesheet?.status==="APROVED"}
+          disabled={currentTimesheet?.status==="PENDING_APPROVAL" || currentTimesheet?.status==="APPROVED"}
           sx={{ mb: 3, width: '100%' }}
         />
 
@@ -527,7 +527,7 @@ const TimesheetTableSection = ({
                       startIcon={loading ? <CircularProgress size={16} /> : <CheckCircle />}
                       onClick={submitWeeklyTimesheet}
                       sx={{ minWidth: 140 }}
-                      disabled={currentTimesheet?.status === "PENDING_APPROVAL" ||currentTimesheet?.status === "APPROVED" }
+                      disabled={isSubmitted|| adminActionLoading ||currentTimesheet?.status === "PENDING_APPROVAL" ||currentTimesheet?.status === "APPROVED" }
                     >
                       {loading ? 'Submitting...' : 'Submit for Approval'}
                     </Button>
@@ -609,7 +609,7 @@ const TimesheetTableSection = ({
                     color="success"
                     startIcon={loading ? <CircularProgress size={16} /> : <CheckCircle />}
                     onClick={submitWeeklyTimesheet || currentTimesheet?.status}
-                    disabled={currentTimesheet?.status === "PENDING_APPROVAL"}
+                    disabled={isSubmitted||adminActionLoading ||currentTimesheet?.status === "PENDING_APPROVAL" || currentTimesheet?.status === "APPROVED"}
                     sx={{ minWidth: 140 }}
                   >
                     {loading ? 'Submitting...' : 'Submit for Approval'}
