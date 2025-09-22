@@ -960,6 +960,7 @@ const TimesheetMainView = (props) => {
           getDisplayMonth={getDisplayMonth}
           handleViewAttachmentFile={handleViewAttachmentFile}
           handleDownloadAttachmentFile={handleDownloadAttachmentFile}
+           fetchMonthlyTimesheetData={ fetchMonthlyTimesheetData}
         />
       )}
 

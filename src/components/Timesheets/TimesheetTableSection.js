@@ -59,7 +59,7 @@ const TimesheetTableSection = ({
   currentMonthWeeks,
   handleRejectTimesheet,
   selectedMonthRange,
-  projectDetails
+  projectDetails, fetchMonthlyTimesheetData
 }) => (
 
   <Card sx={{ mb: 3 }}>
@@ -399,7 +399,7 @@ const TimesheetTableSection = ({
           </Box>
         )
       )}
-      
+
       {/* Notes and Actions Section - Always render notes field for all roles, but conditionally show actions */}
       <Box sx={{ mt: 4, p: 3, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
         <Typography variant="h6" gutterBottom>
@@ -418,7 +418,7 @@ const TimesheetTableSection = ({
           }}
           placeholder="Notes and comments about this timesheet..."
           // disabled={role === 'EXTERNALEMPLOYEE' ? (isSubmitted || currentTimesheet.isEditable) : false}
-          disabled={currentTimesheet?.status==="PENDING_APPROVAL" || currentTimesheet?.status==="APPROVED"}
+          disabled={currentTimesheet?.status === "PENDING_APPROVAL" || currentTimesheet?.status === "APPROVED"}
           sx={{ mb: 3, width: '100%' }}
         />
 
@@ -527,7 +527,7 @@ const TimesheetTableSection = ({
                       startIcon={loading ? <CircularProgress size={16} /> : <CheckCircle />}
                       onClick={submitWeeklyTimesheet}
                       sx={{ minWidth: 140 }}
-                      disabled={isSubmitted|| adminActionLoading ||currentTimesheet?.status === "PENDING_APPROVAL" ||currentTimesheet?.status === "APPROVED" }
+                      disabled={isSubmitted || adminActionLoading || currentTimesheet?.status === "PENDING_APPROVAL" || currentTimesheet?.status === "APPROVED"}
                     >
                       {loading ? 'Submitting...' : 'Submit for Approval'}
                     </Button>
@@ -559,7 +559,7 @@ const TimesheetTableSection = ({
                   variant="outlined"
                   color="primary"
                   startIcon={<Edit />}
-                  onClick={handleEditTimesheet}
+                  onClick={saveTimesheet}
                   disabled={loading || adminActionLoading}
                   sx={{ minWidth: 120 }}
                 >
@@ -598,7 +598,7 @@ const TimesheetTableSection = ({
                     variant="outlined"
                     startIcon={loading ? <CircularProgress size={16} /> : <Save />}
                     onClick={() => saveTimesheet(false)}
-                    disabled={loading || (role === 'EXTERNALEMPLOYEE' && isSubmitted) || currentTimesheet?.status === 'REJECTED' ||  currentTimesheet?.status === "PENDING_APPROVAL" }
+                    disabled={loading || (role === 'EXTERNALEMPLOYEE' && isSubmitted) || currentTimesheet?.status === 'REJECTED' || currentTimesheet?.status === "PENDING_APPROVAL"}
                     sx={{ minWidth: 120 }}
                   >
                     {loading ? 'Saving...' : 'Save'}
@@ -608,8 +608,14 @@ const TimesheetTableSection = ({
                     variant="contained"
                     color="success"
                     startIcon={loading ? <CircularProgress size={16} /> : <CheckCircle />}
-                    onClick={submitWeeklyTimesheet || currentTimesheet?.status}
-                    disabled={isSubmitted||adminActionLoading ||currentTimesheet?.status === "PENDING_APPROVAL" || currentTimesheet?.status === "APPROVED"}
+                    onClick={submitWeeklyTimesheet}
+                    disabled={
+                      loading ||
+                      adminActionLoading ||
+                      (currentTimesheet?.status === "PENDING_APPROVAL") ||
+                      (currentTimesheet?.status === "APPROVED") ||
+                      !currentTimesheet
+                    }
                     sx={{ minWidth: 140 }}
                   >
                     {loading ? 'Submitting...' : 'Submit for Approval'}
