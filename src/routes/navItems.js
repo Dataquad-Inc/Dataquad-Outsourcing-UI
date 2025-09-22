@@ -65,7 +65,7 @@ export const inNavItems = [
     text: "Submissions",
     path: "submissions",
     icon: <SendIcon />,
-    roles: ["ADMIN", "EMPLOYEE", "BDM", "TEAMLEAD","SUPERADMIN"],
+    roles: ["ADMIN", "EMPLOYEE", "BDM", "TEAMLEAD","SUPERADMIN","COORDINATOR"],
   },
    
   //   {

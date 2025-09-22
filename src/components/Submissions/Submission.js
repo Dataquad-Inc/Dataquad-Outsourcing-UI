@@ -82,7 +82,7 @@ const Submission = () => {
 
   // Define componentName based on role
   const componentName = (() => {
-    if (role === "SUPERADMIN") return "allSubmissions";
+    if (role === "SUPERADMIN" || role === "COORDINATOR") return "allSubmissions";
     if (role === "TEAMLEAD") return "SubmissionsForTeamLead";
     if (role === "EMPLOYEE" || role === "BDM") return "RecruiterSubmission";
     return "";
@@ -98,7 +98,7 @@ const Submission = () => {
 
       let submissions = [];
 
-      if (role === "SUPERADMIN") {
+      if (role === "SUPERADMIN" || role === "COORDINATOR") {
         const response = await httpService.get("/candidate/submissions");
         submissions = response?.data?.data || response?.data || [];
       } else if (role === "TEAMLEAD") {
