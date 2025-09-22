@@ -243,6 +243,7 @@ const routeConfig = [
                   "BDM",
                   "TEAMLEAD",
                   "PARTNER",
+                  "COORDINATOR"
                 ]}
                 allowedEntities={["IN"]}
               />
@@ -253,7 +254,7 @@ const routeConfig = [
           // SUBMISSIONS ALL (no entity restriction)
           {
             path: "submissions-all",
-            element: <ProtectedRoute allowedRoles={["ADMIN", "SUPERADMIN"]} />,
+            element: <ProtectedRoute allowedRoles={["ADMIN", "SUPERADMIN","COORDINATOR"]} />,
             children: [{ index: true, element: Loadable(AllSubmissions) }],
           },
 
