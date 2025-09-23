@@ -163,17 +163,16 @@ export const getCurrentMonth = () => {
 };
 
 
-export const isDateInSelectedWeek = (date, weekStartString) => {
-    if (!weekStartString) return false;
-
-    const weekStart = new Date(weekStartString);
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6); // Add 6 days to get Sunday
-
-    const targetDate = new Date(date);
-
-    return targetDate >= weekStart && targetDate <= weekEnd;
-  };
+export const isDateInSelectedWeek = (date, selectedWeekStart) => {
+  if (!date || !selectedWeekStart) return false;
+  
+  const targetDate = new Date(date);
+  const weekStart = new Date(selectedWeekStart);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6); // Add 6 days to get week end
+  
+  return targetDate >= weekStart && targetDate <= weekEnd;
+};
 
 
 export const isPresentWeek = (weekStartDate) => {
