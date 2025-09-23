@@ -14,6 +14,7 @@ import {
   CircularProgress,
   Stack,
   Badge,
+  ButtonGroup,
 } from "@mui/material";
 import {
   Edit,
@@ -23,6 +24,8 @@ import {
   Close,
   PersonAdd,
   HowToRegRounded,
+  FilterList,
+  Clear,
 } from "@mui/icons-material";
 import { useDispatch, useSelector } from "react-redux";
 
@@ -54,6 +57,10 @@ const PlacementsList = () => {
   const [placementToDelete, setPlacementToDelete] = useState(null);
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Filter states
+  const [activeFilter, setActiveFilter] = useState("all"); // "all", "active", "inactive", "fulltime"
+  const [filteredPlacements, setFilteredPlacements] = useState([]);
 
   const decoded = atob(encryptionKey);
   const FINANCIAL_SECRET_KEY = decoded;
@@ -99,9 +106,76 @@ const PlacementsList = () => {
     });
   }, [placements]);
 
+  // Filter placements based on active filter
+  useEffect(() => {
+    let filtered = [...processedPlacements];
+
+    switch (activeFilter) {
+      case "active":
+        // Filter only active status placements, exclude full-time employment type
+        filtered = processedPlacements.filter(
+          (placement) =>
+            placement.status === "Active" &&
+            placement.employmentType !== "Full-time"
+        );
+        break;
+      case "inactive":
+        // Filter inactive status placements (all statuses except Active), exclude full-time
+        filtered = processedPlacements.filter(
+          (placement) =>
+            placement.status !== "Active" &&
+            placement.employmentType !== "Full-time"
+        );
+        break;
+      case "fulltime":
+        // Filter all full-time placements regardless of status
+        filtered = processedPlacements.filter(
+          (placement) => placement.employmentType === "Full-time"
+        );
+        break;
+      default:
+        // Show all placements
+        filtered = processedPlacements;
+        break;
+    }
+
+    setFilteredPlacements(filtered);
+  }, [processedPlacements, activeFilter]);
+
   useEffect(() => {
     dispatch(fetchPlacements());
   }, [dispatch]);
+
+  const handleFilterChange = (filterType) => {
+    setActiveFilter(filterType);
+  };
+
+  const getFilterButtonColor = (filterType) => {
+    return activeFilter === filterType ? "contained" : "outlined";
+  };
+
+  const getFilterCount = (filterType) => {
+    switch (filterType) {
+      case "active":
+        return processedPlacements.filter(
+          (placement) =>
+            placement.status === "Active" &&
+            placement.employmentType !== "Full-time"
+        ).length;
+      case "inactive":
+        return processedPlacements.filter(
+          (placement) =>
+            placement.status !== "Active" &&
+            placement.employmentType !== "Full-time"
+        ).length;
+      case "fulltime":
+        return processedPlacements.filter(
+          (placement) => placement.employmentType === "Full-time"
+        ).length;
+      default:
+        return processedPlacements.length;
+    }
+  };
 
   const handleOpenDrawer = (placement = null) => {
     if (placement) {
@@ -198,8 +272,8 @@ const PlacementsList = () => {
     switch (type) {
       case "W2":
         return "primary";
-      case "C2C":
-        return "secondary";
+      case "c2c":
+        return "primary";
       case "Full-time":
         return "success";
       case "Part-time":
@@ -494,8 +568,99 @@ const PlacementsList = () => {
         </Stack>
       </Stack>
 
+      {/* Filter Buttons */}
+      <Box
+        sx={{
+          mb: 2,
+          p: 2,
+          backgroundColor: "#ffffff",
+          borderRadius: 2,
+          boxShadow: 1,
+        }}
+      >
+        <Stack
+          direction="row"
+          alignItems="center"
+          spacing={2}
+          sx={{ flexWrap: "wrap" }}
+        >
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mr: 1 }}>
+            <FilterList fontSize="small" sx={{ mr: 0.5, verticalAlign: "middle" }} />
+            Filter by:
+          </Typography>
+          
+          <ButtonGroup variant="outlined" size="small">
+            <Button
+              variant={getFilterButtonColor("all")}
+              onClick={() => handleFilterChange("all")}
+              sx={{ minWidth: 80 }}
+            >
+              All ({getFilterCount("all")})
+            </Button>
+            
+            <Button
+              variant={getFilterButtonColor("active")}
+              color="success"
+              onClick={() => handleFilterChange("active")}
+              sx={{ minWidth: 100 }}
+            >
+              Active ({getFilterCount("active")})
+            </Button>
+            
+            <Button
+              variant={getFilterButtonColor("inactive")}
+              color="warning"
+              onClick={() => handleFilterChange("inactive")}
+              sx={{ minWidth: 110 }}
+            >
+              Inactive ({getFilterCount("inactive")})
+            </Button>
+            
+            <Button
+              variant={getFilterButtonColor("fulltime")}
+              color="info"
+              onClick={() => handleFilterChange("fulltime")}
+              sx={{ minWidth: 110 }}
+            >
+              Full-time ({getFilterCount("fulltime")})
+            </Button>
+          </ButtonGroup>
+
+          {activeFilter !== "all" && (
+            <Button
+              variant="text"
+              size="small"
+              startIcon={<Clear />}
+              onClick={() => handleFilterChange("all")}
+              sx={{ color: "text.secondary" }}
+            >
+              Clear Filter
+            </Button>
+          )}
+        </Stack>
+
+        {/* Filter Description */}
+        {activeFilter !== "all" && (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ mt: 1, fontStyle: "italic" }}
+          >
+            {activeFilter === "active" && 
+              "Showing active placements (excludes full-time employment)"
+            }
+            {activeFilter === "inactive" && 
+              "Showing inactive placements (excludes full-time employment)"
+            }
+            {activeFilter === "fulltime" && 
+              "Showing all full-time placements (active and inactive)"
+            }
+          </Typography>
+        )}
+      </Box>
+
       <DataTable
-        data={processedPlacements}
+        data={filteredPlacements}
         columns={generateColumns()}
         pageLimit={20}
         title=""
@@ -512,8 +677,21 @@ const PlacementsList = () => {
               No Records Found
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              No placement records found.
+              {activeFilter === "all" 
+                ? "No placement records found."
+                : `No ${activeFilter === "fulltime" ? "full-time" : activeFilter} placement records found.`
+              }
             </Typography>
+            {activeFilter !== "all" && (
+              <Button
+                variant="text"
+                size="small"
+                onClick={() => handleFilterChange("all")}
+                sx={{ mt: 1 }}
+              >
+                View All Placements
+              </Button>
+            )}
           </Box>
         }
         sx={{
