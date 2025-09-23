@@ -238,6 +238,7 @@ const PlacementForm = ({
       select: true,
       options: [
         { value: "Active", label: "Active" },
+        { value: "InActive", label: "InActive" },
         { value: "On Hold", label: "On Hold" },
         { value: "Completed", label: "Completed" },
         { value: "Terminated", label: "Terminated" },
