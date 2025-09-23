@@ -443,7 +443,7 @@ const TimesheetTableSection = ({
                   color="primary"
                   startIcon={<Edit />}
                   // onClick={handleEditTimesheet}
-                  onClick={() => saveTimesheet(false)}
+                  onClick={saveTimesheet}
                   disabled={loading || adminActionLoading}
                   sx={{ minWidth: 120 }}
                 >
