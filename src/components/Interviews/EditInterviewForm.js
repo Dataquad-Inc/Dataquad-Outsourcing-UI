@@ -125,7 +125,8 @@ const EditInterviewForm = ({
           label: "Interview Level",
           type: "select",
           required: true,
-          disabled: true,
+          disabled:data.interviewStatus !== 'SELECTED',
+         
           options: [
             { value: "INTERNAL", label: "INTERNAL" },
             { value: "EXTERNAL", label: "EXTERNAL" },
