@@ -6,6 +6,7 @@ import axios from "axios";
 
 import DynamicFormUltra from "../FormContainer/DynamicFormUltra";
 import { fetchEmployeesUs } from "../../redux/usEmployees";
+import { LoadingSpinner } from "../../ui-lib/LoadingSpinner";
 
 const EditJobRequirement = () => {
   const dispatch = useDispatch();
@@ -47,31 +48,35 @@ const EditJobRequirement = () => {
 
       if (response.data.success && response.data.data) {
         const data = response.data.data;
-        
+
         // Transform assignedUserIds to match the multiselect format
         let assignedUsersArray = [];
         if (data.assignedUserIds) {
           // Split the comma-separated string and convert to numbers if needed
-          const userIds = data.assignedUserIds.split(",").map(id => {
+          const userIds = data.assignedUserIds.split(",").map((id) => {
             // Handle both string and number IDs
             const trimmedId = id.toString().trim();
             // Try to convert to number if it's a numeric string
-            const numericId = !isNaN(trimmedId) ? parseInt(trimmedId) : trimmedId;
+            const numericId = !isNaN(trimmedId)
+              ? parseInt(trimmedId)
+              : trimmedId;
             return numericId;
           });
-          
+
           // Filter to only include IDs that exist in employeeOptions
-          assignedUsersArray = userIds.filter(id => 
-            employeeOptions.some(emp => emp.value === id)
+          assignedUsersArray = userIds.filter((id) =>
+            employeeOptions.some((emp) => emp.value === id)
           );
         }
-        
+
         // Alternative approach: if you have assignedUsers array in the response
         // You can also try using data.assignedUsers if it exists
         if (data.assignedUsers && Array.isArray(data.assignedUsers)) {
-          assignedUsersArray = data.assignedUsers.map(user => user.userId || user.employeeId);
+          assignedUsersArray = data.assignedUsers.map(
+            (user) => user.userId || user.employeeId
+          );
         }
-        
+
         // Transform the API data to match form structure
         const formData = {
           clientName: data.clientName || "",
@@ -92,10 +97,10 @@ const EditJobRequirement = () => {
           jobDescription: data.jobDescription || "",
           // Note: jobDescriptionFile will be handled separately if needed
         };
-        
+
         console.log("Form data with assigned users:", formData.assignedUsers);
         console.log("Available employee options:", employeeOptions);
-        
+
         setInitialData(formData);
       } else {
         showErrorToast("Failed to load requirement data");
@@ -349,7 +354,7 @@ const EditJobRequirement = () => {
   };
 
   const handleCancel = () => {
-    navigate(`/dashboard/us-requirements/${jobId}`);
+    navigate(`/dashboard/us-requirements`);
   };
 
   // Custom validation function
@@ -373,7 +378,7 @@ const EditJobRequirement = () => {
   };
 
   if (loading || loadingEmployees) {
-    return <div>Loading requirement data...</div>;
+    return <LoadingSpinner />;
   }
 
   return (
