@@ -142,6 +142,8 @@ const Timesheets = () => {
   const [monthlyTotalWorkingHours, setMonthlyTotalWorkingHours] = useState(0);
   const [monthlyTotalWorkingHoursForEmployee, setMonthlyTotalWorkingHoursForEmployee] = useState(0);
 
+  const [submitLoading, setSubmitLoading] = useState(false);
+
   const dispatch = useDispatch();
 
   const selectedDate = new Date(calendarValue);
@@ -2683,9 +2685,9 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
 
   const submitWeeklyTimesheetHandler = async () => {
     if (!currentTimesheet) return;
-
+    setSubmitLoading(true);
     try {
-      setLoading(true);
+      // setLoading(true);
 
       // FIX: For create/add mode, save the timesheet first before submitting
       if ((isCreateMode || isAddingNewTimesheet) && hasUnsavedChanges) {
@@ -2841,7 +2843,8 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
       const errorMessage = extractErrorMessage(error);
       ToastService.error(errorMessage);
     } finally {
-      setLoading(false);
+      // setLoading(false);
+      setSubmitLoading(false);
     }
   };
 
@@ -3741,6 +3744,7 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
       AttachmentViewDialog={AttachmentViewDialog}
       monthlyTotalWorkingHours={monthlyTotalWorkingHours}
       monthlyTotalWorkingHoursForEmployee={monthlyTotalWorkingHoursForEmployee}
+      submitLoading={submitLoading}
     />
   );
 };

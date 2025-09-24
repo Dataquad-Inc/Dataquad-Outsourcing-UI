@@ -388,24 +388,6 @@ const TimesheetList = () => {
       width: 120
     },
     {
-      key: 'leaveBalance',
-      label: 'Leave Balance',
-      render: row => (
-        <Chip
-          label={row?.leaveBalance}
-          size="small"
-          variant="outlined"
-          sx={{
-            borderColor: theme.palette.success.light,
-            backgroundColor: alpha(theme.palette.success.light, 0.1),
-            color: 'success.dark',
-            fontWeight: 500
-          }}
-        />
-      ),
-      width: 120
-    },
-    {
       key: 'status',
       label: 'Status',
       render: row => {
