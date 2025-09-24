@@ -2614,75 +2614,122 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
     };
   }, [attachmentContent, attachmentType]);
 
+const getEditableDateRange = (timesheet) => {
+  if (!timesheet || !selectedWeekStart) return null;
 
-  const getEditableDateRange = (timesheet) => {
-    if (!timesheet || !selectedWeekStart) return null;
+  const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+  const datesWithHours = [];
 
-    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
-    const editableDates = [];
+  days.forEach(day => {
+    const dayDate = getDateForDay(selectedWeekStart, day);
+    if (dayDate) {
+      // Check if this day has ANY hours (working, sick leave, or holiday)
+      const hasWorkingHours = timesheet[day] > 0;
+      const hasSickLeave = timesheet.sickLeave && timesheet.sickLeave[day] > 0;
+      const hasHoliday = timesheet.companyHoliday && timesheet.companyHoliday[day] > 0;
+      const hasAnyHours = hasWorkingHours || hasSickLeave || hasHoliday;
 
+      // Include date if it has hours, regardless of editability
+      if (hasAnyHours) {
+        datesWithHours.push(formatDateToYMD(dayDate));
+      }
+    }
+  });
+
+  if (datesWithHours.length === 0) {
+    // Fallback: if no hours found, use the current calendar month weekdays
+    days.forEach(day => {
+      const dayDate = getDateForDay(selectedWeekStart, day);
+      if (dayDate && isDateInCalendarMonth(dayDate, calendarValue)) {
+        datesWithHours.push(formatDateToYMD(dayDate));
+      }
+    });
+  }
+
+  if (datesWithHours.length === 0) {
+    // Final fallback: use the entire week (Monday to Friday)
     days.forEach(day => {
       const dayDate = getDateForDay(selectedWeekStart, day);
       if (dayDate) {
-        const isInCalendarMonth = isDateInCalendarMonth(dayDate, calendarValue);
-        const isEditable = isFieldEditable(timesheet, day, null, calendarValue);
-
-        // Check if this day has any working hours or leave hours
-        const hasWorkingHours = timesheet[day] > 0;
-        const hasSickLeave = timesheet.sickLeave && timesheet.sickLeave[day] > 0;
-        const hasHoliday = timesheet.companyHoliday && timesheet.companyHoliday[day] > 0;
-        const hasAnyHours = hasWorkingHours || hasSickLeave || hasHoliday;
-
-        if (isInCalendarMonth && isEditable && hasAnyHours) {
-          editableDates.push(formatDateToYMD(dayDate));
-        }
+        datesWithHours.push(formatDateToYMD(dayDate));
       }
     });
+  }
 
-    if (editableDates.length === 0) return null;
+  if (datesWithHours.length === 0) return null;
 
-    // Sort dates and return start and end
-    editableDates.sort();
-    return {
-      start: editableDates[0],
-      end: editableDates[editableDates.length - 1]
-    };
+  // Sort dates and return start and end
+  datesWithHours.sort();
+  return {
+    start: datesWithHours[0],
+    end: datesWithHours[datesWithHours.length - 1]
   };
+};
 
   const shouldIncludeDates = (timesheet) => {
     const editableRange = getEditableDateRange(timesheet);
     return editableRange !== null;
   };
 
-  const uploadFilesToServer = async (timesheetId, files, startDate = null, endDate = null) => {
-    console.log('Uploading files to server:', {
-      timesheetId,
-      files,
-      startDate,
-      endDate
-    });
+ const uploadFilesToServer = async (timesheetId, files, startDate = null, endDate = null) => {
+  console.log('Uploading files to server:', {
+    timesheetId,
+    files,
+    startDate,
+    endDate
+  });
 
-    try {
-      const resultAction = await dispatch(uploadTimesheetAttachments({
-        timesheetId,
-        files,
-        attachmentStartDate: startDate, // Add start date parameter
-        attachmentEndDate: endDate       // Add end date parameter
-      }));
+  try {
+    // Use improved date range logic if dates are null
+    let finalStartDate = startDate;
+    let finalEndDate = endDate;
 
-      if (uploadTimesheetAttachments.fulfilled.match(resultAction)) {
-        return resultAction.payload;
+    if ((!startDate || !endDate) && currentTimesheet) {
+      console.log('Dates are null, calculating from timesheet...');
+      
+      // Try the improved date range function first
+      const dateRange = getWorkingDateRange(currentTimesheet);
+      if (dateRange) {
+        finalStartDate = dateRange.start;
+        finalEndDate = dateRange.end;
+        console.log('Using calculated date range:', dateRange);
       } else {
-        const errorMessage = extractErrorMessage(resultAction.payload);
-        throw new Error(errorMessage || 'Failed to upload attachments');
+        // Final fallback: use week start/end
+        const weekInfo = getWeekDates(selectedWeekStart);
+        finalStartDate = weekInfo.startString;
+        finalEndDate = weekInfo.endString;
+        console.log('Using week date range fallback:', weekInfo);
       }
-    } catch (error) {
-      console.error('Error uploading files:', error);
-      const errorMessage = extractErrorMessage(error);
-      throw new Error(errorMessage);
     }
-  };
 
+    const uploadParams = {
+      timesheetId,
+      files
+    };
+
+    // Only add date parameters if they are valid
+    if (finalStartDate && finalEndDate && finalStartDate !== 'null' && finalEndDate !== 'null') {
+      uploadParams.attachmentStartDate = finalStartDate;
+      uploadParams.attachmentEndDate = finalEndDate;
+      console.log('Including date parameters:', { finalStartDate, finalEndDate });
+    } else {
+      console.log('Skipping date parameters - they are null or invalid');
+    }
+
+    const resultAction = await dispatch(uploadTimesheetAttachments(uploadParams));
+
+    if (uploadTimesheetAttachments.fulfilled.match(resultAction)) {
+      return resultAction.payload;
+    } else {
+      const errorMessage = extractErrorMessage(resultAction.payload);
+      throw new Error(errorMessage || 'Failed to upload attachments');
+    }
+  } catch (error) {
+    console.error('Error uploading files:', error);
+    const errorMessage = extractErrorMessage(error);
+    throw new Error(errorMessage);
+  }
+};
   const submitWeeklyTimesheetHandler = async () => {
     if (!currentTimesheet) return;
     setSubmitLoading(true);
