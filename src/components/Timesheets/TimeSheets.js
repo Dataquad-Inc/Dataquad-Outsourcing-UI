@@ -2666,10 +2666,62 @@ const getEditableDateRange = (timesheet) => {
   };
 };
 
+const getWorkingDateRange = (timesheet) => {
+  if (!timesheet || !selectedWeekStart) return null;
+
+  // Get the week start date
+  const weekStartDate = new Date(selectedWeekStart);
+  
+  // Calculate Monday and Friday of the current week
+  const monday = new Date(weekStartDate);
+  const friday = new Date(weekStartDate);
+  friday.setDate(monday.getDate() + 4); // Friday is 4 days after Monday
+
+  // If current month view is active, limit to current month dates
+  if (calendarValue) {
+    const currentMonth = calendarValue.getMonth();
+    const currentYear = calendarValue.getFullYear();
+    
+    // Check if Monday is in current month
+    const mondayInCurrentMonth = monday.getMonth() === currentMonth && monday.getFullYear() === currentYear;
+    // Check if Friday is in current month  
+    const fridayInCurrentMonth = friday.getMonth() === currentMonth && friday.getFullYear() === currentYear;
+    
+    if (mondayInCurrentMonth && fridayInCurrentMonth) {
+      // Both in current month - use full week
+      return {
+        start: formatDateToYMD(monday),
+        end: formatDateToYMD(friday)
+      };
+    } else if (mondayInCurrentMonth && !fridayInCurrentMonth) {
+      // Only Monday side in current month
+      const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0);
+      return {
+        start: formatDateToYMD(monday),
+        end: formatDateToYMD(lastDayOfMonth)
+      };
+    } else if (!mondayInCurrentMonth && fridayInCurrentMonth) {
+      // Only Friday side in current month
+      const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
+      return {
+        start: formatDateToYMD(firstDayOfMonth),
+        end: formatDateToYMD(friday)
+      };
+    }
+  }
+  
+  // Default to Monday-Friday range
+  return {
+    start: formatDateToYMD(monday),
+    end: formatDateToYMD(friday)
+  };
+};
+
   const shouldIncludeDates = (timesheet) => {
     const editableRange = getEditableDateRange(timesheet);
     return editableRange !== null;
   };
+
 
  const uploadFilesToServer = async (timesheetId, files, startDate = null, endDate = null) => {
   console.log('Uploading files to server:', {

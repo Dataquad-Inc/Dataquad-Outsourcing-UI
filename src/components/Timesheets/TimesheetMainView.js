@@ -924,7 +924,7 @@ const TimesheetMainView = (props) => {
           <CardContent sx={{ p: 4, textAlign: 'center' }}>
             <CircularProgress sx={{ mb: 2 }} />
             <Typography variant="body1" color="text.secondary">
-              Submitting for approval
+              Submitting for approval...
             </Typography>
           </CardContent>
         </Card>
