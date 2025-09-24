@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { Box } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import CustomDataTable from "../../ui-lib/CustomDataTable";
 import getRequirementsColumns from "./requirementsColumns";
 import { showErrorToast } from "../../utils/toastUtils";
@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useSelector } from "react-redux";
 import { ConfirmDialog } from "../../ui-lib/ConfirmDialog";
+import { CustomModal } from "../../ui-lib/CustomModal"; // Import your custom modal
 
 const RequirementsList = () => {
   const navigate = useNavigate();
@@ -16,17 +17,22 @@ const RequirementsList = () => {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
-  const [search, setSearch] = useState("");
+  const [keyword, setSearch] = useState("");
   const [filters, setFilters] = useState({});
   const [filterOptions, setFilterOptions] = useState({});
 
   const { userId } = useSelector((state) => state.auth);
 
-  // 🔹 Confirm Dialog state
+  // Confirm Dialog state
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteJobId, setDeleteJobId] = useState(null);
 
-  // Fetch filter options for select filters
+  // Description Modal state
+  const [descriptionModalOpen, setDescriptionModalOpen] = useState(false);
+  const [currentDescription, setCurrentDescription] = useState("");
+  const [currentJobTitle, setCurrentJobTitle] = useState("");
+
+  // Fetch filter options
   const fetchFilterOptions = useCallback(async () => {
     try {
       const response = await axios.get(
@@ -41,7 +47,6 @@ const RequirementsList = () => {
       }
     } catch (error) {
       console.error("Error fetching filter options:", error);
-      // Set default filter options based on your data structure
       setFilterOptions({
         clientName: [],
         jobType: [],
@@ -101,7 +106,6 @@ const RequirementsList = () => {
     try {
       setLoading(true);
 
-      // Build query parameters
       const filterParams = buildFilterParams(filters);
       const params = {
         page,
@@ -109,9 +113,8 @@ const RequirementsList = () => {
         ...filterParams,
       };
 
-      // Add search parameter if exists
-      if (search.trim()) {
-        params.search = search.trim();
+      if (keyword.trim()) {
+        params.keyword = keyword.trim();
       }
 
       const response = await axios.get(
@@ -127,7 +130,6 @@ const RequirementsList = () => {
         setRequirements(data.data.content || []);
         setTotal(data.data.totalElements || 0);
 
-        // Extract filter options from the response data if not already set
         if (Object.keys(filterOptions).length === 0) {
           extractFilterOptionsFromData(data.data.content || []);
         }
@@ -146,22 +148,20 @@ const RequirementsList = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, search, filters, buildFilterParams, filterOptions]);
+  }, [page, rowsPerPage, keyword, filters, buildFilterParams, filterOptions]);
 
-  // Extract filter options from data if API doesn't provide them
   const extractFilterOptionsFromData = (data) => {
     const options = {
       clientName: [],
       jobType: [],
       location: [],
       qualification: [],
-      visaType: [],
+      // visaType: [],
       assignedBy: [],
       status: [],
     };
 
     data.forEach((row) => {
-      // Extract unique values for each filterable field
       Object.keys(options).forEach((field) => {
         const value = row[field];
         if (value && !options[field].find((opt) => opt.value === value)) {
@@ -173,7 +173,6 @@ const RequirementsList = () => {
       });
     });
 
-    // Sort options alphabetically
     Object.keys(options).forEach((field) => {
       options[field].sort((a, b) => a.label.localeCompare(b.label));
     });
@@ -220,6 +219,19 @@ const RequirementsList = () => {
     }
   };
 
+  /** ---------------- View Description ---------------- */
+  const handleViewDescription = (description, jobTitle) => {
+    setCurrentDescription(description);
+    setCurrentJobTitle(jobTitle);
+    setDescriptionModalOpen(true);
+  };
+
+  const handleCloseDescriptionModal = () => {
+    setDescriptionModalOpen(false);
+    setCurrentDescription("");
+    setCurrentJobTitle("");
+  };
+
   /** ---------------- Delete with confirm ---------------- */
   const handleRequestDelete = (jobId) => {
     setDeleteJobId(jobId);
@@ -248,13 +260,12 @@ const RequirementsList = () => {
   /** ---------------- Filter Handlers ---------------- */
   const handleFiltersChange = (newFilters) => {
     setFilters(newFilters);
-    setPage(0); // Reset to first page when filters change
+    setPage(0);
   };
 
-
   const handleEdit = (jobId) => {
-  navigate(`/dashboard/us-requirements/edit/${jobId}`);
-};
+    navigate(`/dashboard/us-requirements/edit/${jobId}`);
+  };
 
   /** ---------------- Columns ---------------- */
   const columns = getRequirementsColumns({
@@ -262,6 +273,7 @@ const RequirementsList = () => {
     handleDownloadJD,
     handleEdit,
     handleDelete: handleRequestDelete,
+    handleViewDescription, // Pass the new handler
     filterOptions,
     loading,
   });
@@ -275,7 +287,7 @@ const RequirementsList = () => {
         total={total}
         page={page}
         rowsPerPage={rowsPerPage}
-        search={search}
+        search={keyword}
         loading={loading}
         filters={filters}
         onPageChange={(e, newPage) => setPage(newPage)}
@@ -295,7 +307,7 @@ const RequirementsList = () => {
         onFiltersChange={handleFiltersChange}
       />
 
-      {/* 🔹 Confirm Delete Dialog */}
+      {/* Confirm Delete Dialog */}
       <ConfirmDialog
         open={confirmOpen}
         onClose={() => setConfirmOpen(false)}
@@ -306,6 +318,36 @@ const RequirementsList = () => {
         cancelText="Cancel"
         type="error"
       />
+
+      {/* Job Description Modal */}
+      <CustomModal
+        open={descriptionModalOpen}
+        onClose={handleCloseDescriptionModal}
+        title={
+          currentJobTitle
+            ? `Job Description - ${currentJobTitle}`
+            : "Job Description"
+        }
+        maxWidth="md"
+        fullWidth
+      >
+        <Box sx={{ pt: 1 }}>
+          <Typography
+            variant="body1"
+            sx={{
+              whiteSpace: "pre-wrap",
+              lineHeight: 1.6,
+              maxHeight: "60vh",
+              overflow: "auto",
+              p: 1,
+              backgroundColor: "grey.50",
+              borderRadius: 1,
+            }}
+          >
+            {currentDescription}
+          </Typography>
+        </Box>
+      </CustomModal>
     </>
   );
 };
