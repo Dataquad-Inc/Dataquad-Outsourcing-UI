@@ -59,7 +59,10 @@ const TimesheetTableSection = ({
   currentMonthWeeks,
   handleRejectTimesheet,
   selectedMonthRange,
-  projectDetails, fetchMonthlyTimesheetData
+  projectDetails, 
+  fetchMonthlyTimesheetData,
+  // Add new prop for submit loading state
+  submitLoading = false
 }) => (
 
   <Card sx={{ mb: 3 }}>
@@ -126,7 +129,8 @@ const TimesheetTableSection = ({
         </Alert>
       )}
 
-      {loading ? (
+      {/* Change this condition to only show loading for initial data load, not submit actions */}
+      {loading && !submitLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
           <CircularProgress />
         </Box>
@@ -519,17 +523,17 @@ const TimesheetTableSection = ({
                     </Button>
                   )}
 
-                  {/* Submit button for create mode and EXTERNALEMPLOYEE */}
+                  {/* Submit button for create mode and EXTERNALEMPLOYEE - Use submitLoading instead of loading */}
                   {(isCreateMode || isAddingNewTimesheet || role === 'EXTERNALEMPLOYEE') && (
                     <Button
                       variant="contained"
                       color="success"
-                      startIcon={loading ? <CircularProgress size={16} /> : <CheckCircle />}
+                      startIcon={submitLoading ? <CircularProgress size={16} /> : <CheckCircle />}
                       onClick={submitWeeklyTimesheet}
                       sx={{ minWidth: 140 }}
-                      disabled={isSubmitted || adminActionLoading || currentTimesheet?.status === "PENDING_APPROVAL" || currentTimesheet?.status === "APPROVED"}
+                      disabled={isSubmitted || adminActionLoading || submitLoading || currentTimesheet?.status === "PENDING_APPROVAL" || currentTimesheet?.status === "APPROVED"}
                     >
-                      {loading ? 'Submitting...' : 'Submit for Approval'}
+                      {submitLoading ? 'Submitting...' : 'Submit for Approval'}
                     </Button>
                   )}
                 </>
@@ -604,13 +608,14 @@ const TimesheetTableSection = ({
                     {loading ? 'Saving...' : 'Save'}
                   </Button>
 
+                  {/* Use submitLoading for the submit button in admin section too */}
                   <Button
                     variant="contained"
                     color="success"
-                    startIcon={loading ? <CircularProgress size={16} /> : <CheckCircle />}
+                    startIcon={submitLoading ? <CircularProgress size={16} /> : <CheckCircle />}
                     onClick={submitWeeklyTimesheet}
                     disabled={
-                      loading ||
+                      submitLoading ||
                       adminActionLoading ||
                       (currentTimesheet?.status === "PENDING_APPROVAL") ||
                       (currentTimesheet?.status === "APPROVED") ||
@@ -618,7 +623,7 @@ const TimesheetTableSection = ({
                     }
                     sx={{ minWidth: 140 }}
                   >
-                    {loading ? 'Submitting...' : 'Submit for Approval'}
+                    {submitLoading ? 'Submitting...' : 'Submit for Approval'}
                   </Button>
                 </>
               )}

@@ -48,7 +48,10 @@ const TimesheetMainView = (props) => {
     selectedMonthRange,
     navigationSource,
     handleViewAttachmentFile,
-    handleDownloadAttachmentFile, viewLoading, AttachmentViewDialog, downloadLoading, getAttachmentViewDialog, monthlyTotalWorkingHours, monthlyTotalWorkingHoursForEmployee
+    handleDownloadAttachmentFile, 
+    viewLoading, AttachmentViewDialog, 
+    downloadLoading, getAttachmentViewDialog, 
+    monthlyTotalWorkingHours, monthlyTotalWorkingHoursForEmployee,submitLoading
 
   } = props;
 
@@ -916,6 +919,17 @@ const TimesheetMainView = (props) => {
         </Card>
       )}
 
+      {submitLoading && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent sx={{ p: 4, textAlign: 'center' }}>
+            <CircularProgress sx={{ mb: 2 }} />
+            <Typography variant="body1" color="text.secondary">
+              Submitting for approval
+            </Typography>
+          </CardContent>
+        </Card>
+      ) }
+
       {/* Timesheet Table Section - Show for both weekly and monthly views */}
       {shouldShowTimesheetSection && !loading && (
         <TimesheetTableSection
@@ -961,6 +975,7 @@ const TimesheetMainView = (props) => {
           handleViewAttachmentFile={handleViewAttachmentFile}
           handleDownloadAttachmentFile={handleDownloadAttachmentFile}
            fetchMonthlyTimesheetData={ fetchMonthlyTimesheetData}
+           submitLoading={submitLoading}
         />
       )}
 
