@@ -788,7 +788,7 @@ const TimesheetMainView = (props) => {
                         <Typography variant="subtitle1" fontWeight="bold">
                           Attachments
                         </Typography>
-                        {(role === "EXTERNALEMPLOYEE") && (
+                        {(role === "EXTERNALEMPLOYEE" || isCreateMode || isAddingNewTimesheet) && (
                           <IconButton
                             size="small"
                             onClick={() => setUploadDialogOpen(true)}
@@ -800,7 +800,7 @@ const TimesheetMainView = (props) => {
                         )}
                       </Box>
 
-                      {role === "EXTERNALEMPLOYEE" ? (
+                      {role === "EXTERNALEMPLOYEE" || isCreateMode || isAddingNewTimesheet ? (
                         attachments.length > 0 ? (
                           <List dense sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, maxHeight: 200, overflow: "auto" }}>
                             {attachments.map((file) => (
