@@ -1,270 +1,412 @@
-import React, { useState } from 'react';
-import axios from 'axios';
+import React, { useState, useRef, useEffect } from 'react';
+import { useDispatch } from 'react-redux';
+import {
+  uploadTimesheetAttachments,
+  deleteTimesheetAttachments,
+  getTimesheetAttachmentsById,
+} from '../../redux/timesheetSlice';
 import {
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   Button,
-  Box,
   Typography,
+  Box,
   TextField,
   CircularProgress,
-  IconButton
 } from '@mui/material';
-import {
-  AttachFile,
-  CloudDownload,
-  Close
-} from '@mui/icons-material';
+import { CloudDownload } from '@mui/icons-material';
+import axios from 'axios';
 import ToastService from '../../Services/toastService';
+import {
+  extractErrorMessage,
+  triggerDownload,
+  getEditableDateRange,
+  formatDateToYMD,
+  getWeekDates,
+  getDateForDay,
+  isDateInCalendarMonth,
+} from './timesheetUtils';
 
-// Helper function to trigger file download
-const triggerDownload = (blob, filename) => {
-  try {
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename || 'download';
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    // Clean up
-    setTimeout(() => {
-      window.URL.revokeObjectURL(url);
-    }, 1000);
-    
-    ToastService.info('File downloaded successfully');
-  } catch (error) {
-    console.error('Error triggering download:', error);
-    ToastService.error('Failed to download file');
-  }
-};
+export const useAttachmentsHandler = () => {
+  const dispatch = useDispatch();
 
-// Create a separate component for the attachment dialog
-export const AttachmentViewDialogComponent = ({
-  open,
-  onClose,
-  currentAttachment,
-  attachmentContent,
-  attachmentType,
-  viewLoading,
-  onDownload
-}) => {
-  const handleClose = () => {
-    onClose();
-  };
+  // Attachment states
+  const [attachments, setAttachments] = useState([]);
+  const [pendingAttachments, setPendingAttachments] = useState([]);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const fileInputRef = useRef(null);
 
-  return (
-    <Dialog
-      open={open}
-      onClose={handleClose}
-      maxWidth="lg"
-      fullWidth
-      sx={{
-        '& .MuiDialog-paper': {
-          height: '90vh',
-          maxHeight: '90vh'
-        }
-      }}
-    >
-      <DialogTitle>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <AttachFile />
-          <Typography variant="h6" component="span" sx={{ flexGrow: 1 }}>
-            {currentAttachment?.filename || 'Attachment'}
-          </Typography>
-          <IconButton
-            size="small"
-            onClick={onDownload}
-            title="Download"
-            disabled={viewLoading}
-          >
-            <CloudDownload />
-          </IconButton>
-          <IconButton
-            size="small"
-            onClick={handleClose}
-            title="Close"
-          >
-            <Close />
-          </IconButton>
-        </Box>
-      </DialogTitle>
-      
-      <DialogContent dividers sx={{ p: 0, overflow: 'hidden' }}>
-        {viewLoading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
-            <CircularProgress />
-            <Typography sx={{ ml: 2 }}>Loading attachment...</Typography>
-          </Box>
-        ) : (
-          <>
-            {/* PDF Viewer */}
-            {attachmentType === 'pdf' && attachmentContent && (
-              <iframe
-                src={`${attachmentContent}#toolbar=0&navpanes=0&scrollbar=0`}
-                title="PDF Preview"
-                style={{ width: "100%", height: "80vh", border: "none" }}
-              />
-            )}
-            
-            {/* Image Viewer */}
-            {attachmentType === 'image' && attachmentContent && (
-              <img
-                src={attachmentContent}
-                alt="Attachment"
-                style={{
-                  maxWidth: "100%",
-                  maxHeight: "80vh",
-                  display: "block",
-                  margin: "0 auto"
-                }}
-              />
-            )}
-            
-            {/* Video Viewer */}
-            {attachmentType === 'video' && attachmentContent && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-                <video
-                  controls
-                  style={{ maxWidth: '100%', maxHeight: '80vh' }}
-                >
-                  <source src={attachmentContent} type={currentAttachment?.contentType} />
-                  Your browser does not support the video tag.
-                </video>
-              </Box>
-            )}
-            
-            {/* Audio Viewer */}
-            {attachmentType === 'audio' && attachmentContent && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-                <audio controls style={{ width: '100%' }}>
-                  <source src={attachmentContent} type={currentAttachment?.contentType} />
-                  Your browser does not support the audio tag.
-                </audio>
-              </Box>
-            )}
-            
-            {/* Text Viewer */}
-            {attachmentType === 'text' && (
-              <Box sx={{ p: 2, height: '80vh', overflow: 'auto' }}>
-                <TextField
-                  multiline
-                  fullWidth
-                  value={attachmentContent || ''}
-                  InputProps={{
-                    readOnly: true,
-                    sx: {
-                      fontFamily: 'monospace',
-                      fontSize: '0.875rem',
-                      '& .MuiInputBase-input': {
-                        height: '70vh !important',
-                        overflow: 'auto !important'
-                      }
-                    }
-                  }}
-                  variant="outlined"
-                />
-              </Box>
-            )}
-            
-            {/* Unsupported file types */}
-            {attachmentType === 'other' && (
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', p: 4 }}>
-                <Typography variant="h6" gutterBottom>
-                  File Preview Not Available
-                </Typography>
-                <Typography variant="body1" color="text.secondary" textAlign="center" gutterBottom>
-                  {currentAttachment?.filename}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mb: 3 }}>
-                  Unsupported file type: {currentAttachment?.contentType}
-                </Typography>
-                <Button
-                  variant="contained"
-                  startIcon={<CloudDownload />}
-                  onClick={onDownload}
-                  size="large"
-                >
-                  Download to View
-                </Button>
-              </Box>
-            )}
-          </>
-        )}
-      </DialogContent>
-      
-      <DialogActions>
-        <Button onClick={handleClose} variant="outlined">
-          Close
-        </Button>
-        <Button 
-          onClick={onDownload}
-          variant="contained"
-          startIcon={<CloudDownload />}
-          disabled={viewLoading}
-        >
-          Download
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-};
-
-// Custom hook for attachment handling
-export const useAttachmentHandlers = () => {
-  // State for dialog management
+  // View attachment states
+  const [attachmentsDialogOpen, setAttachmentsDialogOpen] = useState(false);
+  const [selectedTimesheetAttachments, setSelectedTimesheetAttachments] = useState([]);
   const [viewAttachmentDialogOpen, setViewAttachmentDialogOpen] = useState(false);
-  const [viewLoading, setViewLoading] = useState(false);
-  const [downloadLoading, setDownloadLoading] = useState(false);
-  
-  // State for current attachment
   const [currentAttachment, setCurrentAttachment] = useState(null);
   const [attachmentContent, setAttachmentContent] = useState(null);
-  const [attachmentType, setAttachmentType] = useState(null);
+  const [attachmentType, setAttachmentType] = useState('');
+  const [viewLoading, setViewLoading] = useState(false);
+  const [downloadLoading, setDownloadLoading] = useState(false);
+  const [selectedWeekStart, setSelectedWeekStart] = useState('');
+  const [calendarValue, setCalendarValue] = useState(new Date());
 
-  // View attachment handler
+
+    useEffect(() => {
+      return () => {
+        if (attachmentContent && (attachmentType === 'pdf' || attachmentType === 'image')) {
+          if (typeof attachmentContent === 'string') {
+            window.URL.revokeObjectURL(attachmentContent);
+          }
+        }
+      };
+    }, [attachmentContent, attachmentType]);
+    
+
+  const getWorkingDateRange = (timesheet) => {
+    if (!timesheet || !selectedWeekStart) return null;
+
+    // Get the week start date
+    const weekStartDate = new Date(selectedWeekStart);
+
+    // Calculate Monday and Friday of the current week
+    const monday = new Date(weekStartDate);
+    const friday = new Date(weekStartDate);
+    friday.setDate(monday.getDate() + 4); // Friday is 4 days after Monday
+
+    // If current month view is active, limit to current month dates
+    if (calendarValue) {
+      const currentMonth = calendarValue.getMonth();
+      const currentYear = calendarValue.getFullYear();
+
+      // Check if Monday is in current month
+      const mondayInCurrentMonth = monday.getMonth() === currentMonth && monday.getFullYear() === currentYear;
+      // Check if Friday is in current month  
+      const fridayInCurrentMonth = friday.getMonth() === currentMonth && friday.getFullYear() === currentYear;
+
+      if (mondayInCurrentMonth && fridayInCurrentMonth) {
+        // Both in current month - use full week
+        return {
+          start: formatDateToYMD(monday),
+          end: formatDateToYMD(friday)
+        };
+      } else if (mondayInCurrentMonth && !fridayInCurrentMonth) {
+        // Only Monday side in current month
+        const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0);
+        return {
+          start: formatDateToYMD(monday),
+          end: formatDateToYMD(lastDayOfMonth)
+        };
+      } else if (!mondayInCurrentMonth && fridayInCurrentMonth) {
+        // Only Friday side in current month
+        const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
+        return {
+          start: formatDateToYMD(firstDayOfMonth),
+          end: formatDateToYMD(friday)
+        };
+      }
+    }
+
+    // Default to Monday-Friday range
+    return {
+      start: formatDateToYMD(monday),
+      end: formatDateToYMD(friday)
+    };
+  };
+
+  const getEditableDateRange = (timesheet) => {
+    if (!timesheet || !selectedWeekStart) return null;
+
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+    const datesWithHours = [];
+
+    days.forEach(day => {
+      const dayDate = getDateForDay(selectedWeekStart, day);
+      if (dayDate) {
+        // Check if this day has ANY hours (working, sick leave, or holiday)
+        const hasWorkingHours = timesheet[day] > 0;
+        const hasSickLeave = timesheet.sickLeave && timesheet.sickLeave[day] > 0;
+        const hasHoliday = timesheet.companyHoliday && timesheet.companyHoliday[day] > 0;
+        const hasAnyHours = hasWorkingHours || hasSickLeave || hasHoliday;
+
+        // Include date if it has hours, regardless of editability
+        if (hasAnyHours) {
+          datesWithHours.push(formatDateToYMD(dayDate));
+        }
+      }
+    });
+
+    if (datesWithHours.length === 0) {
+      // Fallback: if no hours found, use the current calendar month weekdays
+      days.forEach(day => {
+        const dayDate = getDateForDay(selectedWeekStart, day);
+        if (dayDate && isDateInCalendarMonth(dayDate, calendarValue)) {
+          datesWithHours.push(formatDateToYMD(dayDate));
+        }
+      });
+    }
+
+    if (datesWithHours.length === 0) {
+      // Final fallback: use the entire week (Monday to Friday)
+      days.forEach(day => {
+        const dayDate = getDateForDay(selectedWeekStart, day);
+        if (dayDate) {
+          datesWithHours.push(formatDateToYMD(dayDate));
+        }
+      });
+    }
+
+    if (datesWithHours.length === 0) return null;
+
+    // Sort dates and return start and end
+    datesWithHours.sort();
+    return {
+      start: datesWithHours[0],
+      end: datesWithHours[datesWithHours.length - 1]
+    };
+  };
+
+
+  const uploadFilesToServer = async (timesheetId, files, startDate = null, endDate = null, currentTimesheet, selectedWeekStart) => {
+    try {
+      let finalStartDate = startDate;
+      let finalEndDate = endDate;
+
+      if ((!startDate || !endDate) && currentTimesheet) {
+        console.log('Dates are null, calculating from timesheet...');
+
+        const dateRange = getWorkingDateRange(currentTimesheet, selectedWeekStart);
+        if (dateRange) {
+          finalStartDate = dateRange.start;
+          finalEndDate = dateRange.end;
+          console.log('Using calculated date range:', dateRange);
+        } else {
+          // Final fallback: use week start/end
+          const weekInfo = getWeekDates(selectedWeekStart);
+          finalStartDate = weekInfo.startString;
+          finalEndDate = weekInfo.endString;
+          console.log('Using week date range fallback:', weekInfo);
+        }
+      }
+
+      const uploadParams = {
+        timesheetId,
+        files
+      };
+
+      if (finalStartDate && finalEndDate && finalStartDate !== 'null' && finalEndDate !== 'null') {
+        uploadParams.attachmentStartDate = finalStartDate;
+        uploadParams.attachmentEndDate = finalEndDate;
+        console.log('Including date parameters:', { finalStartDate, finalEndDate });
+      } else {
+        console.log('Skipping date parameters - they are null or invalid');
+      }
+
+      const resultAction = await dispatch(uploadTimesheetAttachments(uploadParams));
+
+      if (uploadTimesheetAttachments.fulfilled.match(resultAction)) {
+        return resultAction.payload;
+      } else {
+        const errorMessage = extractErrorMessage(resultAction.payload);
+        throw new Error(errorMessage || 'Failed to upload attachments');
+      }
+    } catch (error) {
+      console.error('Error uploading files:', error);
+      const errorMessage = extractErrorMessage(error);
+      throw new Error(errorMessage);
+    }
+  };
+
+  const handleFileSelect = (event) => {
+    const files = Array.from(event.target.files);
+    console.log('Files selected:', files);
+    setSelectedFiles(files);
+  };
+
+  const handleUploadAttachments = async (currentTimesheet, selectedWeekStart, setHasUnsavedChanges) => {
+    if (selectedFiles.length === 0) {
+      ToastService.warning('Please select at least one file to upload');
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      if (currentTimesheet && currentTimesheet.id) {
+        console.log('Timesheet has ID, uploading directly to server');
+
+        // Check if dates should be included based on working hours
+        const editableRange = getEditableDateRange(currentTimesheet, selectedWeekStart);
+        const uploadResponse = await uploadFilesToServer(
+          currentTimesheet.id,
+          selectedFiles,
+          editableRange ? editableRange.start : null,
+          editableRange ? editableRange.end : null,
+          currentTimesheet,
+          selectedWeekStart
+        );
+
+        if (uploadResponse && uploadResponse.success) {
+          const newAttachments = selectedFiles.map((file, index) => ({
+            id: Date.now() * 1000 + Math.floor(Math.random() * 1000) + index, // Integer only
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            uploadDate: new Date(),
+            url: uploadResponse.fileUrls ? uploadResponse.fileUrls.find(url => url.includes(file.name)) : null,
+            uploaded: true
+          }));
+
+          setAttachments(prev => [...prev, ...newAttachments]);
+          ToastService.success(`${selectedFiles.length} file(s) uploaded successfully`);
+        } else {
+          const errorMessage = extractErrorMessage(uploadResponse);
+          ToastService.error(errorMessage || 'Failed to upload files to server');
+        }
+      } else {
+        // Store files temporarily if no timesheet ID - they'll be uploaded on save/submit
+        console.log('No timesheet ID, storing files for later upload');
+        const tempAttachments = selectedFiles.map((file, index) => ({
+          id: Date.now() * 1000 + Math.floor(Math.random() * 1000) + index, // Integer only
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          uploadDate: new Date(),
+          file: file,
+          uploaded: false
+        }));
+        setAttachments(prev => [...prev, ...tempAttachments]);
+        setPendingAttachments(prev => [...prev, ...tempAttachments]);
+        ToastService.info(`${selectedFiles.length} file(s) added and will be uploaded when timesheet is saved`);
+        setHasUnsavedChanges(true); // Mark as having unsaved changes
+      }
+
+      setUploadDialogOpen(false);
+      setSelectedFiles([]);
+
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error) {
+      console.error('Error processing files:', error);
+      const errorMessage = extractErrorMessage(error);
+      ToastService.error(errorMessage);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const fetchTimesheetAttachments = async (timesheetId) => {
+    if (!timesheetId) return [];
+
+    try {
+      const resultAction = await dispatch(getTimesheetAttachmentsById(timesheetId));
+      if (getTimesheetAttachmentsById.fulfilled.match(resultAction)) {
+        return resultAction.payload.data || [];
+      }
+      return [];
+    } catch (error) {
+      console.error('Error fetching attachments:', error);
+      return [];
+    }
+  };
+
+  const handleRemoveAttachment = async (attachmentId, currentTimesheet, setHasUnsavedChanges) => {
+    const attachmentToRemove = attachments.find(att => att.id === attachmentId);
+    console.log('Removing attachment:', attachmentToRemove);
+
+    try {
+      // If the attachment is already uploaded to the server, delete it from there too
+      if (attachmentToRemove && attachmentToRemove.uploaded && currentTimesheet?.id) {
+        const resultAction = await dispatch(deleteTimesheetAttachments({
+          attachmentId: attachmentToRemove.id,
+          timesheetId: currentTimesheet.id // Add timesheetId parameter
+        }));
+
+        if (deleteTimesheetAttachments.fulfilled.match(resultAction)) {
+          console.log('Attachment deleted successfully from server');
+        } else {
+          console.error('Failed to delete attachment from server:', resultAction.payload);
+          // Don't proceed with local removal if server deletion failed
+          return;
+        }
+      }
+
+      // Remove from local state regardless of server status
+      setAttachments(prev => prev.filter(att => att.id !== attachmentId));
+
+      // Remove from pending attachments if it exists there
+      if (attachmentToRemove && !attachmentToRemove.uploaded) {
+        setPendingAttachments(prev => prev.filter(att => att.id !== attachmentId));
+      }
+
+      setHasUnsavedChanges(true);
+      console.log('Attachment removed locally');
+
+    } catch (error) {
+      console.error('Error removing attachment:', error);
+    }
+  };
+
+  const handleViewAttachments = async (timesheet) => {
+    try {
+      if (timesheet.id) {
+        const attachments = await fetchTimesheetAttachments(timesheet.id);
+        if (attachments.length > 0) {
+          setSelectedTimesheetAttachments(attachments);
+          setAttachmentsDialogOpen(true);
+        } else {
+          ToastService.info('No attachments found for this timesheet');
+        }
+      } else {
+        ToastService.warning('No timesheet ID available to fetch attachments');
+      }
+    } catch (error) {
+      console.error('Error viewing attachments:', error);
+      const errorMessage = extractErrorMessage(error);
+      ToastService.error(errorMessage);
+    }
+  };
+
   const handleViewAttachmentFile = async (attachment, timesheet = null) => {
     try {
       const attachmentId = attachment.id || attachment.attachmentId;
-      
+
       if (!attachmentId) {
         ToastService.error('No attachment ID found');
         return;
       }
-      
+
       setViewLoading(true);
-      
-      // Direct axios call like your working sample
+
       const response = await axios.get(
         `/timesheet/attachments/${attachmentId}/download?view=true`,
-        { 
+        {
           responseType: 'blob',
-          baseURL: 'https://mymulya.com' 
+          baseURL: 'https://mymulya.com/'
         }
       );
-      
+
       const blob = response.data;
       const contentType = blob.type || response.headers['content-type'] || '';
-      
+
       // Get filename from headers
       const contentDisposition = response.headers['content-disposition'];
       let filename = attachment.filename || attachment.name || `attachment_${attachmentId}`;
-      
+
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
         if (filenameMatch && filenameMatch[1]) {
           filename = filenameMatch[1].replace(/['"]/g, '');
         }
       }
-      
+
       // Create object URL
       const objectUrl = URL.createObjectURL(blob);
-      
-      // Set the current attachment for the dialog
+
+
       setCurrentAttachment({
         ...attachment,
         filename: filename,
@@ -272,12 +414,12 @@ export const useAttachmentHandlers = () => {
         objectUrl: objectUrl,
         blob: blob
       });
-      
+
       // Determine file type for rendering
       if (contentType === 'application/pdf' || filename.toLowerCase().endsWith('.pdf')) {
         setAttachmentType('pdf');
         setAttachmentContent(objectUrl);
-      } 
+      }
       else if (contentType.startsWith('image/') || /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(filename)) {
         setAttachmentType('image');
         setAttachmentContent(objectUrl);
@@ -309,10 +451,10 @@ export const useAttachmentHandlers = () => {
         setAttachmentType('other');
         setAttachmentContent(objectUrl);
       }
-      
+
       // Open the dialog
       setViewAttachmentDialogOpen(true);
-      
+
     } catch (error) {
       console.error('Error viewing attachment:', error);
       ToastService.error('Failed to view attachment');
@@ -321,49 +463,48 @@ export const useAttachmentHandlers = () => {
     }
   };
 
-  // Download attachment handler
   const handleDownloadAttachmentFile = async (attachment, timesheet = null) => {
     try {
       const attachmentId = attachment.id || attachment.attachmentId;
       const filename = attachment.filename || attachment.name;
-      
+
       if (!attachmentId) {
         ToastService.error('No attachment ID found');
         return;
       }
-      
+
       setDownloadLoading(true);
-      
+
       // Direct axios call for download
       const response = await axios.get(
         `/timesheet/attachments/${attachmentId}/download`,
-        { 
+        {
           responseType: 'blob',
-          baseURL: 'https://mymulya.com' 
+          baseURL: 'https://mymulya.com/'
         }
       );
-      
+
       const blob = response.data;
-      
+
       // Get filename from headers if not provided
       let downloadFilename = filename;
       const contentDisposition = response.headers['content-disposition'];
-      
+
       if (contentDisposition && !downloadFilename) {
         const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
         if (filenameMatch && filenameMatch[1]) {
           downloadFilename = filenameMatch[1].replace(/['"]/g, '');
         }
       }
-      
+
       if (!downloadFilename) {
         downloadFilename = `attachment_${attachmentId}`;
       }
-      
+
       // Trigger download
       triggerDownload(blob, downloadFilename);
       ToastService.success('Download started successfully');
-      
+
     } catch (error) {
       console.error('Error downloading attachment:', error);
       ToastService.error('Failed to download attachment');
@@ -372,48 +513,215 @@ export const useAttachmentHandlers = () => {
     }
   };
 
-  const handleDownloadFromDialog = () => {
-    if (currentAttachment?.blob) {
-      triggerDownload(currentAttachment.blob, currentAttachment.filename);
-    } else if (attachmentType === 'text' && attachmentContent) {
-      const blob = new Blob([attachmentContent], { 
-        type: currentAttachment?.contentType || 'text/plain' 
-      });
-      triggerDownload(blob, currentAttachment?.filename || 'textfile.txt');
-    }
+  const AttachmentViewDialog = () => {
+    const handleDownload = () => {
+      if (currentAttachment?.blob) {
+        triggerDownload(currentAttachment.blob, currentAttachment.filename);
+      } else if (attachmentType === 'text' && attachmentContent) {
+        const blob = new Blob([attachmentContent], {
+          type: currentAttachment?.contentType || 'text/plain'
+        });
+        triggerDownload(blob, currentAttachment?.filename || 'textfile.txt');
+      }
+    };
+
+    const handleClose = () => {
+      setViewAttachmentDialogOpen(false);
+
+      // Clean up object URL
+      if (currentAttachment?.objectUrl) {
+        URL.revokeObjectURL(currentAttachment.objectUrl);
+      }
+
+      // Reset states
+      setAttachmentContent(null);
+      setAttachmentType(null);
+      setCurrentAttachment(null);
+    };
+
+    return (
+      <Dialog
+        open={viewAttachmentDialogOpen}
+        onClose={handleClose}
+        maxWidth="lg"
+        fullWidth
+        sx={{
+          '& .MuiDialog-paper': {
+            height: '90vh',
+            maxHeight: '90vh'
+          }
+        }}
+      >
+        <DialogTitle>
+          <Typography variant='h4'>Attachments</Typography>
+        </DialogTitle>
+
+        <DialogContent dividers sx={{ p: 0, overflow: 'hidden' }}>
+          {viewLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+              <CircularProgress />
+              <Typography sx={{ ml: 2 }}>Loading attachment...</Typography>
+            </Box>
+          ) : (
+            <>
+              {/* PDF Viewer - exactly like your working sample */}
+              {attachmentType === 'pdf' && attachmentContent && (
+                <iframe
+                  src={`${attachmentContent}#toolbar=0&navpanes=0&scrollbar=0`}
+                  title="PDF Preview"
+                  style={{ width: "100%", height: "80vh", border: "none" }}
+                />
+              )}
+
+              {/* Image Viewer - exactly like your working sample */}
+              {attachmentType === 'image' && attachmentContent && (
+                <img
+                  src={attachmentContent}
+                  alt="Attachment"
+                  style={{
+                    maxWidth: "100%",
+                    maxHeight: "80vh",
+                    display: "block",
+                    margin: "0 auto"
+                  }}
+                />
+              )}
+
+              {/* Video Viewer */}
+              {attachmentType === 'video' && attachmentContent && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+                  <video
+                    controls
+                    style={{ maxWidth: '100%', maxHeight: '80vh' }}
+                  >
+                    <source src={attachmentContent} type={currentAttachment?.contentType} />
+                    Your browser does not support the video tag.
+                  </video>
+                </Box>
+              )}
+
+              {/* Audio Viewer */}
+              {attachmentType === 'audio' && attachmentContent && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+                  <audio controls style={{ width: '100%' }}>
+                    <source src={attachmentContent} type={currentAttachment?.contentType} />
+                    Your browser does not support the audio tag.
+                  </audio>
+                </Box>
+              )}
+
+              {/* Text Viewer */}
+              {attachmentType === 'text' && (
+                <Box sx={{ p: 2, height: '80vh', overflow: 'auto' }}>
+                  <TextField
+                    multiline
+                    fullWidth
+                    value={attachmentContent || ''}
+                    InputProps={{
+                      readOnly: true,
+                      sx: {
+                        fontFamily: 'monospace',
+                        fontSize: '0.875rem',
+                        '& .MuiInputBase-input': {
+                          height: '70vh !important',
+                          overflow: 'auto !important'
+                        }
+                      }
+                    }}
+                    variant="outlined"
+                  />
+                </Box>
+              )}
+
+              {/* Unsupported file types */}
+              {attachmentType === 'other' && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', p: 4 }}>
+                  <Typography variant="h6" gutterBottom>
+                    File Preview Not Available
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary" textAlign="center" gutterBottom>
+                    {currentAttachment?.filename}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mb: 3 }}>
+                    Unsupported file type: {currentAttachment?.contentType}
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    startIcon={<CloudDownload />}
+                    onClick={handleDownload}
+                    size="large"
+                  >
+                    Download to View
+                  </Button>
+                </Box>
+              )}
+            </>
+          )}
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={handleClose} variant="outlined">
+            Close
+          </Button>
+          <Button
+            onClick={handleDownload}
+            variant="contained"
+            startIcon={<CloudDownload />}
+            disabled={viewLoading}
+          >
+            Download
+          </Button>
+        </DialogActions>
+      </Dialog>
+    );
   };
 
-  const handleCloseDialog = () => {
-    setViewAttachmentDialogOpen(false);
-    
-    // Clean up object URL
-    if (currentAttachment?.objectUrl) {
-      URL.revokeObjectURL(currentAttachment.objectUrl);
-    }
-    
-    // Reset states
-    setAttachmentContent(null);
-    setAttachmentType(null);
-    setCurrentAttachment(null);
-  };
+  // Return all state and functions
+  return {
+    // State
+    attachments,
+    setAttachments,
+    pendingAttachments,
+    setPendingAttachments,
+    uploadDialogOpen,
+    setUploadDialogOpen,
+    uploading,
+    setUploading,
+    selectedFiles,
+    setSelectedFiles,
+    fileInputRef,
+    attachmentsDialogOpen,
+    setAttachmentsDialogOpen,
+    selectedTimesheetAttachments,
+    setSelectedTimesheetAttachments,
+    viewAttachmentDialogOpen,
+    setViewAttachmentDialogOpen,
+    currentAttachment,
+    setCurrentAttachment,
+    attachmentContent,
+    setAttachmentContent,
+    attachmentType,
+    setAttachmentType,
+    viewLoading,
+    setViewLoading,
+    downloadLoading,
+    setDownloadLoading,
+    selectedWeekStart,
+    setSelectedWeekStart,
+    calendarValue,
+    setCalendarValue,
 
-  // Return the handlers and the dialog component
- return {
+    // Functions
+    getWorkingDateRange,
+    getEditableDateRange,
+    uploadFilesToServer,
+    handleFileSelect,
+    handleUploadAttachments,
+    fetchTimesheetAttachments,
+    handleRemoveAttachment,
+    handleViewAttachments,
     handleViewAttachmentFile,
     handleDownloadAttachmentFile,
-    viewLoading,
-    downloadLoading,
-    getAttachmentViewDialog: (props) => (
-      <AttachmentViewDialogComponent
-        open={viewAttachmentDialogOpen}
-        onClose={handleCloseDialog}
-        currentAttachment={currentAttachment}
-        attachmentContent={attachmentContent}
-        attachmentType={attachmentType}
-        viewLoading={viewLoading}
-        onDownload={handleDownloadFromDialog}
-        {...props}
-      />
-    )
+    AttachmentViewDialog,
   };
 };
