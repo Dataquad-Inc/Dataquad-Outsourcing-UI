@@ -7,23 +7,12 @@ import {
   fetchTimesheetsByUserId,
   fetchTimesheetsByUserIdWithDateRange,
   createTimesheet,
-  updateTimesheet,
   submitWeeklyTimesheet as submitWeeklyTimesheetAction,
   submitMonthlyTimesheet as submitMonthlyTimesheetAction,
-  uploadTimesheetAttachments,
-  deleteTimesheetAttachments,
-  approveTimesheet,
-  approveTimesheetMonthly,
-  rejectTimesheet,
-  rejectTimesheetMonthly,
   clearError,
   resetTimesheets,
-  getTimesheetAttachmentsById,
-  viewTimesheetAttachment,
-  downloadTimesheetAttachment
 } from '../../redux/timesheetSlice';
 import { fetchEmployees } from '../../redux/employeesSlice';
-
 import {
   getMondayOfWeek,
   formatDateToYMD,
@@ -31,7 +20,6 @@ import {
   getWeekDates,
   getCurrentWeek,
   getWeekDatesArray,
-  formatDate,
   formatFileSize,
   getPercentageColor,
   getWeeksInMonth,
@@ -43,20 +31,16 @@ import {
   isPresentWeek,
   resetToDefaultHours,
   getWorkingDaysHours,
-  getProjectConfig
+  getProjectConfig,
 } from './timesheetUtils';
+
+
 import TimesheetMainView from './TimesheetMainView';
 import httpService from '../../Services/httpService';
-import { Avatar, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, List, ListItem, ListItemAvatar, ListItemText, TextField, Typography } from '@mui/material';
-import { Box } from 'lucide-react';
-import {
-  AttachFile, Close, CloudUpload,
-  CloudDownload
-} from '@mui/icons-material';
 import { useLocation } from 'react-router-dom';
 import ToastService from '../../Services/toastService';
-import axios from 'axios';
-
+import { useAttachmentsHandler } from './AttachmentHanlders';
+import useTimesheetApprovalHandlers from './useTimesheetApprovalHandlers';
 
 const Timesheets = () => {
   // State management
@@ -68,10 +52,8 @@ const Timesheets = () => {
   const [selectedEmployee, setSelectedEmployee] = useState('');
   const [selectedLeaveType, setSelectedLeaveType] = useState('');
   const [timesheetData, setTimeSheetData] = useState([]);
-  const [pendingAttachments, setPendingAttachments] = useState([]);
 
   // Calendar and timesheet states
-  const [selectedWeekStart, setSelectedWeekStart] = useState('');
   const [timesheetType, setTimesheetType] = useState('MONTHLY');
 
   const [monthlyViewMode, setMonthlyViewMode] = useState(false);
@@ -81,22 +63,58 @@ const Timesheets = () => {
   const [selectedMonthRange, setSelectedMonthRange] = useState(null);
   const [currentTimesheet, setCurrentTimesheet] = useState(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [calendarValue, setCalendarValue] = useState(new Date());
   const [highlightedWeek, setHighlightedWeek] = useState([]);
   const [notes, setNotes] = useState('');
 
   // Add new state for tracking submission status
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [adminActionLoading, setAdminActionLoading] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState('');
-  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
 
-  // Attachment states
-  const [attachments, setAttachments] = useState([]);
-  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState([]);
-  const fileInputRef = useRef(null);
+  const attachmentsHandler = useAttachmentsHandler();
+  const approvalHandlers = useTimesheetApprovalHandlers();
+  // Extract state and functions from attachments handler
+  const {
+    attachments,
+    setAttachments,
+    pendingAttachments,
+    setPendingAttachments,
+    uploadDialogOpen,
+    setUploadDialogOpen,
+    uploading,
+    selectedFiles,
+    setSelectedFiles,
+    fileInputRef,
+    viewLoading,
+    downloadLoading,
+    selectedWeekStart,
+    setSelectedWeekStart,
+    calendarValue,
+    setCalendarValue,
+
+    // Functions
+    getWorkingDateRange,
+    getEditableDateRange,
+    handleFileSelect,
+    handleUploadAttachments,
+    handleRemoveAttachment,
+    handleViewAttachments,
+    handleViewAttachmentFile,
+    handleDownloadAttachmentFile,
+    AttachmentViewDialog,
+    fetchTimesheetAttachments,
+    uploadFilesToServer
+  } = attachmentsHandler;
+
+  const {
+    adminActionLoading,
+    rejectionReason,
+    rejectDialogOpen,
+    setRejectionReason,
+    setRejectDialogOpen,
+    handleApproveTimesheet,
+    handleRejectTimesheet,
+    openRejectDialog,
+    closeRejectDialog
+  } = approvalHandlers;
 
   // Redux state and dispatch
   const { userId, role } = useSelector((state) => state.auth);
@@ -117,8 +135,6 @@ const Timesheets = () => {
 
   // Timesheets.js - Add these state variables
   const [employeeProjects, setEmployeeProjects] = useState([]);
-  const [attachmentsDialogOpen, setAttachmentsDialogOpen] = useState(false);
-  const [selectedTimesheetAttachments, setSelectedTimesheetAttachments] = useState([]);
 
   // Add this with your other state declarations
   const [loadingEmployeeProjects, setLoadingEmployeeProjects] = useState(false);
@@ -130,20 +146,11 @@ const Timesheets = () => {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [navigationSource, setNavigationSource] = useState('');
 
-  const [viewLoading, setViewLoading] = useState(false);
-  const [downloadLoading, setDownloadLoading] = useState(false);
 
-
-  // Add these state variables to your component
-  const [viewAttachmentDialogOpen, setViewAttachmentDialogOpen] = useState(false);
-  const [currentAttachment, setCurrentAttachment] = useState(null);
-  const [attachmentContent, setAttachmentContent] = useState(null);
-  const [attachmentType, setAttachmentType] = useState('');
   const [monthlyTotalWorkingHours, setMonthlyTotalWorkingHours] = useState(0);
   const [monthlyTotalWorkingHoursForEmployee, setMonthlyTotalWorkingHoursForEmployee] = useState(0);
 
   const [submitLoading, setSubmitLoading] = useState(false);
-
   const dispatch = useDispatch();
 
   const selectedDate = new Date(calendarValue);
@@ -159,7 +166,6 @@ const Timesheets = () => {
   const clientsData = Array.isArray(clients) ? clients : [];
 
   useEffect(() => {
-    // Check if we're in create mode based on URL
     const currentPath = window.location.pathname;
     setIsCreateMode(currentPath.includes('/timesheets/create'));
   }, []);
@@ -168,8 +174,6 @@ const Timesheets = () => {
   useEffect(() => {
     if (role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE" || role === "ADMIN") {
       dispatch(fetchEmployees());
-
-      // In create mode, auto-enable employee selection
       if (isCreateMode) {
         setIsAddingNewTimesheet(true);
       }
@@ -177,7 +181,6 @@ const Timesheets = () => {
   }, [dispatch, role, isCreateMode]);
 
   useEffect(() => {
-    // Immediately fetch projects when employee changes in add mode
     if (isAddingNewTimesheet && tempEmployeeForAdd && !selectedProject) {
       console.log('Employee selected in add mode, fetching projects immediately');
     }
@@ -186,20 +189,17 @@ const Timesheets = () => {
   useEffect(() => {
     // Only fetch/create timesheet if we have all required data
     if (selectedProject && selectedWeekStart) {
-      // For normal mode, need selectedEmployee for admin roles
       if ((role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE" || role === 'ADMIN') && !isAddingNewTimesheet && !isCreateMode) {
         if (selectedEmployee) {
           console.log('Fetching timesheet for admin role with selected employee');
           fetchOrCreateTimesheet();
         }
       }
-      // For external employee or add/create modes
       else if (role === 'EXTERNALEMPLOYEE' || isAddingNewTimesheet || isCreateMode) {
         console.log('Fetching timesheet for external employee or add/create mode');
         fetchOrCreateTimesheet();
       }
     } else {
-      // Clear timesheet if missing required data
       setCurrentTimesheet(null);
       setHasUnsavedChanges(false);
     }
@@ -207,7 +207,6 @@ const Timesheets = () => {
 
   useEffect(() => {
     if ((role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE" || role === "ADMIN")) {
-      // When employee changes in normal mode (not add/create), clear everything
       if (isAddingNewTimesheet && isCreateMode) {
         setSelectedProject('');
         setCurrentTimesheet(null);
@@ -219,7 +218,7 @@ const Timesheets = () => {
     }
   }, [selectedEmployee, role, isAddingNewTimesheet, isCreateMode]);
 
-  // Clear errors when component unmounts
+
   useEffect(() => {
     return () => {
       dispatch(clearError());
@@ -227,7 +226,7 @@ const Timesheets = () => {
     };
   }, [dispatch]);
 
-  // Show alert when there's an error from Redux
+
   useEffect(() => {
     if (timesheetError) {
       showAlert(timesheetError, 'error');
@@ -249,7 +248,6 @@ const Timesheets = () => {
       value: emp.employeeId,
     })) || []
 
-  // Add this useEffect after your existing useEffects in Timesheets.js
   useEffect(() => {
     // When project is selected in create/add mode, create timesheet immediately
     if (selectedProject && (isCreateMode || isAddingNewTimesheet) && (tempEmployeeForAdd || selectedEmployee)) {
@@ -266,8 +264,6 @@ const Timesheets = () => {
     }
   }, [selectedProject, isCreateMode, isAddingNewTimesheet, tempEmployeeForAdd, selectedEmployee, selectedWeekStart]);
 
-
-  // Timesheets.js - Replace the existing prepopulation useEffect with this
   useEffect(() => {
     const checkPrepopulatedEmployee = async () => {
       console.log('Checking for prepopulated employee data...');
@@ -314,7 +310,6 @@ const Timesheets = () => {
         setNavigationSource(navigationSource);
         setPrepopulatedEmployee(employeeData);
 
-        // FIXED: Set selected month range IMMEDIATELY if available
         if (employeeData.monthStart && employeeData.monthEnd) {
           const monthRange = {
             start: employeeData.monthStart,
@@ -323,7 +318,6 @@ const Timesheets = () => {
           setSelectedMonthRange(monthRange);
           console.log('Set selected month range from prepopulated data:', monthRange);
 
-          // FIXED: Set calendar to the correct month from prepopulated data
           if (employeeData.selectedMonth !== null && employeeData.selectedYear !== null) {
             const targetDate = new Date(employeeData.selectedYear, employeeData.selectedMonth, 1);
             setCalendarValue(targetDate);
@@ -360,7 +354,6 @@ const Timesheets = () => {
         console.log('Monthly view mode enabled for ACCOUNTS/INVOICE role');
       }
 
-      // Set the employee and trigger project fetch with callback
       handleEmployeeChange(prepopulatedEmployee.userId, (projectsData) => {
         // Auto-select the first project if available
         if (projectsData.length > 0) {
@@ -369,7 +362,6 @@ const Timesheets = () => {
           console.log('Auto-selecting project:', projectName);
           setSelectedProject(projectName);
 
-          // Fetch monthly data after project is selected
           setTimeout(() => {
             if (shouldEnableMonthlyView) {
               fetchMonthlyTimesheetData(prepopulatedEmployee.userId);
@@ -383,7 +375,6 @@ const Timesheets = () => {
 
   useEffect(() => {
     return () => {
-      // Clean up location state to prevent re-prepopulation on back navigation
       if (window.history.state && window.history.state.usr) {
         window.history.replaceState({ ...window.history.state, usr: {} }, '');
       }
@@ -395,22 +386,17 @@ const Timesheets = () => {
     if ((role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "INVOICE" || role === "ADMIN") && selectedEmployee) {
       setSelectedProject('');
       setCurrentTimesheet(null);
-      // Force re-render by ensuring employeeProjects is cleared first
       setEmployeeProjects([]);
     }
   }, [selectedEmployee, role]);
 
 
   useEffect(() => {
-    // Check URL parameters for monthly view flag
     const urlParams = new URLSearchParams(window.location.search);
     const monthlyViewParam = urlParams.get('monthlyView');
 
     if ((role === 'ACCOUNTS' || role === 'ADMIN') && monthlyViewParam === 'true') {
       setMonthlyViewMode(true);
-      console.log('Monthly view enabled from URL parameter');
-
-      // If we have an employee selected, fetch monthly data
       if (selectedEmployee) {
         fetchMonthlyTimesheetData(selectedEmployee);
       }
@@ -421,7 +407,6 @@ const Timesheets = () => {
   const handleEmployeeChange = async (employeeId, callback) => {
     console.log('Employee changed to:', employeeId);
     if (navigationSource !== 'url' && navigationSource !== 'state') {
-      // Reset states only for manual selection, but preserve selectedMonthRange
       setSelectedProject('');
       setCurrentTimesheet(null);
       setAttachments([]);
@@ -429,7 +414,6 @@ const Timesheets = () => {
       setHasUnsavedChanges(false);
       setMonthlyTimesheetData([]);
       setCurrentMonthWeeks([]);
-      // Don't reset selectedMonthRange here
     }
 
     if (isCreateMode || isAddingNewTimesheet) {
@@ -438,8 +422,6 @@ const Timesheets = () => {
       setMonthlyViewMode(false);
     } else {
       setSelectedEmployee(employeeId);
-
-      // Set monthly view for ACCOUNTS/INVOICE
       if (role === 'ACCOUNTS' || role === 'ADMIN') {
         setMonthlyViewMode(true);
         console.log('Setting monthly view for ACCOUNTS/INVOICE role');
@@ -470,7 +452,7 @@ const Timesheets = () => {
         if (callback && typeof callback === 'function') {
           callback(projectsData);
         } else if (monthlyViewMode && (role === 'ACCOUNTS' || role === 'ADMIN') && !isCreateMode && !isAddingNewTimesheet) {
-          // FIXED: Only auto-fetch if we don't have selectedMonthRange from prepopulation
+
           if (!selectedMonthRange) {
             setTimeout(() => {
               if (employeeId && calendarValue) {
@@ -482,7 +464,6 @@ const Timesheets = () => {
           }
         }
       } catch (error) {
-        console.error('Error fetching employee projects:', error);
         setEmployeeProjects([]);
         const errorMessage = extractErrorMessage(error);
         ToastService.error(errorMessage || 'Failed to fetch employee projects');
@@ -495,18 +476,13 @@ const Timesheets = () => {
   useEffect(() => {
     if (prepopulatedEmployee && (role === 'ACCOUNTS' || role === 'ADMIN')) {
       console.log('Prepopulating employee for monthly view:', prepopulatedEmployee);
-
-
       handleEmployeeChange(prepopulatedEmployee.userId, handleProjectPrepopulation);
 
       setMonthlyViewMode(true);
-
       const currentDate = new Date();
       setCalendarValue(currentDate);
-
       setPrepopulatedEmployee(null);
 
-      // Clean up URL parameters
       if (window.location.search.includes('prepopulate')) {
         const newUrl = window.location.pathname;
         window.history.replaceState({}, '', newUrl);
@@ -520,11 +496,7 @@ const Timesheets = () => {
         setIsInitialLoad(false);
         return;
       }
-
-      console.log('Handling prepopulated employee with dates:', prepopulatedEmployee);
-
       try {
-
         setSelectedEmployee(prepopulatedEmployee.userId);
 
         if (prepopulatedEmployee.monthStart && prepopulatedEmployee.monthEnd) {
@@ -533,25 +505,21 @@ const Timesheets = () => {
             end: prepopulatedEmployee.monthEnd
           };
           setSelectedMonthRange(monthRange);
-          console.log('Set selected month range from prepopulated data:', monthRange);
         }
 
         if (prepopulatedEmployee.selectedMonth !== undefined && prepopulatedEmployee.selectedYear !== undefined) {
           const targetDate = new Date(prepopulatedEmployee.selectedYear, prepopulatedEmployee.selectedMonth, 1);
           setCalendarValue(targetDate);
-          console.log('Set calendar to prepopulated month:', targetDate);
         }
 
         if (!selectedMonthRange && prepopulatedEmployee.selectedMonth !== undefined && prepopulatedEmployee.selectedYear !== undefined) {
           const selectedDate = new Date(prepopulatedEmployee.selectedYear, prepopulatedEmployee.selectedMonth, 1);
           setCalendarValue(selectedDate);
-          console.log('Setting calendar to selected month:', selectedDate);
         }
 
         setLoadingEmployeeProjects(true);
 
         const response = await httpService.get(`/timesheet/vendors/${prepopulatedEmployee.userId}`);
-        console.log('Employee projects response:', response);
 
         let projectsData = [];
         if (response.data && response.data.success) {
@@ -568,25 +536,21 @@ const Timesheets = () => {
         console.log('Setting employee projects:', projectsData);
         setEmployeeProjects(projectsData);
 
-        // Auto-select first project if available
         if (projectsData.length > 0) {
           const firstProject = projectsData[0];
           const projectName = firstProject.projectName || firstProject;
           console.log('Auto-selecting project:', projectName);
           setSelectedProject(projectName);
 
-          // FIXED: Use selectedMonthRange for API call with delay to ensure state is set
           setTimeout(async () => {
             console.log('Fetching monthly data for prepopulated employee with selectedMonthRange:', selectedMonthRange);
             await fetchMonthlyTimesheetData(prepopulatedEmployee.userId);
           }, 100);
         }
 
-        // Clean up prepopulated data
         setPrepopulatedEmployee(null);
         setNavigationSource('');
 
-        // Clean up URL parameters
         if (window.location.search.includes('prepopulate')) {
           const newUrl = window.location.pathname;
           window.history.replaceState({}, '', newUrl);
@@ -610,18 +574,15 @@ const Timesheets = () => {
       // Auto-select the first project for the prepopulated employee
       const firstProject = projectsData[0];
       const projectName = firstProject.projectName || firstProject;
-
-      console.log('Auto-selecting project for prepopulated employee:', projectName);
       setSelectedProject(projectName);
 
-      // Set current week for the timesheet
       const currentWeek = getCurrentWeek();
       setSelectedWeekStart(currentWeek.startString);
       setCalendarValue(new Date(currentWeek.startString));
       setHighlightedWeek(getWeekDatesArray(new Date(currentWeek.startString)));
     }
   };
-  // Custom day renderer for calendar
+
   const CustomDay = (props) => {
     const { day, outsideCurrentMonth, ...other } = props;
 
@@ -630,7 +591,6 @@ const Timesheets = () => {
         weekDay.toISOString().split('T')[0] === day.toISOString().split('T')[0]
     );
 
-    // Disable days that are outside the current month
     const isDisabled = outsideCurrentMonth;
 
     return (
@@ -667,7 +627,6 @@ const Timesheets = () => {
     );
   };
 
-  // Initialize with current week when project is selected
   useEffect(() => {
     if (selectedProject && !selectedWeekStart) {
       const weekInfo = getWeekDates(calendarValue);
@@ -678,7 +637,6 @@ const Timesheets = () => {
     }
   }, [selectedProject]);
 
-  // Update highlighted week and selected week when calendar value changes
   useEffect(() => {
     if (calendarValue && selectedProject) {
       const monday = getMondayOfWeek(calendarValue);
@@ -696,7 +654,6 @@ const Timesheets = () => {
     }
   }, [calendarValue, selectedProject]);
 
-  // Fetch or create timesheet when week is selected
   useEffect(() => {
     if (selectedProject && selectedWeekStart) {
       fetchOrCreateTimesheet();
@@ -746,7 +703,6 @@ const Timesheets = () => {
     if (monthlyViewMode && selectedEmployee && (role === 'ACCOUNTS' || role === 'ADMIN')) {
       // Only fetch if we don't have selectedMonthRange (manual calendar change)
       if (!selectedMonthRange) {
-        console.log('Calendar month changed in monthly view (no selectedMonthRange), refreshing data');
         fetchMonthlyTimesheetData(selectedEmployee);
       } else {
         console.log('Calendar month changed but selectedMonthRange exists, skipping auto-refresh');
@@ -760,20 +716,14 @@ const Timesheets = () => {
   const fetchOrCreateTimesheet = async () => {
     if (!selectedProject || !selectedWeekStart) return;
 
-    // Handle create mode - we need to fetch existing timesheets to check for duplicates
     if (isCreateMode || isAddingNewTimesheet) {
       const employeeId = tempEmployeeForAdd || selectedEmployee;
       if (employeeId && selectedProject) {
-        console.log("Create/add mode - checking for existing timesheets for employee:", employeeId);
-
         setLoading(true);
         try {
-          // First fetch existing timesheets to check for duplicates
           let resultAction;
-
-          // MODIFICATION: Use fetchTimesheetsByUserIdWithDateRange for EXTERNALEMPLOYEE role in create/add mode
           if (role === 'EXTERNALEMPLOYEE' || isCreateMode || isAddingNewTimesheet) {
-            // Calculate month start and end based on current calendar month
+
             const selectedDate = new Date(calendarValue);
             const monthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
             const monthEnd = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
@@ -781,19 +731,12 @@ const Timesheets = () => {
             const monthStartStr = formatDateToYMD(monthStart);
             const monthEndStr = formatDateToYMD(monthEnd);
 
-            console.log('Fetching timesheets for EXTERNALEMPLOYEE in create/add mode with date range:', {
-              employeeId,
-              monthStart: monthStartStr,
-              monthEnd: monthEndStr
-            });
-
             resultAction = await dispatch(fetchTimesheetsByUserIdWithDateRange({
               userId: employeeId,
               monthStart: monthStartStr,
               monthEnd: monthEndStr
             }));
           } else {
-            // For other roles, use the regular API without date range
             console.log('Fetching timesheets for other roles in create/add mode without date range:', {
               employeeId
             });
@@ -862,7 +805,6 @@ const Timesheets = () => {
           } else {
             const errorMessage = extractErrorMessage(resultAction.payload);
             throw new Error(errorMessage);
-            setMonthlyTotalWorkingHoursForEmployee(0)
           }
         } catch (error) {
           console.error("Error checking existing timesheets in create mode:", error);
@@ -899,7 +841,6 @@ const Timesheets = () => {
     const isMonthlyView = (role === 'ACCOUNTS' || role === 'ADMIN') && !isCreateMode && !isAddingNewTimesheet;
 
     if (isMonthlyView) {
-      // Fetch monthly data for ACCOUNTS/INVOICE roles
       setLoading(true);
       try {
         const targetUserId = selectedEmployee || userId;
@@ -911,12 +852,6 @@ const Timesheets = () => {
 
         const monthStartStr = formatDateToYMD(monthStart);
         const monthEndStr = formatDateToYMD(monthEnd);
-
-        console.log('Fetching monthly data for ACCOUNTS/INVOICE view:', {
-          targetUserId,
-          monthStart: monthStartStr,
-          monthEnd: monthEndStr
-        });
 
         // Use the date range API for monthly view
         const resultAction = await dispatch(fetchTimesheetsByUserIdWithDateRange({
@@ -970,27 +905,18 @@ const Timesheets = () => {
       }
       return;
     }
-
-    // Rest of the function remains unchanged...
     setLoading(true);
     try {
       const targetUserId = selectedEmployee || userId;
 
       let resultAction;
       if (role === 'EXTERNALEMPLOYEE') {
-        // Calculate month start and end based on current calendar month
         const selectedDate = new Date(calendarValue);
         const monthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
         const monthEnd = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
 
         const monthStartStr = formatDateToYMD(monthStart);
         const monthEndStr = formatDateToYMD(monthEnd);
-
-        console.log('Fetching timesheets for EXTERNALEMPLOYEE with date range:', {
-          targetUserId,
-          monthStart: monthStartStr,
-          monthEnd: monthEndStr
-        });
 
         resultAction = await dispatch(fetchTimesheetsByUserIdWithDateRange({
           userId: targetUserId,
@@ -1023,7 +949,6 @@ const Timesheets = () => {
         let existingTimesheet = null;
 
         if (response?.success && timesheetData) {
-          // Ensure timesheetData is always treated as an array
           const timesheetsArray = Array.isArray(timesheetData) ? timesheetData : [];
 
           existingTimesheet = timesheetsArray.find(ts => {
@@ -1093,257 +1018,224 @@ const Timesheets = () => {
   };
 
 
-const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
-  if (!apiTimesheet) {
-    console.log('No timesheet found, returning null');
-    return null;
-  }
+  const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
+    if (!apiTimesheet) {
+      console.log('No timesheet found, returning null');
+      return null;
+    }
 
-  console.log('Transforming timesheet with calendar month:', currentCalendarMonth);
-  console.log('Selected week:', selectedWeekStart);
+    const currentMonth = currentCalendarMonth.getMonth();
+    const currentYear = currentCalendarMonth.getFullYear();
 
-  // CRITICAL FIX: Segment the week by month and determine status per month segment
-  const currentMonth = currentCalendarMonth.getMonth();
-  const currentYear = currentCalendarMonth.getFullYear();
-  
-  // Get all dates in the selected week
-  const weekDates = getWeekDatesArray(new Date(selectedWeekStart));
-  const currentMonthDates = weekDates.filter(date => 
-    date.getMonth() === currentMonth && date.getFullYear() === currentYear
-  );
-  
-  const otherMonthDates = weekDates.filter(date => 
-    date.getMonth() !== currentMonth || date.getFullYear() !== currentYear
-  );
+    const weekDates = getWeekDatesArray(new Date(selectedWeekStart));
+    const currentMonthDates = weekDates.filter(date =>
+      date.getMonth() === currentMonth && date.getFullYear() === currentYear
+    );
 
-  console.log('Week segmentation:', {
-    currentMonth: `${currentMonth + 1}/${currentYear}`,
-    currentMonthDates: currentMonthDates.map(d => d.toISOString().split('T')[0]),
-    otherMonthDates: otherMonthDates.map(d => d.toISOString().split('T')[0])
-  });
+    const otherMonthDates = weekDates.filter(date =>
+      date.getMonth() !== currentMonth || date.getFullYear() !== currentYear
+    );
 
-  // Determine status based ONLY on current month's dates
-  let currentMonthStatus = 'DRAFT';
-  let hasCurrentMonthEntries = false;
-  let hasCurrentMonthSubmission = false;
+    let currentMonthStatus = 'DRAFT';
+    let hasCurrentMonthEntries = false;
+    let hasCurrentMonthSubmission = false;
 
-  // Check working entries for current month
-  if (apiTimesheet.workingEntries && apiTimesheet.workingEntries.length > 0) {
-    const currentMonthWorkingEntries = apiTimesheet.workingEntries.filter(entry => {
-      const entryDate = new Date(entry.date);
-      return entryDate.getMonth() === currentMonth && 
-             entryDate.getFullYear() === currentYear &&
-             entry.project === selectedProject;
-    });
+    // Check working entries for current month
+    if (apiTimesheet.workingEntries && apiTimesheet.workingEntries.length > 0) {
+      const currentMonthWorkingEntries = apiTimesheet.workingEntries.filter(entry => {
+        const entryDate = new Date(entry.date);
+        return entryDate.getMonth() === currentMonth &&
+          entryDate.getFullYear() === currentYear &&
+          entry.project === selectedProject;
+      });
 
-    if (currentMonthWorkingEntries.length > 0) {
-      hasCurrentMonthEntries = true;
-      // Only inherit status if we have entries in current month
-      if (apiTimesheet.status && apiTimesheet.status !== 'DRAFT') {
-        hasCurrentMonthSubmission = true;
+      if (currentMonthWorkingEntries.length > 0) {
+        hasCurrentMonthEntries = true;
+        if (apiTimesheet.status && apiTimesheet.status !== 'DRAFT') {
+          hasCurrentMonthSubmission = true;
+        }
       }
     }
-  }
 
-  // Check non-working entries for current month
-  if (apiTimesheet.nonWorkingEntries && apiTimesheet.nonWorkingEntries.length > 0) {
-    const currentMonthNonWorkingEntries = apiTimesheet.nonWorkingEntries.filter(entry => {
-      const entryDate = new Date(entry.date);
-      return entryDate.getMonth() === currentMonth && 
-             entryDate.getFullYear() === currentYear;
-    });
+    // Check non-working entries for current month
+    if (apiTimesheet.nonWorkingEntries && apiTimesheet.nonWorkingEntries.length > 0) {
+      const currentMonthNonWorkingEntries = apiTimesheet.nonWorkingEntries.filter(entry => {
+        const entryDate = new Date(entry.date);
+        return entryDate.getMonth() === currentMonth &&
+          entryDate.getFullYear() === currentYear;
+      });
 
-    if (currentMonthNonWorkingEntries.length > 0) {
-      hasCurrentMonthEntries = true;
-      if (apiTimesheet.status && apiTimesheet.status !== 'DRAFT') {
-        hasCurrentMonthSubmission = true;
+      if (currentMonthNonWorkingEntries.length > 0) {
+        hasCurrentMonthEntries = true;
+        if (apiTimesheet.status && apiTimesheet.status !== 'DRAFT') {
+          hasCurrentMonthSubmission = true;
+        }
       }
     }
-  }
 
-  // Set status based on current month's data only
-  if (hasCurrentMonthEntries) {
-    if (hasCurrentMonthSubmission) {
-      currentMonthStatus = apiTimesheet.status;
+    if (hasCurrentMonthEntries) {
+      if (hasCurrentMonthSubmission) {
+        currentMonthStatus = apiTimesheet.status;
+      } else {
+        currentMonthStatus = 'DRAFT';
+      }
     } else {
       currentMonthStatus = 'DRAFT';
     }
-  } else {
-    // No entries in current month - always DRAFT
-    currentMonthStatus = 'DRAFT';
-  }
 
-  console.log('Status determination:', {
-    hasCurrentMonthEntries,
-    hasCurrentMonthSubmission,
-    apiTimesheetStatus: apiTimesheet.status,
-    finalCurrentMonthStatus: currentMonthStatus
-  });
+    const submitted = (currentMonthStatus === 'SUBMITTED' ||
+      currentMonthStatus === 'APPROVED' ||
+      currentMonthStatus === 'PENDING_APPROVAL') && !isEditMode;
+    setIsSubmitted(submitted);
 
-  const submitted = (currentMonthStatus === 'SUBMITTED' ||
-    currentMonthStatus === 'APPROVED' ||
-    currentMonthStatus === 'PENDING_APPROVAL') && !isEditMode;
-  setIsSubmitted(submitted);
-
-  const transformed = {
-    id: apiTimesheet.timesheetId || null,
-    userId: apiTimesheet.userId || userId,
-    project: selectedProject,
-    timesheetType: apiTimesheet.timesheetType || 'WEEKLY',
-    status: currentMonthStatus, // Status for current month only
-    startDate: apiTimesheet.weekStartDate || '',
-    endDate: apiTimesheet.weekEndDate || '',
-    monday: 0,
-    tuesday: 0,
-    wednesday: 0,
-    thursday: 0,
-    friday: 0,
-    saturday: 0,
-    sunday: 0,
-    notes: apiTimesheet.notes || '',
-    workingEntries: apiTimesheet.workingEntries || [],
-    nonWorkingEntries: apiTimesheet.nonWorkingEntries || [],
-    isEditable: isEditMode || (!submitted && (currentMonthStatus === 'DRAFT' || !currentMonthStatus)),
-    percentageOfTarget: apiTimesheet.percentageOfTarget || 0,
-    dayStatuses: {
-      monday: 'Working',
-      tuesday: 'Working',
-      wednesday: 'Working',
-      thursday: 'Working',
-      friday: 'Working',
-      saturday: 'Working',
-      sunday: 'Working'
-    },
-    sickLeave: {
+    const transformed = {
+      id: apiTimesheet.timesheetId || null,
+      userId: apiTimesheet.userId || userId,
+      project: selectedProject,
+      timesheetType: apiTimesheet.timesheetType || 'WEEKLY',
+      status: currentMonthStatus,
+      startDate: apiTimesheet.weekStartDate || '',
+      endDate: apiTimesheet.weekEndDate || '',
       monday: 0,
       tuesday: 0,
       wednesday: 0,
       thursday: 0,
       friday: 0,
       saturday: 0,
-      sunday: 0
-    },
-    companyHoliday: {
-      monday: 0,
-      tuesday: 0,
-      wednesday: 0,
-      thursday: 0,
-      friday: 0,
-      saturday: 0,
-      sunday: 0
-    },
-    clientName: apiTimesheet.clientName || '',
-    approver: apiTimesheet.approver || '',
-    startDate: apiTimesheet.startDate || apiTimesheet.weekStartDate || ''
-  };
+      sunday: 0,
+      notes: apiTimesheet.notes || '',
+      workingEntries: apiTimesheet.workingEntries || [],
+      nonWorkingEntries: apiTimesheet.nonWorkingEntries || [],
+      isEditable: isEditMode || (!submitted && (currentMonthStatus === 'DRAFT' || !currentMonthStatus)),
+      percentageOfTarget: apiTimesheet.percentageOfTarget || 0,
+      dayStatuses: {
+        monday: 'Working',
+        tuesday: 'Working',
+        wednesday: 'Working',
+        thursday: 'Working',
+        friday: 'Working',
+        saturday: 'Working',
+        sunday: 'Working'
+      },
+      sickLeave: {
+        monday: 0,
+        tuesday: 0,
+        wednesday: 0,
+        thursday: 0,
+        friday: 0,
+        saturday: 0,
+        sunday: 0
+      },
+      companyHoliday: {
+        monday: 0,
+        tuesday: 0,
+        wednesday: 0,
+        thursday: 0,
+        friday: 0,
+        saturday: 0,
+        sunday: 0
+      },
+      clientName: apiTimesheet.clientName || '',
+      approver: apiTimesheet.approver || '',
+      startDate: apiTimesheet.startDate || apiTimesheet.weekStartDate || ''
+    };
 
-  const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
-  // Process working entries - ONLY for current month
-  if (apiTimesheet.workingEntries && apiTimesheet.workingEntries.length > 0) {
-    apiTimesheet.workingEntries.forEach(entry => {
-      const entryDate = new Date(entry.date);
-      const dayOfWeek = entryDate.getDay();
+    // Track which days have actual data entries
+    const daysWithWorkingData = new Set();
+    const daysWithNonWorkingData = new Set();
 
-      let dayIndex;
-      if (dayOfWeek === 0) {
-        dayIndex = 6;
-      } else {
-        dayIndex = dayOfWeek - 1;
-      }
+    // Process working entries - ONLY for current month
+    if (apiTimesheet.workingEntries && apiTimesheet.workingEntries.length > 0) {
+      apiTimesheet.workingEntries.forEach(entry => {
+        const entryDate = new Date(entry.date);
+        const dayOfWeek = entryDate.getDay();
 
-      const dayName = days[dayIndex];
-      const hours = parseFloat(entry.hours) || 0;
-
-      // ONLY include entries for the current calendar month
-      const isInCurrentMonth = entryDate.getMonth() === currentMonth && 
-                              entryDate.getFullYear() === currentYear;
-      const isInSelectedWeek = isDateInSelectedWeek(entryDate, selectedWeekStart);
-
-      if (dayName && isInCurrentMonth && isInSelectedWeek && entry.project === selectedProject) {
-        console.log(`Adding ${hours} working hours to ${dayName} for date ${entry.date} (current month)`);
-        transformed[dayName] += hours;
-      }
-    });
-  }
-
-  // Process non-working entries - ONLY for current month
-  if (apiTimesheet.nonWorkingEntries) {
-    apiTimesheet.nonWorkingEntries.forEach(entry => {
-      const entryDate = new Date(entry.date);
-      const dayOfWeek = entryDate.getDay();
-
-      let dayIndex;
-      if (dayOfWeek === 0) {
-        dayIndex = 6;
-      } else {
-        dayIndex = dayOfWeek - 1;
-      }
-
-      const dayName = days[dayIndex];
-      const hours = parseFloat(entry.hours) || 0;
-      const description = entry.description?.toLowerCase() || '';
-
-      // ONLY include entries for the current calendar month
-      const isInCurrentMonth = entryDate.getMonth() === currentMonth && 
-                              entryDate.getFullYear() === currentYear;
-      const isInSelectedWeek = isDateInSelectedWeek(entryDate, selectedWeekStart);
-
-      if (dayName && isInCurrentMonth && isInSelectedWeek) {
-        if (description.includes('sick leave')) {
-          transformed.sickLeave[dayName] += hours;
-        } else if (description.includes('company holiday') || description.includes('holiday')) {
-          transformed.companyHoliday[dayName] += hours;
+        let dayIndex;
+        if (dayOfWeek === 0) {
+          dayIndex = 6;
+        } else {
+          dayIndex = dayOfWeek - 1;
         }
-      }
-    });
-  }
 
-  // Set default values only for DRAFT timesheets in current calendar month
-  if (currentMonthStatus === 'DRAFT') {
-    days.forEach(day => {
-      const dayDate = getDateForDay(selectedWeekStart, day);
-      const isInCurrentMonth = dayDate ? 
-        (dayDate.getMonth() === currentMonth && dayDate.getFullYear() === currentYear) : 
-        false;
+        const dayName = days[dayIndex];
+        const hours = parseFloat(entry.hours) || 0;
 
-      if (isInCurrentMonth && transformed[day] === 0 &&
-        transformed.sickLeave[day] === 0 &&
-        transformed.companyHoliday[day] === 0) {
-        // Set default 8 hours for weekdays in current month only for DRAFT
-        if (['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].includes(day)) {
+        const isInCurrentMonth = entryDate.getMonth() === currentMonth &&
+          entryDate.getFullYear() === currentYear;
+        const isInSelectedWeek = isDateInSelectedWeek(entryDate, selectedWeekStart);
+
+        if (dayName && isInCurrentMonth && isInSelectedWeek && entry.project === selectedProject) {
+          console.log(`Adding ${hours} working hours to ${dayName} for date ${entry.date} (current month)`);
+          transformed[dayName] = hours; // Direct assignment, don't add to existing value
+          daysWithWorkingData.add(dayName);
+        }
+      });
+    }
+
+    // Process non-working entries - ONLY for current month
+    if (apiTimesheet.nonWorkingEntries) {
+      apiTimesheet.nonWorkingEntries.forEach(entry => {
+        const entryDate = new Date(entry.date);
+        const dayOfWeek = entryDate.getDay();
+
+        let dayIndex;
+        if (dayOfWeek === 0) {
+          dayIndex = 6;
+        } else {
+          dayIndex = dayOfWeek - 1;
+        }
+
+        const dayName = days[dayIndex];
+        const hours = parseFloat(entry.hours) || 0;
+        const description = entry.description?.toLowerCase() || '';
+
+        const isInCurrentMonth = entryDate.getMonth() === currentMonth &&
+          entryDate.getFullYear() === currentYear;
+        const isInSelectedWeek = isDateInSelectedWeek(entryDate, selectedWeekStart);
+
+        if (dayName && isInCurrentMonth && isInSelectedWeek) {
+          if (description.includes('sick leave')) {
+            transformed.sickLeave[dayName] = hours; // Direct assignment
+            daysWithNonWorkingData.add(dayName);
+          } else if (description.includes('company holiday') || description.includes('holiday')) {
+            transformed.companyHoliday[dayName] = hours; // Direct assignment
+            daysWithNonWorkingData.add(dayName);
+          }
+        }
+      });
+    }
+
+    // FIXED: For rejected timesheets in edit mode, preserve zero values and don't set defaults
+    if (currentMonthStatus === 'DRAFT' || (currentMonthStatus === 'REJECTED' && !isEditMode)) {
+      days.forEach(day => {
+        const dayDate = getDateForDay(selectedWeekStart, day);
+        const isInCurrentMonth = dayDate ?
+          (dayDate.getMonth() === currentMonth && dayDate.getFullYear() === currentYear) :
+          false;
+
+        // Only set default values for days that have NO data entries
+        if (isInCurrentMonth &&
+          !daysWithWorkingData.has(day) &&
+          !daysWithNonWorkingData.has(day) &&
+          ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].includes(day)) {
           transformed[day] = 8;
         }
-      }
-    });
-  }
-
-  transformed.percentageOfTarget = calculatePercentage(transformed);
-  setNotes(transformed.notes);
-  
-  console.log('Final transformed timesheet for current month:', {
-    status: transformed.status,
-    datesInMonth: currentMonthDates.map(d => d.toISOString().split('T')[0]),
-    hours: {
-      monday: transformed.monday,
-      tuesday: transformed.tuesday,
-      wednesday: transformed.wednesday,
-      thursday: transformed.thursday,
-      friday: transformed.friday
+      });
     }
-  });
-  
-  return transformed;
-};
 
+    transformed.percentageOfTarget = calculatePercentage(transformed);
+    setNotes(transformed.notes);
+
+    return transformed;
+  };
 
 
   useEffect(() => {
     if ((role === 'ACCOUNTS' || role === 'ADMIN') && selectedEmployee && !isCreateMode && !isAddingNewTimesheet) {
       console.log('Auto-enabling monthly view for ACCOUNTS/INVOICE role');
       setMonthlyViewMode(true);
-
-      // Fetch monthly data if we have the required data
       if (selectedEmployee && calendarValue && !loading) {
         fetchMonthlyTimesheetData(selectedEmployee);
       }
@@ -1352,7 +1244,6 @@ const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
     }
   }, [role, selectedEmployee, isCreateMode, isAddingNewTimesheet]);
 
-  // Enhanced fetchMonthlyTimesheetData function
   // Enhanced fetchMonthlyTimesheetData function
   const fetchMonthlyTimesheetData = async (employeeId) => {
     if (!employeeId) {
@@ -1368,8 +1259,6 @@ const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
     setLoading(true);
     try {
       let monthStartStr, monthEndStr;
-
-      // FIXED: Always prioritize selectedMonthRange over calendarValue
       // This ensures refresh button uses the correct month range
       if (selectedMonthRange && selectedMonthRange.start && selectedMonthRange.end) {
         monthStartStr = selectedMonthRange.start;
@@ -1386,14 +1275,6 @@ const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
         console.log('Using calendar value for month range (fallback):', { monthStartStr, monthEndStr });
       }
 
-      console.log('Fetching monthly data with final parameters:', {
-        employeeId,
-        monthStartStr,
-        monthEndStr,
-        selectedMonthRange,
-        calendarValue: calendarValue.toString()
-      });
-
       const resultAction = await dispatch(fetchTimesheetsByUserIdWithDateRange({
         userId: employeeId,
         monthStart: monthStartStr,
@@ -1408,20 +1289,11 @@ const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
         const totalWorkingHours = response?.data?.totalWorkingHours || 0;
         setMonthlyTotalWorkingHours(totalWorkingHours);
 
-        console.log('Monthly timesheet data received:', {
-          timesheetData,
-          totalWorkingHours,
-          fullResponse: response
-        });
-
         setTimeSheetData(timesheetData);
 
-        // FIXED: Use the same date range that was used for API call for processing
         const targetDate = selectedMonthRange && selectedMonthRange.start
           ? new Date(selectedMonthRange.start)
           : new Date(calendarValue);
-
-        console.log('Using targetDate for week processing:', targetDate);
 
         const weeks = getWeeksInMonth(targetDate);
         setCurrentMonthWeeks(weeks);
@@ -1462,6 +1334,7 @@ const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
     }
   };
   console.log("monthly data..", monthlyTimesheetData)
+
   const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) => {
     if (!apiTimesheet) return null;
 
@@ -1571,12 +1444,12 @@ const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
     return transformed;
   };
 
-  // Add this function to check if it's Friday in the present week
+
   const isFridayInPresentWeek = () => {
     if (!selectedWeekStart || !isPresentWeek(selectedWeekStart)) return false;
 
     const today = new Date();
-    return today.getDay() === 5; // 5 = Friday (0 = Sunday, 1 = Monday, ..., 5 = Friday, 6 = Saturday)
+    return today.getDay() === 5;
   };
 
 
@@ -1627,15 +1500,12 @@ const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
             return false;
           }
         }
-
         return true;
       }
     }
 
-    // FOURTH: For PENDING_APPROVAL status, fields should be read-only (not editable) but values should still be visible
-    // This is the key fix - PENDING_APPROVAL timesheets should not be editable but data should display
     if (timesheet.status === 'PENDING_APPROVAL') {
-      return false; // Not editable, but data will still be shown in the TextField
+      return false;
     }
 
     // FIFTH: For APPROVED status, fields should be read-only
@@ -1685,7 +1555,6 @@ const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
 
     if (!currentTimesheet) return;
 
-    // Skip calendar month validation if in edit mode
     if (!isEditMode) {
       const dayDate = getDateForDay(selectedWeekStart, day);
       const isInCalendarMonth = dayDate ? isDateInCalendarMonth(dayDate, calendarValue) : false;
@@ -1699,7 +1568,6 @@ const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
 
     const numValue = parseFloat(value) || 0;
 
-    // Validate hour limits (maximum 8 hours for any type)
     if (numValue < 0 || numValue > 8) {
       if (numValue > 8) {
         ToastService.error(`Maximum 8 hours allowed per day`);
@@ -1810,16 +1678,7 @@ const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
 
   const createNewTimesheetForEmployee = (employeeId = null) => {
     const weekInfo = getWeekDates(selectedWeekStart);
-    const targetUserId = employeeId || selectedEmployee || userId;
-
-    console.log('Creating new timesheet for employee:', {
-      targetUserId,
-      selectedProject,
-      weekInfo,
-      employeeId,
-      selectedEmployee,
-      isCreateMode
-    });
+    const targetUserId = employeeId || selectedEmployee || userId
 
     const newTimesheet = {
       id: null,
@@ -1828,17 +1687,17 @@ const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
       status: 'DRAFT',
       startDate: weekInfo.startString,
       endDate: weekInfo.endString,
-      monday: 8,
-      tuesday: 8,
-      wednesday: 8,
-      thursday: 8,
-      friday: 8,
+      monday: 0,
+      tuesday: 0,
+      wednesday: 0,
+      thursday: 0,
+      friday: 0,
       saturday: 0,
       sunday: 0,
       notes: '',
       entries: [],
       isEditable: true,
-      percentageOfTarget: 100,
+      percentageOfTarget: 0,
       dayStatuses: {
         monday: 'Working',
         tuesday: 'Working',
@@ -1870,13 +1729,12 @@ const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
       nonWorkingEntries: []
     };
 
-    // For create mode, set default hours based on calendar month
     const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
     days.forEach(day => {
       const dayDate = getDateForDay(selectedWeekStart, day);
       const isInCalendarMonth = dayDate ? isDateInCalendarMonth(dayDate, calendarValue) : false;
       if (isInCalendarMonth) {
-        newTimesheet[day] = 8;
+        newTimesheet[day] = 8; // Only set default for new timesheets in current month
       } else {
         newTimesheet[day] = 0;
       }
@@ -1888,14 +1746,10 @@ const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
     setIsSubmitted(false);
 
     console.log('New timesheet created for create mode:', newTimesheet);
-
-    // For create mode, we don't want to add to timesheetData immediately
     if (!isCreateMode) {
       setTimeSheetData(prev => [...prev, newTimesheet]);
     }
   };
-
-
 
   const getEmptyTimesheet = (project = null) => {
     const weekInfo = getWeekDates(selectedWeekStart);
@@ -1935,159 +1789,400 @@ const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
 
     return emptyTimesheet;
   };
-const saveTimesheet = async (isSubmission = false, isEdit = false) => {
-  if (!currentTimesheet) return;
 
-  // Check if this is a rejected timesheet that needs special handling
-  const isRejectedTimesheet = currentTimesheet.status === 'REJECTED';
-  const shouldForceIncludeDays = isRejectedTimesheet && !isEditMode && !isEdit;
+  const saveTimesheet = async (isSubmission = false, isEdit = false) => {
+    if (!currentTimesheet) return;
 
-  if (isEditMode || isEdit) {
-    console.log("Saving edited timesheet in edit mode:", currentTimesheet.id);
-    setLoading(true);
+    // Check if this is a rejected timesheet that needs special handling
+    const isRejectedTimesheet = currentTimesheet.status === 'REJECTED';
+    const shouldForceIncludeDays = isRejectedTimesheet && !isEditMode && !isEdit;
 
-    try {
-      const workingHours = getWorkingDaysHours(currentTimesheet);
-      const targetUserId = selectedEmployee || userId;
+    if (isEditMode || isEdit) {
+      console.log("Saving edited timesheet in edit mode:", currentTimesheet.id);
+      setLoading(true);
 
-      // Create working entries - for edit mode, process ONLY enabled days
-      const workingEntries = [];
-      const nonWorkingEntries = [];
-      const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+      try {
+        const workingHours = getWorkingDaysHours(currentTimesheet);
+        const targetUserId = selectedEmployee || userId;
 
-      days.forEach(day => {
-        const dayDate = getDateForDay(selectedWeekStart, day);
-        if (!dayDate) return;
+        // Create working entries - for edit mode, process ONLY enabled days
+        const workingEntries = [];
+        const nonWorkingEntries = [];
+        const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
-        const dateStr = formatDateToYMD(dayDate);
+        days.forEach((day, index) => {
+          // FIXED: Calculate the correct date for each day based on the selected week start
+          const weekStartDate = new Date(selectedWeekStart);
+          const dayDate = new Date(weekStartDate);
+          dayDate.setDate(weekStartDate.getDate() + index); // Add index to get correct day
 
-        // Check if this day is enabled (in current calendar month and editable)
-        // For edit mode, we're more permissive since user is explicitly editing
-        const isInCalendarMonth = isDateInCalendarMonth(dayDate, calendarValue);
-        const isEditable = isFieldEditable(currentTimesheet, day, null, calendarValue, true); // Force editable in edit mode
+          const dateStr = formatDateToYMD(dayDate);
 
-        // Only include days that are in current month AND editable (or force include for rejected)
-        const shouldIncludeDay = isInCalendarMonth && (isEditable || shouldForceIncludeDays);
+          // Check if this day is enabled (in current calendar month)
+          const isInCalendarMonth = isDateInCalendarMonth(dayDate, calendarValue);
 
-        if (shouldIncludeDay) {
-          // Regular working hours - ONLY include if hours > 0 and not weekend
-          if (currentTimesheet[day] > 0 && !['saturday', 'sunday'].includes(day)) {
-            workingEntries.push({
-              date: dateStr,
-              hours: currentTimesheet[day],
-              project: selectedProject
-            });
+          // FIXED: For rejected timesheets, include all days in current month when in edit mode
+          let shouldIncludeDay = isInCalendarMonth;
+
+          if (isRejectedTimesheet && !isEditMode && !isEdit) {
+            // For rejected timesheets not in edit mode, only include days with data
+            const hasWorkingHours = currentTimesheet[day] > 0;
+            const hasSickLeave = currentTimesheet.sickLeave && currentTimesheet.sickLeave[day] > 0;
+            const hasHoliday = currentTimesheet.companyHoliday && currentTimesheet.companyHoliday[day] > 0;
+            shouldIncludeDay = (hasWorkingHours || hasSickLeave || hasHoliday) && isInCalendarMonth;
           }
 
-          // Sick leave - only if > 0
-          if (currentTimesheet.sickLeave && currentTimesheet.sickLeave[day] > 0) {
-            nonWorkingEntries.push({
-              date: dateStr,
-              hours: currentTimesheet.sickLeave[day],
-              description: 'Sick Leave',
-            });
+          // FIXED: Additional check to ensure dates belong to the correct timesheet week
+          const weekStart = new Date(selectedWeekStart);
+          const weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekEnd.getDate() + 6);
+
+          const isInSelectedWeek = dayDate >= weekStart && dayDate <= weekEnd;
+
+          // Only process days that should be included and are in the correct week
+          if (shouldIncludeDay && isInSelectedWeek) {
+            if (currentTimesheet[day] >= 0 && !['saturday', 'sunday'].includes(day)) {
+              workingEntries.push({
+                date: dateStr,
+                hours: currentTimesheet[day],
+                project: selectedProject
+              });
+            }
+
+            // Sick leave - only if > 0
+            if (currentTimesheet.sickLeave && currentTimesheet.sickLeave[day] > 0) {
+              nonWorkingEntries.push({
+                date: dateStr,
+                hours: currentTimesheet.sickLeave[day],
+                description: 'Sick Leave',
+              });
+            }
+
+            // Company holiday - only if > 0
+            if (currentTimesheet.companyHoliday && currentTimesheet.companyHoliday[day] > 0) {
+              nonWorkingEntries.push({
+                date: dateStr,
+                hours: currentTimesheet.companyHoliday[day],
+                description: 'Company Holiday',
+              });
+            }
           }
+        });
 
-          // Company holiday - only if > 0
-          if (currentTimesheet.companyHoliday && currentTimesheet.companyHoliday[day] > 0) {
-            nonWorkingEntries.push({
-              date: dateStr,
-              hours: currentTimesheet.companyHoliday[day],
-              description: 'Company Holiday',
-            });
+        const timesheetPayload = {
+          date: selectedWeekStart,
+          workingEntries,
+          nonWorkingEntries,
+          notes: notes || '',
+        };
+
+        console.log("Updating timesheet in edit mode:", timesheetPayload);
+
+        const resultAction = await dispatch(createTimesheet({
+          timesheetId: currentTimesheet.id,
+          userId: targetUserId,
+          timesheetData: timesheetPayload
+        }));
+
+        if (createTimesheet.fulfilled.match(resultAction)) {
+          const response = resultAction.payload;
+
+          if (response?.success) {
+            ToastService.success("Timesheet updated and resubmitted for approval");
+            setIsEditMode(false);
+            setHasUnsavedChanges(false);
+
+            // Update the timesheet status locally
+            setCurrentTimesheet(prev => ({
+              ...prev,
+              status: 'PENDING_APPROVAL',
+              isEditable: false
+            }));
+
+            // Refresh the data
+            setTimeout(() => {
+              fetchOrCreateTimesheet();
+            }, 500);
+          } else {
+            const errorMessage = extractErrorMessage(response);
+            ToastService.error(errorMessage);
           }
-        }
-      });
-
-      const timesheetPayload = {
-        date: selectedWeekStart,
-        workingEntries,
-        nonWorkingEntries,
-        notes: notes || '',
-        status: 'PENDING_APPROVAL' // Set back to pending approval after edit
-      };
-
-      console.log("Updating timesheet in edit mode:", timesheetPayload);
-
-      const resultAction = await dispatch(createTimesheet({
-        timesheetId: currentTimesheet.id,
-        userId: targetUserId,
-        timesheetData: timesheetPayload
-      }));
-
-      if (createTimesheet.fulfilled.match(resultAction)) {
-        const response = resultAction.payload;
-
-        if (response?.success) {
-          ToastService.success("Timesheet updated and resubmitted for approval");
-          setIsEditMode(false);
-          setHasUnsavedChanges(false);
-
-          // Update the timesheet status locally
-          setCurrentTimesheet(prev => ({
-            ...prev,
-            status: 'PENDING_APPROVAL',
-            isEditable: false
-          }));
-
-          // Refresh the data
-          setTimeout(() => {
-            fetchOrCreateTimesheet();
-          }, 500);
         } else {
-          const errorMessage = extractErrorMessage(response);
+          const errorMessage = extractErrorMessage(resultAction.payload);
           ToastService.error(errorMessage);
         }
-      } else {
-        const errorMessage = extractErrorMessage(resultAction.payload);
+      } catch (error) {
+        console.error("Error updating timesheet:", error);
+        const errorMessage = extractErrorMessage(error);
         ToastService.error(errorMessage);
-      }
-    } catch (error) {
-      console.error("Error updating timesheet:", error);
-      const errorMessage = extractErrorMessage(error);
-      ToastService.error(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-    return; // IMPORTANT: Return early after handling edit mode
-  }
-
-  // Handle create mode saving
-  if (isCreateMode || isAddingNewTimesheet) {
-    console.log("Saving timesheet in create/add mode");
-    setLoading(true);
-
-    try {
-      const workingHours = getWorkingDaysHours(currentTimesheet);
-      const targetUserId = tempEmployeeForAdd || selectedEmployee || userId;
-
-      if (!targetUserId) {
-        ToastService.error("No employee selected for timesheet creation");
+      } finally {
         setLoading(false);
-        return;
       }
+      return;
+    }
 
-      // Create working entries - ONLY for enabled days
+    // Handle create mode saving
+    if (isCreateMode || isAddingNewTimesheet) {
+      console.log("Saving timesheet in create/add mode");
+      setLoading(true);
+
+      try {
+        const workingHours = getWorkingDaysHours(currentTimesheet);
+        const targetUserId = tempEmployeeForAdd || selectedEmployee || userId;
+
+        if (!targetUserId) {
+          ToastService.error("No employee selected for timesheet creation");
+          setLoading(false);
+          return;
+        }
+
+        // Create working entries - ONLY for enabled days
+        const workingEntries = [];
+        const nonWorkingEntries = [];
+        const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+        days.forEach((day, index) => {
+          // FIXED: Calculate the correct date for each day based on the selected week start
+          const weekStartDate = new Date(selectedWeekStart);
+          const dayDate = new Date(weekStartDate);
+          dayDate.setDate(weekStartDate.getDate() + index); // Add index to get correct day
+
+          const dateStr = formatDateToYMD(dayDate);
+
+          // Check if this day is enabled (in current calendar month)
+          const isInCalendarMonth = isDateInCalendarMonth(dayDate, calendarValue);
+
+          // For rejected timesheets in create mode, we need to be more permissive
+          const shouldIncludeDay = isInCalendarMonth || shouldForceIncludeDays;
+
+          // Only process days that are in the current calendar month (or force include for rejected)
+          if (shouldIncludeDay) {
+            if (currentTimesheet[day] >= 0 && !['saturday', 'sunday'].includes(day)) {
+              workingEntries.push({
+                date: dateStr,
+                hours: currentTimesheet[day],
+                project: selectedProject
+              });
+            }
+
+            // Sick leave - only if > 0
+            if (currentTimesheet.sickLeave && currentTimesheet.sickLeave[day] > 0) {
+              nonWorkingEntries.push({
+                date: dateStr,
+                hours: currentTimesheet.sickLeave[day],
+                description: 'Sick Leave',
+              });
+            }
+
+            // Company holiday - only if > 0
+            if (currentTimesheet.companyHoliday && currentTimesheet.companyHoliday[day] > 0) {
+              nonWorkingEntries.push({
+                date: dateStr,
+                hours: currentTimesheet.companyHoliday[day],
+                description: 'Company Holiday',
+              });
+            }
+          }
+        });
+
+        // Validate that we have at least some data (can be 0 hours for all days)
+        const hasAnyData = workingEntries.length > 0 || nonWorkingEntries.length > 0;
+        if (!hasAnyData) {
+          ToastService.error("Cannot save timesheet with no data");
+          setLoading(false);
+          return;
+        }
+
+        const timesheetPayload = {
+          date: selectedWeekStart,
+          workingEntries,
+          nonWorkingEntries,
+          notes: notes || ''
+        };
+
+        console.log("Creating new timesheet in create mode:", timesheetPayload);
+
+        const resultAction = await dispatch(createTimesheet({
+          userId: targetUserId,
+          timesheetData: timesheetPayload
+        }));
+
+        if (createTimesheet.fulfilled.match(resultAction)) {
+          const response = resultAction.payload;
+
+          if (response?.success) {
+            setHasUnsavedChanges(false);
+
+            // IMPORTANT: Update the current timesheet with the new ID
+            if (response.data?.timesheetId) {
+              setCurrentTimesheet(prev => ({
+                ...prev,
+                id: response.data.timesheetId,
+                status: 'DRAFT' || 'REJECTED'
+              }));
+            }
+
+            // Update timesheetData immediately with the complete timesheet information
+            setTimeSheetData(prevData => {
+              const newTimesheetForTable = {
+                timesheetId: response.data?.timesheetId,
+                userId: targetUserId,
+                weekStartDate: selectedWeekStart,
+                weekEndDate: getWeekDates(selectedWeekStart).endString,
+                status: 'DRAFT',
+                project: selectedProject,
+                workingEntries: workingEntries,
+                nonWorkingEntries: nonWorkingEntries,
+                notes: notes || '',
+                timesheetType: 'MONTHLY',
+                monday: currentTimesheet.monday, // Direct from current state
+                tuesday: currentTimesheet.tuesday,
+                wednesday: currentTimesheet.wednesday,
+                thursday: currentTimesheet.thursday,
+                friday: currentTimesheet.friday,
+                saturday: currentTimesheet.saturday,
+                sunday: currentTimesheet.sunday,
+                sickLeave: { ...currentTimesheet.sickLeave },
+                companyHoliday: { ...currentTimesheet.companyHoliday },
+                id: response.data?.timesheetId,
+                startDate: selectedWeekStart,
+                endDate: getWeekDates(selectedWeekStart).endString,
+                isEditable: true
+              };
+
+              // Check if this timesheet already exists in the data
+              const existingIndex = prevData.findIndex(ts =>
+                ts.timesheetId === newTimesheetForTable.timesheetId ||
+                (ts.weekStartDate === selectedWeekStart &&
+                  ts.workingEntries?.some(entry => entry.project === selectedProject))
+              );
+
+              if (existingIndex >= 0) {
+                const updatedData = [...prevData];
+                updatedData[existingIndex] = {
+                  ...updatedData[existingIndex],
+                  ...newTimesheetForTable,
+                  monday: currentTimesheet.monday,
+                  tuesday: currentTimesheet.tuesday,
+                  wednesday: currentTimesheet.wednesday,
+                  thursday: currentTimesheet.thursday,
+                  friday: currentTimesheet.friday,
+                  saturday: currentTimesheet.saturday,
+                  sunday: currentTimesheet.sunday,
+                  sickLeave: { ...currentTimesheet.sickLeave },
+                  companyHoliday: { ...currentTimesheet.companyHoliday }
+                };
+                return updatedData;
+              } else {
+                return [...prevData, newTimesheetForTable];
+              }
+            });
+
+            ToastService.success("Timesheet created successfully");
+
+            if (pendingAttachments.length > 0 && response.data?.timesheetId) {
+              console.log("Uploading pending attachments for new timesheet:", pendingAttachments);
+              try {
+                const filesToUpload = pendingAttachments.map(att => att.file);
+
+                const editableRange = getEditableDateRange(currentTimesheet);
+                const uploadResponse = await uploadFilesToServer(
+                  response.data.timesheetId,
+                  filesToUpload,
+                  editableRange ? editableRange.start : null,
+                  editableRange ? editableRange.end : null
+                );
+
+                if (uploadResponse?.success) {
+                  const uploadedAttachments = pendingAttachments.map(att => ({
+                    ...att,
+                    uploaded: true,
+                    file: undefined,
+                    url: uploadResponse.fileUrls?.find(url => url.includes(att.name))
+                  }));
+
+                  setAttachments(prev => [...prev.filter(a => a.uploaded), ...uploadedAttachments]);
+                  setPendingAttachments([]);
+                  ToastService.success(`Timesheet saved and ${pendingAttachments.length} attachment(s) uploaded`);
+                } else {
+                  ToastService.warning(`Timesheet saved but failed to upload some attachments`);
+                }
+              } catch (uploadError) {
+                console.error("Error uploading pending attachments:", uploadError);
+                ToastService.error("Failed to upload attachments after saving timesheet");
+              }
+            }
+            setTimeout(() => {
+              fetchOrCreateTimesheet();
+            }, 500);
+          } else {
+            const errorMessage = extractErrorMessage(response);
+            ToastService.error(errorMessage);
+          }
+        } else {
+          const errorMessage = extractErrorMessage(resultAction.payload);
+          ToastService.error(errorMessage);
+        }
+      } catch (error) {
+        console.error("Error creating timesheet in create mode:", error);
+        const errorMessage = extractErrorMessage(error);
+        ToastService.error(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    const workingHours = getWorkingDaysHours(currentTimesheet);
+    const targetUserId = selectedEmployee || userId;
+
+    setLoading(true);
+    try {
+      // Create working entries - handle rejected timesheets specially
       const workingEntries = [];
       const nonWorkingEntries = [];
       const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
-      days.forEach(day => {
-        const dayDate = getDateForDay(selectedWeekStart, day);
-        if (!dayDate) return;
+      days.forEach((day, index) => {
+        // FIXED: Calculate the correct date for each day based on the selected week start
+        const weekStartDate = new Date(selectedWeekStart);
+        const dayDate = new Date(weekStartDate);
+        dayDate.setDate(weekStartDate.getDate() + index); // Add index to get correct day
 
         const dateStr = formatDateToYMD(dayDate);
 
-        // Check if this day is enabled (in current calendar month)
-        const isInCalendarMonth = isDateInCalendarMonth(dayDate, calendarValue);
-        
-        // For rejected timesheets in create mode, we need to be more permissive
-        const shouldIncludeDay = isInCalendarMonth || shouldForceIncludeDays;
+        let shouldIncludeDay = false;
 
-        // Only process days that are in the current calendar month (or force include for rejected)
-        if (shouldIncludeDay) {
-          // Regular working hours - ONLY include if hours >= 0 and not weekend
-          // Allow zero hours for weekdays to be sent to backend
+        if (isRejectedTimesheet) {
+          // FIXED: For rejected timesheets, include days that are in the CURRENT WEEK's month
+          const isInCalendarMonth = isDateInCalendarMonth(dayDate, calendarValue);
+
+          // For rejected timesheets in edit mode, include all days in the current week's month
+          if (isEditMode || isEdit) {
+            shouldIncludeDay = isInCalendarMonth;
+          } else {
+            // For non-edit mode, use the original logic (only days with data)
+            const hasWorkingHours = currentTimesheet[day] > 0;
+            const hasSickLeave = currentTimesheet.sickLeave && currentTimesheet.sickLeave[day] > 0;
+            const hasHoliday = currentTimesheet.companyHoliday && currentTimesheet.companyHoliday[day] > 0;
+            shouldIncludeDay = (hasWorkingHours || hasSickLeave || hasHoliday) && isInCalendarMonth;
+          }
+        } else {
+          // For non-rejected timesheets, use normal logic
+          const isInCalendarMonth = isDateInCalendarMonth(dayDate, calendarValue);
+          const isEditable = isFieldEditable(currentTimesheet, day, null, calendarValue);
+          shouldIncludeDay = isInCalendarMonth && isEditable;
+        }
+
+        // FIXED: Additional check to ensure dates belong to the correct timesheet week
+        // Only include dates that fall within the selected week's date range
+        const weekStart = new Date(selectedWeekStart);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6); // End of the week
+
+        const isInSelectedWeek = dayDate >= weekStart && dayDate <= weekEnd;
+
+        if (shouldIncludeDay && isInSelectedWeek) {
           if (currentTimesheet[day] >= 0 && !['saturday', 'sunday'].includes(day)) {
             workingEntries.push({
               date: dateStr,
@@ -2116,10 +2211,35 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
         }
       });
 
-      // Validate that we have at least some data (can be 0 hours for all days)
-      const hasAnyData = workingEntries.length > 0 || nonWorkingEntries.length > 0;
-      if (!hasAnyData) {
-        ToastService.error("Cannot save timesheet with no data");
+      // If it's a rejected timesheet and we have no entries, check if user intended to save
+      if (workingEntries.length === 0 && nonWorkingEntries.length === 0) {
+        if (isRejectedTimesheet) {
+          const hasAnyHours = days.some(day => {
+            const weekStartDate = new Date(selectedWeekStart);
+            const dayDate = new Date(weekStartDate);
+            dayDate.setDate(weekStartDate.getDate() + days.indexOf(day)); // Use indexOf to get correct index
+
+            if (!dayDate) return false;
+
+            const isInCalendarMonth = isDateInCalendarMonth(dayDate, calendarValue);
+            if (!isInCalendarMonth) return false;
+
+            const hasWorkingHours = currentTimesheet[day] > 0;
+            const hasSickLeave = currentTimesheet.sickLeave && currentTimesheet.sickLeave[day] > 0;
+            const hasHoliday = currentTimesheet.companyHoliday && currentTimesheet.companyHoliday[day] > 0;
+
+            return hasWorkingHours || hasSickLeave || hasHoliday;
+          });
+
+          if (hasAnyHours) {
+            // User entered hours but they're not being included - this is an error
+            ToastService.error("Cannot save timesheet - entered hours are not in the current calendar month");
+          } else {
+            ToastService.error("Cannot save timesheet with no data");
+          }
+        } else {
+          ToastService.error("Cannot save timesheet with no data");
+        }
         setLoading(false);
         return;
       }
@@ -2131,390 +2251,205 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
         notes: notes || ''
       };
 
-      console.log("Creating new timesheet in create mode:", timesheetPayload);
+      console.log("Sending timesheet data:", JSON.stringify(timesheetPayload, null, 2));
 
-      const resultAction = await dispatch(createTimesheet({
-        userId: targetUserId,
-        timesheetData: timesheetPayload
-      }));
+      let response;
 
-      if (createTimesheet.fulfilled.match(resultAction)) {
-        const response = resultAction.payload;
+      if (currentTimesheet.id) {
+        console.log("Using update API for existing timesheet");
+        const resultAction = await dispatch(createTimesheet({
+          timesheetId: currentTimesheet.id,
+          userId: targetUserId,
+          timesheetData: timesheetPayload
+        }));
 
-        if (response?.success) {
-          setHasUnsavedChanges(false);
+        if (createTimesheet.fulfilled.match(resultAction)) {
+          response = resultAction.payload;
+          console.log("Updated timesheet via updateTimesheet API");
+        } else {
+          const errorMessage = extractErrorMessage(resultAction.payload);
+          ToastService.error(errorMessage);
+          setLoading(false);
+          return;
+        }
+      } else {
+        // Use create API for new timesheets
+        console.log("Using create API for new timesheet");
+        const resultAction = await dispatch(createTimesheet({
+          userId: targetUserId,
+          timesheetData: timesheetPayload
+        }));
 
-          // Handle attachments if any
-          if (pendingAttachments.length > 0 && response.data?.timesheetId) {
-            console.log("Uploading pending attachments for new timesheet:", pendingAttachments);
-            try {
-              const filesToUpload = pendingAttachments.map(att => att.file);
+        if (createTimesheet.fulfilled.match(resultAction)) {
+          response = resultAction.payload;
+          console.log("Created timesheet via createTimesheet API");
+        } else {
+          const errorMessage = extractErrorMessage(resultAction.payload);
 
-              // Check if dates should be included based on working hours
-              const editableRange = getEditableDateRange(currentTimesheet);
-              const uploadResponse = await uploadFilesToServer(
-                response.data.timesheetId,
-                filesToUpload,
-                editableRange ? editableRange.start : null,
-                editableRange ? editableRange.end : null
-              );
-
-              if (uploadResponse?.success) {
-                const uploadedAttachments = pendingAttachments.map(att => ({
-                  ...att,
-                  uploaded: true,
-                  file: undefined,
-                  url: uploadResponse.fileUrls?.find(url => url.includes(att.name))
-                }));
-
-                setAttachments(prev => [...prev.filter(a => a.uploaded), ...uploadedAttachments]);
-                setPendingAttachments([]);
-                ToastService.success(`Timesheet saved and ${pendingAttachments.length} attachment(s) uploaded`);
-              } else {
-                ToastService.warning(`Timesheet saved but failed to upload some attachments`);
-              }
-            } catch (uploadError) {
-              console.error("Error uploading pending attachments:", uploadError);
-              ToastService.error("Failed to upload attachments after saving timesheet");
-            }
+          if (errorMessage.toLowerCase().includes('duplicate')) {
+            ToastService.error("A timesheet already exists for this week and project. Please refresh the page to edit the existing timesheet.");
+          } else {
+            ToastService.error(errorMessage);
           }
+          setLoading(false);
+          return;
+        }
+      }
 
-          // Refresh to get the newly created timesheet with ID
+      console.log("Save response:", response);
+
+      if (response?.success) {
+        ToastService.success(currentTimesheet.id ? "Timesheet updated successfully" : "Timesheet created successfully");
+
+        if (!currentTimesheet.id && response.data?.timesheetId) {
+          setCurrentTimesheet(prev => ({
+            ...prev,
+            id: response.data.timesheetId,
+            status: 'DRAFT' || 'REJECTED'
+          }));
+        }
+
+        setTimeSheetData(prevData => {
+          const updatedTimesheet = {
+            timesheetId: response.data?.timesheetId || currentTimesheet.id,
+            userId: targetUserId,
+            weekStartDate: selectedWeekStart,
+            weekEndDate: getWeekDates(selectedWeekStart).endString,
+            status: 'DRAFT' || 'REJECTED',
+            project: selectedProject,
+            workingEntries: workingEntries,
+            nonWorkingEntries: nonWorkingEntries,
+            notes: notes || '',
+            timesheetType: 'MONTHLY',
+            monday: currentTimesheet.monday,
+            tuesday: currentTimesheet.tuesday,
+            wednesday: currentTimesheet.wednesday,
+            thursday: currentTimesheet.thursday,
+            friday: currentTimesheet.friday,
+            saturday: currentTimesheet.saturday,
+            sunday: currentTimesheet.sunday,
+            sickLeave: { ...currentTimesheet.sickLeave },
+            companyHoliday: { ...currentTimesheet.companyHoliday },
+            id: response.data?.timesheetId || currentTimesheet.id,
+            startDate: selectedWeekStart,
+            endDate: getWeekDates(selectedWeekStart).endString,
+            isEditable: true
+          };
+
+          const existingIndex = prevData.findIndex(ts =>
+            ts.timesheetId === updatedTimesheet.timesheetId ||
+            (ts.weekStartDate === selectedWeekStart &&
+              ts.workingEntries?.some(entry => entry.project === selectedProject))
+          );
+
+          if (existingIndex >= 0) {
+            const updatedData = [...prevData];
+            updatedData[existingIndex] = {
+              ...updatedData[existingIndex],
+              ...updatedTimesheet,
+              // Force update hour fields
+              monday: currentTimesheet.monday,
+              tuesday: currentTimesheet.tuesday,
+              wednesday: currentTimesheet.wednesday,
+              thursday: currentTimesheet.thursday,
+              friday: currentTimesheet.friday,
+              saturday: currentTimesheet.saturday,
+              sunday: currentTimesheet.sunday,
+              sickLeave: { ...currentTimesheet.sickLeave },
+              companyHoliday: { ...currentTimesheet.companyHoliday }
+            };
+            return updatedData;
+          } else {
+            return [...prevData, updatedTimesheet];
+          }
+        });
+
+
+        if (!isSubmission && pendingAttachments.length > 0 && response.data?.timesheetId && role === "EXTERNALEMPLOYEE") {
+          console.log("Uploading pending attachments:", pendingAttachments);
+          try {
+            const filesToUpload = pendingAttachments.map(att => att.file);
+
+            const includeDates = shouldIncludeDates(currentTimesheet);
+            const uploadResponse = await uploadFilesToServer(
+              response.data.timesheetId,
+              filesToUpload,
+              includeDates ? selectedWeekStart : null,
+              includeDates ? getWeekDates(selectedWeekStart).endString : null
+            );
+
+            if (uploadResponse?.success) {
+              const uploadedAttachments = pendingAttachments.map(att => ({
+                ...att,
+                uploaded: true,
+                file: undefined,
+                url: uploadResponse.fileUrls?.find(url => url.includes(att.name))
+              }));
+
+              setAttachments(prev => [...prev.filter(a => a.uploaded), ...uploadedAttachments]);
+              setPendingAttachments([]);
+              ToastService.success(`Timesheet saved and ${pendingAttachments.length} attachment(s) uploaded`);
+            } else {
+              ToastService.warning(`Timesheet saved but failed to upload some attachments`);
+            }
+          } catch (uploadError) {
+            console.error("Error uploading pending attachments:", uploadError);
+            ToastService.error("Failed to upload attachments after saving timesheet");
+          }
+        }
+
+        setHasUnsavedChanges(false);
+
+        if (isEdit) {
+          setIsEditMode(false);
+        }
+
+        if (role === 'EXTERNALEMPLOYEE' || isCreateMode || isAddingNewTimesheet) {
+          console.log('Force refreshing timesheet data');
+
+          setCurrentTimesheet(null);
+
           setTimeout(() => {
             fetchOrCreateTimesheet();
           }, 500);
-        } else {
-          const errorMessage = extractErrorMessage(response);
-          ToastService.error(errorMessage);
-        }
-      } else {
-        const errorMessage = extractErrorMessage(resultAction.payload);
-        ToastService.error(errorMessage);
-      }
-    } catch (error) {
-      console.error("Error creating timesheet in create mode:", error);
-      const errorMessage = extractErrorMessage(error);
-      ToastService.error(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-    return;
-  }
 
-  // Regular save for existing timesheets (not in create or edit mode)
-  const workingHours = getWorkingDaysHours(currentTimesheet);
-  const targetUserId = selectedEmployee || userId;
+        } else if (monthlyViewMode && (role === 'ACCOUNTS' || role === 'ADMIN')) {
 
-  console.log("Saving timesheet:", { 
-    currentTimesheet, 
-    workingHours, 
-    isSubmission, 
-    targetUserId,
-    isRejectedTimesheet,
-    shouldForceIncludeDays 
-  });
-
-  setLoading(true);
-  try {
-    // Create working entries - handle rejected timesheets specially
-    const workingEntries = [];
-    const nonWorkingEntries = [];
-    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-
-    days.forEach(day => {
-      const dayDate = getDateForDay(selectedWeekStart, day);
-      if (!dayDate) return;
-
-      const dateStr = formatDateToYMD(dayDate);
-
-      // SPECIAL HANDLING FOR REJECTED TIMESHEETS:
-      // For rejected timesheets, we need to include days even if they're not "editable"
-      // because the user should be able to save their corrections
-      let shouldIncludeDay = false;
-
-      if (isRejectedTimesheet) {
-        // For rejected timesheets, include days that have data OR are in current month
-        const hasWorkingHours = currentTimesheet[day] > 0;
-        const hasSickLeave = currentTimesheet.sickLeave && currentTimesheet.sickLeave[day] > 0;
-        const hasHoliday = currentTimesheet.companyHoliday && currentTimesheet.companyHoliday[day] > 0;
-        const isInCalendarMonth = isDateInCalendarMonth(dayDate, calendarValue);
-        
-        shouldIncludeDay = (hasWorkingHours || hasSickLeave || hasHoliday) && isInCalendarMonth;
-      } else {
-        // For non-rejected timesheets, use normal logic
-        const isInCalendarMonth = isDateInCalendarMonth(dayDate, calendarValue);
-        const isEditable = isFieldEditable(currentTimesheet, day, null, calendarValue);
-        shouldIncludeDay = isInCalendarMonth && isEditable;
-      }
-
-      // Only process days that should be included
-      if (shouldIncludeDay) {
-        // Regular working hours - ONLY include if hours >= 0 and not weekend
-        if (currentTimesheet[day] >= 0 && !['saturday', 'sunday'].includes(day)) {
-          workingEntries.push({
-            date: dateStr,
-            hours: currentTimesheet[day],
-            project: selectedProject
-          });
+          console.log('Refreshing monthly view data after save');
+          setTimeout(() => {
+            if (selectedEmployee) {
+              fetchMonthlyTimesheetData(selectedEmployee);
+            }
+          }, 500);
         }
 
-        // Sick leave - only if > 0
-        if (currentTimesheet.sickLeave && currentTimesheet.sickLeave[day] > 0) {
-          nonWorkingEntries.push({
-            date: dateStr,
-            hours: currentTimesheet.sickLeave[day],
-            description: 'Sick Leave',
-          });
-        }
-
-        // Company holiday - only if > 0
-        if (currentTimesheet.companyHoliday && currentTimesheet.companyHoliday[day] > 0) {
-          nonWorkingEntries.push({
-            date: dateStr,
-            hours: currentTimesheet.companyHoliday[day],
-            description: 'Company Holiday',
-          });
-        }
-      }
-    });
-
-    // If it's a rejected timesheet and we have no entries, check if user intended to save
-    if (workingEntries.length === 0 && nonWorkingEntries.length === 0) {
-      if (isRejectedTimesheet) {
-        // For rejected timesheets, check if user actually entered any hours
-        const hasAnyHours = days.some(day => {
-          const dayDate = getDateForDay(selectedWeekStart, day);
-          if (!dayDate) return false;
-          
-          const isInCalendarMonth = isDateInCalendarMonth(dayDate, calendarValue);
-          if (!isInCalendarMonth) return false;
-
-          const hasWorkingHours = currentTimesheet[day] > 0;
-          const hasSickLeave = currentTimesheet.sickLeave && currentTimesheet.sickLeave[day] > 0;
-          const hasHoliday = currentTimesheet.companyHoliday && currentTimesheet.companyHoliday[day] > 0;
-          
-          return hasWorkingHours || hasSickLeave || hasHoliday;
-        });
-
-        if (hasAnyHours) {
-          // User entered hours but they're not being included - this is an error
-          ToastService.error("Cannot save timesheet - entered hours are not in the current calendar month");
-        } else {
-          ToastService.error("Cannot save timesheet with no data");
-        }
       } else {
-        ToastService.error("Cannot save timesheet with no data");
-      }
-      setLoading(false);
-      return;
-    }
-
-    const timesheetPayload = {
-      date: selectedWeekStart,
-      workingEntries,
-      nonWorkingEntries,
-      notes: notes || ''
-    };
-
-    console.log("Sending timesheet data:", JSON.stringify(timesheetPayload, null, 2));
-
-    let response;
-
-    if (currentTimesheet.id) {
-      // Use update API for existing timesheets
-      console.log("Using update API for existing timesheet");
-      const resultAction = await dispatch(createTimesheet({
-        timesheetId: currentTimesheet.id,
-        userId: targetUserId,
-        timesheetData: timesheetPayload
-      }));
-
-      if (createTimesheet.fulfilled.match(resultAction)) {
-        response = resultAction.payload;
-        console.log("Updated timesheet via updateTimesheet API");
-      } else {
-        const errorMessage = extractErrorMessage(resultAction.payload);
-        ToastService.error(errorMessage);
-        setLoading(false);
-        return;
-      }
-    } else {
-      // Use create API for new timesheets
-      console.log("Using create API for new timesheet");
-      const resultAction = await dispatch(createTimesheet({
-        userId: targetUserId,
-        timesheetData: timesheetPayload
-      }));
-
-      if (createTimesheet.fulfilled.match(resultAction)) {
-        response = resultAction.payload;
-        console.log("Created timesheet via createTimesheet API");
-      } else {
-        const errorMessage = extractErrorMessage(resultAction.payload);
+        const errorMessage = extractErrorMessage(response);
 
         if (errorMessage.toLowerCase().includes('duplicate')) {
           ToastService.error("A timesheet already exists for this week and project. Please refresh the page to edit the existing timesheet.");
         } else {
           ToastService.error(errorMessage);
         }
-        setLoading(false);
-        return;
       }
-    }
+    } catch (error) {
+      console.error("Error saving timesheet:", error);
 
-    console.log("Save response:", response);
-
-    if (response?.success) {
-      ToastService.success(currentTimesheet.id ? "Timesheet updated successfully" : "Timesheet created successfully");
-
-      // Handle attachments for EXTERNALEMPLOYEE
-      if (!isSubmission && pendingAttachments.length > 0 && response.data?.timesheetId && role === "EXTERNALEMPLOYEE") {
-        console.log("Uploading pending attachments:", pendingAttachments);
-        try {
-          const filesToUpload = pendingAttachments.map(att => att.file);
-
-          // Check if dates should be included based on working hours
-          const includeDates = shouldIncludeDates(currentTimesheet);
-          const uploadResponse = await uploadFilesToServer(
-            response.data.timesheetId,
-            filesToUpload,
-            includeDates ? selectedWeekStart : null,
-            includeDates ? getWeekDates(selectedWeekStart).endString : null
-          );
-
-          if (uploadResponse?.success) {
-            const uploadedAttachments = pendingAttachments.map(att => ({
-              ...att,
-              uploaded: true,
-              file: undefined,
-              url: uploadResponse.fileUrls?.find(url => url.includes(att.name))
-            }));
-
-            setAttachments(prev => [...prev.filter(a => a.uploaded), ...uploadedAttachments]);
-            setPendingAttachments([]);
-            ToastService.success(`Timesheet saved and ${pendingAttachments.length} attachment(s) uploaded`);
-          } else {
-            ToastService.warning(`Timesheet saved but failed to upload some attachments`);
-          }
-        } catch (uploadError) {
-          console.error("Error uploading pending attachments:", uploadError);
-          ToastService.error("Failed to upload attachments after saving timesheet");
-        }
-      }
-
-      setHasUnsavedChanges(false);
-
-      if (isEdit) {
-        setIsEditMode(false);
-      }
-
-      // Force refresh the timesheet data
-      if (role === 'EXTERNALEMPLOYEE' || isCreateMode || isAddingNewTimesheet) {
-        console.log('Force refreshing timesheet data');
-
-        // Clear current timesheet to trigger re-fetch
-        setCurrentTimesheet(null);
-
-        // Force re-fetch the timesheet data with a small delay
-        setTimeout(() => {
-          fetchOrCreateTimesheet();
-        }, 300);
-      } else if (monthlyViewMode && (role === 'ACCOUNTS' || role === 'ADMIN')) {
-        // For monthly view, refresh monthly data
-        console.log('Refreshing monthly view data after save');
-        setTimeout(() => {
-          if (selectedEmployee) {
-            fetchMonthlyTimesheetData(selectedEmployee);
-          }
-        }, 500);
-      }
-
-    } else {
-      const errorMessage = extractErrorMessage(response);
+      const errorMessage = extractErrorMessage(error);
 
       if (errorMessage.toLowerCase().includes('duplicate')) {
         ToastService.error("A timesheet already exists for this week and project. Please refresh the page to edit the existing timesheet.");
       } else {
         ToastService.error(errorMessage);
       }
-    }
-  } catch (error) {
-    console.error("Error saving timesheet:", error);
-
-    const errorMessage = extractErrorMessage(error);
-
-    if (errorMessage.toLowerCase().includes('duplicate')) {
-      ToastService.error("A timesheet already exists for this week and project. Please refresh the page to edit the existing timesheet.");
-    } else {
-      ToastService.error(errorMessage);
-    }
-  } finally {
-    setLoading(false);
-  }
-};
-
-  const handleEditTimesheet = async () => {
-    if (!currentTimesheet || !currentTimesheet.id) {
-      ToastService.error('No timesheet available for editing');
-      return;
-    }
-
-    try {
-      // For rejected timesheets, we don't need to change the calendar month
-      // Just enable edit mode immediately
-
-      console.log('Enabling edit mode for rejected timesheet:', currentTimesheet.id);
-
-      // Set edit mode first to allow immediate editing
-      setIsEditMode(true);
-
-      // Update the backend to mark as editable (DRAFT status)
-      const result = await dispatch(createTimesheet({
-        timesheetId: currentTimesheet.id,
-        userId: selectedEmployee || userId,
-        timesheetData: {
-          date: selectedWeekStart,
-          workingEntries: [], // Will be populated from current state
-          nonWorkingEntries: [], // Will be populated from current state
-          notes: notes || currentTimesheet.notes || '',
-          status: 'DRAFT', // Change status to DRAFT for editing
-          isEditable: true
-        }
-      })).unwrap();
-
-      // If successful, update local state
-      if (result.success) {
-        setCurrentTimesheet(prev => ({
-          ...prev,
-          isEditable: true,
-          status: 'DRAFT' // Update status to DRAFT
-        }));
-        setHasUnsavedChanges(false);
-        ToastService.success("Timesheet is now in edit mode. You can modify and save changes.");
-      } else {
-        ToastService.error('Failed to enable edit mode');
-        setIsEditMode(false); // Revert if failed
-      }
-    } catch (error) {
-      console.error('Error enabling edit mode:', error);
-      const errorMessage = extractErrorMessage(error);
-      ToastService.error(errorMessage || 'Failed to enable edit mode');
-      setIsEditMode(false);
+    } finally {
+      setLoading(false);
     }
   };
-  // Add function to check if timesheet can be edited (rejected status)
-  const canEditTimesheet = () => {
-    return currentTimesheet &&
-      currentTimesheet.status === 'REJECTED' &&
-      (role === 'EXTERNALEMPLOYEE' || isCreateMode) &&
-      !isEditMode; // Only show edit button if not already in edit mode
-  };
-
 
   const handleAddTimesheetClick = (employeeId) => {
     console.log('Adding timesheet for employee:', employeeId);
 
-    // Set the temporary employee and trigger the add mode
     setTempEmployeeForAdd(employeeId);
     setIsAddingNewTimesheet(true);
     setSelectedEmployee(employeeId);
@@ -2532,22 +2467,17 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
     setSelectedWeekStart(currentWeek.startString);
     setCalendarValue(new Date(currentWeek.startString));
     setHighlightedWeek(getWeekDatesArray(new Date(currentWeek.startString)));
-
-    console.log('Add timesheet mode activated for employee:', employeeId);
   };
 
-  // 5. Replace the useEffect that handles project creation in create mode in Timesheets.js
+
   useEffect(() => {
-    // When project is selected in create/add mode, create timesheet immediately
     if (selectedProject && (isCreateMode || isAddingNewTimesheet) && (tempEmployeeForAdd || selectedEmployee)) {
       if (!selectedWeekStart) {
-        // Set current week if not set
         const currentWeek = getCurrentWeek();
         setSelectedWeekStart(currentWeek.startString);
         setCalendarValue(new Date(currentWeek.startString));
         setHighlightedWeek(getWeekDatesArray(new Date(currentWeek.startString)));
       } else {
-        // Create timesheet for the selected project and employee
         const targetEmployeeId = tempEmployeeForAdd || selectedEmployee;
         console.log('Creating timesheet for selected project and employee:', {
           selectedProject,
@@ -2561,7 +2491,6 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
 
 
   useEffect(() => {
-    // When calendar value changes, refresh the timesheet to show correct data for the new month
     if (selectedProject && selectedWeekStart && currentTimesheet) {
       console.log('Calendar month changed, refreshing timesheet data for new month');
       fetchOrCreateTimesheet();
@@ -2585,13 +2514,10 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
     }
   }, [prepopulatedEmployee]);
 
-  // Add this useEffect after your existing useEffects
   useEffect(() => {
-    // This will trigger when timesheetData changes and we're in create mode
     if ((isCreateMode || isAddingNewTimesheet) && timesheetData.length > 0 && !currentTimesheet) {
       console.log('Timesheet data updated in create mode, setting current timesheet');
 
-      // Find the newly created timesheet in the data
       const newTimesheet = timesheetData.find(ts =>
         ts.project === selectedProject &&
         ts.startDate === selectedWeekStart
@@ -2603,200 +2529,22 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
     }
   }, [timesheetData, isCreateMode, isAddingNewTimesheet, selectedProject, selectedWeekStart]);
 
-  // Add this useEffect to clean up blob URLs
-  useEffect(() => {
-    return () => {
-      if (attachmentContent && (attachmentType === 'pdf' || attachmentType === 'image')) {
-        if (typeof attachmentContent === 'string') {
-          window.URL.revokeObjectURL(attachmentContent);
-        }
-      }
-    };
-  }, [attachmentContent, attachmentType]);
-
-const getEditableDateRange = (timesheet) => {
-  if (!timesheet || !selectedWeekStart) return null;
-
-  const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
-  const datesWithHours = [];
-
-  days.forEach(day => {
-    const dayDate = getDateForDay(selectedWeekStart, day);
-    if (dayDate) {
-      // Check if this day has ANY hours (working, sick leave, or holiday)
-      const hasWorkingHours = timesheet[day] > 0;
-      const hasSickLeave = timesheet.sickLeave && timesheet.sickLeave[day] > 0;
-      const hasHoliday = timesheet.companyHoliday && timesheet.companyHoliday[day] > 0;
-      const hasAnyHours = hasWorkingHours || hasSickLeave || hasHoliday;
-
-      // Include date if it has hours, regardless of editability
-      if (hasAnyHours) {
-        datesWithHours.push(formatDateToYMD(dayDate));
-      }
-    }
-  });
-
-  if (datesWithHours.length === 0) {
-    // Fallback: if no hours found, use the current calendar month weekdays
-    days.forEach(day => {
-      const dayDate = getDateForDay(selectedWeekStart, day);
-      if (dayDate && isDateInCalendarMonth(dayDate, calendarValue)) {
-        datesWithHours.push(formatDateToYMD(dayDate));
-      }
-    });
-  }
-
-  if (datesWithHours.length === 0) {
-    // Final fallback: use the entire week (Monday to Friday)
-    days.forEach(day => {
-      const dayDate = getDateForDay(selectedWeekStart, day);
-      if (dayDate) {
-        datesWithHours.push(formatDateToYMD(dayDate));
-      }
-    });
-  }
-
-  if (datesWithHours.length === 0) return null;
-
-  // Sort dates and return start and end
-  datesWithHours.sort();
-  return {
-    start: datesWithHours[0],
-    end: datesWithHours[datesWithHours.length - 1]
-  };
-};
-
-const getWorkingDateRange = (timesheet) => {
-  if (!timesheet || !selectedWeekStart) return null;
-
-  // Get the week start date
-  const weekStartDate = new Date(selectedWeekStart);
-  
-  // Calculate Monday and Friday of the current week
-  const monday = new Date(weekStartDate);
-  const friday = new Date(weekStartDate);
-  friday.setDate(monday.getDate() + 4); // Friday is 4 days after Monday
-
-  // If current month view is active, limit to current month dates
-  if (calendarValue) {
-    const currentMonth = calendarValue.getMonth();
-    const currentYear = calendarValue.getFullYear();
-    
-    // Check if Monday is in current month
-    const mondayInCurrentMonth = monday.getMonth() === currentMonth && monday.getFullYear() === currentYear;
-    // Check if Friday is in current month  
-    const fridayInCurrentMonth = friday.getMonth() === currentMonth && friday.getFullYear() === currentYear;
-    
-    if (mondayInCurrentMonth && fridayInCurrentMonth) {
-      // Both in current month - use full week
-      return {
-        start: formatDateToYMD(monday),
-        end: formatDateToYMD(friday)
-      };
-    } else if (mondayInCurrentMonth && !fridayInCurrentMonth) {
-      // Only Monday side in current month
-      const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0);
-      return {
-        start: formatDateToYMD(monday),
-        end: formatDateToYMD(lastDayOfMonth)
-      };
-    } else if (!mondayInCurrentMonth && fridayInCurrentMonth) {
-      // Only Friday side in current month
-      const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
-      return {
-        start: formatDateToYMD(firstDayOfMonth),
-        end: formatDateToYMD(friday)
-      };
-    }
-  }
-  
-  // Default to Monday-Friday range
-  return {
-    start: formatDateToYMD(monday),
-    end: formatDateToYMD(friday)
-  };
-};
-
   const shouldIncludeDates = (timesheet) => {
     const editableRange = getEditableDateRange(timesheet);
     return editableRange !== null;
   };
 
-
- const uploadFilesToServer = async (timesheetId, files, startDate = null, endDate = null) => {
-  console.log('Uploading files to server:', {
-    timesheetId,
-    files,
-    startDate,
-    endDate
-  });
-
-  try {
-    // Use improved date range logic if dates are null
-    let finalStartDate = startDate;
-    let finalEndDate = endDate;
-
-    if ((!startDate || !endDate) && currentTimesheet) {
-      console.log('Dates are null, calculating from timesheet...');
-      
-      // Try the improved date range function first
-      const dateRange = getWorkingDateRange(currentTimesheet);
-      if (dateRange) {
-        finalStartDate = dateRange.start;
-        finalEndDate = dateRange.end;
-        console.log('Using calculated date range:', dateRange);
-      } else {
-        // Final fallback: use week start/end
-        const weekInfo = getWeekDates(selectedWeekStart);
-        finalStartDate = weekInfo.startString;
-        finalEndDate = weekInfo.endString;
-        console.log('Using week date range fallback:', weekInfo);
-      }
-    }
-
-    const uploadParams = {
-      timesheetId,
-      files
-    };
-
-    // Only add date parameters if they are valid
-    if (finalStartDate && finalEndDate && finalStartDate !== 'null' && finalEndDate !== 'null') {
-      uploadParams.attachmentStartDate = finalStartDate;
-      uploadParams.attachmentEndDate = finalEndDate;
-      console.log('Including date parameters:', { finalStartDate, finalEndDate });
-    } else {
-      console.log('Skipping date parameters - they are null or invalid');
-    }
-
-    const resultAction = await dispatch(uploadTimesheetAttachments(uploadParams));
-
-    if (uploadTimesheetAttachments.fulfilled.match(resultAction)) {
-      return resultAction.payload;
-    } else {
-      const errorMessage = extractErrorMessage(resultAction.payload);
-      throw new Error(errorMessage || 'Failed to upload attachments');
-    }
-  } catch (error) {
-    console.error('Error uploading files:', error);
-    const errorMessage = extractErrorMessage(error);
-    throw new Error(errorMessage);
-  }
-};
   const submitWeeklyTimesheetHandler = async () => {
     if (!currentTimesheet) return;
     setSubmitLoading(true);
     try {
-      // setLoading(true);
 
-      // FIX: For create/add mode, save the timesheet first before submitting
       if ((isCreateMode || isAddingNewTimesheet) && hasUnsavedChanges) {
         console.log('Create/Add mode: Saving timesheet before submission');
         await saveTimesheet(false);
 
-        // Wait for save to complete and timesheet to get an ID
         await new Promise(resolve => setTimeout(resolve, 1500));
 
-        // If we still don't have a timesheet ID after saving, show error
         if (!currentTimesheet?.id) {
           ToastService.error('Failed to create timesheet. Please try saving again.');
           setLoading(false);
@@ -2804,42 +2552,25 @@ const getWorkingDateRange = (timesheet) => {
         }
       }
 
-      // For existing timesheets, save if there are unsaved changes
       if (hasUnsavedChanges && !isCreateMode && !isAddingNewTimesheet) {
         console.log('Saving unsaved changes before submission');
         await saveTimesheet(false);
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
-      // Extract timesheetType from currentTimesheet (from API response)
       const timesheetType = currentTimesheet.timesheetType || "MONTHLY";
 
       console.log(`Submitting ${timesheetType} timesheet`);
-
-      // FIX: For create/add mode, always use WEEKLY type and selectedWeekStart
       const effectiveTimesheetType = (isCreateMode || isAddingNewTimesheet) ? "MONTHLY" : timesheetType;
 
-      // Get the correct start date based on timesheet type
       let startDate;
       if (effectiveTimesheetType === "MONTHLY") {
         const selectedDate = new Date(calendarValue);
         const monthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
         startDate = formatDateToYMD(monthStart);
       } else {
-        // For weekly (including create/add mode), use the selected week start
         startDate = selectedWeekStart;
       }
-
-      console.log('Submitting timesheet with:', {
-        userId: selectedEmployee || userId, // FIX: Use selectedEmployee for admin roles
-        startDate,
-        timesheetType: effectiveTimesheetType,
-        timesheetId: currentTimesheet.id,
-        isCreateMode,
-        isAddingNewTimesheet
-      });
-
-      // FIX: For create/add mode, always use weekly submission
       const actionToDispatch = (isCreateMode || isAddingNewTimesheet)
         ? submitMonthlyTimesheetAction
         : (effectiveTimesheetType === "MONTHLY"
@@ -2855,7 +2586,7 @@ const getWorkingDateRange = (timesheet) => {
         };
       } else {
         submitParams = {
-          userId: selectedEmployee || userId, // FIX: Use selectedEmployee for admin roles
+          userId: selectedEmployee || userId,
           weekStart: startDate
         };
       }
@@ -2947,139 +2678,6 @@ const getWorkingDateRange = (timesheet) => {
     }
   };
 
-  // Attachment handling functions
-  const handleFileSelect = (event) => {
-    const files = Array.from(event.target.files);
-    console.log('Files selected:', files);
-    setSelectedFiles(files);
-  };
-
-  const handleUploadAttachments = async () => {
-    if (selectedFiles.length === 0) {
-      ToastService.warning('Please select at least one file to upload');
-      return;
-    }
-
-    console.log('Handling attachment upload:', selectedFiles);
-
-    setUploading(true);
-
-    try {
-      // If timesheet has ID, upload to server immediately
-      if (currentTimesheet && currentTimesheet.id) {
-        console.log('Timesheet has ID, uploading directly to server');
-
-        // Check if dates should be included based on working hours
-        const editableRange = getEditableDateRange(currentTimesheet);
-        const uploadResponse = await uploadFilesToServer(
-          currentTimesheet.id,
-          selectedFiles,
-          editableRange ? editableRange.start : null,
-          editableRange ? editableRange.end : null
-        );
-
-        if (uploadResponse && uploadResponse.success) {
-          const newAttachments = selectedFiles.map((file, index) => ({
-            id: Date.now() * 1000 + Math.floor(Math.random() * 1000) + index, // Integer only
-            name: file.name,
-            size: file.size,
-            type: file.type,
-            uploadDate: new Date(),
-            url: uploadResponse.fileUrls ? uploadResponse.fileUrls.find(url => url.includes(file.name)) : null,
-            uploaded: true
-          }));
-
-          setAttachments(prev => [...prev, ...newAttachments]);
-          ToastService.success(`${selectedFiles.length} file(s) uploaded successfully`);
-        } else {
-          const errorMessage = extractErrorMessage(uploadResponse);
-          ToastService.error(errorMessage || 'Failed to upload files to server');
-        }
-      } else {
-        // Store files temporarily if no timesheet ID - they'll be uploaded on save/submit
-        console.log('No timesheet ID, storing files for later upload');
-        const tempAttachments = selectedFiles.map((file, index) => ({
-          id: Date.now() * 1000 + Math.floor(Math.random() * 1000) + index, // Integer only
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          uploadDate: new Date(),
-          file: file,
-          uploaded: false
-        }));
-        setAttachments(prev => [...prev, ...tempAttachments]);
-        setPendingAttachments(prev => [...prev, ...tempAttachments]);
-        ToastService.info(`${selectedFiles.length} file(s) added and will be uploaded when timesheet is saved`);
-        setHasUnsavedChanges(true); // Mark as having unsaved changes
-      }
-
-      setUploadDialogOpen(false);
-      setSelectedFiles([]);
-
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    } catch (error) {
-      console.error('Error processing files:', error);
-      const errorMessage = extractErrorMessage(error);
-      ToastService.error(errorMessage);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const fetchTimesheetAttachments = async (timesheetId) => {
-    if (!timesheetId) return [];
-
-    try {
-      const resultAction = await dispatch(getTimesheetAttachmentsById(timesheetId));
-      if (getTimesheetAttachmentsById.fulfilled.match(resultAction)) {
-        return resultAction.payload.data || [];
-      }
-      return [];
-    } catch (error) {
-      console.error('Error fetching attachments:', error);
-      return [];
-    }
-  };
-
-  const handleRemoveAttachment = async (attachmentId) => {
-    const attachmentToRemove = attachments.find(att => att.id === attachmentId);
-    console.log('Removing attachment:', attachmentToRemove);
-
-    try {
-      // If the attachment is already uploaded to the server, delete it from there too
-      if (attachmentToRemove && attachmentToRemove.uploaded && currentTimesheet?.id) {
-        const resultAction = await dispatch(deleteTimesheetAttachments({
-          attachmentId: attachmentToRemove.id,
-          timesheetId: currentTimesheet.id // Add timesheetId parameter
-        }));
-
-        if (deleteTimesheetAttachments.fulfilled.match(resultAction)) {
-          console.log('Attachment deleted successfully from server');
-        } else {
-          console.error('Failed to delete attachment from server:', resultAction.payload);
-          // Don't proceed with local removal if server deletion failed
-          return;
-        }
-      }
-
-      // Remove from local state regardless of server status
-      setAttachments(prev => prev.filter(att => att.id !== attachmentId));
-
-      // Remove from pending attachments if it exists there
-      if (attachmentToRemove && !attachmentToRemove.uploaded) {
-        setPendingAttachments(prev => prev.filter(att => att.id !== attachmentId));
-      }
-
-      setHasUnsavedChanges(true);
-      console.log('Attachment removed locally');
-
-    } catch (error) {
-      console.error('Error removing attachment:', error);
-    }
-  };
 
   const showAlert = (message, severity) => {
     setAlert({ open: true, message, severity });
@@ -3092,22 +2690,18 @@ const getWorkingDateRange = (timesheet) => {
     setAlert({ ...alert, open: false });
   };
 
-  // Get selected project details
   const getSelectedProjectDetails = () => {
     if (!selectedProject || !currentTimesheet) return null;
-
-    // Use data from API response if available
     return {
       name: selectedProject,
       client: currentTimesheet.clientName || 'N/A',
       approver: currentTimesheet.approver || 'N/A',
-      location: 'N/A', // You might need to add this to your API response
+      location: 'N/A',
       frequency: currentTimesheet.timesheetType || "N/A",
       startDate: currentTimesheet.startDate || 'N/A'
     };
   };
 
-  // Calculate total working days in the selected week
   const getTotalWorkingDays = () => {
     if (!currentTimesheet) return 0;
     return ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
@@ -3115,643 +2709,48 @@ const getWorkingDateRange = (timesheet) => {
       .length;
   };
 
-  const handleApproveTimesheet = async (timesheet = null, weekData = null) => {
-    // If no parameters provided, try to use currentTimesheet (for backward compatibility)
+
+  // Updated approval handler that passes all required parameters
+  const handleApproveTimesheetWrapper = async (timesheet = null, weekData = null) => {
+    const targetTimesheet = timesheet || currentTimesheet;
+    await handleApproveTimesheet(
+      targetTimesheet,
+      weekData,
+      monthlyViewMode,
+      selectedMonthRange,
+      selectedEmployee,
+      userId,
+      fetchOrCreateTimesheet,
+      fetchMonthlyTimesheetData
+    );
+  };
+
+  // Updated rejection handler that passes all required parameters
+  const handleRejectTimesheetWrapper = async (timesheet = null, weekData = null) => {
     const targetTimesheet = timesheet || currentTimesheet;
 
-    // For monthly view, we might not have a specific timesheet but weekData
-    if (!targetTimesheet && !weekData) {
-      console.error('No timesheet or weekData provided for approval');
-      ToastService.error('No timesheet data available for approval');
-      return;
-    }
-
-    setAdminActionLoading(true);
-    try {
-      let resultAction;
-
-      // Determine if this is a monthly timesheet
-      const effectiveTimesheet = targetTimesheet || weekData?.timesheet;
-      const isMonthlyTimesheet = monthlyViewMode || (effectiveTimesheet?.timesheetType === 'MONTHLY');
-
-      if (isMonthlyTimesheet) {
-        // For monthly view, use the selectedMonthRange from prepopulated data
-        if (!selectedMonthRange) {
-          ToastService.error('No month range selected for approval');
-          setAdminActionLoading(false);
-          return;
-        }
-
-        if (!selectedEmployee) {
-          ToastService.error('No employee selected for approval');
-          setAdminActionLoading(false);
-          return;
-        }
-
-
-        resultAction = await dispatch(approveTimesheetMonthly({
-          userId: selectedEmployee,
-          start: selectedMonthRange.start,
-          end: selectedMonthRange.end
-        }));
-
-        // Check if monthly approval succeeded using Redux Toolkit pattern
-        if (approveTimesheetMonthly.fulfilled.match(resultAction)) {
-          const response = resultAction.payload;
-
-          if (response.success) {
-            ToastService.success('Timesheet approved successfully');
-            // Refresh the data based on current view mode
-            if (selectedEmployee) {
-              setTimeout(() => {
-                fetchMonthlyTimesheetData(selectedEmployee);
-              }, 500);
-            }
-          } else {
-            const errorMessage = extractErrorMessage(response);
-            ToastService.error(errorMessage || 'Failed to approve timesheet');
-          }
-        } else {
-          const errorMessage = extractErrorMessage(resultAction.payload);
-          ToastService.error(errorMessage || 'Failed to approve timesheet');
-        }
-      } else {
-        // For weekly timesheets, use the original approach
-        const timesheetId = effectiveTimesheet?.id || effectiveTimesheet?.timesheetId;
-
-        if (!timesheetId) {
-          throw new Error('No timesheet ID found for approval');
-        }
-
-        console.log('Approving weekly timesheet with ID:', timesheetId);
-
-        resultAction = await dispatch(approveTimesheet({
-          timesheetId: timesheetId,
-          userId: userId
-        }));
-
-        // Check if weekly approval succeeded using Redux Toolkit pattern
-        if (approveTimesheet.fulfilled.match(resultAction)) {
-          const response = resultAction.payload;
-
-          if (response.success) {
-            ToastService.success('Timesheet approved successfully');
-            // Refresh the data
-            setTimeout(() => {
-              fetchOrCreateTimesheet();
-            }, 500);
-          } else {
-            const errorMessage = extractErrorMessage(response);
-            ToastService.error(errorMessage || 'Failed to approve timesheet');
-          }
-        } else {
-          const errorMessage = extractErrorMessage(resultAction.payload);
-          ToastService.error(errorMessage || 'Failed to approve timesheet');
-        }
-      }
-    } catch (error) {
-      console.error('Error approving timesheet:', error);
-      const errorMessage = extractErrorMessage(error);
-      ToastService.error(errorMessage || 'Failed to approve timesheet');
-    } finally {
-      setAdminActionLoading(false);
-    }
+    await handleRejectTimesheet(
+      targetTimesheet,
+      weekData,
+      monthlyViewMode,
+      selectedMonthRange,
+      selectedEmployee,
+      userId,
+      fetchOrCreateTimesheet,
+      fetchMonthlyTimesheetData
+    );
   };
 
-  const handleRejectTimesheet = async (timesheet = null, weekData = null) => {
-    const targetTimesheet = timesheet || currentTimesheet;
-
-    if (!targetTimesheet && !weekData) {
-      console.error('No timesheet or weekData provided for rejection');
-      return;
-    }
-
-    if (!rejectionReason.trim()) {
-      ToastService.error('Please provide a rejection reason');
-      return;
-    }
-
-    setAdminActionLoading(true);
-    try {
-      let resultAction;
-      const isMonthlyTimesheet = monthlyViewMode || (targetTimesheet?.timesheetType === 'MONTHLY');
-
-      console.log('Rejecting timesheet:', {
-        targetTimesheet,
-        isMonthlyTimesheet,
-        monthlyViewMode,
-        weekData,
-        rejectionReason
-      });
-
-      if (isMonthlyTimesheet) {
-        // For monthly view, use the selectedMonthRange from prepopulated data
-        if (!selectedMonthRange) {
-          ToastService.error('No month range selected for rejection');
-          return;
-        }
-
-        console.log('Rejecting monthly timesheet with params:', {
-          userId: selectedEmployee,
-          start: selectedMonthRange.start,
-          end: selectedMonthRange.end,
-          reason: rejectionReason.trim()
-        });
-
-        resultAction = await dispatch(rejectTimesheetMonthly({
-          userId: selectedEmployee,
-          start: selectedMonthRange.start,
-          end: selectedMonthRange.end,
-          reason: rejectionReason.trim()
-        }));
-
-        // Check if monthly rejection succeeded
-        if (rejectTimesheetMonthly.fulfilled.match(resultAction)) {
-          const response = resultAction.payload;
-
-          if (response.success) {
-            ToastService.success('Timesheet rejected successfully');
-            setRejectDialogOpen(false);
-            setRejectionReason('');
-
-            // Refresh the data based on current view mode
-            setTimeout(() => {
-              fetchMonthlyTimesheetData(selectedEmployee);
-            }, 500);
-          } else {
-            const errorMessage = extractErrorMessage(response);
-            ToastService.error(errorMessage || 'Failed to reject timesheet');
-          }
-        } else {
-          const errorMessage = extractErrorMessage(resultAction.payload);
-          ToastService.error(errorMessage || 'Failed to reject timesheet');
-        }
-      } else {
-        // For weekly timesheets, use the original approach
-        const timesheetId = targetTimesheet?.id || targetTimesheet?.timesheetId;
-
-        if (!timesheetId) {
-          throw new Error('No timesheet ID found for rejection');
-        }
-
-        console.log('Rejecting weekly timesheet with ID:', timesheetId);
-
-        resultAction = await dispatch(rejectTimesheet({
-          timesheetId: timesheetId,
-          userId: userId,
-          reason: rejectionReason.trim()
-        }));
-
-        // Check if weekly rejection succeeded
-        if (rejectTimesheet.fulfilled.match(resultAction)) {
-          const response = resultAction.payload;
-
-          if (response.success) {
-            ToastService.success('Timesheet rejected successfully');
-            setRejectDialogOpen(false);
-            setRejectionReason('');
-
-            // Refresh the data based on current view mode
-            setTimeout(() => {
-              fetchOrCreateTimesheet();
-            }, 500);
-          } else {
-            const errorMessage = extractErrorMessage(response);
-            ToastService.error(errorMessage || 'Failed to reject timesheet');
-          }
-        } else {
-          const errorMessage = extractErrorMessage(resultAction.payload);
-          ToastService.error(errorMessage || 'Failed to reject timesheet');
-        }
-      }
-    } catch (error) {
-      console.error('Error rejecting timesheet:', error);
-      const errorMessage = extractErrorMessage(error);
-      ToastService.error(errorMessage);
-    } finally {
-      setAdminActionLoading(false);
-    }
+  const handleUploadAttachmentsWrapper = () => {
+    handleUploadAttachments(currentTimesheet, selectedWeekStart, setHasUnsavedChanges);
   };
 
-  const handleViewAttachments = async (timesheet) => {
-    try {
-      if (timesheet.id) {
-        const attachments = await fetchTimesheetAttachments(timesheet.id);
-        if (attachments.length > 0) {
-          setSelectedTimesheetAttachments(attachments);
-          setAttachmentsDialogOpen(true);
-        } else {
-          ToastService.info('No attachments found for this timesheet');
-        }
-      } else {
-        ToastService.warning('No timesheet ID available to fetch attachments');
-      }
-    } catch (error) {
-      console.error('Error viewing attachments:', error);
-      const errorMessage = extractErrorMessage(error);
-      ToastService.error(errorMessage);
-    }
+  const handleRemoveAttachmentWrapper = (attachmentId) => {
+    handleRemoveAttachment(attachmentId, currentTimesheet, setHasUnsavedChanges);
   };
-
 
   const projectDetails = getSelectedProjectDetails();
 
-  // Timesheets.js - Add this component before the return statement
-  const AttachmentsDialog = () => (
-    <Dialog
-      open={attachmentsDialogOpen}
-      onClose={() => setAttachmentsDialogOpen(false)}
-      maxWidth="md"
-      fullWidth
-    >
-      <DialogTitle>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <AttachFile />
-          Timesheet Attachments
-        </Box>
-      </DialogTitle>
-      <DialogContent>
-        <Box sx={{ py: 2 }}>
-          {selectedTimesheetAttachments.length > 0 ? (
-            <List>
-              {selectedTimesheetAttachments.map((attachment, index) => (
-                <ListItem
-                  key={index}
-                  secondaryAction={
-                    <IconButton
-                      edge="end"
-                      onClick={() => window.open(attachment.url || '#', '_blank')}
-                      disabled={!attachment.url}
-                    >
-                      <CloudUpload />
-                    </IconButton>
-                  }
-                >
-                  <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: 'primary.main' }}>
-                      <AttachFile />
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={attachment.filename || attachment.name || `Attachment ${index + 1}`}
-                    secondary={
-                      attachment.uploadedAt
-                        ? `Uploaded: ${new Date(attachment.uploadedAt).toLocaleDateString()}`
-                        : attachment.uploadDate
-                          ? `Uploaded: ${attachment.uploadDate.toLocaleDateString()}`
-                          : 'Upload date not available'
-                    }
-                  />
-                </ListItem>
-              ))}
-            </List>
-          ) : (
-            <Typography variant="body2" color="text.secondary" textAlign="center">
-              No attachments available
-            </Typography>
-          )}
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={() => setAttachmentsDialogOpen(false)}>Close</Button>
-      </DialogActions>
-    </Dialog>
-  );
-
-  const triggerDownload = (blob, filename) => {
-    try {
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename || 'download';
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      // Clean up
-      setTimeout(() => {
-        window.URL.revokeObjectURL(url);
-      }, 1000);
-
-      ToastService.info('File downloaded successfully');
-    } catch (error) {
-      console.error('Error triggering download:', error);
-      ToastService.error('Failed to download file');
-    }
-  };
-
-
-  const handleViewAttachmentFile = async (attachment, timesheet = null) => {
-    try {
-      const attachmentId = attachment.id || attachment.attachmentId;
-
-      if (!attachmentId) {
-        ToastService.error('No attachment ID found');
-        return;
-      }
-
-      setViewLoading(true);
-
-      // Direct axios call like your working sample
-      const response = await axios.get(
-        `/timesheet/attachments/${attachmentId}/download?view=true`,
-        {
-          responseType: 'blob',
-          // Use your base URL
-          baseURL: 'https://mymulya.com/'
-        }
-      );
-
-      const blob = response.data;
-      const contentType = blob.type || response.headers['content-type'] || '';
-
-      // Get filename from headers
-      const contentDisposition = response.headers['content-disposition'];
-      let filename = attachment.filename || attachment.name || `attachment_${attachmentId}`;
-
-      if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-        if (filenameMatch && filenameMatch[1]) {
-          filename = filenameMatch[1].replace(/['"]/g, '');
-        }
-      }
-
-      // Create object URL
-      const objectUrl = URL.createObjectURL(blob);
-
-      // Set the current attachment for the dialog
-      setCurrentAttachment({
-        ...attachment,
-        filename: filename,
-        contentType: contentType,
-        objectUrl: objectUrl,
-        blob: blob
-      });
-
-      // Determine file type for rendering
-      if (contentType === 'application/pdf' || filename.toLowerCase().endsWith('.pdf')) {
-        setAttachmentType('pdf');
-        setAttachmentContent(objectUrl);
-      }
-      else if (contentType.startsWith('image/') || /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(filename)) {
-        setAttachmentType('image');
-        setAttachmentContent(objectUrl);
-      }
-      else if (contentType.startsWith('video/') || /\.(mp4|avi|mov|wmv|flv|webm)$/i.test(filename)) {
-        setAttachmentType('video');
-        setAttachmentContent(objectUrl);
-      }
-      else if (contentType.startsWith('audio/') || /\.(mp3|wav|ogg|aac|flac)$/i.test(filename)) {
-        setAttachmentType('audio');
-        setAttachmentContent(objectUrl);
-      }
-      else if (contentType.includes('text') || /\.(txt|json|xml|csv|log|md|js|html|css)$/i.test(filename)) {
-        try {
-          const text = await blob.text();
-          setAttachmentContent(text);
-          setAttachmentType('text');
-        } catch (textError) {
-          console.error('Error reading text file:', textError);
-          // Fallback to download
-          triggerDownload(blob, filename);
-          setViewLoading(false);
-          URL.revokeObjectURL(objectUrl);
-          return;
-        }
-      }
-      else {
-        // For unsupported types, show download option
-        setAttachmentType('other');
-        setAttachmentContent(objectUrl);
-      }
-
-      // Open the dialog
-      setViewAttachmentDialogOpen(true);
-
-    } catch (error) {
-      console.error('Error viewing attachment:', error);
-      ToastService.error('Failed to view attachment');
-    } finally {
-      setViewLoading(false);
-    }
-  };
-
-  // Simplified download handler
-  const handleDownloadAttachmentFile = async (attachment, timesheet = null) => {
-    try {
-      const attachmentId = attachment.id || attachment.attachmentId;
-      const filename = attachment.filename || attachment.name;
-
-      if (!attachmentId) {
-        ToastService.error('No attachment ID found');
-        return;
-      }
-
-      setDownloadLoading(true);
-
-      // Direct axios call for download
-      const response = await axios.get(
-        `/timesheet/attachments/${attachmentId}/download`,
-        {
-          responseType: 'blob',
-          baseURL: 'https://mymulya.com/'
-        }
-      );
-
-      const blob = response.data;
-
-      // Get filename from headers if not provided
-      let downloadFilename = filename;
-      const contentDisposition = response.headers['content-disposition'];
-
-      if (contentDisposition && !downloadFilename) {
-        const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-        if (filenameMatch && filenameMatch[1]) {
-          downloadFilename = filenameMatch[1].replace(/['"]/g, '');
-        }
-      }
-
-      if (!downloadFilename) {
-        downloadFilename = `attachment_${attachmentId}`;
-      }
-
-      // Trigger download
-      triggerDownload(blob, downloadFilename);
-      ToastService.success('Download started successfully');
-
-    } catch (error) {
-      console.error('Error downloading attachment:', error);
-      ToastService.error('Failed to download attachment');
-    } finally {
-      setDownloadLoading(false);
-    }
-  };
-
-  // Updated AttachmentViewDialog - simplified like your working sample
-  const AttachmentViewDialog = () => {
-    const handleDownload = () => {
-      if (currentAttachment?.blob) {
-        triggerDownload(currentAttachment.blob, currentAttachment.filename);
-      } else if (attachmentType === 'text' && attachmentContent) {
-        const blob = new Blob([attachmentContent], {
-          type: currentAttachment?.contentType || 'text/plain'
-        });
-        triggerDownload(blob, currentAttachment?.filename || 'textfile.txt');
-      }
-    };
-
-    const handleClose = () => {
-      setViewAttachmentDialogOpen(false);
-
-      // Clean up object URL
-      if (currentAttachment?.objectUrl) {
-        URL.revokeObjectURL(currentAttachment.objectUrl);
-      }
-
-      // Reset states
-      setAttachmentContent(null);
-      setAttachmentType(null);
-      setCurrentAttachment(null);
-    };
-
-    return (
-      <Dialog
-        open={viewAttachmentDialogOpen}
-        onClose={handleClose}
-        maxWidth="lg"
-        fullWidth
-        sx={{
-          '& .MuiDialog-paper': {
-            height: '90vh',
-            maxHeight: '90vh'
-          }
-        }}
-      >
-        <DialogTitle>
-          <Typography variant='h4'>Attachments</Typography>
-        </DialogTitle>
-
-        <DialogContent dividers sx={{ p: 0, overflow: 'hidden' }}>
-          {viewLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
-              <CircularProgress />
-              <Typography sx={{ ml: 2 }}>Loading attachment...</Typography>
-            </Box>
-          ) : (
-            <>
-              {/* PDF Viewer - exactly like your working sample */}
-              {attachmentType === 'pdf' && attachmentContent && (
-                <iframe
-                  src={`${attachmentContent}#toolbar=0&navpanes=0&scrollbar=0`}
-                  title="PDF Preview"
-                  style={{ width: "100%", height: "80vh", border: "none" }}
-                />
-              )}
-
-              {/* Image Viewer - exactly like your working sample */}
-              {attachmentType === 'image' && attachmentContent && (
-                <img
-                  src={attachmentContent}
-                  alt="Attachment"
-                  style={{
-                    maxWidth: "100%",
-                    maxHeight: "80vh",
-                    display: "block",
-                    margin: "0 auto"
-                  }}
-                />
-              )}
-
-              {/* Video Viewer */}
-              {attachmentType === 'video' && attachmentContent && (
-                <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-                  <video
-                    controls
-                    style={{ maxWidth: '100%', maxHeight: '80vh' }}
-                  >
-                    <source src={attachmentContent} type={currentAttachment?.contentType} />
-                    Your browser does not support the video tag.
-                  </video>
-                </Box>
-              )}
-
-              {/* Audio Viewer */}
-              {attachmentType === 'audio' && attachmentContent && (
-                <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-                  <audio controls style={{ width: '100%' }}>
-                    <source src={attachmentContent} type={currentAttachment?.contentType} />
-                    Your browser does not support the audio tag.
-                  </audio>
-                </Box>
-              )}
-
-              {/* Text Viewer */}
-              {attachmentType === 'text' && (
-                <Box sx={{ p: 2, height: '80vh', overflow: 'auto' }}>
-                  <TextField
-                    multiline
-                    fullWidth
-                    value={attachmentContent || ''}
-                    InputProps={{
-                      readOnly: true,
-                      sx: {
-                        fontFamily: 'monospace',
-                        fontSize: '0.875rem',
-                        '& .MuiInputBase-input': {
-                          height: '70vh !important',
-                          overflow: 'auto !important'
-                        }
-                      }
-                    }}
-                    variant="outlined"
-                  />
-                </Box>
-              )}
-
-              {/* Unsupported file types */}
-              {attachmentType === 'other' && (
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', p: 4 }}>
-                  <Typography variant="h6" gutterBottom>
-                    File Preview Not Available
-                  </Typography>
-                  <Typography variant="body1" color="text.secondary" textAlign="center" gutterBottom>
-                    {currentAttachment?.filename}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mb: 3 }}>
-                    Unsupported file type: {currentAttachment?.contentType}
-                  </Typography>
-                  <Button
-                    variant="contained"
-                    startIcon={<CloudDownload />}
-                    onClick={handleDownload}
-                    size="large"
-                  >
-                    Download to View
-                  </Button>
-                </Box>
-              )}
-            </>
-          )}
-        </DialogContent>
-
-        <DialogActions>
-          <Button onClick={handleClose} variant="outlined">
-            Close
-          </Button>
-          <Button
-            onClick={handleDownload}
-            variant="contained"
-            startIcon={<CloudDownload />}
-            disabled={viewLoading}
-          >
-            Download
-          </Button>
-        </DialogActions>
-      </Dialog>
-    );
-  };
-  // Render the new main view component, passing all props needed for UI
   return (
     <TimesheetMainView
       alert={alert}
@@ -3784,8 +2783,9 @@ const getWorkingDateRange = (timesheet) => {
       saveTimesheet={(isSubmission = false, isEdit = false) => saveTimesheet(isSubmission, isEdit)}
       submitWeeklyTimesheet={submitWeeklyTimesheetHandler}
       isFridayInPresentWeek={isFridayInPresentWeek}
-      onApprove={handleApproveTimesheet}
-      onReject={() => setRejectDialogOpen(true)}
+      // onApprove={handleApproveTimesheet}
+      onApprove={handleApproveTimesheetWrapper}
+      onReject={openRejectDialog}
       adminActionLoading={adminActionLoading}
       hasUnsavedChanges={hasUnsavedChanges}
       rejectionReason={rejectionReason}
@@ -3795,13 +2795,13 @@ const getWorkingDateRange = (timesheet) => {
       uploadDialogOpen={uploadDialogOpen}
       setUploadDialogOpen={setUploadDialogOpen}
       uploading={uploading || uploadLoading}
-      handleUploadAttachments={handleUploadAttachments}
+      handleUploadAttachments={handleUploadAttachmentsWrapper}
       handleFileSelect={handleFileSelect}
       fileInputRef={fileInputRef}
       selectedFiles={selectedFiles}
       setSelectedFiles={setSelectedFiles}
       attachments={attachments}
-      handleRemoveAttachment={handleRemoveAttachment}
+      handleRemoveAttachment={handleRemoveAttachmentWrapper}
       projectDetails={projectDetails}
       timesheetData={timesheetData || []}
       getWeekDates={getWeekDates}
@@ -3809,7 +2809,8 @@ const getWorkingDateRange = (timesheet) => {
       getTotalWorkingDays={getTotalWorkingDays}
       selectedWeekStart={selectedWeekStart}
       isPresentWeek={isPresentWeek}
-      handleRejectTimesheet={handleRejectTimesheet}
+      // handleRejectTimesheet={handleRejectTimesheet}
+      handleRejectTimesheet={handleRejectTimesheetWrapper}
       formatFileSize={formatFileSize}
       isCreateMode={isCreateMode}
       isAddingNewTimesheet={isAddingNewTimesheet}
@@ -3818,14 +2819,11 @@ const getWorkingDateRange = (timesheet) => {
       tempEmployeeForAdd={tempEmployeeForAdd}
       setTempEmployeeForAdd={setTempEmployeeForAdd}
       handleViewAttachments={handleViewAttachments}
-      AttachmentsDialog={AttachmentsDialog}
       loadingEmployeeProjects={loadingEmployeeProjects}
       handleEmployeeChange={handleEmployeeChange}
       employeeProjects={employeeProjects}
       isEditMode={isEditMode}
       setIsEditMode={setIsEditMode}
-      handleEditTimesheet={handleEditTimesheet}
-      canEditTimesheet={canEditTimesheet}
       isDateInCurrentMonth={isDateInCurrentMonth}
       getDateForDay={getDateForDay}
       isDateInSelectedWeekMonth={isDateInSelectedWeekMonth}

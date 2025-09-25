@@ -35,7 +35,6 @@ const TimesheetMainView = (props) => {
     prepopulatedEmployee,
     isEditMode,
     setIsEditMode,
-    handleEditTimesheet,
     canEditTimesheet,
     isDateInCurrentMonth,
     getDateForDay,
@@ -1144,7 +1143,6 @@ const TimesheetMainView = (props) => {
 
 
       {/* Render Attachments Dialog */}
-      {AttachmentsDialog && <AttachmentsDialog />}
     </Container>
   );
 };

@@ -447,7 +447,8 @@ const TimesheetTableSection = ({
                   color="primary"
                   startIcon={<Edit />}
                   // onClick={handleEditTimesheet}
-                  onClick={saveTimesheet}
+                  // onClick={saveTimesheet}
+                   onClick={() => saveTimesheet(false, true)}
                   disabled={loading || adminActionLoading}
                   sx={{ minWidth: 120 }}
                 >
@@ -563,7 +564,8 @@ const TimesheetTableSection = ({
                   variant="outlined"
                   color="primary"
                   startIcon={<Edit />}
-                  onClick={saveTimesheet}
+                   onClick={saveTimesheet}
+                  //  onClick={() => saveTimesheet(true)}
                   disabled={loading || adminActionLoading}
                   sx={{ minWidth: 120 }}
                 >

@@ -1,3 +1,9 @@
+import ToastService from "../../Services/toastService";
+
+
+
+
+
 export const extractErrorMessage = (errorData) => {
   if (typeof errorData === 'string') {
     return errorData;
@@ -275,4 +281,25 @@ export const getPercentageColor = (percentage) => {
 };
 
 
+export const triggerDownload = (blob, filename) => {
+    try {
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename || 'download';
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
 
+      // Clean up
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 1000);
+
+      ToastService.info('File downloaded successfully');
+    } catch (error) {
+      console.error('Error triggering download:', error);
+      ToastService.error('Failed to download file');
+    }
+  };
