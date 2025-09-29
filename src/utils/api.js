@@ -210,7 +210,7 @@ export const teamAPI = {
   // Create new team
   createTeam: async (userId, teamdata) => {
     if (!teamdata) throw new Error("team data is not found");
-    return apiPost(`/users/assignTeamLead/${userId}`, teamdata);
+    return apiPost(`/users/assignTeamLead/${userId}`, teamdata); 
   },
 
   getAllEmps: async () => {
