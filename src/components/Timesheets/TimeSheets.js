@@ -1941,6 +1941,7 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
                 date: dateStr,
                 hours: currentTimesheet.sickLeave[day],
                 description: 'Sick Leave',
+                 project: selectedProject
               });
             }
 
@@ -1950,6 +1951,7 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
                 date: dateStr,
                 hours: currentTimesheet.companyHoliday[day],
                 description: 'Company Holiday',
+                 project: selectedProject
               });
             }
           }
@@ -2057,6 +2059,7 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
                 date: dateStr,
                 hours: currentTimesheet.sickLeave[day],
                 description: 'Sick Leave',
+                project: selectedProject
               });
             }
 
@@ -2066,6 +2069,7 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
                 date: dateStr,
                 hours: currentTimesheet.companyHoliday[day],
                 description: 'Company Holiday',
+                project: selectedProject
               });
             }
           }
@@ -2283,6 +2287,7 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
               date: dateStr,
               hours: currentTimesheet.sickLeave[day],
               description: 'Sick Leave',
+              project: selectedProject
             });
           }
 
@@ -2292,6 +2297,7 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
               date: dateStr,
               hours: currentTimesheet.companyHoliday[day],
               description: 'Company Holiday',
+              project: selectedProject
             });
           }
         }
