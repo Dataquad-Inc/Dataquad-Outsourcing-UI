@@ -978,8 +978,14 @@ const TimesheetMainView = (props) => {
         />
       )}
 
+      {currentTimesheet?.status=="DRAFT"&&(
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Please save your timesheets before submitting them for approval.
+        </Alert>
+      )}
+
       {/* Week-specific alerts - Only show for non-monthly view */}
-      {!monthlyViewMode && selectedWeekStart && !isPresentWeek(selectedWeekStart) && (
+      {/* {!monthlyViewMode && selectedWeekStart && !isPresentWeek(selectedWeekStart) && (
         <Alert severity="info" sx={{ mb: 2 }}>
           This is a previous week's timesheet and cannot be edited or submitted.
         </Alert>
@@ -989,7 +995,7 @@ const TimesheetMainView = (props) => {
         <Alert severity="info" sx={{ mb: 2 }}>
           Timesheet can only be submitted on Friday of the current week.
         </Alert>
-      )}
+      )} */}
 
       {/* Upload Attachment Dialog */}
       <Dialog
