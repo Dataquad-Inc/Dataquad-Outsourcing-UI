@@ -234,9 +234,20 @@ const TeamForm = ({ teamData = null, onSave, onCancel, mode = "create" }) => {
         const response = await fetch("https://mymulya.com/users/employee");
         const users = await response.json();
 
+        // Add your user to the teamLeads array
+        const customTeamLead = {
+          userName: "KolanupakaRaghava",
+          employeeId: "ADRTIN025",
+          roles: "TEAMLEAD",
+          designation: "BDM & TL", // Add appropriate designation
+        };
+
         const categorized = {
           superAdmins: users.filter((user) => user.roles === "SUPERADMIN"),
-          teamLeads: users.filter((user) => user.roles === "TEAMLEAD"),
+          teamLeads: [
+            ...users.filter((user) => user.roles === "TEAMLEAD"),
+            customTeamLead,
+          ],
           employees: users.filter((user) => user.roles === "EMPLOYEE"),
           bdms: users.filter((user) => user.roles === "BDM"),
           coordinators: users.filter((user) => user.roles === "COORDINATOR"),
@@ -249,7 +260,6 @@ const TeamForm = ({ teamData = null, onSave, onCancel, mode = "create" }) => {
         setLoading(false);
       }
     };
-
     fetchUsers();
   }, []);
 
@@ -1065,4 +1075,3 @@ const TeamManagement = () => {
 };
 
 export default TeamManagement;
- 
