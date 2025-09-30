@@ -75,30 +75,28 @@ const DateRangeFilter = ({
   const currentMonth = dayjs().month() + 1;
   const currentDay = dayjs().date();
 
-  // Add "All" option + 10 year range
+  // Generate years from 1900 to current year + 2 (like date of birth selector)
+  const startYear = 2020;
+  const endYear = currentYear + 0;
   const yearOptions = [
     "All",
-    ...Array.from({ length: 10 }, (_, i) => currentYear - 5 + i),
+    ...Array.from({ length: endYear - startYear + 1 }, (_, i) => endYear - i),
   ];
 
   // Initialize from URL or leave empty (no default selection)
   const [selectedYear, setSelectedYear] = useState(() => {
     const urlYear = searchParams.get("year");
-    return urlYear
-      ? urlYear === "All"
-        ? "All"
-        : parseInt(urlYear)
-      : null; // Changed from currentYear to null
+    return urlYear ? (urlYear === "All" ? "All" : parseInt(urlYear)) : null;
   });
 
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const urlMonth = searchParams.get("month");
-    return urlMonth ? parseInt(urlMonth) : null; // Changed from currentMonth to null
+    return urlMonth ? parseInt(urlMonth) : null;
   });
 
   const [selectedDay, setSelectedDay] = useState(() => {
     const urlDay = searchParams.get("day");
-    return urlDay ? parseInt(urlDay) : null; // Changed from currentDay to null
+    return urlDay ? parseInt(urlDay) : null;
   });
 
   const monthOptions = [
@@ -128,7 +126,7 @@ const DateRangeFilter = ({
 
   const dayOptions = getDayOptions();
 
-  // Calculate start and end dates - only when selections are made
+  // Calculate start and end dates - handles full year when only year is selected
   let startDate = null;
   let endDate = null;
 
@@ -149,6 +147,10 @@ const DateRangeFilter = ({
         `${selectedYear}-${selectedMonth.toString().padStart(2, "0")}-01`
       );
       endDate = startDate.endOf("month");
+    } else {
+      // Only year selected - fetch entire year
+      startDate = dayjs(`${selectedYear}-01-01`).startOf("year");
+      endDate = dayjs(`${selectedYear}-12-31`).endOf("year");
     }
   }
 
@@ -184,6 +186,15 @@ const DateRangeFilter = ({
       const start = dayjs(`${year}-${month.toString().padStart(2, "0")}-01`);
       newSearchParams.set("startDate", start.format("YYYY-MM-DD"));
       newSearchParams.set("endDate", start.endOf("month").format("YYYY-MM-DD"));
+    } else if (year) {
+      // Only year selected - set full year range
+      newSearchParams.set("year", year);
+      newSearchParams.delete("month");
+      newSearchParams.delete("day");
+      const start = dayjs(`${year}-01-01`).startOf("year");
+      const end = dayjs(`${year}-12-31`).endOf("year");
+      newSearchParams.set("startDate", start.format("YYYY-MM-DD"));
+      newSearchParams.set("endDate", end.format("YYYY-MM-DD"));
     } else {
       newSearchParams.delete("year");
       newSearchParams.delete("month");
@@ -197,25 +208,26 @@ const DateRangeFilter = ({
 
   const handleYearChange = (event) => {
     const year = event.target.value;
+
+    // Reset state before changing year
+    setSelectedMonth(null);
+    setSelectedDay(null);
     setSelectedYear(year);
 
     if (year === "All") {
-      setSelectedMonth(null);
-      setSelectedDay(null);
       updateUrlParams("All", null, null);
     } else {
-      // Reset day when year changes to avoid invalid dates
-      setSelectedDay(null);
-      updateUrlParams(year, selectedMonth, null);
+      // When year changes, update URL with just the year (will fetch full year)
+      updateUrlParams(year, null, null);
     }
   };
 
   const handleMonthChange = (event) => {
     const month = event.target.value;
-    setSelectedMonth(month);
 
-    // Reset day when month changes to avoid invalid dates
+    // Reset day when month changes
     setSelectedDay(null);
+    setSelectedMonth(month);
     updateUrlParams(selectedYear, month, null);
   };
 
@@ -226,7 +238,7 @@ const DateRangeFilter = ({
   };
 
   const handleClearFilter = () => {
-    // Reset to no selection instead of current date
+    // Reset all selections
     setSelectedYear(null);
     setSelectedMonth(null);
     setSelectedDay(null);
@@ -249,14 +261,14 @@ const DateRangeFilter = ({
     if (component === "InterviewsForRecruiter")
       dispatch(clearRecruiterFilter());
 
-    // Don't call onDateChange with current date - let parent handle no filter state
+    // Pass null to indicate no filter
     if (onDateChange) {
-      onDateChange(null, null); // Pass null to indicate no filter
+      onDateChange(null, null);
     }
   };
 
   useEffect(() => {
-    // Only apply filters when dates are actually selected
+    // Apply filters when dates are selected
     if (startDate && endDate) {
       const formattedStart = startDate.format("YYYY-MM-DD");
       const formattedEnd = endDate.format("YYYY-MM-DD");
@@ -339,6 +351,15 @@ const DateRangeFilter = ({
         onChange={handleYearChange}
         size="small"
         sx={{ minWidth: 140 }}
+        SelectProps={{
+          MenuProps: {
+            PaperProps: {
+              sx: {
+                maxHeight: 300, // Increased height to accommodate more years
+              },
+            },
+          },
+        }}
       >
         {yearOptions.map((year) => (
           <MenuItem key={year} value={year}>
@@ -347,7 +368,7 @@ const DateRangeFilter = ({
         ))}
       </TextField>
 
-      {selectedYear !== "All" && (
+      {selectedYear !== "All" && selectedYear && (
         <TextField
           select
           label="Month"
@@ -355,7 +376,7 @@ const DateRangeFilter = ({
           onChange={handleMonthChange}
           size="small"
           sx={{ minWidth: 140 }}
-          disabled={!selectedYear || selectedYear === "All"} // Disable if no year selected
+          disabled={!selectedYear || selectedYear === "All"}
         >
           {monthOptions.map((month) => (
             <MenuItem key={month.value} value={month.value}>
@@ -365,30 +386,32 @@ const DateRangeFilter = ({
         </TextField>
       )}
 
-      <TextField
-        select
-        label="Day"
-        value={selectedDay || ""}
-        onChange={handleDayChange}
-        size="small"
-        sx={{ minWidth: 100 }}
-        disabled={!selectedYear || selectedYear === "All" || !selectedMonth} // Disable if no year/month selected
-        SelectProps={{
-          MenuProps: {
-            PaperProps: {
-              sx: {
-                maxHeight: 200,
+      {selectedYear !== "All" && selectedYear && selectedMonth && (
+        <TextField
+          select
+          label="Day"
+          value={selectedDay || ""}
+          onChange={handleDayChange}
+          size="small"
+          sx={{ minWidth: 100 }}
+          disabled={!selectedYear || selectedYear === "All" || !selectedMonth}
+          SelectProps={{
+            MenuProps: {
+              PaperProps: {
+                sx: {
+                  maxHeight: 200,
+                },
               },
             },
-          },
-        }}
-      >
-        {dayOptions.map((day) => (
-          <MenuItem key={day} value={day}>
-            {day}
-          </MenuItem>
-        ))}
-      </TextField>
+          }}
+        >
+          {dayOptions.map((day) => (
+            <MenuItem key={day} value={day}>
+              {day}
+            </MenuItem>
+          ))}
+        </TextField>
+      )}
 
       {(selectedYear || selectedMonth || selectedDay) && (
         <Tooltip title="Clear Filter">
