@@ -156,8 +156,7 @@ const RequirementsList = () => {
       jobType: [],
       location: [],
       qualification: [],
-      // visaType: [],
-      assignedBy: [],
+      
       status: [],
     };
 

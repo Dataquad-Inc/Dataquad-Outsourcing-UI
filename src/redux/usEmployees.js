@@ -17,6 +17,22 @@ export const fetchEmployeesUs = createAsyncThunk(
   }
 );
 
+// 🔹 Fetch all employees by role recruiter
+export const fetchRecruiters = createAsyncThunk(
+  "usEmployees/fetchRecruiters",
+  async (_, thunkAPI) => {
+    try {
+      const response = await hotlistAPI.getUsersByRole("RECRUITER");
+      return response;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(
+        `Error fetching recruiters: ${error.message}` ||
+          "failed to fetch recruiters"
+      );
+    }
+  }
+);
+
 // 🔹 Fetch all employees by role
 export const fetchAllEmployeesUs = createAsyncThunk(
   "usEmployees/fetchAllEmployeesUs",
@@ -57,6 +73,7 @@ const usEmployeesSlice = createSlice({
     salesExecutives: [],
     recruiters: [],
     loadingEmployees: false,
+    loadingRecruiters: false,
     loadingTeam: false,
     error: null,
   },
@@ -92,6 +109,21 @@ const usEmployeesSlice = createSlice({
         state.loadingEmployees = false;
         state.error = action.payload || action.error.message;
       })
+
+      // 🔹 Recruiters
+      .addCase(fetchRecruiters.pending, (state) => {
+        state.loadingRecruiters = true;
+        state.error = null;
+      })
+      .addCase(fetchRecruiters.fulfilled, (state, action) => {
+        state.loadingRecruiters = false;
+        state.recruiters = action.payload;
+      })
+      .addCase(fetchRecruiters.rejected, (state, action) => {
+        state.loadingRecruiters = false;
+        state.error = action.payload || action.error.message;
+      })
+
 
       // 🔹 Team members
       .addCase(fetchTeamMembers.pending, (state) => {

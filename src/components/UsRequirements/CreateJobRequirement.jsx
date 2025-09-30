@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
 import DynamicFormUltra from "../FormContainer/DynamicFormUltra"; // Adjust the import path as needed
-import { fetchEmployeesUs } from "../../redux/usEmployees";
+import { fetchRecruiters } from "../../redux/usEmployees";
 
 const CreateJobRequirement = ({
   formTitle = "Post New Requirement",
@@ -16,19 +16,19 @@ const CreateJobRequirement = ({
   const navigate = useNavigate();
 
   // Get employees and current user from Redux
-  const { employees = [], loadingEmployees } = useSelector(
+  const { recruiters = [], loadingEmployees } = useSelector(
     (state) => state.usEmployees
   );
   const { userName, userId } = useSelector((state) => state.auth);
 
   // Transform employees for multiselect
-  const employeeOptions = employees.map((emp) => ({
-    label: emp.employeeName ,
+  const employeeOptions = recruiters.map((emp) => ({
+    label: emp.employeeName,
     value: emp.employeeId,
   }));
 
   useEffect(() => {
-    dispatch(fetchEmployeesUs("TEAMLEAD"));
+    dispatch(fetchRecruiters("RECRUITER"));
   }, []);
 
   // Default form values
@@ -40,7 +40,6 @@ const CreateJobRequirement = ({
     location: "",
     jobType: "",
     noOfPositions: 1,
-    assignedBy: userName || "",
     experienceRequired: "",
     relevantExperience: "",
     qualification: "",

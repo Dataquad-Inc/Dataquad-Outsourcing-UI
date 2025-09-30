@@ -161,11 +161,10 @@ const getRequirementsColumns = ({
     render: (v) => renderValue(v),
   },
   {
-    id: "assignedBy",
+    id: "assignedByName",
     label: "Assigned By",
     applyFilter: true,
     filterType: "text",
-    filterOptions: filterOptions.assignedBy || [],
     render: (v) => renderValue(v),
   },
   {

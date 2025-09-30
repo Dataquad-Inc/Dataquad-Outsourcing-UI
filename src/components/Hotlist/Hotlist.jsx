@@ -102,7 +102,6 @@ const HotList = React.memo(() => {
         extractFilterOptionsFromData(result.data.content);
       }
 
-      showInfoToast("Hotlist loaded successfully ");
     } catch (err) {
       console.error("Error fetching hotlist:", err);
       showErrorToast("Failed to load hotlist ");

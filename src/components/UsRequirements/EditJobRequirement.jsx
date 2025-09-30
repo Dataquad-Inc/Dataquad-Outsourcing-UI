@@ -79,6 +79,7 @@ const EditJobRequirement = () => {
 
         // Transform the API data to match form structure
         const formData = {
+          jobId: data.jobId || "",
           clientName: data.clientName || "",
           jobTitle: data.jobTitle || "",
           jobMode: data.jobMode || "",
@@ -86,7 +87,6 @@ const EditJobRequirement = () => {
           location: data.location || "",
           jobType: data.jobType || "",
           noOfPositions: data.noOfPositions || 1,
-          assignedBy: data.assignedBy || userName || "",
           experienceRequired: data.experienceRequired || "",
           relevantExperience: data.relevantExperience || "",
           qualification: data.qualification || "",
@@ -120,6 +120,14 @@ const EditJobRequirement = () => {
     {
       section: "Job Details",
       fields: [
+        {
+          name: "jobId",
+          label: "JobId",
+          type: "text",
+          required: true,
+          icon: "BusinessCenter",
+          disabled: true,
+        },
         {
           name: "clientName",
           label: "Client Name",
@@ -191,14 +199,6 @@ const EditJobRequirement = () => {
           type: "number",
           required: true,
           icon: "Group",
-        },
-        {
-          name: "assignedBy",
-          label: "Assigned By",
-          type: "text",
-          disabled: true,
-          helperText: "This field is automatically populated with your name",
-          icon: "Person",
         },
       ],
     },
@@ -294,6 +294,7 @@ const EditJobRequirement = () => {
   const handleSubmit = async (values, { setSubmitting, resetForm }) => {
     try {
       const apiPayload = {
+        jobId: values.jobId,
         jobTitle: values.jobTitle,
         clientName: values.clientName,
         jobType: values.jobType,
@@ -307,7 +308,8 @@ const EditJobRequirement = () => {
         noOfPositions: parseInt(values.noOfPositions) || 1,
         status: values.status || "Open",
         visaType: values.visaType || "",
-        assignedBy: userId,
+        assignedById: userId, 
+        assignedByName:userName,
         userIds: (values.assignedUsers || []).join(","),
       };
 
@@ -330,7 +332,7 @@ const EditJobRequirement = () => {
 
       // Use the same endpoint but with PUT method and jobId as parameter
       const response = await axios.post(
-        `https://mymulya.com/api/us/requirements/post-requirement/${jobId}?userId=${userId}`,
+        `https://mymulya.com/api/us/requirements/post-requirement/${userId}`,
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
