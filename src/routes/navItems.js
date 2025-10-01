@@ -6,30 +6,44 @@ import GroupIcon from "@mui/icons-material/Group";
 import BusinessIcon from "@mui/icons-material/Business";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import HourglassIcon from "@mui/icons-material/HourglassTop";
-import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
-import InsightsIcon from '@mui/icons-material/Insights';
-import HomeIcon from '@mui/icons-material/Home';
-import AutorenewIcon from '@mui/icons-material/Autorenew';
-
+import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
+import InsightsIcon from "@mui/icons-material/Insights";
+import HomeIcon from "@mui/icons-material/Home";
+import AutorenewIcon from "@mui/icons-material/Autorenew";
 
 export const inNavItems = [
   {
     text: "Home",
     path: "home",
     icon: <HomeIcon />,
-    roles: ["ADMIN", "SUPERADMIN", "EMPLOYEE", "BDM", "TEAMLEAD", "PARTNER","INVOICE","COORDINATOR"],
+    roles: [
+      "ADMIN",
+      "SUPERADMIN",
+      "EMPLOYEE",
+      "BDM",
+      "TEAMLEAD",
+      "PARTNER",
+      "INVOICE",
+      "COORDINATOR",
+    ],
   },
   {
     text: "Users",
     path: "users",
     icon: <GroupIcon />,
-    roles: ["ADMIN", "SUPERADMIN","INVOICE","COORDINATOR"],
+    roles: ["ADMIN", "SUPERADMIN", "INVOICE", "COORDINATOR"],
   },
   {
     text: "Team",
     path: "ind-team",
     icon: <GroupIcon />,
-    roles: ["ADMIN", "SUPERADMIN","INVOICE","COORDINATOR"],
+    roles: ["ADMIN", "SUPERADMIN", "INVOICE", "COORDINATOR"],
+  },
+  {
+    text: "Team-list",
+    path: "ind-team",
+    icon: <GroupIcon />,
+    roles: ["ADMIN", "SUPERADMIN", "INVOICE", "COORDINATOR"],
   },
   {
     text: "Team Metrices",
@@ -41,13 +55,13 @@ export const inNavItems = [
     text: "Clients",
     path: "clients",
     icon: <BusinessIcon />,
-    roles: [ "SUPERADMIN", "BDM", "PARTNER","INVOICE","COORDINATOR"],
+    roles: ["SUPERADMIN", "BDM", "PARTNER", "INVOICE", "COORDINATOR"],
   },
-   {
+  {
     text: "Requirements",
     path: "requirements",
     icon: <ListAltIcon />,
-    roles: [ "SUPERADMIN", "BDM", "TEAMLEAD","COORDINATOR"],
+    roles: ["SUPERADMIN", "BDM", "TEAMLEAD", "COORDINATOR"],
   },
   {
     text: "Assigned",
@@ -56,18 +70,34 @@ export const inNavItems = [
     roles: ["ADMIN", "EMPLOYEE", "BDM", "TEAMLEAD"],
   },
   {
-    text:"InProgress",
-    path:"InProgress",
-    icon:<AutorenewIcon/>,
-    roles:["ADMIN", "SUPERADMIN", "EMPLOYEE", "BDM", "TEAMLEAD", "PARTNER","PAYROLLADMIN","COORDINATOR"],
+    text: "InProgress",
+    path: "InProgress",
+    icon: <AutorenewIcon />,
+    roles: [
+      "ADMIN",
+      "SUPERADMIN",
+      "EMPLOYEE",
+      "BDM",
+      "TEAMLEAD",
+      "PARTNER",
+      "PAYROLLADMIN",
+      "COORDINATOR",
+    ],
   },
   {
     text: "Submissions",
     path: "submissions",
     icon: <SendIcon />,
-    roles: ["ADMIN", "EMPLOYEE", "BDM", "TEAMLEAD","SUPERADMIN","COORDINATOR"],
+    roles: [
+      "ADMIN",
+      "EMPLOYEE",
+      "BDM",
+      "TEAMLEAD",
+      "SUPERADMIN",
+      "COORDINATOR",
+    ],
   },
-   
+
   //   {
   //     text: 'Job Form',
   //     path: 'jobForm',
@@ -78,10 +108,16 @@ export const inNavItems = [
     text: "Interviews",
     path: "interviews",
     icon: <EventNoteIcon />,
-    roles: ["ADMIN", "EMPLOYEE", "BDM", "TEAMLEAD","SUPERADMIN","COORDINATOR"],
+    roles: [
+      "ADMIN",
+      "EMPLOYEE",
+      "BDM",
+      "TEAMLEAD",
+      "SUPERADMIN",
+      "COORDINATOR",
+    ],
   },
 
-  
   //   {
   //     text: 'Add Client',
   //     path: 'addNewClient',
@@ -105,7 +141,7 @@ export const inNavItems = [
     text: "Placements",
     path: "placements",
     icon: <PersonAddIcon />,
-    roles: ["SUPERADMIN", "PARTNER","ADMIN","INVOICE"],
+    roles: ["SUPERADMIN", "PARTNER", "ADMIN", "INVOICE"],
   },
   {
     text: "Bench",
@@ -114,15 +150,15 @@ export const inNavItems = [
     roles: ["ADMIN", "SUPERADMIN", "BDM", "TEAMLEAD", "PARTNER", "EMPLOYEE"],
   },
   {
-    text:"Timesheet",
-    path:"timesheets",
-    icon:<AssignmentTurnedInIcon/>,
-    roles:["EXTERNALEMPLOYEE"]
+    text: "Timesheet",
+    path: "timesheets",
+    icon: <AssignmentTurnedInIcon />,
+    roles: ["EXTERNALEMPLOYEE"],
   },
   {
-    text:"Timesheets",
-    path:"timesheetsForAdmins",
-    icon:<AssignmentTurnedInIcon/>,
-    roles:["SUPERADMIN","ADMIN","ACCOUNTS","INVOICE","ADMIN"]
-  }
+    text: "Timesheets",
+    path: "timesheetsForAdmins",
+    icon: <AssignmentTurnedInIcon />,
+    roles: ["SUPERADMIN", "ADMIN", "ACCOUNTS", "INVOICE", "ADMIN"],
+  },
 ];

@@ -44,6 +44,11 @@ const AllSubmissions = lazy(() =>
 //----------IND Team Creation--------------
 
 const IndTeamList = lazy(() => import("../components/Users/IndTeamList"));
+const IndTeamContainer = lazy(() =>
+  import("../components/Users/IndTeamContainer")
+);
+const CreateTeamInd = lazy(() => import("../components/Users/CreateTeamInd"));
+//----------------------------------------
 const IndTeamCreate = lazy(() => import("../components/Users/IndTeamCreate"));
 
 //---------------------------------------
@@ -243,7 +248,7 @@ const routeConfig = [
                   "BDM",
                   "TEAMLEAD",
                   "PARTNER",
-                  "COORDINATOR"
+                  "COORDINATOR",
                 ]}
                 allowedEntities={["IN"]}
               />
@@ -254,7 +259,11 @@ const routeConfig = [
           // SUBMISSIONS ALL (no entity restriction)
           {
             path: "submissions-all",
-            element: <ProtectedRoute allowedRoles={["ADMIN", "SUPERADMIN","COORDINATOR"]} />,
+            element: (
+              <ProtectedRoute
+                allowedRoles={["ADMIN", "SUPERADMIN", "COORDINATOR"]}
+              />
+            ),
             children: [{ index: true, element: Loadable(AllSubmissions) }],
           },
 
@@ -347,8 +356,24 @@ const routeConfig = [
               />
             ),
             children: [
-              { index: true, element: Loadable(IndTeamCreate) }, // default route
-              { path: "list", element: Loadable(IndTeamList) }, // child route
+              {
+                path: "",
+                element: <IndTeamContainer />, // main container
+                children: [
+                  {
+                    index: true,
+                    element: Loadable(IndTeamList), // default route inside container
+                  },
+                  {
+                    path: "create-team",
+                    element: Loadable(CreateTeamInd),
+                  },
+                  {
+                    path: "edit-team/:teamId",
+                    element: Loadable(CreateTeamInd), // Reusing the same component
+                  },
+                ],
+              },
             ],
           },
 
@@ -489,7 +514,13 @@ const routeConfig = [
             path: "timesheets",
             element: (
               <ProtectedRoute
-                allowedRoles={["EXTERNALEMPLOYEE", "SUPERADMIN", "ACCOUNTS","INVOICE","ADMIN"]}
+                allowedRoles={[
+                  "EXTERNALEMPLOYEE",
+                  "SUPERADMIN",
+                  "ACCOUNTS",
+                  "INVOICE",
+                  "ADMIN",
+                ]}
                 allowedEntities={["IN"]}
               />
             ),
@@ -499,7 +530,12 @@ const routeConfig = [
                 path: "create",
                 element: (
                   <ProtectedRoute
-                    allowedRoles={["SUPERADMIN", "ACCOUNTS", "INVOICE","ADMIN"]}
+                    allowedRoles={[
+                      "SUPERADMIN",
+                      "ACCOUNTS",
+                      "INVOICE",
+                      "ADMIN",
+                    ]}
                     allowedEntities={["IN"]}
                   />
                 ),
