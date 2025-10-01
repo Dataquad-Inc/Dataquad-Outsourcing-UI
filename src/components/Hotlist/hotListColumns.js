@@ -183,6 +183,14 @@ const getHotListColumns = ({
     filterOptions: filterOptions.actualVisa || [],
     render: (v) => renderValue(v, 80, loading),
   },
+  {
+    id: "approvalStatus",
+    label: "Approval Status",
+    filterType: "text",
+    applyFilter: true,
+     filterOptions: filterOptions.approvalStatus || [],
+    render: (v) => renderValue(v, 50, loading), 
+  }
 ];
 
 export default getHotListColumns;

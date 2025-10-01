@@ -26,7 +26,7 @@ import {
 } from "@mui/icons-material";
 import httpService from "../../Services/httpService";
 import ToastService from "../../Services/toastService";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { formatDateTime } from "../../utils/dateformate";
 import DataTable from "../muiComponents/DataTabel";
@@ -37,6 +37,7 @@ import InternalFeedbackCell from "./FeedBack";
 import DownloadResume from "../../utils/DownloadResume";
 import { API_BASE_URL } from "../../Services/httpService";
 import EditInterviewForm from "./EditInterviewForm";
+import { clearCoordinatorFilter } from "../../redux/interviewSlice";
 
 const processInterviewData = (interviews) => {
   if (!Array.isArray(interviews)) return [];
@@ -48,7 +49,15 @@ const processInterviewData = (interviews) => {
 };
 
 const CoordinatorInterviews = () => {
+  const dispatch = useDispatch();
   const { userId } = useSelector((state) => state.auth);
+  const {
+    isFilteredDataRequested,
+    filterInterviewsForCoordinator,
+    isCoordinatorFilterActive,
+    loading: reduxLoading
+  } = useSelector((state) => state.interview);
+  
   const [interviews, setInterviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -84,6 +93,19 @@ const CoordinatorInterviews = () => {
   useEffect(() => {
     fetchInterviews();
   }, [userId]);
+
+  // Add effect to handle filtered data updates
+  useEffect(() => {
+    console.log("Filter state changed:", {
+      isFilteredDataRequested,
+      isCoordinatorFilterActive,
+      filterInterviewsForCoordinator: filterInterviewsForCoordinator?.length,
+    });
+  }, [
+    isFilteredDataRequested,
+    isCoordinatorFilterActive,
+    filterInterviewsForCoordinator,
+  ]);
 
   const filterInterviewsByLevel = (interviews) => {
     if (levelFilter === "ALL") return interviews;
@@ -163,6 +185,29 @@ const CoordinatorInterviews = () => {
     }
   };
 
+  const getDisplayData = () => {
+    if (isCoordinatorFilterActive && filterInterviewsForCoordinator.length > 0) {
+      // Use filtered data from Redux
+      return processInterviewData(filterInterviewsForCoordinator);
+    } else if (
+      isFilteredDataRequested &&
+      filterInterviewsForCoordinator.length === 0
+    ) {
+      // Filter was applied but no results
+      return [];
+    } else {
+      // Use original interviews data
+      return interviews;
+    }
+  };
+
+  // Add function to clear filters
+  const handleClearFilters = () => {
+    dispatch(clearCoordinatorFilter());
+    // Also clear the level filter
+    setLevelFilter("ALL");
+  };
+
   const handleEdit = (row, isReschedule = false) => {
     setEditDrawer({
       open: true,
@@ -221,7 +266,7 @@ const CoordinatorInterviews = () => {
   });
 
   const renderExpandedContent = (row) => {
-    if (loading) {
+    if (loading || reduxLoading) {
       return (
         <Box sx={{ p: 2 }}>
           <CircularProgress size={24} sx={{ mr: 2 }} />
@@ -292,32 +337,32 @@ const CoordinatorInterviews = () => {
       width: 140,
       render: (row) => getStatusChip(row.latestInterviewStatus, row),
     },
-          {
-        key: "zoomLink",
-        label: "Meeting",
-        width: 120,
-        render: (row) =>
-          loading ? (
-            <Skeleton variant="rectangular" width={120} height={24} />
-          ) : row.zoomLink ? (
-            <Button
-              size="small"
-              variant="outlined"
-              color="primary"
-              startIcon={<VideoCallIcon />}
-              href={row.zoomLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              sx={{ px: 1, py: 0.5 }}
-            >
-              Join
-            </Button>
-          ) : (
-            <Typography variant="body2" color="text.secondary">
-              No link
-            </Typography>
-          ),
-      },
+    {
+      key: "zoomLink",
+      label: "Meeting",
+      width: 120,
+      render: (row) =>
+        loading || reduxLoading ? (
+          <Skeleton variant="rectangular" width={120} height={24} />
+        ) : row.zoomLink ? (
+          <Button
+            size="small"
+            variant="outlined"
+            color="primary"
+            startIcon={<VideoCallIcon />}
+            href={row.zoomLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            sx={{ px: 1, py: 0.5 }}
+          >
+            Join
+          </Button>
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            No link
+          </Typography>
+        ),
+    },
     {
       key: "comments",
       label: "Recruiter Comments",
@@ -327,7 +372,7 @@ const CoordinatorInterviews = () => {
       render: (row) => (
         <InternalFeedbackCell
           value={row.comments}
-          loading={loading}
+          loading={loading || reduxLoading}
           isCoordinator={false}
           candidateName={row.candidateFullName}
           type="comments"
@@ -343,9 +388,8 @@ const CoordinatorInterviews = () => {
        render: (row) => (
         <InternalFeedbackCell
           value={row.internalFeedback}
-          loading={loading}
+          loading={loading || reduxLoading}
           isCoordinator={false}
-          // candidateName={row.candidateFullName}
         />
       ),
     },
@@ -378,22 +422,18 @@ const CoordinatorInterviews = () => {
             getDownloadUrl={(candidate, format) =>
               `${API_BASE_URL}/candidate/download-resume/${candidate.candidateId}/${candidate.jobId}?format=${format}`}
           />
-           {/* <Button
-            variant="outlined"
-            size="small"
-            onClick={() => handleOpenFeedbackDialog(row)}
-          >
-            Feedback
-          </Button> */}
-      
         </Box>
       ),
     },
   ];
 
-  const processedData = loading
+  const displayData = getDisplayData();
+  const filteredData = filterInterviewsByLevel(displayData);
+
+  // FIXED: Use filteredData instead of interviews
+  const processedData = (loading || reduxLoading)
     ? []
-    : filterInterviewsByLevel(interviews).map((row) => ({
+    : filteredData.map((row) => ({
         ...row,
         expandContent: renderExpandedContent(row),
         isExpanded: expandedRows[row.interviewId],
@@ -441,53 +481,16 @@ const CoordinatorInterviews = () => {
             <Typography variant="h6" color="primary">
               Coordinator Interviews
             </Typography>
-            <DateRangeFilter component="InterviewsForRecruiter" />
+            <DateRangeFilter 
+              component="InterviewsForCoordinator" 
+              onClearFilter={handleClearFilters}
+            />
           </Stack>
-
-          {/* <Box sx={{ mb: 2, display: "flex", justifyContent: "start" }}>
-            <ToggleButtonGroup
-              value={levelFilter}
-              exclusive
-              onChange={handleLevelFilterChange}
-              aria-label="interview level filter"
-              sx={{
-                flexWrap: "wrap",
-                justifyContent: "center",
-                gap: 1,
-                "& .MuiToggleButton-root": {
-                  px: 2,
-                  py: 1,
-                  borderRadius: 1,
-                  border: "1px solid rgba(25, 118, 210, 0.5)",
-                  "&.Mui-selected": {
-                    backgroundColor: "#1976d2",
-                    color: "white",
-                    "&:hover": {
-                      backgroundColor: "#1565c0",
-                    },
-                  },
-                  "&:hover": {
-                    backgroundColor: "rgba(25, 118, 210, 0.08)",
-                  },
-                },
-              }}
-            >
-              <ToggleButton value="ALL" aria-label="all interviews">
-                ALL
-              </ToggleButton>
-              <ToggleButton value="INTERNAL" aria-label="internal interviews">
-                INTERNAL
-              </ToggleButton>
-              <ToggleButton value="EXTERNAL" aria-label="external interviews">
-                EXTERNAL
-              </ToggleButton>
-            </ToggleButtonGroup>
-          </Box> */}
 
           <DataTable
             data={processedData || []}
             columns={columns}
-            title="Coordinator Interviews"
+            title={`Coordinator Interviews`}
             enableSelection={false}
             defaultSortColumn="interviewDateTime"
             defaultSortDirection="desc"
@@ -503,6 +506,7 @@ const CoordinatorInterviews = () => {
             uniqueId="interviewId"
             enableRowExpansion={true}
             onRowExpandToggle={toggleRowExpansion}
+            loading={loading || reduxLoading}
           />
 
           <Dialog
@@ -530,18 +534,6 @@ const CoordinatorInterviews = () => {
             </DialogContent>
             <DialogActions sx={{ px: 4, pb: 3 }}>
               <Button onClick={handleCloseFeedbackDialog}>Cancel</Button>
-              {/* <Button
-                onClick={handleSubmitFeedback}
-                variant="contained"
-                color="primary"
-                disabled={!feedback.trim() || isSubmittingFeedback}
-              >
-                {isSubmittingFeedback ? (
-                  <CircularProgress size={24} />
-                ) : (
-                  "Submit Feedback"
-                )}
-              </Button> */}
             </DialogActions>
           </Dialog>
 

@@ -73,6 +73,23 @@ export const filterInterviewsByTeamLead = createAsyncThunk(
   }
 );
 
+export const filterInterviewsByCoordinator = createAsyncThunk(
+  "coordinator/interviews/filterByDateRange",
+  async ({ startDate, endDate }, { getState, rejectWithValue }) => {
+    try {
+      const state = getState();
+      const userId = state.auth.userId;
+
+      const response = await httpService.get(
+        `/candidate/interviews/${userId}/filterByDate?coordinator=true&startDate=${startDate}&endDate=${endDate}`
+      );
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error);
+    }
+  }
+);
+
 const interviewSlice = createSlice({
   name: "interview",
   initialState: {
@@ -83,8 +100,10 @@ const interviewSlice = createSlice({
     filterInterviewsForRecruiter: [],
     filterInterviewsForTeamLeadTeam: [],
     filterInterviewsForTeamLeadSelf: [],
+    filterInterviewsForCoordinator: [],
     // Add these flags to track when filtered data is active
     isFilteredDataRequested: false,
+    isCoordinatorFilterActive:false,
     isRecruiterFilterActive: false,
     isTeamLeadFilterActive: false,
     error: null,
@@ -94,13 +113,20 @@ const interviewSlice = createSlice({
       state.filterInterviewsForTeamLeadTeam = [];
       state.filterInterviewsForTeamLeadSelf = [];
       state.filterInterviewsForRecruiter = [];
+      state.filterInterviewsForCoordinator=[];
       state.filteredInterviewList = [];
       // Reset filter flags
       state.isFilteredDataRequested = false;
+      state.isCoordinatorFilterActive=false;
       state.isRecruiterFilterActive = false;
       state.isTeamLeadFilterActive = false;
     },
     // Add action to clear specific filter type
+    clearCoordinatorFilter:(state)=>{
+      state.filterInterviewsForCoordinator = [];
+      state.isCoordinatorFilterActive = false;
+      state.isFilteredDataRequested = false;
+    },
     clearRecruiterFilter: (state) => {
       state.filterInterviewsForRecruiter = [];
       state.isRecruiterFilterActive = false;
@@ -124,8 +150,14 @@ const interviewSlice = createSlice({
           state.isTeamLeadFilterActive = isActive;
           state.isFilteredDataRequested = isActive;
           break;
+        case 'coordinator':
+          state.isCoordinatorFilterActive = isActive;
+          state.isFilteredDataRequested = isActive;
+          break;
         case 'general':
           state.isFilteredDataRequested = isActive;
+          break;
+        default:
           break;
       }
     }
@@ -147,7 +179,30 @@ const interviewSlice = createSlice({
         state.error = action.payload?.message || "Failed to fetch interviews";
       })
 
-      // Filter Interviews List By date Range For Recruiters
+      // Filter Interviews List By date Range For Coordinator
+      .addCase(filterInterviewsByCoordinator.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(filterInterviewsByCoordinator.fulfilled, (state, action) => {
+        state.loading = false;
+        // Handle both array and object response formats
+        state.filterInterviewsForCoordinator = Array.isArray(action.payload) 
+          ? action.payload 
+          : action.payload?.data || [];
+        // Set the filter flag to indicate filtered data is active
+        state.isCoordinatorFilterActive = true;
+        state.isFilteredDataRequested = true;
+      })
+      .addCase(filterInterviewsByCoordinator.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || "Failed to filter interviews";
+        // Reset filter flags on error
+        state.isCoordinatorFilterActive = false;
+        state.isFilteredDataRequested = false;
+      })
+
+      // Filter Interviews List By date Range For Recruiter
       .addCase(filterInterviewsByRecruiter.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -221,5 +276,5 @@ const interviewSlice = createSlice({
   },
 });
 
-export const { clearFilteredData, setFilterFlag, clearRecruiterFilter, clearTeamLeadFilter } = interviewSlice.actions;
+export const { clearFilteredData, setFilterFlag, clearRecruiterFilter, clearTeamLeadFilter, clearCoordinatorFilter } = interviewSlice.actions;
 export default interviewSlice.reducer;

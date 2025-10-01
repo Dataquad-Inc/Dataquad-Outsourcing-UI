@@ -16,6 +16,7 @@ import {
 import {
   filterInterviewsByDateRange,
   filterInterviewsByRecruiter,
+  filterInterviewsByCoordinator,
   filterInterviewsByTeamLead,
   clearRecruiterFilter,
 } from "../../redux/interviewSlice";
@@ -47,6 +48,7 @@ const componentToActionMap = {
   AssignedList: filterRequirementsByRecruiter,
   RecruiterSubmission: filterSubmissionssByRecruiter,
   InterviewsForRecruiter: filterInterviewsByRecruiter,
+  InterviewsForCoordinator:filterInterviewsByCoordinator,
   dashboard: filterDashBoardCountByDateRange,
   InterviewsForTeamLead: filterInterviewsByTeamLead,
   Clients: filterClientsByDateRange,
