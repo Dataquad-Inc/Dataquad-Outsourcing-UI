@@ -1,5 +1,13 @@
 import React, { useEffect, useCallback, useState } from "react";
-import { Box, Button } from "@mui/material";
+import {
+  Box,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+} from "@mui/material";
 import { useSelector } from "react-redux";
 import CustomDataTable from "../../ui-lib/CustomDataTable";
 import getHotListColumns from "../Hotlist/hotListColumns";
@@ -13,6 +21,7 @@ import {
   showInfoToast,
 } from "../../utils/toastUtils";
 import showDeleteConfirm from "../../utils/showDeleteConfirm";
+import { ErrorMessage } from "formik";
 
 // Debounce hook (for search)
 const useDebounce = (value, delay) => {
@@ -44,6 +53,13 @@ const YetToOnboard = React.memo(() => {
   // State for edit form
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingConsultant, setEditingConsultant] = useState(null);
+
+  // State for approval dialog
+  const [approvalDialog, setApprovalDialog] = useState({
+    open: false,
+    consultant: null,
+    isSubmitting: false,
+  });
 
   // Fetch filter options
   const fetchFilterOptions = useCallback(async () => {
@@ -164,6 +180,58 @@ const YetToOnboard = React.memo(() => {
     setPage(0); // Reset to first page when filters change
   }, []);
 
+  /** ---------------- Approval Dialog Handlers ---------------- */
+  const handleOpenApprovalDialog = useCallback((row) => {
+    setApprovalDialog({
+      open: true,
+      consultant: row,
+      isSubmitting: false,
+    });
+  }, []);
+
+  const handleCloseApprovalDialog = useCallback(() => {
+    setApprovalDialog({
+      open: false,
+      consultant: null,
+      isSubmitting: false,
+    });
+  }, []);
+
+const handleApprovalSubmit = useCallback(async (isSubmitted) => {
+  if (!approvalDialog.consultant) return;
+
+  try {
+    setApprovalDialog(prev => ({ ...prev, isSubmitting: true }));
+
+    const result = await hotlistAPI.sendApproval(
+      approvalDialog.consultant.consultantId, 
+      userId,
+      isSubmitted // Pass true for approve, false for reject
+    );
+    
+    showSuccessToast(
+      isSubmitted 
+        ? "Consultant approved successfully" 
+        : "Consultant rejected successfully"
+    );
+    
+    handleCloseApprovalDialog();
+    setRefreshKey((prev) => prev + 1);
+  } catch (error) {
+    console.error("Approval error:", error);
+    
+    // Extract error message from your API response structure
+    const errorMessage = error.response?.data?.error?.errorMessage || 
+                        error.response?.data?.message || 
+                        error.message || 
+                        "Failed to process approval";
+    
+    showErrorToast(errorMessage);
+  } finally {
+    setApprovalDialog(prev => ({ ...prev, isSubmitting: false }));
+  }
+}, [approvalDialog.consultant, userId, handleCloseApprovalDialog]);
+
   /** ---------------- Edit Handlers ---------------- */
   const handleEdit = useCallback((row) => {
     const editData = { ...row, consultantId: row.consultantId };
@@ -203,7 +271,9 @@ const YetToOnboard = React.memo(() => {
     setRefreshKey((prev) => prev + 1);
   }, []);
 
-  /** ---------------- Actions ---------------- */
+  /** ---------------- Approval Flow Handlers ---------------- */
+  
+  // Handler for moving to hotlist (only for SUPERADMIN)
   const handleMoveToHotlist = useCallback(async (row) => {
     try {
       const result = await hotlistAPI.moveToHotlist(row.consultantId);
@@ -242,6 +312,163 @@ const YetToOnboard = React.memo(() => {
     [navigate]
   );
 
+  /** ---------------- Render Approval Button Based on Role and Status ---------------- */
+const renderApprovalButton = (row) => {
+  const { approvalStatus } = row;
+
+  // RECRUITER: Show button only when status is "NOT_RAISED"
+  if (role === 'RECRUITER') {
+    if (approvalStatus === "NOT_RAISED" || approvalStatus === "REJECTED") {
+      return (
+        <Button
+          variant="contained"
+          disabled={loading}
+          onClick={() => handleOpenApprovalDialog(row)}
+          sx={{
+            textTransform: "none",
+            minWidth: 150,
+            fontWeight: 700,
+            fontSize: '0.875rem',
+            background: 'linear-gradient(135deg, #F26322 0%, #f5723a 50%, #F26322 100%)',
+            boxShadow: '0 4px 15px rgba(242, 99, 34, 0.4)',
+            borderRadius: '8px',
+            padding: '5px 10px',
+            color: '#FFFFFF',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            position: 'relative',
+            overflow: 'hidden',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #C3410A 0%, #F26322 50%, #f5723a 100%)',
+              boxShadow: '0 6px 20px rgba(242, 99, 34, 0.6)',
+              transform: 'translateY(-2px)',
+            },
+            '&:active': {
+              transform: 'translateY(0)',
+              boxShadow: '0 3px 10px rgba(242, 99, 34, 0.4)',
+            },
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.5,
+              position: 'relative',
+              zIndex: 1,
+            }}
+          >
+            Submit Approval
+          </Box>
+        </Button>
+      );
+    }
+    return null;
+  }
+
+  // TEAMLEAD: Show button only when status is "TL_PENDING"
+  if (role === 'TEAMLEAD') {
+    if (approvalStatus === "TL_PENDING") {
+      return (
+        <Button
+          variant="contained"
+          disabled={loading}
+          onClick={() => handleOpenApprovalDialog(row)}
+       sx={{
+            textTransform: "none",
+            minWidth: 150,
+            fontWeight: 700,
+            fontSize: '0.875rem',
+            background: 'linear-gradient(135deg, #F26322 0%, #f5723a 50%, #F26322 100%)',
+            boxShadow: '0 4px 15px rgba(242, 99, 34, 0.4)',
+            borderRadius: '8px',
+            padding: '5px 10px',
+            color: '#FFFFFF',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            position: 'relative',
+            overflow: 'hidden',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #C3410A 0%, #F26322 50%, #f5723a 100%)',
+              boxShadow: '0 6px 20px rgba(242, 99, 34, 0.6)',
+              transform: 'translateY(-2px)',
+            },
+            '&:active': {
+              transform: 'translateY(0)',
+              boxShadow: '0 3px 10px rgba(242, 99, 34, 0.4)',
+            },
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.5,
+              position: 'relative',
+              zIndex: 1,
+            }}
+          >
+            Submit Approval
+          </Box>
+        </Button>
+      );
+    }
+    return null;
+  }
+
+  // ADMIN: Show button only when status is "ADMIN_PENDING"
+  if (role === 'ADMIN') {
+    if (approvalStatus === "SADMIN_PENDING") {
+      return (
+        <Button
+          variant="contained"
+          disabled={loading}
+          onClick={() => handleOpenApprovalDialog(row)}
+   sx={{
+            textTransform: "none",
+            minWidth: 150,
+            fontWeight: 700,
+            fontSize: '0.875rem',
+            background: 'linear-gradient(135deg, #F26322 0%, #f5723a 50%, #F26322 100%)',
+            boxShadow: '0 4px 15px rgba(242, 99, 34, 0.4)',
+            borderRadius: '8px',
+            padding: '5px 10px',
+            color: '#FFFFFF',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            position: 'relative',
+            overflow: 'hidden',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #C3410A 0%, #F26322 50%, #f5723a 100%)',
+              boxShadow: '0 6px 20px rgba(242, 99, 34, 0.6)',
+              transform: 'translateY(-2px)',
+            },
+            '&:active': {
+              transform: 'translateY(0)',
+              boxShadow: '0 3px 10px rgba(242, 99, 34, 0.4)',
+            },
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.5,
+              position: 'relative',
+              zIndex: 1,
+            }}
+          >
+            Submit Approval
+          </Box>
+        </Button>
+      );
+    }
+    return null;
+  }
+
+  return null;
+};
+
   /** ---------------- Columns ---------------- */
   const columns = [
     ...getHotListColumns({
@@ -251,25 +478,32 @@ const YetToOnboard = React.memo(() => {
       loading,
       userRole: role,
       userId,
-      filterOptions, // Pass filter options to columns (same as MasterHotlist)
+      filterOptions,
     }),
     {
-      id: "moveToHotlist",
-      label: "Move To Hotlist",
-      width: 180,
+      id: "actions",
+      width: 200,
       render: (_, row) => (
-        <Button
-          variant="outlined"
-          color="primary"
-          disabled={loading}
-          onClick={() => handleMoveToHotlist(row)}
-          sx={{
-            textTransform: "none",
-            minWidth: 180,
-          }}
-        >
-          Move to Hotlist
-        </Button>
+        <Box sx={{ display: "flex", gap: 1, flexDirection: "column" }}>
+          {/* Render approval button based on role and status */}
+          {renderApprovalButton(row)}
+          
+          {/* Move to Hotlist button - only for SUPERADMIN when status is APPROVED */}
+          {role === 'SUPERADMIN' && row.approvalStatus === "APPROVED" && (
+            <Button
+              variant="outlined"
+              color="primary"
+              disabled={loading}
+              onClick={() => handleMoveToHotlist(row)}
+              sx={{
+                textTransform: "none",
+                minWidth: 150,
+              }}
+            >
+              Move to Hotlist
+            </Button>
+          )}
+        </Box>
       ),
     },
   ];
@@ -278,33 +512,84 @@ const YetToOnboard = React.memo(() => {
   return (
     <Box>
       {!showCreateForm ? (
-        <CustomDataTable
-          title="Yet To Onboard"
-          columns={columns}
-          rows={consultants}
-          total={total}
-          page={page}
-          rowsPerPage={rowsPerPage}
-          search={search}
-          loading={loading}
-          filters={filters}
-          onPageChange={(e, newPage) => setPage(newPage)}
-          onRowsPerPageChange={(e) => {
-            setRowsPerPage(parseInt(e.target.value, 10));
-            setPage(0);
-          }}
-          onSearchChange={(e) => {
-            setSearch(e.target.value);
-            setPage(0);
-          }}
-          onSearchClear={() => {
-            setSearch("");
-            setPage(0);
-          }}
-          onRefresh={() => setRefreshKey((prev) => prev + 1)}
-          onFiltersChange={handleFiltersChange}
-          onCreateNew={handleCreateNew}
-        />
+        <>
+          <CustomDataTable
+            title="Yet To Onboard"
+            columns={columns}
+            rows={consultants}
+            total={total}
+            page={page}
+            rowsPerPage={rowsPerPage}
+            search={search}
+            loading={loading}
+            filters={filters}
+            onPageChange={(e, newPage) => setPage(newPage)}
+            onRowsPerPageChange={(e) => {
+              setRowsPerPage(parseInt(e.target.value, 10));
+              setPage(0);
+            }}
+            onSearchChange={(e) => {
+              setSearch(e.target.value);
+              setPage(0);
+            }}
+            onSearchClear={() => {
+              setSearch("");
+              setPage(0);
+            }}
+            onRefresh={() => setRefreshKey((prev) => prev + 1)}
+            onFiltersChange={handleFiltersChange}
+            onCreateNew={handleCreateNew}
+          />
+
+          {/* Approval Dialog */}
+          <Dialog
+            open={approvalDialog.open}
+            onClose={handleCloseApprovalDialog}
+            maxWidth="sm"
+            fullWidth
+          >
+            <DialogTitle>
+              Submit Approval
+            </DialogTitle>
+            <DialogContent>
+              <DialogContentText>
+                {approvalDialog.consultant && (
+                  <>
+                    Please review the consultant <strong>{approvalDialog.consultant.name}</strong> and 
+                    choose to approve or reject this submission.
+                  </>
+                )}
+              </DialogContentText>
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
+              <Button
+                onClick={handleCloseApprovalDialog}
+                disabled={approvalDialog.isSubmitting}
+                variant="outlined"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => handleApprovalSubmit(false)}
+                disabled={approvalDialog.isSubmitting}
+                variant="outlined"
+                color="error"
+                sx={{ minWidth: 100 }}
+              >
+                Reject
+              </Button>
+              <Button
+                onClick={() => handleApprovalSubmit(true)}
+                disabled={approvalDialog.isSubmitting}
+                variant="contained"
+                color="primary"
+                sx={{ minWidth: 100 }}
+              >
+                Approve
+              </Button>
+            </DialogActions>
+          </Dialog>
+        </>
       ) : (
         <CreateConsultant
           onClose={handleFormCancel}

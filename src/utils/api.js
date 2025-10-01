@@ -333,6 +333,9 @@ export const hotlistAPI = {
   moveToHotlist: async (consultantId) => {
     return apiPatch(`hotlist/moveToHotlist/${consultantId}`);
   },
+  sendApproval:async(consultantId,userId,isApproved)=>{
+    return apiPatch(`/hotlist/modify-approvalStatus/${userId}?consultantId=${consultantId}&isApproved=${isApproved}`)
+  },
    moveToYetToOnboard: async (consultantId) => {
     return apiPatch(`hotlist/moveToYetToOnBoard/${consultantId}`);
   },
