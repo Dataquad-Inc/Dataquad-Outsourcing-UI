@@ -329,12 +329,18 @@ const TeamForm = ({ teamData = null, onSave, onCancel, mode = "create" }) => {
         body: JSON.stringify(formData),
       });
 
-      if (!response.ok) throw new Error("Failed to save team");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `HTTP error! status: ${response.status}`
+        );
+      }
 
       const data = await response.json();
       onSave(data);
     } catch (error) {
       console.error("Error saving team:", error);
+      // You might want to show an error snackbar here
     } finally {
       setSaving(false);
     }
@@ -736,7 +742,13 @@ const TeamManagement = () => {
     }
   };
 
-  // Fixed: Correct function name for snackbar
+  // Navigation helper function
+  const navigateToTeamList = () => {
+    setCurrentTab(0);
+    setCurrentView("list");
+    setSelectedTeam(null);
+  };
+
   const handleSnackbar = (message, severity = "info") => {
     setSnackbar({ open: true, message, severity });
   };
@@ -781,7 +793,6 @@ const TeamManagement = () => {
     }
   };
 
-  // Fixed: Properly defined handleDeleteTeamMember function
   const handleDeleteTeamMember = async (team, member, category) => {
     // Prevent deleting team lead through member deletion
     if (member.employeeId === team.teamLeadId) {
@@ -870,21 +881,16 @@ const TeamManagement = () => {
       `Team ${selectedTeam ? "updated" : "created"} successfully`,
       "success"
     );
-    setCurrentTab(0);
-    setCurrentView("list");
-    setSelectedTeam(null);
+    navigateToTeamList();
     fetchTeams();
   };
 
   const handleCancel = () => {
-    setCurrentTab(0);
-    setCurrentView("list");
-    setSelectedTeam(null);
+    navigateToTeamList();
   };
 
   const handleBackToList = () => {
-    setCurrentView("list");
-    setSelectedTeam(null);
+    navigateToTeamList();
   };
 
   const filteredTeams = teams.filter(
