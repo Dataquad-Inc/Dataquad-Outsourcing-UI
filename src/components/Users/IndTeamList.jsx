@@ -344,10 +344,12 @@ const IndTeamList = () => {
                     {team.teamLeadName}
                   </Typography>
                 </Grid>
-               
+
                 <Grid item xs={12} md={4} sx={{ textAlign: "right" }}>
-                  <IconButton
+                  <Button
+                    variant="contained"
                     color="primary"
+                    startIcon={<EditIcon />}
                     onClick={() => handleEditClick(team)}
                     sx={{
                       "&:hover": {
@@ -356,8 +358,8 @@ const IndTeamList = () => {
                       },
                     }}
                   >
-                    <EditIcon />
-                  </IconButton>
+                    Edit Team
+                  </Button>
                 </Grid>
               </Grid>
             </Box>
