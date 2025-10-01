@@ -137,7 +137,7 @@ const MasterHotlist = React.memo(() => {
         extractFilterOptionsFromData(result.data.content);
       }
 
-      showInfoToast("Consultants loaded successfully ");
+      
     } catch (err) {
       console.error("Error fetching consultants:", err);
       showErrorToast("Failed to load consultants ");
