@@ -67,7 +67,7 @@ const YetToOnboard = React.memo(() => {
       // You can either call a dedicated API endpoint for filter options
       // or extract them from the existing data
       const result = await hotlistAPI.getFilterOptions();
-      
+
       if (result?.data) {
         setFilterOptions(result.data);
       }
@@ -197,40 +197,40 @@ const YetToOnboard = React.memo(() => {
     });
   }, []);
 
-const handleApprovalSubmit = useCallback(async (isSubmitted) => {
-  if (!approvalDialog.consultant) return;
+  const handleApprovalSubmit = useCallback(async (isSubmitted) => {
+    if (!approvalDialog.consultant) return;
 
-  try {
-    setApprovalDialog(prev => ({ ...prev, isSubmitting: true }));
+    try {
+      setApprovalDialog(prev => ({ ...prev, isSubmitting: true }));
 
-    const result = await hotlistAPI.sendApproval(
-      approvalDialog.consultant.consultantId, 
-      userId,
-      isSubmitted // Pass true for approve, false for reject
-    );
-    
-    showSuccessToast(
-      isSubmitted 
-        ? "Consultant approved successfully" 
-        : "Consultant rejected successfully"
-    );
-    
-    handleCloseApprovalDialog();
-    setRefreshKey((prev) => prev + 1);
-  } catch (error) {
-    console.error("Approval error:", error);
-    
-    // Extract error message from your API response structure
-    const errorMessage = error.response?.data?.error?.errorMessage || 
-                        error.response?.data?.message || 
-                        error.message || 
-                        "Failed to process approval";
-    
-    showErrorToast(errorMessage);
-  } finally {
-    setApprovalDialog(prev => ({ ...prev, isSubmitting: false }));
-  }
-}, [approvalDialog.consultant, userId, handleCloseApprovalDialog]);
+      const result = await hotlistAPI.sendApproval(
+        approvalDialog.consultant.consultantId,
+        userId,
+        isSubmitted // Pass true for approve, false for reject
+      );
+
+      showSuccessToast(
+        isSubmitted
+          ? "Consultant approved successfully"
+          : "Consultant rejected successfully"
+      );
+
+      handleCloseApprovalDialog();
+      setRefreshKey((prev) => prev + 1);
+    } catch (error) {
+      console.error("Approval error:", error);
+
+      // Extract error message from your API response structure
+      const errorMessage = error.response?.data?.error?.errorMessage ||
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to process approval";
+
+      showErrorToast(errorMessage);
+    } finally {
+      setApprovalDialog(prev => ({ ...prev, isSubmitting: false }));
+    }
+  }, [approvalDialog.consultant, userId, handleCloseApprovalDialog]);
 
   /** ---------------- Edit Handlers ---------------- */
   const handleEdit = useCallback((row) => {
@@ -272,7 +272,7 @@ const handleApprovalSubmit = useCallback(async (isSubmitted) => {
   }, []);
 
   /** ---------------- Approval Flow Handlers ---------------- */
-  
+
   // Handler for moving to hotlist (only for SUPERADMIN)
   const handleMoveToHotlist = useCallback(async (row) => {
     try {
@@ -313,161 +313,209 @@ const handleApprovalSubmit = useCallback(async (isSubmitted) => {
   );
 
   /** ---------------- Render Approval Button Based on Role and Status ---------------- */
-const renderApprovalButton = (row) => {
-  const { approvalStatus } = row;
+  const renderApprovalButton = (row) => {
+    const { approvalStatus } = row;
 
-  // RECRUITER: Show button only when status is "NOT_RAISED"
-  if (role === 'RECRUITER') {
-    if (approvalStatus === "NOT_RAISED" || approvalStatus === "REJECTED") {
-      return (
-        <Button
-          variant="contained"
-          disabled={loading}
-          onClick={() => handleOpenApprovalDialog(row)}
-          sx={{
-            textTransform: "none",
-            minWidth: 150,
-            fontWeight: 700,
-            fontSize: '0.875rem',
-            background: 'linear-gradient(135deg, #F26322 0%, #f5723a 50%, #F26322 100%)',
-            boxShadow: '0 4px 15px rgba(242, 99, 34, 0.4)',
-            borderRadius: '8px',
-            padding: '5px 10px',
-            color: '#FFFFFF',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            position: 'relative',
-            overflow: 'hidden',
-            '&:hover': {
-              background: 'linear-gradient(135deg, #C3410A 0%, #F26322 50%, #f5723a 100%)',
-              boxShadow: '0 6px 20px rgba(242, 99, 34, 0.6)',
-              transform: 'translateY(-2px)',
-            },
-            '&:active': {
-              transform: 'translateY(0)',
-              boxShadow: '0 3px 10px rgba(242, 99, 34, 0.4)',
-            },
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          }}
-        >
-          <Box
+    // RECRUITER: Show button only when status is "NOT_RAISED"
+    if (role === 'RECRUITER') {
+      if (approvalStatus === "NOT_RAISED" || approvalStatus === "REJECTED") {
+        return (
+          <Button
+            variant="contained"
+            disabled={loading}
+            onClick={() => handleOpenApprovalDialog(row)}
             sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1.5,
+              textTransform: "none",
+              minWidth: 150,
+              fontWeight: 700,
+              fontSize: '0.875rem',
+              background: 'linear-gradient(135deg, #F26322 0%, #f5723a 50%, #F26322 100%)',
+              boxShadow: '0 4px 15px rgba(242, 99, 34, 0.4)',
+              borderRadius: '8px',
+              padding: '5px 10px',
+              color: '#FFFFFF',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
               position: 'relative',
-              zIndex: 1,
+              overflow: 'hidden',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #C3410A 0%, #F26322 50%, #f5723a 100%)',
+                boxShadow: '0 6px 20px rgba(242, 99, 34, 0.6)',
+                transform: 'translateY(-2px)',
+              },
+              '&:active': {
+                transform: 'translateY(0)',
+                boxShadow: '0 3px 10px rgba(242, 99, 34, 0.4)',
+              },
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
-            Submit Approval
-          </Box>
-        </Button>
-      );
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                position: 'relative',
+                zIndex: 1,
+              }}
+            >
+              Submit Approval
+            </Box>
+          </Button>
+        );
+      }
+      return null;
     }
-    return null;
-  }
 
-  // TEAMLEAD: Show button only when status is "TL_PENDING"
-  if (role === 'TEAMLEAD') {
-    if (approvalStatus === "TL_PENDING") {
-      return (
-        <Button
-          variant="contained"
-          disabled={loading}
-          onClick={() => handleOpenApprovalDialog(row)}
-       sx={{
-            textTransform: "none",
-            minWidth: 150,
-            fontWeight: 700,
-            fontSize: '0.875rem',
-            background: 'linear-gradient(135deg, #F26322 0%, #f5723a 50%, #F26322 100%)',
-            boxShadow: '0 4px 15px rgba(242, 99, 34, 0.4)',
-            borderRadius: '8px',
-            padding: '5px 10px',
-            color: '#FFFFFF',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            position: 'relative',
-            overflow: 'hidden',
-            '&:hover': {
-              background: 'linear-gradient(135deg, #C3410A 0%, #F26322 50%, #f5723a 100%)',
-              boxShadow: '0 6px 20px rgba(242, 99, 34, 0.6)',
-              transform: 'translateY(-2px)',
-            },
-            '&:active': {
-              transform: 'translateY(0)',
-              boxShadow: '0 3px 10px rgba(242, 99, 34, 0.4)',
-            },
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          }}
-        >
-          <Box
+    // TEAMLEAD: Show button only when status is "TL_PENDING"
+    if (role === 'TEAMLEAD') {
+      if (approvalStatus === "TL_PENDING") {
+        return (
+          <Button
+            variant="contained"
+            disabled={loading}
+            onClick={() => handleOpenApprovalDialog(row)}
             sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1.5,
+              textTransform: "none",
+              minWidth: 150,
+              fontWeight: 700,
+              fontSize: '0.875rem',
+              background: 'linear-gradient(135deg, #F26322 0%, #f5723a 50%, #F26322 100%)',
+              boxShadow: '0 4px 15px rgba(242, 99, 34, 0.4)',
+              borderRadius: '8px',
+              padding: '5px 10px',
+              color: '#FFFFFF',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
               position: 'relative',
-              zIndex: 1,
+              overflow: 'hidden',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #C3410A 0%, #F26322 50%, #f5723a 100%)',
+                boxShadow: '0 6px 20px rgba(242, 99, 34, 0.6)',
+                transform: 'translateY(-2px)',
+              },
+              '&:active': {
+                transform: 'translateY(0)',
+                boxShadow: '0 3px 10px rgba(242, 99, 34, 0.4)',
+              },
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
-            Submit Approval
-          </Box>
-        </Button>
-      );
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                position: 'relative',
+                zIndex: 1,
+              }}
+            >
+              Submit Approval
+            </Box>
+          </Button>
+        );
+      }
+      return null;
     }
-    return null;
-  }
 
-  // ADMIN: Show button only when status is "ADMIN_PENDING"
-  if (role === 'ADMIN') {
-    if (approvalStatus === "SADMIN_PENDING") {
-      return (
-        <Button
-          variant="contained"
-          disabled={loading}
-          onClick={() => handleOpenApprovalDialog(row)}
-   sx={{
-            textTransform: "none",
-            minWidth: 150,
-            fontWeight: 700,
-            fontSize: '0.875rem',
-            background: 'linear-gradient(135deg, #F26322 0%, #f5723a 50%, #F26322 100%)',
-            boxShadow: '0 4px 15px rgba(242, 99, 34, 0.4)',
-            borderRadius: '8px',
-            padding: '5px 10px',
-            color: '#FFFFFF',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            position: 'relative',
-            overflow: 'hidden',
-            '&:hover': {
-              background: 'linear-gradient(135deg, #C3410A 0%, #F26322 50%, #f5723a 100%)',
-              boxShadow: '0 6px 20px rgba(242, 99, 34, 0.6)',
-              transform: 'translateY(-2px)',
-            },
-            '&:active': {
-              transform: 'translateY(0)',
-              boxShadow: '0 3px 10px rgba(242, 99, 34, 0.4)',
-            },
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          }}
-        >
-          <Box
+    // ADMIN: Show button only when status is "ADMIN_PENDING"
+    if (role === 'ADMIN') {
+      if (approvalStatus === "ADMIN_PENDING") {
+        return (
+          <Button
+            variant="contained"
+            disabled={loading}
+            onClick={() => handleOpenApprovalDialog(row)}
             sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1.5,
+              textTransform: "none",
+              minWidth: 150,
+              fontWeight: 700,
+              fontSize: '0.875rem',
+              background: 'linear-gradient(135deg, #F26322 0%, #f5723a 50%, #F26322 100%)',
+              boxShadow: '0 4px 15px rgba(242, 99, 34, 0.4)',
+              borderRadius: '8px',
+              padding: '5px 10px',
+              color: '#FFFFFF',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
               position: 'relative',
-              zIndex: 1,
+              overflow: 'hidden',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #C3410A 0%, #F26322 50%, #f5723a 100%)',
+                boxShadow: '0 6px 20px rgba(242, 99, 34, 0.6)',
+                transform: 'translateY(-2px)',
+              },
+              '&:active': {
+                transform: 'translateY(0)',
+                boxShadow: '0 3px 10px rgba(242, 99, 34, 0.4)',
+              },
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
-            Submit Approval
-          </Box>
-        </Button>
-      );
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                position: 'relative',
+                zIndex: 1,
+              }}
+            >
+              Submit Approval
+            </Box>
+          </Button>
+        );
+      }
+      return null;
     }
-    return null;
-  }
+    if (role === 'SUPERADMIN') {
+      if (approvalStatus === "SADMIN_PENDING") {
+        return (
+          <Button
+            variant="contained"
+            disabled={loading}
+            onClick={() => handleOpenApprovalDialog(row)}
+            sx={{
+              textTransform: "none",
+              minWidth: 150,
+              fontWeight: 700,
+              fontSize: '0.875rem',
+              background: 'linear-gradient(135deg, #F26322 0%, #f5723a 50%, #F26322 100%)',
+              boxShadow: '0 4px 15px rgba(242, 99, 34, 0.4)',
+              borderRadius: '8px',
+              padding: '5px 10px',
+              color: '#FFFFFF',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              position: 'relative',
+              overflow: 'hidden',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #C3410A 0%, #F26322 50%, #f5723a 100%)',
+                boxShadow: '0 6px 20px rgba(242, 99, 34, 0.6)',
+                transform: 'translateY(-2px)',
+              },
+              '&:active': {
+                transform: 'translateY(0)',
+                boxShadow: '0 3px 10px rgba(242, 99, 34, 0.4)',
+              },
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                position: 'relative',
+                zIndex: 1,
+              }}
+            >
+              Submit Approval
+            </Box>
+          </Button>
+        );
+      }
+      return null;
+    }
 
-  return null;
-};
+    return null;
+  };
 
   /** ---------------- Columns ---------------- */
   const columns = [
@@ -487,7 +535,7 @@ const renderApprovalButton = (row) => {
         <Box sx={{ display: "flex", gap: 1, flexDirection: "column" }}>
           {/* Render approval button based on role and status */}
           {renderApprovalButton(row)}
-          
+
           {/* Move to Hotlist button - only for SUPERADMIN when status is APPROVED */}
           {role === 'SUPERADMIN' && row.approvalStatus === "APPROVED" && (
             <Button
@@ -555,7 +603,7 @@ const renderApprovalButton = (row) => {
               <DialogContentText>
                 {approvalDialog.consultant && (
                   <>
-                    Please review the consultant <strong>{approvalDialog.consultant.name}</strong> and 
+                    Please review the consultant <strong>{approvalDialog.consultant.name}</strong> and
                     choose to approve or reject this submission.
                   </>
                 )}
