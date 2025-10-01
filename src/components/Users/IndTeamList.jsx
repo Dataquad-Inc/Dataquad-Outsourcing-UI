@@ -324,7 +324,7 @@ const IndTeamList = () => {
             {/* Header Section with Edit Icon */}
             <Box sx={{ mb: 3 }}>
               <Grid container spacing={2} alignItems="center">
-                <Grid item xs={12} md={3}>
+                <Grid item xs={12} md={4}>
                   <Typography variant="subtitle2" color="text.secondary">
                     Team Name
                   </Typography>
@@ -336,7 +336,7 @@ const IndTeamList = () => {
                     {team.teamName}
                   </Typography>
                 </Grid>
-                <Grid item xs={12} md={3}>
+                <Grid item xs={12} md={4}>
                   <Typography variant="subtitle2" color="text.secondary">
                     Team Lead
                   </Typography>
@@ -344,15 +344,8 @@ const IndTeamList = () => {
                     {team.teamLeadName}
                   </Typography>
                 </Grid>
-                <Grid item xs={12} md={3}>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Super Admin
-                  </Typography>
-                  <Typography variant="h6" fontWeight={500}>
-                    {team.superAdminName || "-"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={3} sx={{ textAlign: "right" }}>
+               
+                <Grid item xs={12} md={4} sx={{ textAlign: "right" }}>
                   <IconButton
                     color="primary"
                     onClick={() => handleEditClick(team)}
