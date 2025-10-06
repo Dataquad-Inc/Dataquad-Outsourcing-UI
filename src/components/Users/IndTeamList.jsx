@@ -114,6 +114,7 @@ const IndTeamList = () => {
                     (c) => c.userId !== member.userId
                   ),
                   bdms: t.bdms.filter((b) => b.userId !== member.userId),
+                  teamLeads: t.teamLeads.filter((tl) => tl.userId !== member.userId),
                 };
               }
               return t;
@@ -123,7 +124,8 @@ const IndTeamList = () => {
               (t) =>
                 (t.employees && t.employees.length > 0) ||
                 (t.coordinators && t.coordinators.length > 0) ||
-                (t.bdms && t.bdms.length > 0)
+                (t.bdms && t.bdms.length > 0) ||
+                (t.teamLeads && t.teamLeads.length > 0)
             )
         );
 
@@ -173,14 +175,16 @@ const IndTeamList = () => {
       (team) =>
         (team.employees && team.employees.length > 0) ||
         (team.coordinators && team.coordinators.length > 0) ||
-        (team.bdms && team.bdms.length > 0)
+        (team.bdms && team.bdms.length > 0) ||
+        (team.teamLeads && team.teamLeads.length > 0)
     )
     .map((team) => ({
       id: team.teamLeadId,
-      teamName: team.teamName,
+      teamName: team.teamName || 'Unnamed Team',
       teamLeadName: team.teamLeadName,
       superAdminName: team.superAdminName,
-    }));
+    }))
+    .filter(team => team.teamName);
 
   if (loading) {
     return (
@@ -195,17 +199,21 @@ const IndTeamList = () => {
     );
   }
 
-  // Filter teams based on search query
+  // Filter teams based on search query - FIXED VERSION
   const filteredTeams = teams
     .filter(
       (team) =>
         (team.employees && team.employees.length > 0) ||
         (team.coordinators && team.coordinators.length > 0) ||
-        (team.bdms && team.bdms.length > 0)
+        (team.bdms && team.bdms.length > 0) ||
+        (team.teamLeads && team.teamLeads.length > 0)
     )
-    .filter((team) =>
-      team.teamName.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    .filter((team) => {
+      // Handle null or undefined team names
+      if (!team.teamName) return searchQuery === ""; // Show teams with no name only when not searching
+      
+      return team.teamName.toLowerCase().includes(searchQuery.toLowerCase());
+    });
 
   return (
     <Box
@@ -273,7 +281,7 @@ const IndTeamList = () => {
                 </Box>
               </li>
             )}
-            groupBy={(option) => option.teamName.charAt(0).toUpperCase()}
+            groupBy={(option) => (option.teamName && option.teamName.charAt(0).toUpperCase()) || 'U'}
             loading={searchLoading}
           />
           {searchLoading && (
@@ -333,12 +341,12 @@ const IndTeamList = () => {
                     fontWeight={600}
                     color="primary.main"
                   >
-                    {team.teamName}
+                    {team.teamName || 'Unnamed Team'}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={4}>
                   <Typography variant="subtitle2" color="text.secondary">
-                    Team Lead
+                    Primary Team Lead
                   </Typography>
                   <Typography variant="h6" fontWeight={500}>
                     {team.teamLeadName}
@@ -366,11 +374,66 @@ const IndTeamList = () => {
 
             <Divider sx={{ mb: 3 }} />
 
-            {/* Members Section - Three Columns */}
+            {/* Members Section - Four Columns */}
             <Grid container spacing={3}>
+              {/* Team Leads Column */}
+              {team.teamLeads && team.teamLeads.length > 0 && (
+                <Grid item xs={12} md={3}>
+                  <Box
+                    sx={{
+                      backgroundColor: theme.palette.grey[50],
+                      borderRadius: 1,
+                      p: 2,
+                      height: "100%",
+                      border: `1px solid ${theme.palette.divider}`,
+                    }}
+                  >
+                    <Box display="flex" alignItems="center" gap={1} mb={2}>
+                      <Typography variant="h6" fontWeight={600}>
+                        Team Leads
+                      </Typography>
+                      <Chip
+                        label={team.teamLeads.length}
+                        size="small"
+                        color="warning"
+                      />
+                    </Box>
+                    <List dense sx={{ pt: 0 }}>
+                      {team.teamLeads.map((teamLead) => (
+                        <ListItem
+                          key={teamLead.userId}
+                          sx={{
+                            borderBottom: `1px solid ${theme.palette.divider}`,
+                            "&:last-child": { borderBottom: "none" },
+                            px: 0,
+                            py: 1,
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                          }}
+                        >
+                          <Typography variant="body2">
+                            {teamLead.userName}
+                          </Typography>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() =>
+                              handleDeleteClick(teamLead, team, "teamLead")
+                            }
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </ListItem>
+                      ))}
+                    </List>
+                  </Box>
+                </Grid>
+              )}
+
               {/* Employees Column */}
               {team.employees && team.employees.length > 0 && (
-                <Grid item xs={12} md={4}>
+                <Grid item xs={12} md={3}>
                   <Box
                     sx={{
                       backgroundColor: theme.palette.grey[50],
@@ -425,7 +488,7 @@ const IndTeamList = () => {
 
               {/* Coordinators Column */}
               {team.coordinators && team.coordinators.length > 0 && (
-                <Grid item xs={12} md={4}>
+                <Grid item xs={12} md={3}>
                   <Box
                     sx={{
                       backgroundColor: theme.palette.grey[50],
@@ -480,7 +543,7 @@ const IndTeamList = () => {
 
               {/* BDMs Column */}
               {team.bdms && team.bdms.length > 0 && (
-                <Grid item xs={12} md={4}>
+                <Grid item xs={12} md={3}>
                   <Box
                     sx={{
                       backgroundColor: theme.palette.grey[50],

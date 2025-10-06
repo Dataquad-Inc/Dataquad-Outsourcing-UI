@@ -26,7 +26,8 @@ export default function TeamForm() {
   const [initialValues, setInitialValues] = useState({
     teamName: "",
     superAdmin: "",
-    teamLead: "",
+    teamLead: "", // Single team lead (for backward compatibility if needed)
+    teamleads: [], // Multiple team leads
     employees: [],
     bdms: [],
     coordinators: [],
@@ -64,7 +65,8 @@ export default function TeamForm() {
           setInitialValues({
             teamName: teamData.teamName || "",
             superAdmin: teamData.superAdminId || "",
-            teamLead: teamData.teamLeadId || "",
+            teamLead: teamData.teamLeadId || "", // Single team lead
+            teamleads: teamData.teamleads || [], // Multiple team leads
             employees:
               teamData.employees?.map((e) => e.employeeId || e.userId) || [],
             bdms: teamData.bdms?.map((b) => b.employeeId || b.userId) || [],
@@ -99,7 +101,7 @@ export default function TeamForm() {
       ],
     },
     {
-      section: "Team Members",
+      section: "Team Leadership",
       fields: [
         {
           name: "superAdmin",
@@ -114,16 +116,32 @@ export default function TeamForm() {
         },
         {
           name: "teamLead",
-          label: "Team Lead",
+          label: "Primary Team Lead",
           type: "select",
           required: true,
           options: users.teamLeads.map((user) => ({
             value: user.employeeId,
             label: `${user.userName} - ${user.designation}`,
           })),
-          helperText: "Select team lead for the team",
+          helperText: "Select primary team lead for the team",
           icon: "SupervisorAccount",
         },
+        {
+          name: "teamleads",
+          label: "Additional Team Leads",
+          type: "multiselect",
+          options: users.teamLeads.map((user) => ({
+            value: user.employeeId,
+            label: `${user.userName} - ${user.designation}`,
+          })),
+          helperText: "Select additional team leads (optional)",
+          icon: "GroupAdd",
+        },
+      ],
+    },
+    {
+      section: "Team Members",
+      fields: [
         {
           name: "employees",
           label: "Employees",
@@ -164,14 +182,18 @@ export default function TeamForm() {
   // Submit handler
   const handleSubmit = async (values, { setSubmitting, resetForm }) => {
     try {
+      // Prepare payload according to the expected format
       const payload = {
         teamName: values.teamName,
         superAdmin: values.superAdmin,
-        teamLead: values.teamLead,
+        teamLead: values.teamLead, // Primary team lead
+        teamLeads: values.teamleads || [], // Additional team leads
         employees: values.employees || [],
         bdms: values.bdms || [],
         coordinators: values.coordinators || [],
       };
+
+      console.log("Submitting payload:", payload);
 
       const response = await axios.post(
         `https://mymulya.com/users/assignTeamLead/${userId}`,
@@ -209,9 +231,24 @@ export default function TeamForm() {
 
   const validateForm = (values) => {
     const errors = {};
-    if (!values.teamName?.trim()) errors.teamName = "Team name is required";
-    if (!values.superAdmin) errors.superAdmin = "Super admin is required";
-    if (!values.teamLead) errors.teamLead = "Team lead is required";
+    
+    if (!values.teamName?.trim()) {
+      errors.teamName = "Team name is required";
+    }
+    
+    if (!values.superAdmin) {
+      errors.superAdmin = "Super admin is required";
+    }
+    
+    if (!values.teamLead) {
+      errors.teamLead = "Primary team lead is required";
+    }
+    
+    // Ensure primary team lead is not duplicated in additional team leads
+    if (values.teamleads && values.teamleads.includes(values.teamLead)) {
+      errors.teamleads = "Primary team lead cannot be in additional team leads";
+    }
+
     return errors;
   };
 
