@@ -96,7 +96,7 @@ const TimesheetTableSection = ({
             />
           )}
         </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        {/* <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Typography variant="body1">
             Total: <strong>{getWorkingDaysHours(currentTimesheet)} hours</strong>
           </Typography>
@@ -107,7 +107,7 @@ const TimesheetTableSection = ({
           >
             {calculatePercentage(currentTimesheet)}%
           </Typography>
-        </Box>
+        </Box> */}
       </Box>
 
       {/* Role-specific alerts */}

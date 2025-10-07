@@ -221,14 +221,14 @@ const CandidateSubmissionDrawer = ({
         console.error("Error submitting/updating candidate:", error);
         setErrorResponse({
           message:
-            error.response?.data?.message ||
+            error.response?.data?.error?.errorMessage ||
             `Failed to ${
               mode === "edit" ? "update" : "submit"
             } candidate data. Please try again.`,
         });
 
         showToast(
-          error.response?.data?.message ||
+          error.response?.data?.error?.errorMessage ||
             `Failed to ${
               mode === "edit" ? "update" : "submit"
             } candidate data. Please try again.`,
