@@ -139,6 +139,18 @@ const getHotListColumns = ({
     render: (v) => renderValue(v, 80, loading),
   },
   {
+    id: "remoteOnsite",
+    label: "Working Mode",
+    filterType: "select",
+    applyFilter: true,
+    filterOptions: [
+      { label: "Remote", value: "Remote" },
+      { label: "Onsite", value: "Onsite" },
+      { label: "Hybrid", value: "Hybrid" },
+    ],
+    render: (v) => renderValue(v, 80, loading),
+  },
+  {
     id: "experience",
     label: "Exp (Yrs)",
     filterType: "number",
@@ -188,9 +200,9 @@ const getHotListColumns = ({
     label: "Approval Status",
     filterType: "text",
     applyFilter: true,
-     filterOptions: filterOptions.approvalStatus || [],
-    render: (v) => renderValue(v, 50, loading), 
-  }
+    filterOptions: filterOptions.approvalStatus || [],
+    render: (v) => renderValue(v, 50, loading),
+  },
 ];
 
 export default getHotListColumns;
