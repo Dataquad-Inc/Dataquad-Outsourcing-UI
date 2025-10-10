@@ -7,7 +7,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useSelector } from "react-redux";
 import { ConfirmDialog } from "../../ui-lib/ConfirmDialog";
-import { CustomModal } from "../../ui-lib/CustomModal"; // Import your custom modal
+import { CustomModal } from "../../ui-lib/CustomModal";
 
 const RequirementsList = () => {
   const navigate = useNavigate();
@@ -18,7 +18,18 @@ const RequirementsList = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [keyword, setSearch] = useState("");
-  const [filters, setFilters] = useState({});
+  
+  // Initialize filters from localStorage
+  const [filters, setFilters] = useState(() => {
+    try {
+      const stored = localStorage.getItem("requirements_filters");
+      return stored ? JSON.parse(stored) : {};
+    } catch (error) {
+      console.error("Error loading filters:", error);
+      return {};
+    }
+  });
+  
   const [filterOptions, setFilterOptions] = useState({});
 
   const { userId } = useSelector((state) => state.auth);
@@ -156,7 +167,8 @@ const RequirementsList = () => {
       jobType: [],
       location: [],
       qualification: [],
-      
+      visaType: [],
+      assignedBy: [],
       status: [],
     };
 
@@ -272,7 +284,7 @@ const RequirementsList = () => {
     handleDownloadJD,
     handleEdit,
     handleDelete: handleRequestDelete,
-    handleViewDescription, // Pass the new handler
+    handleViewDescription,
     filterOptions,
     loading,
   });
@@ -289,6 +301,7 @@ const RequirementsList = () => {
         search={keyword}
         loading={loading}
         filters={filters}
+        filterStorageKey="requirements_filters"
         onPageChange={(e, newPage) => setPage(newPage)}
         onRowsPerPageChange={(e) => {
           setRowsPerPage(parseInt(e.target.value, 10));
