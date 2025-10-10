@@ -76,4 +76,10 @@ export const usNavItems = (role) => [
     icon: <SendIcon />, // submission looks better with a send icon
     roles: commonRoles,
   },
+  {
+    text:"Clients",
+    path:"us-clients",
+    icon:<BusinessIcon/>,
+    roles:["SUPERADMIN","ADMIN"]
+  }
 ];
