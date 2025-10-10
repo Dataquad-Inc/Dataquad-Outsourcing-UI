@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -34,13 +34,12 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import FilterListOffIcon from "@mui/icons-material/FilterListOff";
 import ViewColumnIcon from "@mui/icons-material/ViewColumn";
-import AddIcon from "@mui/icons-material/Add";
+import ExpandLessIcon from "@mui/icons-material/ExpandLess";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { LoadingSpinner } from "./LoadingSpinner";
-import ExpandLessIcon from "@mui/icons-material/ExpandLess";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 
 const CustomDataTable = ({
   title,
@@ -52,6 +51,7 @@ const CustomDataTable = ({
   search,
   loading,
   filters = {},
+  filterStorageKey, // unique key for storing filters AND columns in localStorage
   onPageChange,
   onRowsPerPageChange,
   onSearchChange,
@@ -61,20 +61,91 @@ const CustomDataTable = ({
 }) => {
   const theme = useTheme();
   const [showFilters, setShowFilters] = useState(false);
-  const [localFilters, setLocalFilters] = useState(filters);
+  const [localFilters, setLocalFilters] = useState(() => {
+    // Initialize from localStorage if filterStorageKey is provided
+    if (filterStorageKey) {
+      try {
+        const stored = localStorage.getItem(filterStorageKey);
+        return stored ? JSON.parse(stored) : filters;
+      } catch (error) {
+        console.error("Error loading filters from localStorage:", error);
+        return filters;
+      }
+    }
+    return filters;
+  });
+
   const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
-  const [visibleColumns, setVisibleColumns] = useState(
-    columns.reduce((acc, col) => {
+
+  // Enhanced column visibility initialization with better error handling
+  const [visibleColumns, setVisibleColumns] = useState(() => {
+    const storageKey = filterStorageKey ? `${filterStorageKey}_columns` : null;
+
+    if (storageKey) {
+      try {
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          // Validate that all stored columns still exist in current columns config
+          const validatedVisibility = {};
+          columns.forEach((col) => {
+            validatedVisibility[col.id] =
+              parsed[col.id] !== undefined
+                ? parsed[col.id]
+                : col.hidden !== true;
+          });
+          return validatedVisibility;
+        }
+      } catch (error) {
+        console.error(
+          "Error loading column visibility from localStorage:",
+          error
+        );
+      }
+    }
+
+    // Default: show all columns except those explicitly hidden
+    return columns.reduce((acc, col) => {
       acc[col.id] = col.hidden !== true;
       return acc;
-    }, {})
-  );
+    }, {});
+  });
 
   // Fixed width for all filter fields
   const FILTER_FIELD_WIDTH = 200;
 
   // Get filterable columns
   const filterableColumns = columns.filter((col) => col.applyFilter === true);
+
+  // Sync localFilters with external filters prop when it changes
+  useEffect(() => {
+    if (JSON.stringify(filters) !== JSON.stringify(localFilters)) {
+      setLocalFilters(filters);
+    }
+  }, [filters]);
+
+  // Save filters to localStorage whenever they change
+  useEffect(() => {
+    if (filterStorageKey) {
+      try {
+        localStorage.setItem(filterStorageKey, JSON.stringify(localFilters));
+      } catch (error) {
+        console.error("Error saving filters to localStorage:", error);
+      }
+    }
+  }, [localFilters, filterStorageKey]);
+
+  // Enhanced: Save column visibility to localStorage whenever it changes
+  useEffect(() => {
+    const storageKey = filterStorageKey ? `${filterStorageKey}_columns` : null;
+    if (storageKey && visibleColumns) {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(visibleColumns));
+      } catch (error) {
+        console.error("Error saving column visibility to localStorage:", error);
+      }
+    }
+  }, [visibleColumns, filterStorageKey]);
 
   // Handle filter change
   const handleFilterChange = (columnId, value, filterType) => {
@@ -101,14 +172,42 @@ const CustomDataTable = ({
   const handleClearFilters = () => {
     setLocalFilters({});
     onFiltersChange?.({});
+    // Clear from localStorage
+    if (filterStorageKey) {
+      try {
+        localStorage.removeItem(filterStorageKey);
+      } catch (error) {
+        console.error("Error clearing filters from localStorage:", error);
+      }
+    }
   };
 
-  // Toggle column visibility
+  // Enhanced: Toggle column visibility with persistence
   const toggleColumnVisibility = (columnId) => {
     setVisibleColumns((prev) => ({
       ...prev,
       [columnId]: !prev[columnId],
     }));
+  };
+
+  // NEW: Reset all columns to default visibility
+  const handleResetColumns = () => {
+    const defaultVisibility = columns.reduce((acc, col) => {
+      acc[col.id] = col.hidden !== true;
+      return acc;
+    }, {});
+
+    setVisibleColumns(defaultVisibility);
+
+    // Also clear from localStorage
+    const storageKey = filterStorageKey ? `${filterStorageKey}_columns` : null;
+    if (storageKey) {
+      try {
+        localStorage.removeItem(storageKey);
+      } catch (error) {
+        console.error("Error resetting columns in localStorage:", error);
+      }
+    }
   };
 
   // Render filter input based on type
@@ -271,6 +370,7 @@ const CustomDataTable = ({
   const activeFiltersCount = Object.keys(localFilters).length;
   const visibleColumnsCount =
     Object.values(visibleColumns).filter(Boolean).length;
+  const hiddenColumnsCount = columns.length - visibleColumnsCount;
 
   return (
     <Paper
@@ -338,7 +438,24 @@ const CustomDataTable = ({
               "&:hover": { backgroundColor: theme.palette.action.hover },
             }}
           >
-            <ViewColumnIcon />
+            <Box sx={{ position: "relative" }}>
+              <ViewColumnIcon />
+              {hiddenColumnsCount > 0 && (
+                <Chip
+                  size="small"
+                  label={hiddenColumnsCount}
+                  sx={{
+                    position: "absolute",
+                    top: -8,
+                    right: -8,
+                    minWidth: 16,
+                    height: 16,
+                    fontSize: "0.6rem",
+                  }}
+                  color="primary"
+                />
+              )}
+            </Box>
           </IconButton>
 
           {/* Filter Toggle Button */}
@@ -403,16 +520,30 @@ const CustomDataTable = ({
         }}
       >
         <Box sx={{ p: 2, minWidth: 200, maxHeight: 400 }}>
-          <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
-            Visible Columns
-          </Typography>
+          <Box
+            display="flex"
+            justifyContent="space-between"
+            alignItems="center"
+            mb={2}
+          >
+            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+              Visible Columns
+            </Typography>
+            <Button
+              size="small"
+              onClick={handleResetColumns}
+              disabled={hiddenColumnsCount === 0}
+            >
+              Reset
+            </Button>
+          </Box>
           <FormGroup>
             {columns.map((column) => (
               <FormControlLabel
                 key={column.id}
                 control={
                   <Checkbox
-                    checked={visibleColumns[column.id]}
+                    checked={!!visibleColumns[column.id]}
                     onChange={() => toggleColumnVisibility(column.id)}
                   />
                 }
@@ -420,9 +551,15 @@ const CustomDataTable = ({
               />
             ))}
           </FormGroup>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ mt: 1, display: "block" }}
+          >
+            {visibleColumnsCount} of {columns.length} columns visible
+          </Typography>
         </Box>
       </Popover>
-
       {/* First 4 Filters Row */}
       {filterableColumns.length > 0 && (
         <Box
@@ -549,13 +686,12 @@ const CustomDataTable = ({
                 size="small"
                 onDelete={() => {
                   handleFilterChange(columnId, null, filter.type);
-                  onFiltersChange?.(
-                    Object.fromEntries(
-                      Object.entries(localFilters).filter(
-                        ([id]) => id !== columnId
-                      )
+                  const updatedFilters = Object.fromEntries(
+                    Object.entries(localFilters).filter(
+                      ([id]) => id !== columnId
                     )
                   );
+                  onFiltersChange?.(updatedFilters);
                 }}
                 color="primary"
                 variant="outlined"

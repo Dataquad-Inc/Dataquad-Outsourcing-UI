@@ -1,10 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  Box,
-  Typography,
-  Grid,
-  CircularProgress,
-} from "@mui/material";
+import { Box, Typography, Grid, CircularProgress } from "@mui/material";
 import httpService from "../../Services/httpService";
 import MuiTextField from "../muiComponents/MuiTextField";
 import MuiButton from "../muiComponents/MuiButton";
@@ -22,7 +17,7 @@ const CandidateSubmissionDrawer = ({
   candidateData,
   mode,
   refreshData,
-  clientName
+  clientName,
 }) => {
   const [loading, setLoading] = useState(false);
   const [errorResponse, setErrorResponse] = useState(null);
@@ -39,7 +34,10 @@ const CandidateSubmissionDrawer = ({
         )
         .required("Email is required"),
       contactNumber: Yup.string()
-        .matches(/^(\+?\d{10}|\+?\d{12}|\+?\d{15})$/, "Contact number must be 10, 12, or 15 digits")
+        .matches(
+          /^(\+?\d{10}|\+?\d{12}|\+?\d{15})$/,
+          "Contact number must be 10, 12, or 15 digits"
+        )
         .required("Contact number is required"),
       currentOrganization: Yup.string()
         .max(30, "Organization name cannot be more than 30 characters")
@@ -62,31 +60,45 @@ const CandidateSubmissionDrawer = ({
           }
         ),
       currentCTC: Yup.mixed()
-        .test("is-valid-ctc", "Please enter a valid CTC value in LPA", (value) => {
-          if (!value) return false;
-          const stringValue = String(value).trim();
-          if (/^\d+(\.\d{1,2})?$/.test(stringValue)) return true;
-          if (/^\d+(\.\d{1,2})?\s*LPA$/.test(stringValue)) return true;
-          return false;
-        })
+        .test(
+          "is-valid-ctc",
+          "Please enter a valid CTC value in LPA",
+          (value) => {
+            if (!value) return false;
+            const stringValue = String(value).trim();
+            if (/^\d+(\.\d{1,2})?$/.test(stringValue)) return true;
+            if (/^\d+(\.\d{1,2})?\s*LPA$/.test(stringValue)) return true;
+            return false;
+          }
+        )
         .required("Current CTC is required"),
       expectedCTC: Yup.mixed()
-        .test("is-valid-ctc", "Please enter a valid CTC value in LPA", (value) => {
-          if (!value) return false;
-          const stringValue = String(value).trim();
-          if (/^\d+(\.\d{1,2})?$/.test(stringValue)) return true;
-          if (/^\d+(\.\d{1,2})?\s*LPA$/.test(stringValue)) return true;
-          return false;
-        })
+        .test(
+          "is-valid-ctc",
+          "Please enter a valid CTC value in LPA",
+          (value) => {
+            if (!value) return false;
+            const stringValue = String(value).trim();
+            if (/^\d+(\.\d{1,2})?$/.test(stringValue)) return true;
+            if (/^\d+(\.\d{1,2})?\s*LPA$/.test(stringValue)) return true;
+            return false;
+          }
+        )
         .required("Expected CTC is required"),
       noticePeriod: Yup.string().required("Notice Period is required"),
       currentLocation: Yup.string()
         .max(18, "Location cannot be more than 18 characters")
-        .matches(/^[A-Za-z\s]+$/, "Location can only contain letters and spaces")
+        .matches(
+          /^[A-Za-z\s]+$/,
+          "Location can only contain letters and spaces"
+        )
         .required("Current Location is required"),
       preferredLocation: Yup.string()
         .max(18, "Location cannot be more than 18 characters")
-        .matches(/^[A-Za-z\s]+$/, "Location can only contain letters and spaces")
+        .matches(
+          /^[A-Za-z\s]+$/,
+          "Location can only contain letters and spaces"
+        )
         .required("Preferred Location is required"),
       skills: Yup.string().required("Skills are required"),
       communicationSkills: Yup.number()
@@ -106,7 +118,7 @@ const CandidateSubmissionDrawer = ({
     if (mode === "edit") {
       return Yup.object().shape({
         ...baseSchema,
-        status: Yup.string().required("Status is required")
+        status: Yup.string().required("Status is required"),
       });
     }
     return Yup.object().shape(baseSchema);
@@ -137,7 +149,7 @@ const CandidateSubmissionDrawer = ({
           userId: candidateData.userId || "",
           jobId: candidateData.jobId || "",
           clientName: candidateData.clientName || "",
-          status: candidateData.status || ""
+          status: candidateData.status || "",
         }
       : {
           userId: userId || "",
@@ -161,7 +173,7 @@ const CandidateSubmissionDrawer = ({
           overallFeedback: "",
           userEmail: employeeEmail || "",
           clientName: clientName || "",
-          status: ""
+          status: "",
         };
 
   const formik = useFormik({
@@ -174,7 +186,11 @@ const CandidateSubmissionDrawer = ({
       try {
         const form = new FormData();
         Object.keys(values).forEach((key) => {
-          if (key !== "resumeFile" && values[key] !== null && values[key] !== undefined) {
+          if (
+            key !== "resumeFile" &&
+            values[key] !== null &&
+            values[key] !== undefined
+          ) {
             form.append(key, values[key].toString());
           }
         });
@@ -247,27 +263,38 @@ const CandidateSubmissionDrawer = ({
     }
   }, [userId, jobId, mode]);
 
-const isFieldDisabled = (fieldName) => {
-  // These fields are always disabled in edit mode
-  const editModeDisabledFields = ["fullName", "candidateEmailId", "contactNumber", "userEmail"];
-  
-  // userEmail is always disabled (in both add and edit modes)
-  if (fieldName === "userEmail") return true;
-  
-  // Other fields are disabled only in edit mode
-  return mode === "edit" && editModeDisabledFields.includes(fieldName);
-};
+  const isFieldDisabled = (fieldName) => {
+    // These fields are always disabled in edit mode
+    const editModeDisabledFields = [
+      "fullName",
+      "candidateEmailId",
+      "contactNumber",
+      "userEmail",
+    ];
 
-  
+    // userEmail is always disabled (in both add and edit modes)
+    if (fieldName === "userEmail") return true;
+
+    // Other fields are disabled only in edit mode
+    return mode === "edit" && editModeDisabledFields.includes(fieldName);
+  };
 
   const fields = [
-    { name: "fullName", label: "Full Name", type: "text"},
+    { name: "fullName", label: "Full Name", type: "text" },
     { name: "candidateEmailId", label: "Email", type: "email" },
     { name: "contactNumber", label: "Contact Number", type: "text" },
-    { name: "currentOrganization", label: "Current Organization", type: "text" },
+    {
+      name: "currentOrganization",
+      label: "Current Organization",
+      type: "text",
+    },
     { name: "qualification", label: "Qualification", type: "text" },
     { name: "totalExperience", label: "Total Experience", type: "number" },
-    { name: "relevantExperience", label: "Relevant Experience", type: "number" },
+    {
+      name: "relevantExperience",
+      label: "Relevant Experience",
+      type: "number",
+    },
     { name: "currentCTC", label: "Current CTC", type: "text" },
     { name: "expectedCTC", label: "Expected CTC", type: "text" },
     {
@@ -286,46 +313,75 @@ const isFieldDisabled = (fieldName) => {
     { name: "currentLocation", label: "Current Location", type: "text" },
     { name: "preferredLocation", label: "Preferred Location", type: "text" },
     { name: "skills", label: "Skills", type: "text" },
-    { name: "communicationSkills", label: "Communication Skills", type: "number" },
+    {
+      name: "communicationSkills",
+      label: "Communication Skills",
+      type: "number",
+    },
     {
       name: "requiredTechnologiesRating",
       label: "Technologies Rating",
       type: "number",
     },
-    { name: "overallFeedback", label: "Overall Feedback", type: "text",disabled:true },
-    { name: "userEmail", label: "User Email", type: "text", InputProps: { readOnly: true },disabled:true},
-    ...(mode === "edit" ? [{
-      name: "status", 
-      label: "Status",
-      type: "select",
-      options: [
-        {
-          value: "PROCESSED FOR INTERVIEW", 
-          label: "PROCESSED FOR INTERVIEW",
-          style: { color: "#10b981" }
-        },
-        {
-          value: "SCREEN REJECT", 
-          label: "SCREEN REJECT",
-          style: { color: "#ef4444" }
-        },
-        {
-          value: "MOVED TO INTERVIEW", 
-          label: "MOVED TO INTERVIEW",
-          style: { color: "#3b82f6" }
-        },
-        {
-          value: "DUPLICATE", 
-          label: "DUPLICATE",
-          style: { color: "#f59e0b" }
-        },
-        {
-          value: "CLIENT REJECT", 
-          label: "CLIENT REJECT",
-          style: { color: "#dc2626" }
-        }
-      ]
-    }] : [])
+    {
+      name: "overallFeedback",
+      label: "Overall Feedback",
+      type: "text",
+      disabled: true,
+    },
+    {
+      name: "userEmail",
+      label: "User Email",
+      type: "text",
+      InputProps: { readOnly: true },
+      disabled: true,
+    },
+    ...(mode === "edit"
+      ? [
+          {
+            name: "status",
+            label: "Status",
+            type: "select",
+            options: [
+              {
+                value: "PROCESSED FOR INTERVIEW",
+                label: "PROCESSED FOR INTERVIEW",
+                style: { color: "#10b981" },
+              },
+              {
+                value: "SCREEN REJECT",
+                label: "SCREEN REJECT",
+                style: { color: "#ef4444" },
+              },
+              {
+                value: "MOVED TO INTERVIEW",
+                label: "MOVED TO INTERVIEW",
+                style: { color: "#3b82f6" },
+              },
+              {
+                value: "DUPLICATE",
+                label: "DUPLICATE",
+                style: { color: "#f59e0b" },
+              },
+              {
+                value: "CLIENT REJECT",
+                label: "CLIENT REJECT",
+                style: { color: "#dc2626" },
+              },
+              {
+                value: "POSITION IS CLOSED",
+                label: "POSITION IS CLOSED",
+                style: { color: "#7c3aed" }, // Violet
+              },
+              {
+                value: "POSITION IS HOLD",
+                label: "POSITION IS HOLD",
+                style: { color: "#f97316" }, // Orange
+              },
+            ],
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -442,10 +498,10 @@ const isFieldDisabled = (fieldName) => {
             >
               {loading || formik.isSubmitting ? (
                 <CircularProgress size={24} />
+              ) : mode === "edit" ? (
+                "Update Candidate"
               ) : (
-                mode === "edit"
-                  ? "Update Candidate"
-                  : "Submit Candidate"
+                "Submit Candidate"
               )}
             </MuiButton>
           </Grid>

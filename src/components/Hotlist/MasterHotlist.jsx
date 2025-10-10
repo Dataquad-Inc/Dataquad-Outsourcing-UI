@@ -35,7 +35,18 @@ const MasterHotlist = React.memo(() => {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 500);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [filters, setFilters] = useState({});
+
+  // Initialize filters from localStorage
+  const [filters, setFilters] = useState(() => {
+    try {
+      const stored = localStorage.getItem("master_hotlist_filters");
+      return stored ? JSON.parse(stored) : {};
+    } catch (error) {
+      console.error("Error loading filters:", error);
+      return {};
+    }
+  });
+
   const [filterOptions, setFilterOptions] = useState({});
 
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -136,8 +147,6 @@ const MasterHotlist = React.memo(() => {
       if (Object.keys(filterOptions).length === 0 && result?.data?.content) {
         extractFilterOptionsFromData(result.data.content);
       }
-
-      
     } catch (err) {
       console.error("Error fetching consultants:", err);
       showErrorToast("Failed to load consultants ");
@@ -254,7 +263,7 @@ const MasterHotlist = React.memo(() => {
       loading,
       userRole: role,
       userId,
-      filterOptions, // Pass filter options to columns (same as MasterHotlist)
+      filterOptions,
     }),
     {
       id: "Yet-To-OnBoard",
@@ -291,6 +300,7 @@ const MasterHotlist = React.memo(() => {
           search={search}
           loading={loading}
           filters={filters}
+          filterStorageKey="master_hotlist_filters"
           onPageChange={(e, newPage) => setPage(newPage)}
           onRowsPerPageChange={(e) => {
             setRowsPerPage(parseInt(e.target.value, 10));

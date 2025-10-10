@@ -10,6 +10,7 @@ import {
 } from "@mui/material";
 import { Edit, Delete, Visibility, Download } from "@mui/icons-material";
 import { formatDateTime } from "../../utils/dateformate";
+import CustomChip from "../../ui-lib/CustomChip";
 
 const renderValue = (value) => value || "-";
 
@@ -96,7 +97,8 @@ const getRequirementsColumns = ({
     applyFilter: true,
     filterType: "text",
     filterOptions: filterOptions.jobType || [],
-    render: (v) => (v ? <Chip label={v} size="small" /> : "-"),
+    render: (value) =>
+      value ? <CustomChip jobType={value} size="small" /> : "-",
   },
   {
     id: "location",
@@ -158,7 +160,8 @@ const getRequirementsColumns = ({
       { value: "GC", label: "Green Card" },
       { value: "Citizen", label: "Citizen" },
     ],
-    render: (v) => renderValue(v),
+    render: (value) =>
+      value ? <CustomChip visaType={value} size="small" /> : "-",
   },
   {
     id: "assignedByName",
