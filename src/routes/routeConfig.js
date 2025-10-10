@@ -128,6 +128,10 @@ const EditJobRequirement = lazy(() =>
   import("../components/UsRequirements/EditJobRequirement")
 );
 
+//US Clients
+const ClientsContainer=lazy(()=>import("../components/UsClients/ClientsContainer"))
+const UsClientsList=lazy(()=>import("../components/UsClients/UsClients"))
+const UsOnboardClients=lazy(()=>import("../components/UsClients/OnBoardingClients"))
 //Timesheets
 const Timesheets = lazy(() => import("../components/Timesheets/TimeSheets"));
 const TimesheetsForAdmin = lazy(() =>
@@ -729,6 +733,32 @@ const routeConfig = [
               },
             ],
           },
+          //US Clients
+          {
+            path:'us-clients',
+            element: (
+              <ProtectedRoute
+                allowedRoles={["SUPERADMIN", "ADMIN"]}
+                allowedEntities={["US"]}
+              />
+            ),
+            children:[
+             {
+              path:'',
+              element:<ClientsContainer/>,
+              children:[
+                {
+                 index:true,
+                 element:Loadable(UsClientsList)                
+                },
+                {
+                  path:"us-create",
+                  element:Loadable(UsOnboardClients)
+                }
+              ]
+             }
+            ]
+          }
         ],
       },
     ],
