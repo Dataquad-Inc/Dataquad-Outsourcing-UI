@@ -19,6 +19,7 @@ import {
   DialogContentText,
   DialogActions,
   TextField,
+  Link,
 } from "@mui/material";
 import {
   Download,
@@ -43,6 +44,7 @@ import { showToast } from "../../utils/ToastNotification";
 import DownloadResume from "../../utils/DownloadResume";
 import { API_BASE_URL } from "../../Services/httpService";
 import { filterSubmissionsByTeamlead } from "../../redux/submissionSlice";
+import { useNavigate } from "react-router-dom";
 
 
 const topOffset = 68; // Height of the header
@@ -79,6 +81,7 @@ const Submission = () => {
   const { userId, role } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
   const [tabValue, setTabValue] = useState(0);
+  const navigate = useNavigate();
 
   // Define componentName based on role
   const componentName = (() => {
@@ -141,6 +144,12 @@ const Submission = () => {
       return;
     }
     setIsTeamData(false);
+  };
+
+  const handleJobIdClick = (jobId) => {
+    navigate(`/dashboard/requirements/job-details/${jobId}`, {
+      state: { from: "/dashboard/submissions" }
+    });
   };
 
   const handleMoveToBenchClick = (row, e) => {
@@ -430,16 +439,34 @@ const Submission = () => {
       filterable: true,
       width: 100,
       render: loading
-        ? () => <Skeleton variant="text" width={60} />
-        : (row) => (
-          <Chip
-            label={row.jobId}
-            size="small"
-            color="info"
-            variant="outlined"
-            sx={{ fontWeight: 500 }}
-          />
-        ),
+        ? () => <Skeleton variant="text" width={100} />
+        : (row) => {
+          // Check if user has permission to click (SUPERADMIN or COORDINATOR)
+          const canClickJobId = role === "SUPERADMIN" || role === "COORDINATOR";
+
+          if (canClickJobId) {
+            return (
+              <Link
+                component="button"
+                variant="body2"
+                onClick={() => handleJobIdClick(row.jobId)}
+                sx={{
+                  textDecoration: "none",
+                  cursor: "pointer",
+                  "&:hover": { textDecoration: "underline" },
+                }}
+              >
+                {row.jobId}
+              </Link>
+            );
+          } else {
+            return (
+              <Typography variant="body2" color="primary">
+                {row.jobId}
+              </Typography>
+            );
+          }
+        },
     },
     {
       key: "candidateEmailId",

@@ -40,16 +40,14 @@ import {
   Email,
   AttachFile,
   People,
-  Percent,
   Save,
   RestartAlt,
   Phone,
   Cancel,
   Assignment,
 } from "@mui/icons-material";
-import { useSelector, useDispatch } from "react-redux";
+import { useSelector } from "react-redux";
 import httpService from "../../Services/httpService";
-
 
 // Create a custom theme
 const theme = createTheme({
@@ -98,7 +96,6 @@ const ClientForm = ({
   onCancel,
   showToast = toast,
 }) => {
-  const dispatch = useDispatch();
   const navigate = useNavigate();
   const [files, setFiles] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -108,13 +105,8 @@ const ClientForm = ({
     initialData?.onBoardedBy || userName
   );
 
-  const { employeesList: employees = [], fetchStatus } = useSelector(
+  const { employeesList: employees = [] } = useSelector(
     (state) => state.employee || {}
-  );
-  const employeesLoading = fetchStatus === "loading";
-
-  const bdmEmployees = employees.filter(
-    (emp) => emp.roles && emp.roles.toUpperCase() === "BDM"
   );
 
   useEffect(() => {
@@ -128,11 +120,10 @@ const ClientForm = ({
         initialData.supportingDocuments &&
         Array.isArray(initialData.supportingDocuments)
       ) {
-        // For editing, we just store the names since we can't recover the actual file objects
         setFiles(
           initialData.supportingDocuments.map((docName) => ({
             name: docName,
-            isExisting: true, // Flag to identify existing files
+            isExisting: true,
           }))
         );
       }
@@ -166,12 +157,11 @@ const ClientForm = ({
         },
         {
           name: "assignedTo",
-          label: "Assigned To (BDM)",
+          label: "Assigned To",
           type: "text",
           xs: 12, sm: 6, md: 4,
           icon: <Assignment color="primary" />,
         },
-
         {
           name: "clientWebsiteUrl",
           label: "Client Website URL",
@@ -228,49 +218,15 @@ const ClientForm = ({
     },
   ];
 
-  const contactFields = [
-    {
-      name: "clientSpocName",
-      label: "Contact Name",
-      icon: <Person color="primary" />,
-    },
-    {
-      name: "clientSpocEmailid",
-      label: "Contact Email",
-      icon: <Email color="primary" />,
-    },
-    {
-      name: "clientSpocMobileNumber",
-      label: "Contact Mobile",
-      icon: <Phone color="primary" />,
-    },
-    {
-      name: "clientSpocLinkedin",
-      label: "Contact LinkedIn",
-      placeholder: "https://linkedin.com/in/",
-      icon: <LinkedIn color="primary" />,
-    },
-  ];
-
-  const feedBack = [
-    {
-      name: "feedBack",
-      label: "FeedBack",
-      type: "textarea",
-      xs: 12
-    }
-  ];
-
   const validationSchema = Yup.object().shape({
     clientName: Yup.string()
       .required("Client name is required")
-      .max(50, "Client name must be at most 35 characters"),
+      .max(50, "Client name must be at most 50 characters"),
     clientAddress: Yup.string()
       .nullable()
-      .max(250, "Client address must be at most 100 characters"),
+      .max(250, "Client address must be at most 250 characters"),
     positionType: Yup.string().nullable(),
     assignedTo: Yup.string().nullable(),
-    paymentType: Yup.string().nullable(),
     netPayment: Yup.number()
       .positive("Must be a positive number")
       .nullable()
@@ -340,46 +296,42 @@ const ClientForm = ({
     feedBack: ""
   };
 
-  // Merge with initialData if available
-  const formInitialValues = initialData || defaultInitialValues;
+  // Merge with initialData if available and ensure proper structure
+  const getFormInitialValues = () => {
+    if (!initialData) return defaultInitialValues;
 
-  // Ensure arrays are properly initialized
-  if (
-    !Array.isArray(formInitialValues.clientSpocName) ||
-    formInitialValues.clientSpocName.length === 0
-  ) {
-    formInitialValues.clientSpocName = [""];
-  }
-  if (
-    !Array.isArray(formInitialValues.clientSpocEmailid) ||
-    formInitialValues.clientSpocEmailid.length === 0
-  ) {
-    formInitialValues.clientSpocEmailid = [""];
-  }
-  if (
-    !Array.isArray(formInitialValues.clientSpocMobileNumber) ||
-    formInitialValues.clientSpocMobileNumber.length === 0
-  ) {
-    formInitialValues.clientSpocMobileNumber = [""];
-  }
-  if (
-    !Array.isArray(formInitialValues.clientSpocLinkedin) ||
-    formInitialValues.clientSpocLinkedin.length === 0
-  ) {
-    formInitialValues.clientSpocLinkedin = [""];
-  }
-  if (!Array.isArray(formInitialValues.supportingCustomers)) {
-    formInitialValues.supportingCustomers = [];
-  }
+    // Create a deep copy to avoid mutation
+    const mergedValues = { ...defaultInitialValues, ...initialData };
 
-  // Convert simple string array to object array if needed (for backward compatibility)
-  if (formInitialValues.supportingCustomers.length > 0 && 
-      typeof formInitialValues.supportingCustomers[0] === 'string') {
-    formInitialValues.supportingCustomers = formInitialValues.supportingCustomers.map(customer => ({
-      customerName: customer,
-      netPayment: ""
-    }));
-  }
+    // Ensure arrays are properly initialized
+    const ensureArray = (field, defaultValue = [""]) => {
+      if (!Array.isArray(mergedValues[field]) || mergedValues[field].length === 0) {
+        mergedValues[field] = defaultValue;
+      }
+    };
+
+    ensureArray('clientSpocName');
+    ensureArray('clientSpocEmailid');
+    ensureArray('clientSpocMobileNumber');
+    ensureArray('clientSpocLinkedin');
+    
+    if (!Array.isArray(mergedValues.supportingCustomers)) {
+      mergedValues.supportingCustomers = [];
+    }
+
+    // Convert simple string array to object array if needed
+    if (mergedValues.supportingCustomers.length > 0 && 
+        typeof mergedValues.supportingCustomers[0] === 'string') {
+      mergedValues.supportingCustomers = mergedValues.supportingCustomers.map(customer => ({
+        customerName: customer,
+        netPayment: ""
+      }));
+    }
+
+    return mergedValues;
+  };
+
+  const formInitialValues = getFormInitialValues();
 
   const handleFileChange = (event) => {
     const selectedFiles = Array.from(event.target.files);
@@ -417,52 +369,35 @@ const ClientForm = ({
     showToast("File removed", "info");
   };
 
-  // API call function
+  // API call function - Create Client
   const createClient = async (formData) => {
     try {
-      const token = localStorage.getItem("authToken"); // Adjust based on your auth storage
-      
-      const response = await httpService.post(`/api/us/requirements/client/addClient`,formData, {
+      const response = await httpService.post(`/api/us/requirements/client/addClient`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      return result;
+      return response.data;
     } catch (error) {
-      console.error("API call failed:", error);
-      throw error;
+      console.error("Create client API call failed:", error);
+      throw new Error(error.response?.data?.message || "Failed to create client");
     }
   };
 
   // Update client function (for edit mode)
   const updateClient = async (formData, clientId) => {
     try {
-      const token = localStorage.getItem("authToken");
-      
-      const response = await httpService.put(`/api/us/requirements/client/updateClient/${clientId}`, {
+      const response = await httpService.put(`/api/us/requirements/client/${clientId}`, formData, {
         headers: {
-          "Authorization": `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
         },
-        body: formData,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      return result;
+      return response.data;
     } catch (error) {
-      console.error("API call failed:", error);
-      throw error;
+      console.error("Update client API call failed:", error);
+      throw new Error(error.response?.data?.message || "Failed to update client");
     }
   };
 
@@ -485,10 +420,10 @@ const ClientForm = ({
         })),
         clientWebsiteUrl: values.clientWebsiteUrl || "",
         clientLinkedInUrl: values.clientLinkedInUrl || "",
-        supportingDocuments: [], // Will be populated with file names after upload
+        supportingDocuments: [],
         onBoardedBy: onBoardedByName,
         assignedTo: values.assignedTo,
-        status: values.status || "ACTIVE", // Default status
+        status: values.status || "ACTIVE",
         feedBack: values.feedBack || "",
         numberOfRequirements: values.numberOfRequirements || 0,
         currency: currency,
@@ -519,24 +454,21 @@ const ClientForm = ({
       let result;
       
       if (isEdit && initialData?.id) {
-        // Update existing client
         result = await updateClient(formData, initialData.id);
         showToast("Client updated successfully!", "success");
       } else {
-        // Create new client
         result = await createClient(formData);
         showToast("Client created successfully!", "success");
       }
 
       // If parent component provided custom onSubmit handler, call it
       if (onSubmit) {
-        await onSubmit(formData, isEdit);
+        await onSubmit(values, isEdit, result);
       }
 
       if (!isEdit) {
         resetForm();
         setFiles([]);
-        // Navigate back to clients list after successful creation
         navigate('/dashboard/us-clients');
       }
 
@@ -552,28 +484,26 @@ const ClientForm = ({
   };
 
   const addContactPerson = (values, setFieldValue) => {
-    contactFields.forEach((field) => {
-      setFieldValue(field.name, [...values[field.name], ""]);
+    const fields = ['clientSpocName', 'clientSpocEmailid', 'clientSpocMobileNumber', 'clientSpocLinkedin'];
+    fields.forEach((field) => {
+      setFieldValue(field, [...values[field], ""]);
     });
     showToast("New contact person added", "info");
   };
 
   const removeContactPerson = (index, values, setFieldValue) => {
     if (values.clientSpocName.length > 1) {
-      contactFields.forEach((field) => {
-        const newArray = [...values[field.name]];
+      const fields = ['clientSpocName', 'clientSpocEmailid', 'clientSpocMobileNumber', 'clientSpocLinkedin'];
+      fields.forEach((field) => {
+        const newArray = [...values[field]];
         newArray.splice(index, 1);
-        setFieldValue(field.name, newArray);
+        setFieldValue(field, newArray);
       });
       showToast("Contact person removed", "info");
     }
   };
 
   const renderFormField = (field, values, errors, touched, setFieldValue) => {
-    if (field.conditional && !field.conditional()) {
-      return null;
-    }
-
     if (field.type === "select") {
       return (
         <Grid item xs={field.xs} sm={field.sm} md={field.md} key={field.name}>
@@ -594,15 +524,14 @@ const ClientForm = ({
                   setFieldValue(field.name, e.target.value);
                 }
               }}
-              disabled={field.loading}
               startAdornment={
                 field.icon && (
                   <InputAdornment position="start">{field.icon}</InputAdornment>
                 )
               }
             >
-              <MenuItem value="" disabled>
-                {field.loading ? "Loading..." : `Select ${field.label}`}
+              <MenuItem value="">
+                <em>Select {field.label}</em>
               </MenuItem>
               {field.options &&
                 field.options.map((option) => (
@@ -649,9 +578,9 @@ const ClientForm = ({
 
   const handleCancel = () => {
     if (isEdit && onCancel) {
-      onCancel(); // For edit mode in drawer
+      onCancel();
     } else {
-      navigate('/dashboard/us-clients'); // For create mode in separate page
+      navigate('/dashboard/us-clients');
     }
   };
 
@@ -704,6 +633,148 @@ const ClientForm = ({
                   </React.Fragment>
                 ))}
 
+                {/* Contact Persons Section */}
+                <Grid item xs={12}>
+                  <Typography
+                    variant="h6"
+                    color="primary"
+                    sx={{
+                      mt: 1,
+                      mb: 1,
+                      fontWeight: 500,
+                      display: "flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    <People sx={{ mr: 1 }} /> Contact Persons
+                  </Typography>
+                  <Divider sx={{ mb: 3 }} />
+                </Grid>
+
+                {values.clientSpocName.map((_, index) => (
+                  <React.Fragment key={index}>
+                    <Grid item xs={12} sm={6} md={3}>
+                      <Field name={`clientSpocName.${index}`}>
+                        {({ field, meta }) => (
+                          <TextField
+                            {...field}
+                            fullWidth
+                            label="Contact Name"
+                            placeholder="Enter contact name"
+                            error={meta.touched && Boolean(meta.error)}
+                            helperText={meta.touched && meta.error}
+                            InputProps={{
+                              startAdornment: (
+                                <InputAdornment position="start">
+                                  <Person color="primary" />
+                                </InputAdornment>
+                              ),
+                            }}
+                          />
+                        )}
+                      </Field>
+                    </Grid>
+
+                    <Grid item xs={12} sm={6} md={3}>
+                      <Field name={`clientSpocEmailid.${index}`}>
+                        {({ field, meta }) => (
+                          <TextField
+                            {...field}
+                            fullWidth
+                            label="Contact Email"
+                            type="email"
+                            placeholder="email@example.com"
+                            error={meta.touched && Boolean(meta.error)}
+                            helperText={meta.touched && meta.error}
+                            InputProps={{
+                              startAdornment: (
+                                <InputAdornment position="start">
+                                  <Email color="primary" />
+                                </InputAdornment>
+                              ),
+                            }}
+                          />
+                        )}
+                      </Field>
+                    </Grid>
+
+                    <Grid item xs={12} sm={6} md={3}>
+                      <Field name={`clientSpocMobileNumber.${index}`}>
+                        {({ field, meta }) => (
+                          <TextField
+                            {...field}
+                            fullWidth
+                            label="Contact Mobile"
+                            placeholder="Enter 10 or 15 digit number"
+                            error={meta.touched && Boolean(meta.error)}
+                            helperText={meta.touched && meta.error}
+                            InputProps={{
+                              startAdornment: (
+                                <InputAdornment position="start">
+                                  <Phone color="primary" />
+                                </InputAdornment>
+                              ),
+                            }}
+                          />
+                        )}
+                      </Field>
+                    </Grid>
+
+                    <Grid item xs={12} sm={6} md={2}>
+                      <Field name={`clientSpocLinkedin.${index}`}>
+                        {({ field, meta }) => (
+                          <TextField
+                            {...field}
+                            fullWidth
+                            label="LinkedIn URL"
+                            placeholder="https://linkedin.com/in/"
+                            error={meta.touched && Boolean(meta.error)}
+                            helperText={meta.touched && meta.error}
+                            InputProps={{
+                              startAdornment: (
+                                <InputAdornment position="start">
+                                  <LinkedIn color="primary" />
+                                </InputAdornment>
+                              ),
+                            }}
+                          />
+                        )}
+                      </Field>
+                    </Grid>
+
+                    <Grid item xs={12} sm={6} md={1}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+                        {values.clientSpocName.length > 1 && (
+                          <IconButton
+                            color="error"
+                            onClick={() => removeContactPerson(index, values, setFieldValue)}
+                            sx={{
+                              border: "1px solid",
+                              borderColor: "divider",
+                              borderRadius: 2,
+                            }}
+                          >
+                            <RemoveCircleOutline />
+                          </IconButton>
+                        )}
+                      </Box>
+                    </Grid>
+                  </React.Fragment>
+                ))}
+
+                <Grid item xs={12}>
+                  <Button
+                    startIcon={<AddCircleOutline />}
+                    variant="outlined"
+                    color="primary"
+                    onClick={() => addContactPerson(values, setFieldValue)}
+                    sx={{ mt: 1 }}
+                  >
+                    Add Contact Person
+                  </Button>
+                </Grid>
+
+                {/* Supporting Customers Section */}
                 <Grid item xs={12}>
                   <Typography
                     variant="h6"
@@ -720,100 +791,74 @@ const ClientForm = ({
                   </Typography>
                   <Divider sx={{ mb: 3 }} />
                 </Grid>
+                
                 <Grid item xs={12}>
                   <FieldArray name="supportingCustomers">
                     {({ push, remove }) => (
                       <Box>
-                        {values.supportingCustomers &&
-                        values.supportingCustomers.length > 0 ? (
-                          <Paper
-                            variant="outlined"
-                            sx={{ p: 2, mb: 2, borderRadius: 2 }}
-                          >
+                        {values.supportingCustomers && values.supportingCustomers.length > 0 ? (
+                          <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
                             <Grid container spacing={2}>
-                              {values.supportingCustomers.map(
-                                (customer, index) => (
-                                  <React.Fragment key={index}>
-                                    {/* Customer Name Field */}
-                                    <Grid item xs={12} sm={6} md={4}>
-                                      <Field
-                                        name={`supportingCustomers.${index}.customerName`}
-                                      >
-                                        {({ field, meta }) => (
-                                          <TextField
-                                            {...field}
-                                            fullWidth
-                                            label={`Customer ${index + 1} Name`}
-                                            placeholder={`Enter customer name`}
-                                            error={
-                                              meta.touched &&
-                                              Boolean(meta.error)
-                                            }
-                                            helperText={
-                                              meta.touched && meta.error
-                                            }
-                                            variant="outlined"
-                                            size="medium"
-                                          />
-                                        )}
-                                      </Field>
-                                    </Grid>
-                                    
-                                    {/* Net Payment Field */}
-                                    <Grid item xs={12} sm={4} md={3}>
-                                      <Field
-                                        name={`supportingCustomers.${index}.netPayment`}
-                                      >
-                                        {({ field, meta }) => (
-                                          <TextField
-                                            {...field}
-                                            fullWidth
-                                            label="Net Payment"
-                                            type="number"
-                                            placeholder="0"
-                                            error={
-                                              meta.touched &&
-                                              Boolean(meta.error)
-                                            }
-                                            helperText={
-                                              meta.touched && meta.error
-                                            }
-                                            variant="outlined"
-                                            size="medium"
-                                            InputProps={{
-                                              endAdornment: (
-                                                <InputAdornment position="end">
-                                                  Days
-                                                </InputAdornment>
-                                              ),
-                                            }}
-                                          />
-                                        )}
-                                      </Field>
-                                    </Grid>
+                              {values.supportingCustomers.map((customer, index) => (
+                                <React.Fragment key={index}>
+                                  <Grid item xs={12} sm={6} md={4}>
+                                    <Field name={`supportingCustomers.${index}.customerName`}>
+                                      {({ field, meta }) => (
+                                        <TextField
+                                          {...field}
+                                          fullWidth
+                                          label={`Customer ${index + 1} Name`}
+                                          placeholder="Enter customer name"
+                                          error={meta.touched && Boolean(meta.error)}
+                                          helperText={meta.touched && meta.error}
+                                        />
+                                      )}
+                                    </Field>
+                                  </Grid>
+                                  
+                                  <Grid item xs={12} sm={4} md={3}>
+                                    <Field name={`supportingCustomers.${index}.netPayment`}>
+                                      {({ field, meta }) => (
+                                        <TextField
+                                          {...field}
+                                          fullWidth
+                                          label="Net Payment"
+                                          type="number"
+                                          placeholder="0"
+                                          error={meta.touched && Boolean(meta.error)}
+                                          helperText={meta.touched && meta.error}
+                                          InputProps={{
+                                            endAdornment: (
+                                              <InputAdornment position="end">
+                                                Days
+                                              </InputAdornment>
+                                            ),
+                                          }}
+                                        />
+                                      )}
+                                    </Field>
+                                  </Grid>
 
-                                    {/* Remove Button */}
-                                    <Grid item xs={12} sm={2} md={2}>
-                                      <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-                                        <IconButton
-                                          color="error"
-                                          onClick={() => {
-                                            remove(index);
-                                            showToast("Customer removed", "info");
-                                          }}
-                                          sx={{
-                                            border: "1px solid",
-                                            borderColor: "divider",
-                                            borderRadius: 2,
-                                          }}
-                                        >
-                                          <RemoveCircleOutline />
-                                        </IconButton>
-                                      </Box>
-                                    </Grid>
-                                  </React.Fragment>
-                                )
-                              )}
+                                  <Grid item xs={12} sm={2} md={2}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+                                      <IconButton
+                                        color="error"
+                                        onClick={() => {
+                                          remove(index);
+                                          showToast("Customer removed", "info");
+                                        }}
+                                        sx={{
+                                          border: "1px solid",
+                                          borderColor: "divider",
+                                          borderRadius: 2,
+                                        }}
+                                      >
+                                        <RemoveCircleOutline />
+                                      </IconButton>
+                                    </Box>
+                                  </Grid>
+                                </React.Fragment>
+                              ))}
                             </Grid>
                           </Paper>
                         ) : (
@@ -842,8 +887,7 @@ const ClientForm = ({
                   </FieldArray>
                 </Grid>
 
-
-
+                {/* Supporting Documents Section */}
                 <Grid item xs={12}>
                   <Typography
                     variant="h6"
@@ -862,14 +906,7 @@ const ClientForm = ({
                 </Grid>
 
                 <Grid item xs={12}>
-                  <Paper
-                    variant="outlined"
-                    sx={{
-                      p: 3,
-                      borderRadius: 2,
-                      bgcolor: "rgba(0, 0, 0, 0.01)",
-                    }}
-                  >
+                  <Paper variant="outlined" sx={{ p: 3, borderRadius: 2, bgcolor: "rgba(0, 0, 0, 0.01)" }}>
                     <Button
                       variant="outlined"
                       component="label"
@@ -887,9 +924,7 @@ const ClientForm = ({
                       />
                     </Button>
 
-                    <Box
-                      sx={{ mt: 2, display: "flex", flexWrap: "wrap", gap: 1 }}
-                    >
+                    <Box sx={{ mt: 2, display: "flex", flexWrap: "wrap", gap: 1 }}>
                       {files.length > 0 ? (
                         files.map((file, index) => (
                           <Chip
@@ -902,20 +937,17 @@ const ClientForm = ({
                           />
                         ))
                       ) : (
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ fontStyle: "italic" }}
-                        >
+                        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
                           {isEdit
                             ? "No documents available. Upload new documents."
-                            : "No files selected. Please upload at least one supporting document."}
+                            : "No files selected. Please upload supporting documents."}
                         </Typography>
                       )}
                     </Box>
                   </Paper>
                 </Grid>
 
+                {/* Feedback Section (Edit Mode Only) */}
                 {isEdit && (
                   <React.Fragment>
                     <Grid item xs={12}>
@@ -936,34 +968,29 @@ const ClientForm = ({
                     </Grid>
 
                     <Grid item xs={12}>
-                      {feedBack.map((field) => (
-                        <Field name={field.name} key={field.name}>
-                          {({ field: formikField, meta }) => (
-                            <TextField
-                              {...formikField}
-                              fullWidth
-                              multiline
-                              rows={4}
-                              placeholder={`Enter ${field.label.toLowerCase()}`}
-                              error={meta.touched && Boolean(meta.error)}
-                              helperText={meta.touched && meta.error}
-                              variant="outlined"
-                              InputLabelProps={{ shrink: true }}
-                            />
-                          )}
-                        </Field>
-                      ))}
+                      <Field name="feedBack">
+                        {({ field, meta }) => (
+                          <TextField
+                            {...field}
+                            fullWidth
+                            multiline
+                            rows={4}
+                            label="Feedback"
+                            placeholder="Enter feedback about this client"
+                            error={meta.touched && Boolean(meta.error)}
+                            helperText={meta.touched && meta.error}
+                            InputLabelProps={{ shrink: true }}
+                          />
+                        )}
+                      </Field>
                     </Grid>
                   </React.Fragment>
                 )}
 
+                {/* Form Actions */}
                 <Grid item xs={12}>
                   <Divider sx={{ my: 3 }} />
-                  <Stack
-                    direction={{ xs: "column", sm: "row" }}
-                    spacing={2}
-                    justifyContent="flex-end"
-                  >
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={2} justifyContent="flex-end">
                     <Button
                       variant="outlined"
                       color="error"
