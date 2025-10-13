@@ -7,15 +7,13 @@ import {
   Box,
   Skeleton,
   Tooltip,
-  Alert
+  Alert,
+  Snackbar
 } from '@mui/material'
-import { Close, CloudDownload, Delete, Edit } from '@mui/icons-material'
+import { Close, CloudDownload, Delete, Download, Edit } from '@mui/icons-material'
 import ClientForm from './OnBoardingClients'
 import { useNavigate } from 'react-router-dom'
 import httpService from '../../Services/httpService'
-
-// API base URL
-
 
 const UsClients = () => {
   const navigate = useNavigate()
@@ -23,6 +21,7 @@ const UsClients = () => {
   const [editingClient, setEditingClient] = useState(null)
   const [clientsData, setClientsData] = useState([])
   const [error, setError] = useState(null)
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' })
 
   // State for table
   const [page, setPage] = useState(0)
@@ -31,64 +30,74 @@ const UsClients = () => {
   const [filters, setFilters] = useState({})
   const [loading, setLoading] = useState(false)
 
-  // Fetch clients data
-// Fetch clients data
-// Fetch clients data
-const fetchClients = async () => {
-  setLoading(true)
-  setError(null)
-  try {
-    const result = await httpService.get(`/api/us/requirements/client/getAll`);
-
-    console.log('API Response:', result);
-    
-    if (result.data.success && result.data.data) {
-      console.log('Clients data received:', result.data.data);
-      // Ensure data is an array
-      const dataArray = Array.isArray(result.data.data) ? result.data.data : [result.data.data];
-      setClientsData(dataArray);
-    } else {
-      console.error('Failed to fetch clients:', result.data.message);
-      setError(result.data.message || 'Failed to fetch clients');
-      setClientsData([]);
-    }
-  } catch (error) {
-    console.error("API call failed:", error);
-    setError(error.message);
-    setClientsData([]);
-  } finally {
-    setLoading(false);
+  // Show snackbar notification
+  const showSnackbar = (message, severity = 'success') => {
+    setSnackbar({ open: true, message, severity })
   }
-};
+
+  // Close snackbar
+  const handleCloseSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false })
+  }
+
+  // Fetch clients data
+  const fetchClients = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await httpService.get(`/api/us/requirements/client/getAll`);
+
+      console.log('API Response:', result);
+      
+      if (result.data.success && result.data.data) {
+        const dataArray = Array.isArray(result.data.data) ? result.data.data : [result.data.data];
+        setClientsData(dataArray);
+      } else {
+        setError(result.data.message || 'Failed to fetch clients');
+        setClientsData([]);
+      }
+    } catch (error) {
+      console.error("API call failed:", error);
+      setError(error.message);
+      setClientsData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchClients();
   }, []);
 
-  const handleDownloadDocument = async (clientId, documentName) => {
-  try {
-    // Implement document download logic here
-    console.log('Downloading document:', documentName, 'for client:', clientId);
-    // You can make an API call to download the specific document
-    alert(`Downloading: ${documentName}`);
-  } catch (error) {
-    console.error('Error downloading document:', error);
-    alert('Error downloading document');
+  // Download all documents for a client
+  const handleDownloadAllDocuments = async (clientId, clientName) => {
+    try {
+      const response = await httpService.get(`/api/us/requirements/ClientsDocuments/downloadAll/${clientId}`, {
+        responseType: 'blob'
+      });
+
+      // Create a blob URL and trigger download
+      const blob = new Blob([response.data]);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `documents-${clientName}-${clientId}.zip`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      showSnackbar('Documents downloaded successfully!', 'success');
+    } catch (error) {
+      console.error('Error downloading documents:', error);
+      showSnackbar('Error downloading documents', 'error');
+    }
   }
-}
 
   const columns = [
     {
       id: 'clientName',
       label: 'Client Name',
-      applyFilter: true,
-      filterType: 'text',
-      sortable: true,
-      render: (value, row) => value || 'N/A'
-    },
-    {
-      id: 'assignedTo',
-      label: 'Assigned To',
       applyFilter: true,
       filterType: 'text',
       sortable: true,
@@ -114,7 +123,7 @@ const fetchClients = async () => {
       applyFilter: true,
       filterType: 'text',
       sortable: true,
-      render: (value) => value ? `${value} Days` : '0 Days'
+      render: (value, row) => value ? `${value} Days` : '0 Days'
     },
     {
       id: 'clientWebsiteUrl',
@@ -208,118 +217,112 @@ const fetchClients = async () => {
       applyFilter: true,
       filterType: 'text',
       sortable: true,
-      render: (value) => value || 0
+      render: (value) => (value || 0)
     },
- {
-  id: 'supportingCustomers',
-  label: 'Supporting Customers',
-  applyFilter: false,
-  sortable: false,
-  render: (value) => {
-    if (!value || !Array.isArray(value) || value.length === 0) {
-      return 'No customers';
-    }
-    
-    return (
-      <Box>
-        {value.map((customer, index) => (
-          <Box 
-            key={index} 
-            sx={{ 
-              display: 'flex', 
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              mb: 0.5,
-              fontSize: '0.875rem'
-            }}
-          >
-            <span>{customer.customerName || 'Unnamed Customer'}</span>
-            <span style={{ color: '#666', marginLeft: '8px' }}>
-              ${customer.netPayment?.toLocaleString() || '0'}
-            </span>
+    {
+      id: 'supportingCustomers',
+      label: 'Supporting Customers',
+      applyFilter: false,
+      sortable: false,
+      render: (value) => {
+        if (!value || !Array.isArray(value) || value.length === 0) {
+          return 'No customers';
+        }
+        
+        return (
+          <Box>
+            {value.map((customer, index) => (
+              <Box 
+                key={index} 
+                sx={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  mb: 0.5,
+                  fontSize: '0.875rem',
+                  width:170
+                }}
+              >
+                <span>{customer.customerName || 'Unnamed Customer'}</span>
+                <span style={{ color: '#666', marginLeft: '8px' }}>
+                  {customer.netPayment?.toLocaleString() || '0'} Days
+                </span>
+              </Box>
+            ))}
           </Box>
-        ))}
-      </Box>
-    );
-  }
-},
-{
-  id: 'supportingDocuments',
-  label: 'Supporting Documents',
-  applyFilter: false,
-  sortable: false,
-  render: (value, row) => {
-    if (!value || !Array.isArray(value) || value.length === 0) {
-      return 'No documents';
-    }
-    
-    return (
-      <Box>
-        {value.map((document, index) => (
-          <Box 
-            key={index}
-            sx={{
-              display: 'block',
-              mb: 0.5,
-              fontSize: '0.875rem',
-              color: '#1976d2',
-              cursor: 'pointer',
-              '&:hover': {
-                textDecoration: 'underline'
-              }
-            }}
-            onClick={() => handleDownloadDocument(row.id, document)}
-          >
-            {document}
+        );
+      }
+    },
+    {
+      id: 'supportingDocuments',
+      label: 'Supporting Documents',
+      applyFilter: false,
+      sortable: false,
+      render: (value, row) => {
+        if (!value || !Array.isArray(value) || value.length === 0) {
+          return 'No documents';
+        }
+        
+        return (
+          <Box>
+            {value.slice(0, 2).map((document, index) => (
+              <Box 
+                key={index}
+                sx={{
+                  display: 'block',
+                  mb: 0.5,
+                  fontSize: '0.75rem',
+                  color: '#666',
+                }}
+              >
+                {document.length > 30 ? document.substring(0, 30) + '...' : document}
+              </Box>
+            ))}
+            {value.length > 2 && (
+              <Typography variant="caption" color="primary">
+                +{value.length - 2} more
+              </Typography>
+            )}
           </Box>
-        ))}
-      </Box>
-    );
-  }
-},
+        );
+      }
+    },
     {
       id: 'actions',
       label: 'Actions',
       applyFilter: false,
       sortable: false,
-      render: (row) =>
-        loading ? (
-          <Box display="flex" gap={1}>
-            <Skeleton variant="circular" width={32} height={32} />
-            <Skeleton variant="circular" width={32} height={32} />
-            <Skeleton variant="circular" width={32} height={32} />
-          </Box>
-        ) : (
-          <Box display="flex" gap={1}>
-            <Tooltip title="Edit Client">
-              <IconButton
-                size="small"
-                color="primary"
-                onClick={() => handleEditClient(row)}
-              >
-                <Edit />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Download Documents">
-              <IconButton
-                size="small"
-                color="secondary"
-                onClick={() => handleDownloadDocs(row.id, row.supportingDocuments)}
-              >
-                <CloudDownload />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Delete Client">
-              <IconButton
-                size="small"
-                color="error"
-                onClick={() => handleDeleteClick(row.id)}
-              >
-                <Delete />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        ),
+      render: (value, row) => (
+        <Box display="flex" gap={1}>
+          <Tooltip title="Edit Client">
+            <IconButton
+              size="small"
+              color="primary"
+              onClick={() => handleEditClient(row)}
+            >
+              <Edit />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Download All Documents">
+            <IconButton
+              size="small"
+              color="primary"
+              onClick={() => handleDownloadAllDocuments(row.id, row.clientName)}
+            >
+              <Download />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Delete Client">
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => handleDeleteClick(row.id, row.clientName)}
+            >
+              <Delete />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ),
     }
   ]
 
@@ -329,8 +332,26 @@ const fetchClients = async () => {
 
   const handleEditClient = (client) => {
     console.log('Editing client:', client);
-    setEditingClient(client)
-    setIsDrawerOpen(true)
+    // Ensure the client data is properly structured for the form
+    const formattedClient = {
+      ...client,
+      // Ensure arrays are properly formatted
+      clientSpocName: Array.isArray(client.clientSpocName) ? client.clientSpocName : [client.clientSpocName || ""],
+      clientSpocEmailid: Array.isArray(client.clientSpocEmailid) ? client.clientSpocEmailid : [client.clientSpocEmailid || ""],
+      clientSpocMobileNumber: Array.isArray(client.clientSpocMobileNumber) ? client.clientSpocMobileNumber : [client.clientSpocMobileNumber || ""],
+      clientSpocLinkedin: Array.isArray(client.clientSpocLinkedin) ? client.clientSpocLinkedin : [client.clientSpocLinkedin || ""],
+      // Ensure supportingCustomers is properly formatted
+      supportingCustomers: Array.isArray(client.supportingCustomers) 
+        ? client.supportingCustomers.map(customer => 
+            typeof customer === 'string' 
+              ? { customerName: customer, netPayment: "" }
+              : customer
+          )
+        : [],
+    };
+    
+    setEditingClient(formattedClient);
+    setIsDrawerOpen(true);
   }
 
   const handleCloseDrawer = () => {
@@ -338,57 +359,33 @@ const fetchClients = async () => {
     setEditingClient(null)
   }
 
-  const handleFormSubmit = async (formData, isEdit) => {
+  const handleFormSubmit = async (formData, isEdit, result) => {
     try {
-      console.log('Form data:', formData, 'Is edit:', isEdit)
-      handleCloseDrawer()
+      console.log('Form submitted successfully:', result);
+      handleCloseDrawer();
       // Refresh the data after form submission
       await fetchClients();
+      showSnackbar(`Client ${isEdit ? 'updated' : 'created'} successfully!`, 'success');
     } catch (error) {
-      console.error('Form submission error:', error)
-      throw error
+      console.error('Form submission error:', error);
+      showSnackbar(`Failed to ${isEdit ? 'update' : 'create'} client`, 'error');
     }
   }
 
-  const handleDownloadDocs = async (clientId, documents) => {
-    if (!documents || documents.length === 0) {
-      alert('No documents available for download');
-      return;
-    }
-
-    try {
-      console.log('Downloading documents for client:', clientId, documents);
-      // Implement document download logic here
-    } catch (error) {
-      console.error('Error downloading documents:', error);
-      alert('Error downloading documents');
-    }
-  }
-
-  const handleDeleteClick = async (clientId) => {
-    if (window.confirm('Are you sure you want to delete this client?')) {
+  const handleDeleteClick = async (clientId, clientName) => {
+    if (window.confirm(`Are you sure you want to delete client "${clientName}"?`)) {
       try {
-        const token = localStorage.getItem("authToken");
-        
-        const response = await httpService.delete(`/api/us/requirements/client/deleteClient/${clientId}`, {
-        
-        });
+        const response = await httpService.delete(`/api/us/requirements/client/delete/${clientId}`);
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-        
-        if (result.success) {
-          alert('Client deleted successfully');
+        if (response.data && response.data.success) {
+          showSnackbar('Client deleted successfully', 'success');
           await fetchClients();
         } else {
-          alert('Failed to delete client: ' + result.message);
+          showSnackbar('Failed to delete client: ' + (response.data?.message || 'Unknown error'), 'error');
         }
       } catch (error) {
         console.error("Delete client failed:", error);
-        alert('Error deleting client');
+        showSnackbar('Error deleting client: ' + error.message, 'error');
       }
     }
   }
@@ -467,14 +464,6 @@ const fetchClients = async () => {
     page * rowsPerPage + rowsPerPage
   )
 
-  console.log('Table data:', {
-    clientsData,
-    filteredData,
-    paginatedData,
-    loading,
-    error
-  });
-
   return (
     <>
       {error && (
@@ -503,7 +492,7 @@ const fetchClients = async () => {
         createButtonText="Create Client"
       />
 
-      {/* Edit Client Drawer - Only for editing existing clients */}
+      {/* Edit Client Drawer */}
       <Drawer
         anchor="right"
         open={isDrawerOpen}
@@ -528,6 +517,14 @@ const fetchClients = async () => {
           onCancel={handleCloseDrawer}
         />
       </Drawer>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        message={snackbar.message}
+      />
     </>
   )
 }

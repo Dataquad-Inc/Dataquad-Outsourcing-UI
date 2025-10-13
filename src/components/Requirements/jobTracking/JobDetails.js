@@ -60,6 +60,9 @@ const JobDetails = () => {
     if (fromPath && fromPath.includes('/dashboard/InProgress')) {
       navigate('/dashboard/InProgress');
     }
+    if (fromPath && fromPath.includes('/dashboard/submissions')) {
+      navigate('/dashboard/submissions');
+    }
     // Check if coming from general interviews
     else if (fromPath && fromPath.includes('/dashboard/interviews')) {
       navigate('/dashboard/interviews');
@@ -81,6 +84,9 @@ const JobDetails = () => {
     }
     else if (fromPath && fromPath.includes('/dashboard/interviews')) {
       return "Back to Interviews";
+    }
+    else if (fromPath && fromPath.includes('/dashboard/submissions')) {
+      return "Back to Submissions";
     }
     else if (role === "SUPERADMIN" || role === "TEAMLEAD") {
       return "Back to Requirements";
@@ -128,7 +134,7 @@ const JobDetails = () => {
         >
           <MuiButton
             variant="outlined"
-            color="secondary"
+            color="primary"
             onClick={handleBackClick}
           >
             {getBackButtonText()}
