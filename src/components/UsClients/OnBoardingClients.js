@@ -155,13 +155,13 @@ const ClientForm = ({
             { value: "Internship", label: "Internship" },
           ],
         },
-        {
-          name: "assignedTo",
-          label: "Assigned To",
-          type: "text",
-          xs: 12, sm: 6, md: 4,
-          icon: <Assignment color="primary" />,
-        },
+        // {
+        //   name: "assignedTo",
+        //   label: "Assigned To",
+        //   type: "text",
+        //   xs: 12, sm: 6, md: 4,
+        //   icon: <Assignment color="primary" />,
+        // },
         {
           name: "clientWebsiteUrl",
           label: "Client Website URL",
@@ -634,7 +634,7 @@ const ClientForm = ({
                 ))}
 
                 {/* Contact Persons Section */}
-                <Grid item xs={12}>
+                {/* <Grid item xs={12}>
                   <Typography
                     variant="h6"
                     color="primary"
@@ -649,9 +649,9 @@ const ClientForm = ({
                     <People sx={{ mr: 1 }} /> Contact Persons
                   </Typography>
                   <Divider sx={{ mb: 3 }} />
-                </Grid>
+                </Grid> */}
 
-                {values.clientSpocName.map((_, index) => (
+                {/* {values.clientSpocName.map((_, index) => (
                   <React.Fragment key={index}>
                     <Grid item xs={12} sm={6} md={3}>
                       <Field name={`clientSpocName.${index}`}>
@@ -760,8 +760,8 @@ const ClientForm = ({
                       </Box>
                     </Grid>
                   </React.Fragment>
-                ))}
-
+                ))} */}
+{/* 
                 <Grid item xs={12}>
                   <Button
                     startIcon={<AddCircleOutline />}
@@ -772,7 +772,7 @@ const ClientForm = ({
                   >
                     Add Contact Person
                   </Button>
-                </Grid>
+                </Grid> */}
 
                 {/* Supporting Customers Section */}
                 <Grid item xs={12}>
