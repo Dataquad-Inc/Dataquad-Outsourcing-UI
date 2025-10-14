@@ -210,7 +210,7 @@ export const teamAPI = {
   // Create new team
   createTeam: async (userId, teamdata) => {
     if (!teamdata) throw new Error("team data is not found");
-    return apiPost(`/users/assignTeamLead/${userId}`, teamdata); 
+    return apiPost(`/users/assignTeamLead/${userId}`, teamdata);
   },
 
   getAllEmps: async () => {
@@ -231,15 +231,23 @@ export const requirementsAPI = {
     return apiGet("/api/us/requirements/allRequirements", params);
   },
 
-
   // Create new requirement with form data (for file uploads)
-  createRequirement: async (userId,requirementData) => {
+  createRequirement: async (userId, requirementData) => {
     if (!requirementData) throw new Error("Form data is required");
-    return apiPostFormData(`/api/us/requirements/post-requirement${userId}`, requirementData);
+    return apiPostFormData(
+      `/api/us/requirements/post-requirement${userId}`,
+      requirementData
+    );
   },
+};
 
- 
+//=========== US-Clients Management APIs =========
 
+export const usClientsAPI = {
+  //get all clients
+  getAllClients: async (params = {}) => {
+    return apiGet("/api/us/requirements/client/getAllClientsNames");
+  },
 };
 
 // ========== Hotlist/Consultant Management APIs ==========
@@ -333,10 +341,12 @@ export const hotlistAPI = {
   moveToHotlist: async (consultantId) => {
     return apiPatch(`hotlist/moveToHotlist/${consultantId}`);
   },
-  sendApproval:async(consultantId,userId,isApproved)=>{
-    return apiPatch(`/hotlist/modify-approvalStatus/${userId}?consultantId=${consultantId}&isApproved=${isApproved}`)
+  sendApproval: async (consultantId, userId, isApproved) => {
+    return apiPatch(
+      `/hotlist/modify-approvalStatus/${userId}?consultantId=${consultantId}&isApproved=${isApproved}`
+    );
   },
-   moveToYetToOnboard: async (consultantId) => {
+  moveToYetToOnboard: async (consultantId) => {
     return apiPatch(`hotlist/moveToYetToOnBoard/${consultantId}`);
   },
 };

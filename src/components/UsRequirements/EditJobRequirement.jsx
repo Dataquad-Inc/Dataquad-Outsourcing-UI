@@ -5,7 +5,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 
 import DynamicFormUltra from "../FormContainer/DynamicFormUltra";
-import { fetchEmployeesUs } from "../../redux/usEmployees";
+import { fetchAllEmployeesUs } from "../../redux/usEmployees";
 import { LoadingSpinner } from "../../ui-lib/LoadingSpinner";
 
 const EditJobRequirement = () => {
@@ -29,7 +29,7 @@ const EditJobRequirement = () => {
   }));
 
   useEffect(() => {
-    dispatch(fetchEmployeesUs("TEAMLEAD"));
+    dispatch(fetchAllEmployeesUs("RECRUITER"));
   }, []);
 
   useEffect(() => {

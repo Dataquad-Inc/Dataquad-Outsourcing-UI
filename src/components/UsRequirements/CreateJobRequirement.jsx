@@ -1,11 +1,12 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { showSuccessToast, showErrorToast } from "../../utils/toastUtils";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
-import DynamicFormUltra from "../FormContainer/DynamicFormUltra"; // Adjust the import path as needed
+import DynamicFormUltra from "../FormContainer/DynamicFormUltra";
 import { fetchRecruiters } from "../../redux/usEmployees";
+import { usClientsAPI } from "../../utils/api";
 
 const CreateJobRequirement = ({
   formTitle = "Post New Requirement",
@@ -15,11 +16,33 @@ const CreateJobRequirement = ({
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
+  // Local state for clients instead of Redux
+  const [clients, setClients] = useState([]);
+  const [loadingClients, setLoadingClients] = useState(false);
+  const [clientsError, setClientsError] = useState(null);
+
   // Get employees and current user from Redux
   const { recruiters = [], loadingEmployees } = useSelector(
     (state) => state.usEmployees
   );
   const { userName, userId } = useSelector((state) => state.auth);
+
+  // Fetch clients directly in component
+  const fetchClients = async () => {
+    try {
+      setLoadingClients(true);
+      setClientsError(null);
+      const response = await usClientsAPI.getAllClients();
+
+      setClients(response.data);
+    } catch (error) {
+      const errorMessage = error.message || "Something went wrong";
+      setClientsError(errorMessage);
+      showErrorToast(errorMessage);
+    } finally {
+      setLoadingClients(false);
+    }
+  };
 
   // Transform employees for multiselect
   const employeeOptions = recruiters.map((emp) => ({
@@ -27,9 +50,15 @@ const CreateJobRequirement = ({
     value: emp.employeeId,
   }));
 
+  const clientOptions = clients.map((client) => ({
+    label: client.clientName,
+    value: client.clientName,
+  }));
+
   useEffect(() => {
     dispatch(fetchRecruiters("RECRUITER"));
-  }, []);
+    fetchClients();
+  }, [dispatch]);
 
   // Default form values
   const defaultInitialValues = {
@@ -61,9 +90,12 @@ const CreateJobRequirement = ({
         {
           name: "clientName",
           label: "Client Name",
-          type: "text",
-          required: true,
+          type: "select",
+          options: clientOptions,
+          helperText: "Select client",
           icon: "BusinessCenter",
+          loading: loadingClients,
+          error: clientsError,
         },
         {
           name: "jobTitle",
@@ -213,16 +245,12 @@ const CreateJobRequirement = ({
           name: "jobDescription",
           label: "Job Description",
           type: "textarea",
-          // required: true,
-          // condition: (values) => values.jobDescriptionType === "text",
           helperText: "Minimum 50 characters required",
         },
         {
           name: "jobDescriptionFile",
           label: "Job Description File",
           type: "file",
-          // required: true,
-          // condition: (values) => values.jobDescriptionType === "file",
           accept: ".pdf,.doc,.docx,.txt",
           maxSize: 5,
           helperText:
