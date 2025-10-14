@@ -36,6 +36,7 @@ import FilterListOffIcon from "@mui/icons-material/FilterListOff";
 import ViewColumnIcon from "@mui/icons-material/ViewColumn";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
@@ -51,7 +52,7 @@ const CustomDataTable = ({
   search,
   loading,
   filters = {},
-  filterStorageKey, // unique key for storing filters AND columns in localStorage
+  filterStorageKey,
   onPageChange,
   onRowsPerPageChange,
   onSearchChange,
@@ -62,7 +63,6 @@ const CustomDataTable = ({
   const theme = useTheme();
   const [showFilters, setShowFilters] = useState(false);
   const [localFilters, setLocalFilters] = useState(() => {
-    // Initialize from localStorage if filterStorageKey is provided
     if (filterStorageKey) {
       try {
         const stored = localStorage.getItem(filterStorageKey);
@@ -77,7 +77,6 @@ const CustomDataTable = ({
 
   const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
 
-  // Enhanced column visibility initialization with better error handling
   const [visibleColumns, setVisibleColumns] = useState(() => {
     const storageKey = filterStorageKey ? `${filterStorageKey}_columns` : null;
 
@@ -86,7 +85,6 @@ const CustomDataTable = ({
         const stored = localStorage.getItem(storageKey);
         if (stored) {
           const parsed = JSON.parse(stored);
-          // Validate that all stored columns still exist in current columns config
           const validatedVisibility = {};
           columns.forEach((col) => {
             validatedVisibility[col.id] =
@@ -104,27 +102,22 @@ const CustomDataTable = ({
       }
     }
 
-    // Default: show all columns except those explicitly hidden
     return columns.reduce((acc, col) => {
       acc[col.id] = col.hidden !== true;
       return acc;
     }, {});
   });
 
-  // Fixed width for all filter fields
   const FILTER_FIELD_WIDTH = 200;
 
-  // Get filterable columns
   const filterableColumns = columns.filter((col) => col.applyFilter === true);
 
-  // Sync localFilters with external filters prop when it changes
   useEffect(() => {
     if (JSON.stringify(filters) !== JSON.stringify(localFilters)) {
       setLocalFilters(filters);
     }
   }, [filters]);
 
-  // Save filters to localStorage whenever they change
   useEffect(() => {
     if (filterStorageKey) {
       try {
@@ -135,7 +128,6 @@ const CustomDataTable = ({
     }
   }, [localFilters, filterStorageKey]);
 
-  // Enhanced: Save column visibility to localStorage whenever it changes
   useEffect(() => {
     const storageKey = filterStorageKey ? `${filterStorageKey}_columns` : null;
     if (storageKey && visibleColumns) {
@@ -147,7 +139,6 @@ const CustomDataTable = ({
     }
   }, [visibleColumns, filterStorageKey]);
 
-  // Handle filter change
   const handleFilterChange = (columnId, value, filterType) => {
     const newFilters = { ...localFilters };
 
@@ -163,16 +154,13 @@ const CustomDataTable = ({
     setLocalFilters(newFilters);
   };
 
-  // Apply filters
   const handleApplyFilters = () => {
     onFiltersChange?.(localFilters);
   };
 
-  // Clear all filters
   const handleClearFilters = () => {
     setLocalFilters({});
     onFiltersChange?.({});
-    // Clear from localStorage
     if (filterStorageKey) {
       try {
         localStorage.removeItem(filterStorageKey);
@@ -182,7 +170,6 @@ const CustomDataTable = ({
     }
   };
 
-  // Enhanced: Toggle column visibility with persistence
   const toggleColumnVisibility = (columnId) => {
     setVisibleColumns((prev) => ({
       ...prev,
@@ -190,7 +177,6 @@ const CustomDataTable = ({
     }));
   };
 
-  // NEW: Reset all columns to default visibility
   const handleResetColumns = () => {
     const defaultVisibility = columns.reduce((acc, col) => {
       acc[col.id] = col.hidden !== true;
@@ -199,7 +185,6 @@ const CustomDataTable = ({
 
     setVisibleColumns(defaultVisibility);
 
-    // Also clear from localStorage
     const storageKey = filterStorageKey ? `${filterStorageKey}_columns` : null;
     if (storageKey) {
       try {
@@ -210,7 +195,111 @@ const CustomDataTable = ({
     }
   };
 
-  // Render filter input based on type
+  // Excel export function
+  const handleExportExcel = async () => {
+    try {
+      // Import the required libraries dynamically
+      const XLSX = await import("xlsx");
+
+      // Get visible columns only
+      const visibleCols = columns.filter((col) => visibleColumns[col.id]);
+
+      // Prepare header row
+      const headers = visibleCols.map((col) => col.label);
+
+      // Prepare data rows
+      const dataRows = (Array.isArray(rows) ? rows : []).map((row) =>
+        visibleCols.map((col) => {
+          const cellValue = col.render
+            ? col.render(row[col.id], row)
+            : row[col.id];
+
+          // Handle React elements and other non-string values
+          if (typeof cellValue === "string" || typeof cellValue === "number") {
+            return cellValue;
+          } else if (React.isValidElement(cellValue)) {
+            // For React elements, try to extract text content
+            return cellValue.props?.children || cellValue.props?.value || "";
+          } else if (cellValue instanceof Date) {
+            return cellValue.toLocaleDateString();
+          }
+          return cellValue?.toString?.() || "";
+        })
+      );
+
+      // Create worksheet
+      const worksheet = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
+
+      // Auto-size columns
+      const colWidths = headers.map((header, colIndex) => {
+        const maxDataLength = Math.max(
+          header.length,
+          ...dataRows.map((row) => String(row[colIndex] || "").length)
+        );
+        return { wch: Math.min(Math.max(maxDataLength, 8), 50) }; // Min 8, max 50 chars
+      });
+      worksheet["!cols"] = colWidths;
+
+      // Create workbook
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, title || "Sheet1");
+
+      // Generate file and download
+      const fileName = `${title || "table_export"}_${
+        new Date().toISOString().split("T")[0]
+      }.xlsx`;
+
+      XLSX.writeFile(workbook, fileName);
+    } catch (error) {
+      console.error("Error exporting to Excel:", error);
+      // Fallback to CSV if XLSX library fails to load
+      handleExportCSV();
+    }
+  };
+
+  // Fallback CSV export function
+  const handleExportCSV = () => {
+    // Get visible columns only
+    const visibleCols = columns.filter((col) => visibleColumns[col.id]);
+
+    // Prepare header row
+    const headers = visibleCols.map((col) => col.label);
+
+    // Prepare data rows
+    const dataRows = (Array.isArray(rows) ? rows : []).map((row) =>
+      visibleCols.map((col) => {
+        const cellValue = col.render
+          ? col.render(row[col.id], row)
+          : row[col.id];
+        // Handle React elements and other non-string values
+        return typeof cellValue === "string" || typeof cellValue === "number"
+          ? cellValue
+          : cellValue?.toString?.() || "";
+      })
+    );
+
+    // Combine headers and data
+    const csvContent = [
+      headers.map((h) => `"${h}"`).join(","),
+      ...dataRows.map((row) =>
+        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")
+      ),
+    ].join("\n");
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${title || "table_export"}_${
+      new Date().toISOString().split("T")[0]
+    }.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const renderFilterInput = (column) => {
     const currentFilter = localFilters[column.id];
     const currentValue = currentFilter?.value || "";
@@ -430,6 +519,18 @@ const CustomDataTable = ({
             }}
           />
 
+          {/* Download Excel Button */}
+          <IconButton
+            onClick={handleExportExcel}
+            title="Download as Excel"
+            sx={{
+              color: theme.palette.primary.main,
+              "&:hover": { backgroundColor: theme.palette.action.hover },
+            }}
+          >
+            <FileDownloadIcon />
+          </IconButton>
+
           {/* Column Selector Button */}
           <IconButton
             onClick={(e) => setColumnSelectorAnchor(e.currentTarget)}
@@ -560,6 +661,7 @@ const CustomDataTable = ({
           </Typography>
         </Box>
       </Popover>
+
       {/* First 4 Filters Row */}
       {filterableColumns.length > 0 && (
         <Box

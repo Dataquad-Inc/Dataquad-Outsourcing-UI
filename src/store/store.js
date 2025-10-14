@@ -12,9 +12,9 @@ import dashboardReducer from "../redux/dashboardSlice";
 import teamMetricsReducer from "../redux/teamMetricsSlice";
 import inProgressReducer from "../redux/inProgressSlice";
 import timesheetReducer from "../redux/timesheetSlice";
-//us store data
 import usEmployeess from "../redux/usEmployees";
 import hotlistReducer from "../redux/hotlist";
+import usClientsReducer from "../redux/usClientsSlice";
 
 export const store = configureStore({
   reducer: {
@@ -34,6 +34,7 @@ export const store = configureStore({
     //us reducers
     hotlist: hotlistReducer,
     usEmployees: usEmployeess,
+    usClients: usClientsReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
