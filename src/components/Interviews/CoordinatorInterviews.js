@@ -23,6 +23,7 @@ import {
   Visibility as VisibilityIcon,
   Refresh as RefreshIcon,
   VideoCall as VideoCallIcon,
+  SupervisorAccount as CoordinatorIcon,
 } from "@mui/icons-material";
 import httpService from "../../Services/httpService";
 import ToastService from "../../Services/toastService";
@@ -37,7 +38,7 @@ import InternalFeedbackCell from "./FeedBack";
 import DownloadResume from "../../utils/DownloadResume";
 import { API_BASE_URL } from "../../Services/httpService";
 import EditInterviewForm from "./EditInterviewForm";
-import { clearCoordinatorFilter } from "../../redux/interviewSlice";
+import { clearCoordinatorFilter, clearTeamLeadFilter } from "../../redux/interviewSlice";
 
 const processInterviewData = (interviews) => {
   if (!Array.isArray(interviews)) return [];
@@ -54,12 +55,17 @@ const CoordinatorInterviews = () => {
   const {
     isFilteredDataRequested,
     filterInterviewsForCoordinator,
+    filterInterviewsForTeamLeadTeam,
     isCoordinatorFilterActive,
+    isTeamLeadFilterActive,
     loading: reduxLoading
   } = useSelector((state) => state.interview);
   
   const [interviews, setInterviews] = useState([]);
+  const [coordinatorInterviews, setCoordinatorInterviews] = useState([]);
+  const [showCoordinatorView, setShowCoordinatorView] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [coordinatorLoading, setCoordinatorLoading] = useState(false);
   const [error, setError] = useState(null);
   const [expandedRows, setExpandedRows] = useState({});
   const [feedbackDialog, setFeedbackDialog] = useState({
@@ -70,19 +76,43 @@ const CoordinatorInterviews = () => {
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const [levelFilter, setLevelFilter] = useState("ALL");
   const [editDrawer, setEditDrawer] = useState({ open: false, data: null });
+  const [teamLeadId, setTeamLeadId] = useState(null);
   const navigate = useNavigate();
 
+  // New function to get team lead ID for coordinator view
+  const getTeamLeadId = async () => {
+    try {
+      const response = await httpService.get(
+        `/users/AllAssociatedUsers?entity=US&userId=${userId}`
+      );
+      setTeamLeadId(response.data); // Store the team lead ID
+      return response.data;
+    } catch (err) {
+      console.error("Error fetching team lead ID:", err);
+      ToastService.error("Failed to load coordinator data");
+      throw err;
+    }
+  };
+
+  // REVERSED: Regular view now uses the coordinator API logic
   const fetchInterviews = async () => {
     try {
       setLoading(true);
+      
+      // First get the team lead ID for regular view
+      const teamLeadId = await getTeamLeadId();
+      
+      // Use team lead ID for regular view
       const response = await httpService.get(
-        `/candidate/interviews/interviewsByUserId/${userId}?coordinator=true`
+        `/candidate/interviews/teamlead/${teamLeadId}`
       );
-      const processedData = processInterviewData(response.data || []);
+      
+      const teamInterviews = response.data?.teamInterviews || [];
+      const processedData = processInterviewData(teamInterviews);
       setInterviews(processedData);
       setError(null);
     } catch (err) {
-      setError("Failed to fetch interview data");
+      // setError("Failed to fetch interview data");
       console.error("Error fetching interviews:", err);
       ToastService.error("Failed to load interviews");
     } finally {
@@ -90,22 +120,62 @@ const CoordinatorInterviews = () => {
     }
   };
 
+  // REVERSED: Coordinator view now uses the original regular API logic
+  const fetchCoordinatorInterviews = async () => {
+    try {
+      setCoordinatorLoading(true);
+      
+      // Use the original regular endpoint for coordinator view
+      const response = await httpService.get(
+        `/candidate/interviews/interviewsByUserId/${userId}?coordinator=true`
+      );
+      
+      const processedData = processInterviewData(response.data || []);
+      setCoordinatorInterviews(processedData);
+      setError(null);
+    } catch (err) {
+      // setError("Failed to fetch coordinator interviews");
+      console.error("Error fetching coordinator interviews:", err);
+      ToastService.error("Failed to load coordinator interviews");
+    } finally {
+      setCoordinatorLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchInterviews();
   }, [userId]);
+
+  const handleToggleCoordinatorView = () => {
+    setShowCoordinatorView(!showCoordinatorView);
+    if (!showCoordinatorView && coordinatorInterviews.length === 0) {
+      fetchCoordinatorInterviews();
+    }
+  };
 
   // Add effect to handle filtered data updates
   useEffect(() => {
     console.log("Filter state changed:", {
       isFilteredDataRequested,
       isCoordinatorFilterActive,
+      isTeamLeadFilterActive,
       filterInterviewsForCoordinator: filterInterviewsForCoordinator?.length,
+      filterInterviewsForTeamLeadTeam: filterInterviewsForTeamLeadTeam?.length,
     });
   }, [
     isFilteredDataRequested,
     isCoordinatorFilterActive,
+    isTeamLeadFilterActive,
     filterInterviewsForCoordinator,
+    filterInterviewsForTeamLeadTeam,
   ]);
+
+  // Create a custom date change handler for team view
+  const handleTeamViewDateChange = (startDate, endDate) => {
+    if (startDate && endDate && teamLeadId) {
+      console.log("Team view date filter applied with teamLeadId:", teamLeadId);
+    }
+  };
 
   const filterInterviewsByLevel = (interviews) => {
     if (levelFilter === "ALL") return interviews;
@@ -173,7 +243,11 @@ const CoordinatorInterviews = () => {
       if (response.data.success) {
         ToastService.success("Feedback submitted successfully!");
         handleCloseFeedbackDialog();
-        fetchInterviews();
+        if (showCoordinatorView) {
+          fetchCoordinatorInterviews();
+        } else {
+          fetchInterviews();
+        }
       } else {
         throw new Error(response.data.message || "Failed to submit feedback");
       }
@@ -186,24 +260,51 @@ const CoordinatorInterviews = () => {
   };
 
   const getDisplayData = () => {
-    if (isCoordinatorFilterActive && filterInterviewsForCoordinator.length > 0) {
-      // Use filtered data from Redux
-      return processInterviewData(filterInterviewsForCoordinator);
-    } else if (
-      isFilteredDataRequested &&
-      filterInterviewsForCoordinator.length === 0
-    ) {
-      // Filter was applied but no results
-      return [];
-    } else {
-      // Use original interviews data
-      return interviews;
+    console.log("getDisplayData called:", {
+      showCoordinatorView,
+      isCoordinatorFilterActive,
+      isTeamLeadFilterActive,
+      filterInterviewsForCoordinator: filterInterviewsForCoordinator?.length,
+      filterInterviewsForTeamLeadTeam: filterInterviewsForTeamLeadTeam?.length,
+      interviews: interviews?.length,
+      coordinatorInterviews: coordinatorInterviews?.length,
+    });
+
+    // For self view: check if coordinator filter is active
+    if (showCoordinatorView) {
+      if (isCoordinatorFilterActive && filterInterviewsForCoordinator?.length > 0) {
+        console.log("Using filtered coordinator data");
+        return processInterviewData(filterInterviewsForCoordinator);
+      } else if (isCoordinatorFilterActive && filterInterviewsForCoordinator?.length === 0) {
+        console.log("Filter active but no results");
+        return [];
+      } else {
+        console.log("Using regular coordinator data");
+        return coordinatorInterviews;
+      }
+    } 
+    // For team view: check if team lead filter is active
+    else {
+      if (isTeamLeadFilterActive && filterInterviewsForTeamLeadTeam?.length > 0) {
+        console.log("Using filtered team lead data");
+        return processInterviewData(filterInterviewsForTeamLeadTeam);
+      } else if (isTeamLeadFilterActive && filterInterviewsForTeamLeadTeam?.length === 0) {
+        console.log("Filter active but no results");
+        return [];
+      } else {
+        console.log("Using regular team lead data");
+        return interviews;
+      }
     }
   };
 
   // Add function to clear filters
   const handleClearFilters = () => {
-    dispatch(clearCoordinatorFilter());
+    if (showCoordinatorView) {
+      dispatch(clearCoordinatorFilter());
+    } else {
+      dispatch(clearTeamLeadFilter());
+    }
     // Also clear the level filter
     setLevelFilter("ALL");
   };
@@ -220,7 +321,11 @@ const CoordinatorInterviews = () => {
   };
 
   const handleInterviewUpdated = () => {
-    fetchInterviews();
+    if (showCoordinatorView) {
+      fetchCoordinatorInterviews();
+    } else {
+      fetchInterviews();
+    }
     handleCloseEditDrawer();
   };
 
@@ -266,7 +371,7 @@ const CoordinatorInterviews = () => {
   });
 
   const renderExpandedContent = (row) => {
-    if (loading || reduxLoading) {
+    if (loading || coordinatorLoading || reduxLoading) {
       return (
         <Box sx={{ p: 2 }}>
           <CircularProgress size={24} sx={{ mr: 2 }} />
@@ -342,7 +447,7 @@ const CoordinatorInterviews = () => {
       label: "Meeting",
       width: 120,
       render: (row) =>
-        loading || reduxLoading ? (
+        loading || coordinatorLoading || reduxLoading ? (
           <Skeleton variant="rectangular" width={120} height={24} />
         ) : row.zoomLink ? (
           <Button
@@ -372,7 +477,7 @@ const CoordinatorInterviews = () => {
       render: (row) => (
         <InternalFeedbackCell
           value={row.comments}
-          loading={loading || reduxLoading}
+          loading={loading || coordinatorLoading || reduxLoading}
           isCoordinator={false}
           candidateName={row.candidateFullName}
           type="comments"
@@ -388,7 +493,7 @@ const CoordinatorInterviews = () => {
        render: (row) => (
         <InternalFeedbackCell
           value={row.internalFeedback}
-          loading={loading || reduxLoading}
+          loading={loading || coordinatorLoading || reduxLoading}
           isCoordinator={false}
         />
       ),
@@ -428,10 +533,9 @@ const CoordinatorInterviews = () => {
   ];
 
   const displayData = getDisplayData();
-  const filteredData = filterInterviewsByLevel(displayData);
+  const filteredData = showCoordinatorView ? displayData : filterInterviewsByLevel(displayData);
 
-  // FIXED: Use filteredData instead of interviews
-  const processedData = (loading || reduxLoading)
+  const processedData = (loading || coordinatorLoading || reduxLoading)
     ? []
     : filteredData.map((row) => ({
         ...row,
@@ -441,7 +545,8 @@ const CoordinatorInterviews = () => {
 
   return (
     <Box sx={{ p: 1 }}>
-      {loading && interviews.length === 0 ? (
+      {(loading && interviews.length === 0 && !showCoordinatorView) ||
+      (coordinatorLoading && coordinatorInterviews.length === 0 && showCoordinatorView) ? (
         <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
           <CircularProgress sx={{ color: "#1976d2" }} />
         </Box>
@@ -451,7 +556,9 @@ const CoordinatorInterviews = () => {
           <Button
             variant="outlined"
             startIcon={<RefreshIcon />}
-            onClick={fetchInterviews}
+            onClick={
+              showCoordinatorView ? fetchCoordinatorInterviews : fetchInterviews
+            }
             sx={{
               mt: 2,
               color: "#1976d2",
@@ -479,23 +586,91 @@ const CoordinatorInterviews = () => {
             }}
           >
             <Typography variant="h6" color="primary">
-              Coordinator Interviews
+              {showCoordinatorView ? "Self View - Interviews" : "Team View - Interviews"}
             </Typography>
-            <DateRangeFilter 
-              component="InterviewsForCoordinator" 
-              onClearFilter={handleClearFilters}
-            />
+            <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+              <Button
+                variant={showCoordinatorView ? "contained" : "outlined"}
+                startIcon={<CoordinatorIcon />}
+                onClick={handleToggleCoordinatorView}
+                sx={{
+                  color: showCoordinatorView ? "white" : "#1976d2",
+                  borderColor: "#1976d2",
+                  backgroundColor: showCoordinatorView
+                    ? "#1976d2"
+                    : "transparent",
+                  "&:hover": {
+                    borderColor: "#1565c0",
+                    backgroundColor: showCoordinatorView
+                      ? "#1565c0"
+                      : "#e3f2fd",
+                  },
+                }}
+              >
+                {showCoordinatorView ? "Team View" : "Self View"}
+              </Button>
+              <DateRangeFilter 
+                component={showCoordinatorView ? "InterviewsForCoordinator" : "InterviewsForTeamLead"}
+                onClearFilter={handleClearFilters}
+                teamLeadId={!showCoordinatorView ? teamLeadId : null}
+              />
+            </Box>
           </Stack>
+
+          {/* Only show level filter buttons for Team View */}
+          {!showCoordinatorView && (
+            <Box sx={{ mb: 2, display: "flex", justifyContent: "start" }}>
+              <ToggleButtonGroup
+                value={levelFilter}
+                exclusive
+                onChange={handleLevelFilterChange}
+                aria-label="interview level filter"
+                sx={{
+                  flexWrap: "wrap",
+                  justifyContent: "center",
+                  gap: 1,
+                  "& .MuiToggleButton-root": {
+                    px: 2,
+                    py: 1,
+                    borderRadius: 1,
+                    border: "1px solid rgba(25, 118, 210, 0.5)",
+                    "&.Mui-selected": {
+                      backgroundColor: "#1976d2",
+                      color: "white",
+                      "&:hover": {
+                        backgroundColor: "#1565c0",
+                      },
+                    },
+                    "&:hover": {
+                      backgroundColor: "rgba(25, 118, 210, 0.08)",
+                    },
+                  },
+                }}
+              >
+                <ToggleButton value="ALL" aria-label="all interviews">
+                  ALL
+                </ToggleButton>
+                <ToggleButton value="INTERNAL" aria-label="internal interviews">
+                  INTERNAL
+                </ToggleButton>
+                <ToggleButton value="EXTERNAL" aria-label="external interviews">
+                  EXTERNAL
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+          )}
 
           <DataTable
             data={processedData || []}
             columns={columns}
-            title={`Coordinator Interviews`}
+            title={showCoordinatorView ? "Self Interviews" : "Team Interviews"}
             enableSelection={false}
             defaultSortColumn="interviewDateTime"
             defaultSortDirection="desc"
             defaultRowsPerPage={10}
-            refreshData={fetchInterviews}
+            refreshData={
+              showCoordinatorView ? fetchCoordinatorInterviews : fetchInterviews
+            }
             primaryColor="#1976d2"
             secondaryColor="#e3f2fd"
             customStyles={{
@@ -506,7 +681,7 @@ const CoordinatorInterviews = () => {
             uniqueId="interviewId"
             enableRowExpansion={true}
             onRowExpandToggle={toggleRowExpansion}
-            loading={loading || reduxLoading}
+            loading={loading || coordinatorLoading || reduxLoading}
           />
 
           <Dialog
@@ -534,6 +709,18 @@ const CoordinatorInterviews = () => {
             </DialogContent>
             <DialogActions sx={{ px: 4, pb: 3 }}>
               <Button onClick={handleCloseFeedbackDialog}>Cancel</Button>
+              <Button
+                onClick={handleSubmitFeedback}
+                variant="contained"
+                color="primary"
+                disabled={!feedback.trim() || isSubmittingFeedback}
+              >
+                {isSubmittingFeedback ? (
+                  <CircularProgress size={24} />
+                ) : (
+                  "Submit Feedback"
+                )}
+              </Button>
             </DialogActions>
           </Dialog>
 

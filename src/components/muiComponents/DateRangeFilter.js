@@ -69,6 +69,7 @@ const DateRangeFilter = ({
   labelPrefix = "",
   onDateChange,
   onClearFilter,
+  teamLeadId = null,
 }) => {
   const dispatch = useDispatch();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -269,46 +270,47 @@ const DateRangeFilter = ({
     }
   };
 
-  useEffect(() => {
-    // Apply filters when dates are selected
-    if (startDate && endDate) {
-      const formattedStart = startDate.format("YYYY-MM-DD");
-      const formattedEnd = endDate.format("YYYY-MM-DD");
+ useEffect(() => {
+  if (startDate && endDate) {
+    const formattedStart = startDate.format("YYYY-MM-DD");
+    const formattedEnd = endDate.format("YYYY-MM-DD");
 
-      dispatch(setFilteredDataRequested(true));
+    dispatch(setFilteredDataRequested(true));
 
-      const actionCreator = componentToActionMap[component];
-      if (actionCreator) {
-        dispatch(
-          actionCreator({ startDate: formattedStart, endDate: formattedEnd })
-        )
-          .then(() => {
-            if (onDateChange) {
-              onDateChange(formattedStart, formattedEnd);
-            }
-          })
-          .catch((error) => {
-            ToastService.error(`Error applying date filter: ${error.message}`);
-          });
-      } else {
-        console.warn(`No action mapped for component: ${component}`);
+    const actionCreator = componentToActionMap[component];
+    if (actionCreator) {
+      const payload = { startDate: formattedStart, endDate: formattedEnd };
+      
+      // For team lead view, add the teamLeadId
+      if (component === "InterviewsForTeamLead" && teamLeadId) {
+        payload.teamLeadId = teamLeadId;
       }
+      
+      dispatch(actionCreator(payload))
+        .then(() => {
+          if (onDateChange) {
+            onDateChange(formattedStart, formattedEnd);
+          }
+        })
+        .catch((error) => {
+          ToastService.error(`Error applying date filter: ${error.message}`);
+        });
     }
-    // When no dates selected, don't apply any filter
-    else if (!selectedYear && !selectedMonth && !selectedDay) {
-      dispatch(setFilteredDataRequested(false));
-      if (onDateChange) {
-        onDateChange(null, null);
-      }
+  } else if (!selectedYear && !selectedMonth && !selectedDay) {
+    dispatch(setFilteredDataRequested(false));
+    if (onDateChange) {
+      onDateChange(null, null);
     }
-  }, [
-    selectedYear,
-    selectedMonth,
-    selectedDay,
-    component,
-    dispatch,
-    onDateChange,
-  ]);
+  }
+}, [
+  selectedYear,
+  selectedMonth,
+  selectedDay,
+  component,
+  dispatch,
+  onDateChange,
+  teamLeadId, // Add this dependency
+]);
 
   // Sync with URL
   useEffect(() => {

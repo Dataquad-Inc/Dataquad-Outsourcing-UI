@@ -58,13 +58,14 @@ export const filterInterviewsByRecruiter = createAsyncThunk(
 
 export const filterInterviewsByTeamLead = createAsyncThunk(
   "teamlead/interviews/filterByDateRange",
-  async ({ startDate, endDate }, { getState, rejectWithValue }) => {
+  async ({ startDate, endDate, teamLeadId }, { getState, rejectWithValue }) => {
     try {
       const state = getState();
-      const userId = state.auth.userId;
+      // Use passed teamLeadId instead of userId
+      const id = teamLeadId || state.auth.userId;
 
       const response = await httpService.get(
-        `/candidate/interviews/teamlead/${userId}/filterByDate?startDate=${startDate}&endDate=${endDate}`
+        `/candidate/interviews/teamlead/${id}/filterByDate?startDate=${startDate}&endDate=${endDate}`
       );
       return response.data;
     } catch (error) {
