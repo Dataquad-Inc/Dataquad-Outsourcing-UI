@@ -5,15 +5,20 @@ import {
   IconButton, 
   Typography, 
   Box,
-  Skeleton,
-  Tooltip,
   Alert,
-  Snackbar
+  Snackbar,
+  Tooltip
 } from '@mui/material'
-import { Close, CloudDownload, Delete, Download, Edit } from '@mui/icons-material'
+import { 
+  Close, 
+  Download, 
+  Delete, 
+  Edit
+} from '@mui/icons-material'
 import ClientForm from './OnBoardingClients'
 import { useNavigate } from 'react-router-dom'
 import httpService from '../../Services/httpService'
+import DocumentViewDialog from './DocumentViewDialog'
 
 const UsClients = () => {
   const navigate = useNavigate()
@@ -22,25 +27,24 @@ const UsClients = () => {
   const [clientsData, setClientsData] = useState([])
   const [error, setError] = useState(null)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' })
+  
+  const [viewDocumentOpen, setViewDocumentOpen] = useState(false)
+  const [selectedClient, setSelectedClient] = useState(null)
 
-  // State for table
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(10)
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState({})
   const [loading, setLoading] = useState(false)
 
-  // Show snackbar notification
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({ open: true, message, severity })
   }
 
-  // Close snackbar
   const handleCloseSnackbar = () => {
     setSnackbar({ ...snackbar, open: false })
   }
 
-  // Fetch clients data
   const fetchClients = async () => {
     setLoading(true)
     setError(null)
@@ -69,30 +73,44 @@ const UsClients = () => {
     fetchClients();
   }, []);
 
-  // Download all documents for a client
   const handleDownloadAllDocuments = async (clientId, clientName) => {
     try {
-      const response = await httpService.get(`/api/us/requirements/ClientsDocuments/downloadAll/${clientId}`, {
-        responseType: 'blob'
-      });
-
-      // Create a blob URL and trigger download
-      const blob = new Blob([response.data]);
-      const url = window.URL.createObjectURL(blob);
+      const cleanClientId = String(clientId).trim();
+      
+      console.log('Quick Download - Client ID:', cleanClientId);
+      console.log('Quick Download - Client Name:', clientName);
+      
+      const downloadUrl = `https://mymulya.com/api/us/requirements/ClientsDocuments/downloadAll/${cleanClientId}`;
+      
       const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `documents-${clientName}-${clientId}.zip`);
+      link.href = downloadUrl;
+      link.download = `Client_${clientName}_Documents.zip`;
+      link.target = '_blank';
+      link.style.display = 'none';
       document.body.appendChild(link);
       link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-
-      showSnackbar('Documents downloaded successfully!', 'success');
+      document.body.removeChild(link);
+      
+      showSnackbar('Download started successfully!', 'success');
+      
     } catch (error) {
       console.error('Error downloading documents:', error);
-      showSnackbar('Error downloading documents', 'error');
+      
+      try {
+        const downloadUrl = `https://mymulya.com/api/us/requirements/ClientsDocuments/downloadAll/${clientId}`;
+        window.open(downloadUrl, '_blank');
+        showSnackbar('Download opened in new tab!', 'info');
+      } catch (fallbackError) {
+        console.error('Fallback method failed:', fallbackError);
+        showSnackbar('Error starting download', 'error');
+      }
     }
-  }
+  };
+
+  const handleViewDocuments = (client) => {
+    setSelectedClient(client);
+    setViewDocumentOpen(true);
+  };
 
   const columns = [
     {
@@ -240,7 +258,7 @@ const UsClients = () => {
                   alignItems: 'center',
                   mb: 0.5,
                   fontSize: '0.875rem',
-                  width:170
+                  width: 170
                 }}
               >
                 <span>{customer.customerName || 'Unnamed Customer'}</span>
@@ -283,6 +301,20 @@ const UsClients = () => {
                 +{value.length - 2} more
               </Typography>
             )}
+            <Box sx={{ mt: 0.5 }}>
+              <Typography 
+                variant="caption" 
+                color="primary" 
+                sx={{ 
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                  '&:hover': { color: '#1565c0' }
+                }}
+                onClick={() => handleViewDocuments(row)}
+              >
+                View All Documents
+              </Typography>
+            </Box>
           </Box>
         );
       }
@@ -303,7 +335,7 @@ const UsClients = () => {
               <Edit />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Download All Documents">
+          {/* <Tooltip title="Download All Documents as ZIP">
             <IconButton
               size="small"
               color="primary"
@@ -311,7 +343,7 @@ const UsClients = () => {
             >
               <Download />
             </IconButton>
-          </Tooltip>
+          </Tooltip> */}
           <Tooltip title="Delete Client">
             <IconButton
               size="small"
@@ -332,15 +364,12 @@ const UsClients = () => {
 
   const handleEditClient = (client) => {
     console.log('Editing client:', client);
-    // Ensure the client data is properly structured for the form
     const formattedClient = {
       ...client,
-      // Ensure arrays are properly formatted
       clientSpocName: Array.isArray(client.clientSpocName) ? client.clientSpocName : [client.clientSpocName || ""],
       clientSpocEmailid: Array.isArray(client.clientSpocEmailid) ? client.clientSpocEmailid : [client.clientSpocEmailid || ""],
       clientSpocMobileNumber: Array.isArray(client.clientSpocMobileNumber) ? client.clientSpocMobileNumber : [client.clientSpocMobileNumber || ""],
       clientSpocLinkedin: Array.isArray(client.clientSpocLinkedin) ? client.clientSpocLinkedin : [client.clientSpocLinkedin || ""],
-      // Ensure supportingCustomers is properly formatted
       supportingCustomers: Array.isArray(client.supportingCustomers) 
         ? client.supportingCustomers.map(customer => 
             typeof customer === 'string' 
@@ -363,9 +392,8 @@ const UsClients = () => {
     try {
       console.log('Form submitted successfully:', result);
       handleCloseDrawer();
-      // Refresh the data after form submission
       await fetchClients();
-      showSnackbar(`Client ${isEdit ? 'updated' : 'created'} successfully!`, 'success');
+      showSnackbar(`Client ${isEdit ? 'updated' : 'create'} successfully!`, 'success');
     } catch (error) {
       console.error('Form submission error:', error);
       showSnackbar(`Failed to ${isEdit ? 'update' : 'create'} client`, 'error');
@@ -390,7 +418,6 @@ const UsClients = () => {
     }
   }
 
-  // Table event handlers
   const handlePageChange = (event, newPage) => {
     setPage(newPage)
   }
@@ -501,7 +528,7 @@ const UsClients = () => {
           sx: { width: { xs: '100%', md: '80%', lg: '70%' } }
         }}
       >
-        <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box sx={{ p: 2, display: 'flex', justifyContent:'space-between', alignItems: 'center' }}>
           <Typography variant="h5">
             Edit Client
           </Typography>
@@ -518,13 +545,29 @@ const UsClients = () => {
         />
       </Drawer>
 
+      {/* Enhanced Document View Dialog */}
+      <DocumentViewDialog
+        open={viewDocumentOpen}
+        onClose={() => setViewDocumentOpen(false)}
+        client={selectedClient}
+        documents={selectedClient?.supportingDocuments || []}
+      />
+
       {/* Snackbar for notifications */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={handleCloseSnackbar}
-        message={snackbar.message}
-      />
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={handleCloseSnackbar} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </>
   )
 }

@@ -99,7 +99,7 @@ const ClientForm = ({
   const navigate = useNavigate();
   const [files, setFiles] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [currency, setCurrency] = useState(initialData?.currency || "INR");
+  const [currency, setCurrency] = useState(initialData?.currency || "USD");
   const { userName } = useSelector((state) => state.auth);
   const [onBoardedByName, setOnBoardedBy] = useState(
     initialData?.onBoardedBy || userName
@@ -189,33 +189,34 @@ const ClientForm = ({
       ],
     },
     {
-      section: "Payment Information",
-      fields: [
-        {
-          name: "currency",
-          label: "Currency",
-          type: "select",
-          xs: 12, sm: 6, md: 3,
-          icon: <AttachMoney color="primary" />,
-          options: [
-            { value: "INR", label: "Rupee (INR)" },
-            { value: "USD", label: "Dollar (USD)" },
-          ],
-          customHandler: (e, setFieldValue) => {
-            setCurrency(e.target.value);
-            setFieldValue("currency", e.target.value);
-          },
-        },
-        {
-          name: "netPayment",
-          label: "Net Payment",
-          type: "number",
-          placeholder: "0",
-          xs: 12, sm: 6, md: 3,
-          endAdornment: <InputAdornment position="end">Days</InputAdornment>,
-        },
+  section: "Payment Information",
+  fields: [
+    {
+      name: "currency",
+      label: "Currency",
+      type: "select",
+      xs: 12, sm: 6, md: 3,
+      icon: <AttachMoney color="primary" />,
+      defaultValue: "USD", // Add this line
+      options: [
+        // { value: "INR", label: "Rupee (INR)" },
+        { value: "USD", label: "Dollar (USD)" },
       ],
+      customHandler: (e, setFieldValue) => {
+        setCurrency(e.target.value);
+        setFieldValue("currency", e.target.value);
+      },
     },
+    {
+      name: "netPayment",
+      label: "Net Payment",
+      type: "number",
+      placeholder: "0",
+      xs: 12, sm: 6, md: 3,
+      endAdornment: <InputAdornment position="end">Days</InputAdornment>,
+    },
+  ],
+},
   ];
 
   const validationSchema = Yup.object().shape({
@@ -292,7 +293,7 @@ const ClientForm = ({
     clientSpocMobileNumber: [""],
     clientSpocLinkedin: [""],
     supportingDocuments: [],
-    currency: "INR",
+    currency: "USD",
     feedBack: ""
   };
 
