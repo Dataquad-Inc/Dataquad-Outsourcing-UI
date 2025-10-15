@@ -63,6 +63,9 @@ const JobDetails = () => {
     if (fromPath && fromPath.includes('/dashboard/submissions')) {
       navigate('/dashboard/submissions');
     }
+   else if (fromPath && fromPath.includes('/dashboard/assigned')) {
+      navigate('/dashboard/assigned');
+    }
     // Check if coming from general interviews
     else if (fromPath && fromPath.includes('/dashboard/interviews')) {
       navigate('/dashboard/interviews');
@@ -84,6 +87,12 @@ const JobDetails = () => {
     }
     else if (fromPath && fromPath.includes('/dashboard/interviews')) {
       return "Back to Interviews";
+    }
+    else if (fromPath && fromPath.includes('/dashboard/submissions')) {
+      return "Back to Submissions";
+    }
+    else if (fromPath && fromPath.includes('/dashboard/assigned')) {
+      return "Back to Assigned";
     }
     else if (fromPath && fromPath.includes('/dashboard/submissions')) {
       return "Back to Submissions";

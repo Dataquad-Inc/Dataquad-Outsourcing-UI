@@ -30,9 +30,10 @@ import {
   filterRequirementsByRecruiter,
   setFilteredReqDataRequested,
 } from "../../redux/requirementSlice";
+import { Link, useNavigate } from "react-router-dom";
 
 const topOffset = 68; // Height of the header
-const bottomOffset =5;
+const bottomOffset = 5;
 
 const Assigned = () => {
   const [loading, setLoading] = useState(true);
@@ -45,7 +46,7 @@ const Assigned = () => {
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [isFiltered, setIsFiltered] = useState(false);
 
-  const { userId } = useSelector((state) => state.auth);
+  const { userId, role } = useSelector((state) => state.auth);
   const employeeList = useSelector((state) => state.employee.employeesList);
   const {
     filterAssignedRequirements,
@@ -55,6 +56,7 @@ const Assigned = () => {
   const { isFilteredDataRequested } = useSelector((state) => state.bench);
 
   const dispatch = useDispatch();
+  const navigate = useNavigate();
 
   const refreshData = () => {
     setRefreshTrigger((prev) => prev + 1);
@@ -129,6 +131,12 @@ const Assigned = () => {
           ToastService.error("Failed to apply filter");
         });
     }
+  };
+
+  const handleJobIdClick = (jobId) => {
+    navigate(`/dashboard/requirements/job-details/${jobId}`, {
+      state: { from: "/dashboard/assigned" }
+    });
   };
 
   // Handle clearing date filter
@@ -251,6 +259,41 @@ const Assigned = () => {
         type: "text",
         sortable: true,
         filterable: true,
+        render: (row) => {
+          const canClickJobId = role === "SUPERADMIN" || role === "COORDINATOR" ||
+            role === "TEAMLEAD" || role === "BDM" || role === "ADMIN";
+
+          if (canClickJobId) {
+            return (
+              <Button
+                variant="text"
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleJobIdClick(row.jobId);
+                }}
+                sx={{
+                  textDecoration: "none",
+                  color: "primary.main",
+                  minWidth: "auto",
+                  padding: "4px 8px",
+                  "&:hover": {
+                    textDecoration: "underline",
+                    backgroundColor: "transparent",
+                  },
+                }}
+              >
+                {row.jobId}
+              </Button>
+            );
+          } else {
+            return (
+              <Typography variant="body2" color="primary">
+                {row.jobId}
+              </Typography>
+            );
+          }
+        },
         width: 120,
       },
       {
@@ -371,15 +414,15 @@ const Assigned = () => {
 
   const processedData = loading
     ? Array(5)
-        .fill({})
-        .map((_, index) => ({
-          jobId: index,
-          expandContent: renderExpandedContent,
-        }))
-    : dataToDisplay.map((row) => ({
-        ...row,
+      .fill({})
+      .map((_, index) => ({
+        jobId: `loading-${index}`, // Add temporary jobId for skeleton
         expandContent: renderExpandedContent,
-      }));
+      }))
+    : dataToDisplay.map((row) => ({
+      ...row,
+      expandContent: renderExpandedContent,
+    }));
 
   if (error) {
     return (
@@ -466,7 +509,7 @@ const Assigned = () => {
             height: `calc(100vh - ${topOffset + bottomOffset}px)`,
             borderTopLeftRadius: 8,
             borderBottomLeftRadius: 8,
-            
+
           },
         }}
       >
