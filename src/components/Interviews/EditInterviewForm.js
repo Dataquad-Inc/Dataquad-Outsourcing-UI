@@ -20,12 +20,12 @@ import { Check } from "lucide-react";
 import httpService from "../../Services/httpService";
 import { formatDateTime } from "../../utils/dateformate";
 
-const EditInterviewForm = ({ 
-  data, 
-  onClose, 
-  onSuccess, 
-  showCoordinatorFields = true, 
-  showStatusAndLevel = true 
+const EditInterviewForm = ({
+  data,
+  onClose,
+  onSuccess,
+  showCoordinatorFields = true,
+  showStatusAndLevel = true,
 }) => {
   const [notification, setNotification] = useState({
     open: false,
@@ -98,6 +98,14 @@ const EditInterviewForm = ({
       { value: "SELECTED", label: "Selected" },
       { value: "PLACED", label: "Placed" },
       { value: "FEEDBACK_PENDING", label: "Feedback-Pending" },
+      {
+        value: "POSITION IS CLOSED",
+        label: "POSITION IS CLOSED",
+      },
+      {
+        value: "POSITION IS HOLD",
+        label: "POSITION IS HOLD",
+      },
     ];
 
     const fields = [
@@ -125,8 +133,8 @@ const EditInterviewForm = ({
           label: "Interview Level",
           type: "select",
           required: true,
-          disabled:data.interviewStatus !== 'SELECTED',
-         
+          disabled: data.interviewStatus !== "SELECTED",
+
           options: [
             { value: "INTERNAL", label: "INTERNAL" },
             { value: "EXTERNAL", label: "EXTERNAL" },
@@ -146,7 +154,11 @@ const EditInterviewForm = ({
           name: "assignedTo",
           label: "Coordinator",
           type: "select",
-          disabled: role === "SUPERADMIN" || role === "BDM" || role === "TEAMLEAD" || role === "COORDINATOR",
+          disabled:
+            role === "SUPERADMIN" ||
+            role === "BDM" ||
+            role === "TEAMLEAD" ||
+            role === "COORDINATOR",
           options: coordinators,
           required: false,
           gridProps: commonGridProps,
@@ -221,7 +233,9 @@ const EditInterviewForm = ({
 
       const baseUrl = showCoordinatorFields
         ? `/candidate/updateInterviewByCoordinator/${userId}/${data.interviewId}`
-        : `/candidate/interview-update/${data.userId || userId}/${data.candidateId}/${data.jobId}`;
+        : `/candidate/interview-update/${data.userId || userId}/${
+            data.candidateId
+          }/${data.jobId}`;
 
       const responseData = await httpService.put(baseUrl, payload);
       setInterviewResponse(responseData);
@@ -240,7 +254,9 @@ const EditInterviewForm = ({
       console.error("Error updating interview:", error);
       setNotification({
         open: true,
-        message: `Error updating interview: ${error.message || "Unknown error"}`,
+        message: `Error updating interview: ${
+          error.message || "Unknown error"
+        }`,
         severity: "error",
       });
     } finally {
@@ -254,9 +270,8 @@ const EditInterviewForm = ({
     return (
       <Alert icon={<Check />} severity="success" sx={{ mb: 3 }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
-          Interview updated for{" "}
-          <strong>Candidate ID:</strong> {interviewResponse.candidateId}{" "}
-          successfully.
+          Interview updated for <strong>Candidate ID:</strong>{" "}
+          {interviewResponse.candidateId} successfully.
         </Typography>
       </Alert>
     );
