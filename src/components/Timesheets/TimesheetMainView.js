@@ -6,7 +6,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
 import { PickersDay } from '@mui/x-date-pickers/PickersDay';
-import { AccessTime, AttachFile, Delete, CloudUpload, ThumbDown, Visibility, CalendarMonth, Person, Work } from '@mui/icons-material';
+import { AccessTime, AttachFile, Delete, CloudUpload, ThumbDown, Visibility, CalendarMonth, Person, Work, ArrowBack } from '@mui/icons-material';
 import TimesheetTableSection from './TimesheetTableSection';
 import enGB from 'date-fns/locale/en-GB';
 import AttachmentHandlers from './AttachmentHanlders';
@@ -50,7 +50,7 @@ const TimesheetMainView = (props) => {
     handleDownloadAttachmentFile, 
     viewLoading, AttachmentViewDialog, 
     downloadLoading, getAttachmentViewDialog, 
-    monthlyTotalWorkingHours, monthlyTotalWorkingHoursForEmployee,submitLoading
+    monthlyTotalWorkingHours, monthlyTotalWorkingHoursForEmployee,submitLoading,onBackToTimesheets
 
   } = props;
 
@@ -237,7 +237,22 @@ const TimesheetMainView = (props) => {
   const apiMonthName = getMonthNameFromApi();
 
   return (
+    
     <Container maxWidth="xl" sx={{ py: 4 }}>
+
+      <Box sx={{paddingBottom:'10px'}}>
+       {onBackToTimesheets && (role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === 'ADMIN' || role === 'INVOICE') && (
+          <Button
+            startIcon={<ArrowBack />}
+            onClick={onBackToTimesheets}
+            variant="outlined"
+            sx={{ mr: 2 }}
+          >
+            Back to Timesheets
+          </Button>
+        )}
+       </Box>
+
       {/* Alert */}
       <Snackbar
         open={alert.open}
@@ -253,6 +268,8 @@ const TimesheetMainView = (props) => {
           {alert.message}
         </Alert>
       </Snackbar>
+      
+      
 
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 4, gap: 2 }}>
