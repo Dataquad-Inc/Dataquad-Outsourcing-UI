@@ -442,7 +442,8 @@ const Submission = () => {
         ? () => <Skeleton variant="text" width={100} />
         : (row) => {
           // Check if user has permission to click (SUPERADMIN or COORDINATOR)
-          const canClickJobId = role === "SUPERADMIN" || role === "COORDINATOR";
+          const canClickJobId = role === "SUPERADMIN" || role === "COORDINATOR" || 
+                                role === "TEAMLEAD" || role === "BDM" || role === "ADMIN";
 
           if (canClickJobId) {
             return (
