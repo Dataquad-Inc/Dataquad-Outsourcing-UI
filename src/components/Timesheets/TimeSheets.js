@@ -37,7 +37,7 @@ import {
 
 import TimesheetMainView from './TimesheetMainView';
 import httpService from '../../Services/httpService';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import ToastService from '../../Services/toastService';
 import { useAttachmentsHandler } from './AttachmentHanlders';
 import useTimesheetApprovalHandlers from './useTimesheetApprovalHandlers';
@@ -69,6 +69,7 @@ const Timesheets = () => {
   // Add new state for tracking submission status
   const [isSubmitted, setIsSubmitted] = useState(false);
 
+  const navigate = useNavigate()
   const attachmentsHandler = useAttachmentsHandler();
   const approvalHandlers = useTimesheetApprovalHandlers();
   // Extract state and functions from attachments handler
@@ -1335,201 +1336,201 @@ const Timesheets = () => {
   };
   console.log("monthly data..", monthlyTimesheetData)
 
-const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) => {
-  if (!apiTimesheet) return null;
+  const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) => {
+    if (!apiTimesheet) return null;
 
-  const currentMonth = currentCalendarMonth.getMonth();
-  const currentYear = currentCalendarMonth.getFullYear();
+    const currentMonth = currentCalendarMonth.getMonth();
+    const currentYear = currentCalendarMonth.getFullYear();
 
-  // Get the week dates for this timesheet
-  const weekStart = new Date(apiTimesheet.weekStartDate);
-  const weekDates = [];
-  for (let i = 0; i < 7; i++) {
-    const date = new Date(weekStart);
-    date.setDate(weekStart.getDate() + i);
-    weekDates.push(date);
-  }
+    // Get the week dates for this timesheet
+    const weekStart = new Date(apiTimesheet.weekStartDate);
+    const weekDates = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(weekStart);
+      date.setDate(weekStart.getDate() + i);
+      weekDates.push(date);
+    }
 
-  // Filter to only dates in the current calendar month
-  const currentMonthDates = weekDates.filter(date => 
-    date.getMonth() === currentMonth && date.getFullYear() === currentYear
-  );
+    // Filter to only dates in the current calendar month
+    const currentMonthDates = weekDates.filter(date =>
+      date.getMonth() === currentMonth && date.getFullYear() === currentYear
+    );
 
-  // If no dates in current month, return null
-  if (currentMonthDates.length === 0) {
-    return null;
-  }
+    // If no dates in current month, return null
+    if (currentMonthDates.length === 0) {
+      return null;
+    }
 
-  // Get ALL entries (working + non-working) for the CURRENT MONTH only
-  const currentMonthEntries = [
-    ...(apiTimesheet.workingEntries || []),
-    ...(apiTimesheet.nonWorkingEntries || [])
-  ].filter(entry => {
-    const entryDate = new Date(entry.date);
-    return entryDate.getMonth() === currentMonth && 
-           entryDate.getFullYear() === currentYear;
-  });
+    // Get ALL entries (working + non-working) for the CURRENT MONTH only
+    const currentMonthEntries = [
+      ...(apiTimesheet.workingEntries || []),
+      ...(apiTimesheet.nonWorkingEntries || [])
+    ].filter(entry => {
+      const entryDate = new Date(entry.date);
+      return entryDate.getMonth() === currentMonth &&
+        entryDate.getFullYear() === currentYear;
+    });
 
-  // If no entries for current month, return null
-  if (currentMonthEntries.length === 0) {
-    return null;
-  }
+    // If no entries for current month, return null
+    if (currentMonthEntries.length === 0) {
+      return null;
+    }
 
-  // CRITICAL FIX: Calculate status independently for each month
-  // Count how many current month dates actually have entries
-  const datesWithEntries = new Set();
-  currentMonthEntries.forEach(entry => {
-    const entryDate = new Date(entry.date);
-    datesWithEntries.add(entryDate.getDate());
-  });
+    // CRITICAL FIX: Calculate status independently for each month
+    // Count how many current month dates actually have entries
+    const datesWithEntries = new Set();
+    currentMonthEntries.forEach(entry => {
+      const entryDate = new Date(entry.date);
+      datesWithEntries.add(entryDate.getDate());
+    });
 
-  // Check if we have entries for all weekdays in current month
-  const currentMonthWeekdays = currentMonthDates.filter(date => {
-    const day = date.getDay();
-    return day !== 0 && day !== 6; // Exclude Sunday (0) and Saturday (6)
-  });
+    // Check if we have entries for all weekdays in current month
+    const currentMonthWeekdays = currentMonthDates.filter(date => {
+      const day = date.getDay();
+      return day !== 0 && day !== 6; // Exclude Sunday (0) and Saturday (6)
+    });
 
-  const allWeekdaysHaveEntries = currentMonthWeekdays.every(date => 
-    datesWithEntries.has(date.getDate())
-  );
+    const allWeekdaysHaveEntries = currentMonthWeekdays.every(date =>
+      datesWithEntries.has(date.getDate())
+    );
 
-  // Check if ALL current month entries have hours > 0 (indicating they were properly filled)
-  const allEntriesHaveHours = currentMonthEntries.every(entry => 
-    parseFloat(entry.hours) > 0
-  );
+    // Check if ALL current month entries have hours > 0 (indicating they were properly filled)
+    const allEntriesHaveHours = currentMonthEntries.every(entry =>
+      parseFloat(entry.hours) > 0
+    );
 
-  let currentMonthStatus = 'DRAFT';
+    let currentMonthStatus = 'DRAFT';
 
-  // ONLY consider it submitted if:
-  // 1. The overall timesheet has a submitted status (PENDING_APPROVAL, APPROVED, SUBMITTED)
-  // 2. ALL weekdays in the current month portion have entries
-  // 3. ALL entries for current month have hours > 0
-  if (apiTimesheet.status && 
-      (apiTimesheet.status === 'PENDING_APPROVAL' || 
-       apiTimesheet.status === 'APPROVED' || 
-       apiTimesheet.status === 'SUBMITTED') &&
+    // ONLY consider it submitted if:
+    // 1. The overall timesheet has a submitted status (PENDING_APPROVAL, APPROVED, SUBMITTED)
+    // 2. ALL weekdays in the current month portion have entries
+    // 3. ALL entries for current month have hours > 0
+    if (apiTimesheet.status &&
+      (apiTimesheet.status === 'PENDING_APPROVAL' ||
+        apiTimesheet.status === 'APPROVED' ||
+        apiTimesheet.status === 'SUBMITTED') &&
       allWeekdaysHaveEntries &&
       allEntriesHaveHours) {
-    currentMonthStatus = apiTimesheet.status;
-  } else {
-    // If not all weekdays have entries, or entries don't have hours, or timesheet is not submitted, it's DRAFT
-    currentMonthStatus = 'DRAFT';
-  }
+      currentMonthStatus = apiTimesheet.status;
+    } else {
+      // If not all weekdays have entries, or entries don't have hours, or timesheet is not submitted, it's DRAFT
+      currentMonthStatus = 'DRAFT';
+    }
 
-  console.log('Monthly view status calculation:', {
-    weekStart: apiTimesheet.weekStartDate,
-    currentMonth: currentMonth + 1,
-    currentYear,
-    currentMonthDates: currentMonthDates.length,
-    currentMonthEntries: currentMonthEntries.length,
-    allWeekdaysHaveEntries,
-    allEntriesHaveHours,
-    overallStatus: apiTimesheet.status,
-    calculatedStatus: currentMonthStatus
-  });
-
-  const transformed = {
-    id: apiTimesheet.timesheetId || null,
-    userId: apiTimesheet.userId || userId,
-    project: selectedProject || (apiTimesheet.workingEntries?.[0]?.project) || '',
-    timesheetType: apiTimesheet.timesheetType || 'MONTHLY',
-    status: currentMonthStatus,
-    startDate: apiTimesheet.weekStartDate || '',
-    endDate: apiTimesheet.weekEndDate || '',
-    monday: 0,
-    tuesday: 0,
-    wednesday: 0,
-    thursday: 0,
-    friday: 0,
-    saturday: 0,
-    sunday: 0,
-    notes: apiTimesheet.notes || '',
-    workingEntries: apiTimesheet.workingEntries || [],
-    nonWorkingEntries: apiTimesheet.nonWorkingEntries || [],
-    isEditable: false,
-    percentageOfTarget: apiTimesheet.percentageOfTarget || 0,
-    dayStatuses: {
-      monday: 'Working',
-      tuesday: 'Working',
-      wednesday: 'Working',
-      thursday: 'Working',
-      friday: 'Working',
-      saturday: 'Working',
-      sunday: 'Working'
-    },
-    sickLeave: {
-      monday: 0,
-      tuesday: 0,
-      wednesday: 0,
-      thursday: 0,
-      friday: 0,
-      saturday: 0,
-      sunday: 0
-    },
-    companyHoliday: {
-      monday: 0,
-      tuesday: 0,
-      wednesday: 0,
-      thursday: 0,
-      friday: 0,
-      saturday: 0,
-      sunday: 0
-    },
-    clientName: apiTimesheet.clientName || '',
-    approver: apiTimesheet.approver || '',
-  };
-
-  const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-
-  // Process working entries - ONLY for current month
-  if (apiTimesheet.workingEntries) {
-    apiTimesheet.workingEntries.forEach(entry => {
-      const entryDate = new Date(entry.date);
-      
-      // Only process if entry is in current calendar month
-      if (entryDate.getMonth() !== currentMonth || entryDate.getFullYear() !== currentYear) {
-        return;
-      }
-
-      const dayOfWeek = entryDate.getDay();
-      let dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-      const dayName = days[dayIndex];
-      const hours = parseFloat(entry.hours) || 0;
-
-      if (dayName && entry.project === (selectedProject || transformed.project)) {
-        transformed[dayName] = hours;
-      }
+    console.log('Monthly view status calculation:', {
+      weekStart: apiTimesheet.weekStartDate,
+      currentMonth: currentMonth + 1,
+      currentYear,
+      currentMonthDates: currentMonthDates.length,
+      currentMonthEntries: currentMonthEntries.length,
+      allWeekdaysHaveEntries,
+      allEntriesHaveHours,
+      overallStatus: apiTimesheet.status,
+      calculatedStatus: currentMonthStatus
     });
-  }
 
-  // Process non-working entries - ONLY for current month
-  if (apiTimesheet.nonWorkingEntries) {
-    apiTimesheet.nonWorkingEntries.forEach(entry => {
-      const entryDate = new Date(entry.date);
-      
-      // Only process if entry is in current calendar month
-      if (entryDate.getMonth() !== currentMonth || entryDate.getFullYear() !== currentYear) {
-        return;
-      }
+    const transformed = {
+      id: apiTimesheet.timesheetId || null,
+      userId: apiTimesheet.userId || userId,
+      project: selectedProject || (apiTimesheet.workingEntries?.[0]?.project) || '',
+      timesheetType: apiTimesheet.timesheetType || 'MONTHLY',
+      status: currentMonthStatus,
+      startDate: apiTimesheet.weekStartDate || '',
+      endDate: apiTimesheet.weekEndDate || '',
+      monday: 0,
+      tuesday: 0,
+      wednesday: 0,
+      thursday: 0,
+      friday: 0,
+      saturday: 0,
+      sunday: 0,
+      notes: apiTimesheet.notes || '',
+      workingEntries: apiTimesheet.workingEntries || [],
+      nonWorkingEntries: apiTimesheet.nonWorkingEntries || [],
+      isEditable: false,
+      percentageOfTarget: apiTimesheet.percentageOfTarget || 0,
+      dayStatuses: {
+        monday: 'Working',
+        tuesday: 'Working',
+        wednesday: 'Working',
+        thursday: 'Working',
+        friday: 'Working',
+        saturday: 'Working',
+        sunday: 'Working'
+      },
+      sickLeave: {
+        monday: 0,
+        tuesday: 0,
+        wednesday: 0,
+        thursday: 0,
+        friday: 0,
+        saturday: 0,
+        sunday: 0
+      },
+      companyHoliday: {
+        monday: 0,
+        tuesday: 0,
+        wednesday: 0,
+        thursday: 0,
+        friday: 0,
+        saturday: 0,
+        sunday: 0
+      },
+      clientName: apiTimesheet.clientName || '',
+      approver: apiTimesheet.approver || '',
+    };
 
-      const dayOfWeek = entryDate.getDay();
-      let dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-      const dayName = days[dayIndex];
-      const hours = parseFloat(entry.hours) || 0;
-      const description = entry.description?.toLowerCase() || '';
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
-      if (dayName) {
-        if (description.includes('sick leave')) {
-          transformed.sickLeave[dayName] = hours;
-        } else if (description.includes('company holiday') || description.includes('holiday')) {
-          transformed.companyHoliday[dayName] = hours;
+    // Process working entries - ONLY for current month
+    if (apiTimesheet.workingEntries) {
+      apiTimesheet.workingEntries.forEach(entry => {
+        const entryDate = new Date(entry.date);
+
+        // Only process if entry is in current calendar month
+        if (entryDate.getMonth() !== currentMonth || entryDate.getFullYear() !== currentYear) {
+          return;
         }
-      }
-    });
-  }
 
-  return transformed;
-};
+        const dayOfWeek = entryDate.getDay();
+        let dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        const dayName = days[dayIndex];
+        const hours = parseFloat(entry.hours) || 0;
+
+        if (dayName && entry.project === (selectedProject || transformed.project)) {
+          transformed[dayName] = hours;
+        }
+      });
+    }
+
+    // Process non-working entries - ONLY for current month
+    if (apiTimesheet.nonWorkingEntries) {
+      apiTimesheet.nonWorkingEntries.forEach(entry => {
+        const entryDate = new Date(entry.date);
+
+        // Only process if entry is in current calendar month
+        if (entryDate.getMonth() !== currentMonth || entryDate.getFullYear() !== currentYear) {
+          return;
+        }
+
+        const dayOfWeek = entryDate.getDay();
+        let dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        const dayName = days[dayIndex];
+        const hours = parseFloat(entry.hours) || 0;
+        const description = entry.description?.toLowerCase() || '';
+
+        if (dayName) {
+          if (description.includes('sick leave')) {
+            transformed.sickLeave[dayName] = hours;
+          } else if (description.includes('company holiday') || description.includes('holiday')) {
+            transformed.companyHoliday[dayName] = hours;
+          }
+        }
+      });
+    }
+
+    return transformed;
+  };
 
   const isFridayInPresentWeek = () => {
     if (!selectedWeekStart || !isPresentWeek(selectedWeekStart)) return false;
@@ -1941,7 +1942,7 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
                 date: dateStr,
                 hours: currentTimesheet.sickLeave[day],
                 description: 'Sick Leave',
-                 project: selectedProject
+                project: selectedProject
               });
             }
 
@@ -1951,7 +1952,7 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
                 date: dateStr,
                 hours: currentTimesheet.companyHoliday[day],
                 description: 'Company Holiday',
-                 project: selectedProject
+                project: selectedProject
               });
             }
           }
@@ -2843,6 +2844,10 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
 
   const projectDetails = getSelectedProjectDetails();
 
+  const onBackToTimesheets = () => {
+    navigate('/dashboard/timesheetsForAdmins');
+  };
+
   return (
     <TimesheetMainView
       alert={alert}
@@ -2934,6 +2939,7 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
       monthlyTotalWorkingHours={monthlyTotalWorkingHours}
       monthlyTotalWorkingHoursForEmployee={monthlyTotalWorkingHoursForEmployee}
       submitLoading={submitLoading}
+      onBackToTimesheets={onBackToTimesheets}
     />
   );
 };

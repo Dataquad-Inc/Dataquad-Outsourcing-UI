@@ -71,8 +71,20 @@ const TimesheetList = () => {
   const [totalTimesheetData, setTotalTimesheetData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [selectedMonth, setSelectedMonth] = useState(dayjs().month());
-  const [selectedYear, setSelectedYear] = useState(dayjs().year());
+  // const [selectedMonth, setSelectedMonth] = useState(dayjs().month());
+  // const [selectedYear, setSelectedYear] = useState(dayjs().year());
+  // Around line 56-58, modify the state initialization
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    // Check if there's a saved month in sessionStorage
+    const savedMonth = sessionStorage.getItem('timesheetsAdmin_selectedMonth');
+    return savedMonth !== null ? parseInt(savedMonth) : dayjs().month();
+  });
+
+  const [selectedYear, setSelectedYear] = useState(() => {
+    // Check if there's a saved year in sessionStorage
+    const savedYear = sessionStorage.getItem('timesheetsAdmin_selectedYear');
+    return savedYear !== null ? parseInt(savedYear) : dayjs().year();
+  });
   const theme = useTheme();
   const navigate = useNavigate();
 
@@ -92,6 +104,13 @@ const TimesheetList = () => {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+
+  // Persist selected month and year to sessionStorage whenever they change
+  useEffect(() => {
+    sessionStorage.setItem('timesheetsAdmin_selectedMonth', selectedMonth.toString());
+    sessionStorage.setItem('timesheetsAdmin_selectedYear', selectedYear.toString());
+  }, [selectedMonth, selectedYear]);
 
   // ✅ Always compute based on state
   const monthStart = dayjs(`${selectedYear}-${selectedMonth + 1}-01`)
@@ -141,7 +160,6 @@ const TimesheetList = () => {
     setSelectedYear(newYear);
   };
 
-  // Safe navigation handler with error handling
   const handleEmployeeClick = (row) => {
     try {
       console.log('Employee click handler called with:', { row, role, selectedMonth, selectedYear });
@@ -153,6 +171,10 @@ const TimesheetList = () => {
       }
 
       if (role === 'ACCOUNTS' || role === 'SUPERADMIN' || role === 'ADMIN') {
+        // Save the current month and year before navigation
+        sessionStorage.setItem('timesheetsAdmin_selectedMonth', selectedMonth.toString());
+        sessionStorage.setItem('timesheetsAdmin_selectedYear', selectedYear.toString());
+
         handleEmployeeNameClick(row, navigate, role, selectedMonth, selectedYear);
       } else {
         console.warn('User role does not have permission to view employee details:', role);
@@ -163,7 +185,6 @@ const TimesheetList = () => {
       ToastService.error('Failed to navigate to employee details');
     }
   };
-
   const Month = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
   // ✅ Generate years dynamically (last 5 → next 1)
