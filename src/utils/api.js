@@ -250,6 +250,43 @@ export const usClientsAPI = {
   },
 };
 
+// ======= RTR FORM SUBMISSION  API ===========
+
+export const rightToRepresentAPI = {
+  submitRTR: async (userId, rtrData) => {
+    if (!userId) throw new Error("User ID is required");
+    if (!rtrData) throw new Error("RTR data is required");
+
+    return apiPost(`/hotlist/create-rtr/${userId}`, rtrData);
+  },
+
+  getAllRTR: async (params = {}) => {
+    return apiGet("/hotlist/rtr-list", params);
+  },
+
+  getRTRById: async (rtrId) => {
+    if (!rtrId) throw new Error("RTR ID is required");
+    return apiGet(`/hotlist/rtr-id/${rtrId}`);
+  },
+
+  updateRTR: async (rtrId, userId, payload) => {
+    if (!rtrId) throw new Error("RTR ID is required");
+    if (!userId) throw new Error("User ID is required");
+    if (!payload) throw new Error("Payload is required");
+
+    return apiPut(`/hotlist/update-rtr/rtr/${rtrId}/user/${userId}`, payload);
+  },
+
+  deleteRTR: async (rtrId, userId) => {
+    if (!rtrId) throw new Error("RTR ID is required");
+    if (!userId) throw new Error("User ID is required");
+
+    return apiDelete(`/hotlist/delete-rtr/${rtrId}/${userId}`, {
+      data: { deletedBy: userId },
+    });
+  },
+};
+
 // ========== Hotlist/Consultant Management APIs ==========
 export const hotlistAPI = {
   // Get all consultants with pagination

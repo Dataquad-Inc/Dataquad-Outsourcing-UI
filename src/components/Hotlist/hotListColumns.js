@@ -1,14 +1,16 @@
 import React from "react";
-import { Box, IconButton, Skeleton } from "@mui/material";
+import { Box, Skeleton } from "@mui/material";
 import Edit from "@mui/icons-material/Edit";
 import Delete from "@mui/icons-material/Delete";
+import Visibility from "@mui/icons-material/Visibility";
+import ReusableMenu from "../../ui-lib/ReusableMenu";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
+import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn"; 
+import CustomChip from "../../ui-lib/CustomChip";
 
 // ✅ Permission logic
 const hasPermission = (userRole) => {
-  if (userRole === "SALESEXECUTIVE") {
-    return false; // ❌ No permission
-  }
-  return true; // ✅ Everyone else has permission
+  return userRole !== "SALESEXECUTIVE"; // ❌ Sales Executive has no edit/delete
 };
 
 const renderValue = (value, width = 100, loading) =>
@@ -18,12 +20,14 @@ const getHotListColumns = ({
   handleNavigate,
   handleEdit,
   handleDelete,
+  handleView,
+  handleNavigateRTR, // 🆕 New callback for RTR
   loading,
   userRole,
-  userId, // still passed but not used
+  userId,
   filterOptions = {},
 }) => [
-  // ✅ Actions column first
+  // ✅ Actions column
   {
     id: "actions",
     label: "Actions",
@@ -32,44 +36,66 @@ const getHotListColumns = ({
         return (
           <Box sx={{ display: "flex", gap: 1 }}>
             <Skeleton variant="circular" width={32} height={32} />
-            <Skeleton variant="circular" width={32} height={32} />
           </Box>
         );
       }
 
       const canEdit = hasPermission(userRole);
       const canDelete = hasPermission(userRole);
+      const canView = true;
+      const canSubmitRTR = true; // 🆕 Allow all roles to submit RTR (optional restriction possible)
 
-      if (!canEdit && !canDelete) {
+      if (!canEdit && !canDelete && !canView && !canSubmitRTR) {
         return <Box sx={{ minWidth: 80 }}>-</Box>;
       }
 
+      // ✅ Build actions dynamically
+      const actionOptions = [];
+
+      if (canView)
+        actionOptions.push({
+          label: "View Candidate",
+          icon: <Visibility fontSize="small" color="info" />,
+          action: () => handleView(row),
+        });
+
+      if (canEdit)
+        actionOptions.push({
+          label: "Edit Candidate",
+          icon: <Edit fontSize="small" color="primary" />,
+          action: () => handleEdit(row),
+        });
+
+      if (canDelete)
+        actionOptions.push({
+          label: "Delete Candidate",
+          icon: <Delete fontSize="small" color="error" />,
+          action: () => handleDelete(row),
+        });
+
+      // 🆕 New Submit RTR action
+      if (canSubmitRTR)
+        actionOptions.push({
+          label: "Submit RTR",
+          icon: <AssignmentTurnedInIcon fontSize="small" color="success" />,
+          action: () => handleNavigateRTR(row),
+        });
+
       return (
-        <Box sx={{ display: "flex", gap: 1 }}>
-          {canEdit && (
-            <IconButton
-              color="primary"
-              onClick={() => handleEdit(row)}
-              title="Edit candidate"
-            >
-              <Edit fontSize="small" />
-            </IconButton>
-          )}
-          {canDelete && (
-            <IconButton
-              color="error"
-              onClick={() => handleDelete(row)}
-              title="Delete candidate"
-            >
-              <Delete fontSize="small" />
-            </IconButton>
-          )}
-        </Box>
+        <ReusableMenu
+          options={actionOptions.map((opt) => opt.label)}
+          onSelect={(label) => {
+            const selected = actionOptions.find((opt) => opt.label === label);
+            if (selected) selected.action();
+          }}
+          icon={<MoreVertIcon />}
+          menuWidth="18ch"
+        />
       );
     },
   },
 
-  // ✅ Other columns with filter options
+  // ✅ Other columns
   {
     id: "consultantId",
     label: "Consultant ID",
@@ -97,6 +123,18 @@ const getHotListColumns = ({
     label: "Consultant Name",
     filterType: "text",
     applyFilter: true,
+    render: (v) => renderValue(v, 120, loading),
+  },
+  {
+    id: "status",
+    label: "status",
+    filterType: "select",
+    applyFilter: true,
+    filterOptions: [
+      { label: "Active", value: "Active" },
+      { label: "InActive", value: "InActive" },
+      { label: "Hold", value: "Hold" },
+    ],
     render: (v) => renderValue(v, 120, loading),
   },
   {

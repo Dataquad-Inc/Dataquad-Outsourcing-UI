@@ -23,33 +23,19 @@ const commonRoles = [
   "ADMIN",
 ];
 
-// Adroit Route Config
+// ✅ Adroit Route Config
 export const usNavItems = (role) => [
   {
     text: "Home",
     path: "us-home",
     icon: <HomeIcon />,
-    roles: [
-      "SUPERADMIN",
-      "EMPLOYEE",
-      "TEAMLEAD",
-      "RECRUITER",
-      "SALESEXECUTIVE",
-      "ADMIN",
-    ],
+    roles: commonRoles,
   },
   {
     text: "Hotlist",
     path: role === "SUPERADMIN" ? "hotlist/master" : "hotlist/consultants",
     icon: <GroupIcon />,
-    roles: [
-      "SUPERADMIN",
-      "EMPLOYEE",
-      "TEAMLEAD",
-      "RECRUITER",
-      "SALESEXECUTIVE",
-      "ADMIN",
-    ],
+    roles: commonRoles,
   },
   {
     text: "Yet To Onboard",
@@ -63,23 +49,28 @@ export const usNavItems = (role) => [
     icon: <BadgeIcon />,
     roles: ["SUPERADMIN", "ADMIN"],
   },
-
   {
     text: "Requirements",
     path: "us-requirements",
-    icon: <AssignmentIcon />, // more meaningful than reusing hourglass
-    roles: ["SUPERADMIN", "TEAMLEAD","ADMIN"],
+    icon: <AssignmentIcon />,
+    roles: ["SUPERADMIN", "TEAMLEAD", "ADMIN"],
+  },
+  {
+    text: "RTR",
+    path: "rtr/rtr-list", // 👈 direct link to RTR module
+    icon: <ListAltIcon />, // List icon fits RTR view
+    roles: commonRoles,
   },
   {
     text: "Submissions",
     // path: "us-submissions",
-    icon: <SendIcon />, // submission looks better with a send icon
+    icon: <SendIcon />,
     roles: commonRoles,
   },
   {
-    text:"Clients",
-    path:"us-clients",
-    icon:<BusinessIcon/>,
-    roles:["SUPERADMIN","ADMIN"]
-  }
+    text: "Clients",
+    path: "us-clients",
+    icon: <BusinessIcon />,
+    roles: ["SUPERADMIN", "ADMIN"],
+  },
 ];

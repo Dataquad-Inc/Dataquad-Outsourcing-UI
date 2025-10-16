@@ -8,6 +8,7 @@ import DashboardHomeRedirect from "./DashboardHomeRedirect"; // NEW
 import { element } from "prop-types";
 
 import UsEmployeesContainer from "../components/UsEmployees/UsEmployeesContainer";
+import EditRtrForm from "../components/RightToRepresent/EditRtrForm";
 
 const Loadable = (Component) => (
   <Suspense
@@ -77,7 +78,18 @@ const BdmStatus = lazy(() => import("../components/TeamMetrics/BdmStatus"));
 const EmployeeStatus = lazy(() =>
   import("../components/TeamMetrics/EmployeeStatus")
 );
+
+//RTR imports
+const RtrForm = lazy(() => import("../components/RightToRepresent/RtrForm"));
+const RtrList = lazy(() => import("../components/RightToRepresent/RtrList"));
+const RtrContainer = lazy(() =>
+  import("../components/RightToRepresent/RtrContainer")
+);
+
+//hotlist
+
 const Hotlist = lazy(() => import("../components/Hotlist/Hotlist"));
+
 const YetToOnboard = lazy(() =>
   import("../components/YetToOnboard/YetToOnboard")
 );
@@ -129,9 +141,13 @@ const EditJobRequirement = lazy(() =>
 );
 
 //US Clients
-const ClientsContainer=lazy(()=>import("../components/UsClients/ClientsContainer"))
-const UsClientsList=lazy(()=>import("../components/UsClients/UsClients"))
-const UsOnboardClients=lazy(()=>import("../components/UsClients/OnBoardingClients"))
+const ClientsContainer = lazy(() =>
+  import("../components/UsClients/ClientsContainer")
+);
+const UsClientsList = lazy(() => import("../components/UsClients/UsClients"));
+const UsOnboardClients = lazy(() =>
+  import("../components/UsClients/OnBoardingClients")
+);
 //Timesheets
 const Timesheets = lazy(() => import("../components/Timesheets/TimeSheets"));
 const TimesheetsForAdmin = lazy(() =>
@@ -613,6 +629,52 @@ const routeConfig = [
                     path: "team-consultants/:consultantId", // /dashboard/hotlist/team-consultants/:id
                     element: Loadable(ConsultantProfile),
                   },
+                  {
+                    path: "rtr-form",
+                    element: Loadable(RtrForm),
+                  },
+                  {
+                    path: "rtr-list",
+                    element: Loadable(RtrList),
+                  },
+                ],
+              },
+            ],
+          },
+
+          //RTR routes
+          {
+            path: "rtr",
+            element: (
+              <ProtectedRoute
+                allowedRoles={[
+                  "SUPERADMIN",
+                  "ADMIN",
+                  "TEAMLEAD",
+                  "EMPLOYEE",
+                  "RECRUITER",
+                  "SALESEXECUTIVE",
+                ]}
+                allowedEntities={["US"]}
+              />
+            ),
+            children: [
+              {
+                path: "",
+                element: <RtrContainer />, // Contains the RTR tab(s) and <Outlet />
+                children: [
+                  {
+                    path: "rtr-form", // /dashboard/rtr/rtr-form
+                    element: Loadable(RtrForm),
+                  },
+                  {
+                    path: "rtr-form/:rtrId", // /dashboard/rtr/rtr-form/:rtrId (Edit)
+                    element: Loadable(EditRtrForm),
+                  },
+                  {
+                    path: "rtr-list", // /dashboard/rtr/rtr-list
+                    element: Loadable(RtrList),
+                  },
                 ],
               },
             ],
@@ -735,30 +797,30 @@ const routeConfig = [
           },
           //US Clients
           {
-            path:'us-clients',
+            path: "us-clients",
             element: (
               <ProtectedRoute
                 allowedRoles={["SUPERADMIN", "ADMIN"]}
                 allowedEntities={["US"]}
               />
             ),
-            children:[
-             {
-              path:'',
-              element:<ClientsContainer/>,
-              children:[
-                {
-                 index:true,
-                 element:Loadable(UsClientsList)                
-                },
-                {
-                  path:"us-create",
-                  element:Loadable(UsOnboardClients)
-                }
-              ]
-             }
-            ]
-          }
+            children: [
+              {
+                path: "",
+                element: <ClientsContainer />,
+                children: [
+                  {
+                    index: true,
+                    element: Loadable(UsClientsList),
+                  },
+                  {
+                    path: "us-create",
+                    element: Loadable(UsOnboardClients),
+                  },
+                ],
+              },
+            ],
+          },
         ],
       },
     ],
