@@ -254,12 +254,22 @@ const MasterHotlist = React.memo(() => {
     }
   }, []);
 
+  const handleNavigateRTR = (row) => {
+    navigate("/dashboard/rtr/rtr-form", {
+      state: {
+        consultantId: row.consultantId,
+        consultantName: row.name,
+      },
+    });
+  };
+
   /** ---------------- Columns ---------------- */
   const columns = [
     ...getHotListColumns({
       handleNavigate,
       handleEdit,
       handleDelete,
+      handleNavigateRTR,
       loading,
       userRole: role,
       userId,

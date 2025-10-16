@@ -87,6 +87,8 @@ const visaTypeConfig = {
   CITIZEN: { color: "#607d8b", icon: EmojiPeopleIcon, label: "Citizen" },
 };
 
+
+
 const CustomChip = ({
   role,
   jobType,
