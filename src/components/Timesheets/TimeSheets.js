@@ -1246,291 +1246,314 @@ const Timesheets = () => {
   }, [role, selectedEmployee, isCreateMode, isAddingNewTimesheet]);
 
   // Enhanced fetchMonthlyTimesheetData function
-  const fetchMonthlyTimesheetData = async (employeeId) => {
-    if (!employeeId) {
-      console.log('Cannot fetch monthly data - missing employeeId');
-      return;
+ const fetchMonthlyTimesheetData = async (employeeId) => {
+  if (!employeeId) {
+    console.log('Cannot fetch monthly data - missing employeeId');
+    return;
+  }
+
+  if (loading) {
+    console.log('Already loading, skipping duplicate call');
+    return;
+  }
+
+  setLoading(true);
+  try {
+    let monthStartStr, monthEndStr;
+    // This ensures refresh button uses the correct month range
+    if (selectedMonthRange && selectedMonthRange.start && selectedMonthRange.end) {
+      monthStartStr = selectedMonthRange.start;
+      monthEndStr = selectedMonthRange.end;
+      console.log('Using selectedMonthRange for API call:', selectedMonthRange);
+    } else {
+      // Fallback to calendar value only if no selectedMonthRange
+      const selectedDate = new Date(calendarValue);
+      const monthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+      const monthEnd = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+
+      monthStartStr = formatDateToYMD(monthStart);
+      monthEndStr = formatDateToYMD(monthEnd);
+      console.log('Using calendar value for month range (fallback):', { monthStartStr, monthEndStr });
     }
 
-    if (loading) {
-      console.log('Already loading, skipping duplicate call');
-      return;
-    }
+    const resultAction = await dispatch(fetchTimesheetsByUserIdWithDateRange({
+      userId: employeeId,
+      monthStart: monthStartStr,
+      monthEnd: monthEndStr
+    }));
 
-    setLoading(true);
-    try {
-      let monthStartStr, monthEndStr;
-      // This ensures refresh button uses the correct month range
-      if (selectedMonthRange && selectedMonthRange.start && selectedMonthRange.end) {
-        monthStartStr = selectedMonthRange.start;
-        monthEndStr = selectedMonthRange.end;
-        console.log('Using selectedMonthRange for API call:', selectedMonthRange);
-      } else {
-        // Fallback to calendar value only if no selectedMonthRange
-        const selectedDate = new Date(calendarValue);
-        const monthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-        const monthEnd = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+    if (fetchTimesheetsByUserIdWithDateRange.fulfilled.match(resultAction)) {
+      const response = resultAction.payload;
+      const timesheetData = response?.data?.timesheets || [];
 
-        monthStartStr = formatDateToYMD(monthStart);
-        monthEndStr = formatDateToYMD(monthEnd);
-        console.log('Using calendar value for month range (fallback):', { monthStartStr, monthEndStr });
-      }
+      // EXTRACT TOTAL WORKING HOURS FROM API RESPONSE
+      const totalWorkingHours = response?.data?.totalWorkingHours || 0;
+      setMonthlyTotalWorkingHours(totalWorkingHours);
 
-      const resultAction = await dispatch(fetchTimesheetsByUserIdWithDateRange({
-        userId: employeeId,
-        monthStart: monthStartStr,
-        monthEnd: monthEndStr
-      }));
+      setTimeSheetData(timesheetData);
 
-      if (fetchTimesheetsByUserIdWithDateRange.fulfilled.match(resultAction)) {
-        const response = resultAction.payload;
-        const timesheetData = response?.data?.timesheets || [];
+      const targetDate = selectedMonthRange && selectedMonthRange.start
+        ? new Date(selectedMonthRange.start)
+        : new Date(calendarValue);
 
-        // EXTRACT TOTAL WORKING HOURS FROM API RESPONSE
-        const totalWorkingHours = response?.data?.totalWorkingHours || 0;
-        setMonthlyTotalWorkingHours(totalWorkingHours);
+      const weeks = getWeeksInMonth(targetDate);
+      setCurrentMonthWeeks(weeks);
 
-        setTimeSheetData(timesheetData);
-
-        const targetDate = selectedMonthRange && selectedMonthRange.start
-          ? new Date(selectedMonthRange.start)
-          : new Date(calendarValue);
-
-        const weeks = getWeeksInMonth(targetDate);
-        setCurrentMonthWeeks(weeks);
-
-        const monthlyData = weeks.map(week => {
-          const weekTimesheet = timesheetData.find(ts => {
-            const tsWeekStart = new Date(ts.weekStartDate).toISOString().split("T")[0];
-            const hasProject = !selectedProject || ts.workingEntries?.some(entry => entry.project === selectedProject);
-            return tsWeekStart === week.startString && hasProject;
-          });
-
-          return {
-            ...week,
-            timesheet: weekTimesheet ? transformTimesheetForMonthlyView(weekTimesheet, targetDate) : null,
-            hasData: !!weekTimesheet,
-            status: weekTimesheet?.status || 'NO_DATA'
-          };
+      const monthlyData = weeks.map(week => {
+        // FIX: Check if any timesheet overlaps with this week using both start and end dates
+        const weekTimesheet = timesheetData.find(ts => {
+          const tsWeekStart = new Date(ts.weekStartDate);
+          const tsWeekEnd = new Date(ts.weekEndDate);
+          const weekStart = new Date(week.startString);
+          const weekEnd = new Date(week.endString);
+          
+          // Check if the timesheet week overlaps with the calendar week
+          const hasOverlap = (tsWeekStart <= weekEnd && tsWeekEnd >= weekStart);
+          const hasProject = !selectedProject || ts.workingEntries?.some(entry => entry.project === selectedProject);
+          
+          return hasOverlap && hasProject;
         });
 
-        console.log('Processed monthly data with correct date range:', monthlyData);
-        setMonthlyTimesheetData(monthlyData);
+        return {
+          ...week,
+          timesheet: weekTimesheet ? transformTimesheetForMonthlyView(weekTimesheet, targetDate) : null,
+          hasData: !!weekTimesheet,
+          status: weekTimesheet?.status || 'NO_DATA'
+        };
+      });
 
-      } else {
-        console.error('API call failed:', resultAction.payload);
-        const errorMessage = extractErrorMessage(resultAction.payload);
-        ToastService.error(errorMessage);
-        setMonthlyTimesheetData([]);
-        setMonthlyTotalWorkingHours(0);
-      }
-    } catch (error) {
-      console.error("Error fetching monthly timesheet:", error);
-      const errorMessage = extractErrorMessage(error);
+      console.log('Processed monthly data with correct date range:', monthlyData);
+      setMonthlyTimesheetData(monthlyData);
+
+    } else {
+      console.error('API call failed:', resultAction.payload);
+      const errorMessage = extractErrorMessage(resultAction.payload);
       ToastService.error(errorMessage);
       setMonthlyTimesheetData([]);
       setMonthlyTotalWorkingHours(0);
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (error) {
+    console.error("Error fetching monthly timesheet:", error);
+    const errorMessage = extractErrorMessage(error);
+    ToastService.error(errorMessage);
+    setMonthlyTimesheetData([]);
+    setMonthlyTotalWorkingHours(0);
+  } finally {
+    setLoading(false);
+  }
+};
   console.log("monthly data..", monthlyTimesheetData)
 
-  const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) => {
-    if (!apiTimesheet) return null;
+const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) => {
+  if (!apiTimesheet) return null;
 
-    const currentMonth = currentCalendarMonth.getMonth();
-    const currentYear = currentCalendarMonth.getFullYear();
+  const currentMonth = currentCalendarMonth.getMonth();
+  const currentYear = currentCalendarMonth.getFullYear();
 
-    // Get the week dates for this timesheet
-    const weekStart = new Date(apiTimesheet.weekStartDate);
-    const weekDates = [];
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(weekStart);
-      date.setDate(weekStart.getDate() + i);
-      weekDates.push(date);
-    }
+  // Use the actual weekStartDate and weekEndDate from API
+  const weekStart = new Date(apiTimesheet.weekStartDate);
+  const weekEnd = new Date(apiTimesheet.weekEndDate);
+  
+  // Generate dates based on the actual range from API
+  const weekDates = [];
+  const currentDate = new Date(weekStart);
+  
+  while (currentDate <= weekEnd) {
+    weekDates.push(new Date(currentDate));
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
 
-    // Filter to only dates in the current calendar month
-    const currentMonthDates = weekDates.filter(date =>
-      date.getMonth() === currentMonth && date.getFullYear() === currentYear
-    );
+  // Filter to only dates in the current calendar month
+  const currentMonthDates = weekDates.filter(date =>
+    date.getMonth() === currentMonth && date.getFullYear() === currentYear
+  );
 
-    // If no dates in current month, return null
-    if (currentMonthDates.length === 0) {
-      return null;
-    }
+  // Check if this timesheet has ANY overlap with current month
+  const hasOverlapWithCurrentMonth = currentMonthDates.length > 0;
 
-    // Get ALL entries (working + non-working) for the CURRENT MONTH only
-    const currentMonthEntries = [
-      ...(apiTimesheet.workingEntries || []),
-      ...(apiTimesheet.nonWorkingEntries || [])
-    ].filter(entry => {
-      const entryDate = new Date(entry.date);
-      return entryDate.getMonth() === currentMonth &&
-        entryDate.getFullYear() === currentYear;
-    });
-
-    // If no entries for current month, return null
-    if (currentMonthEntries.length === 0) {
-      return null;
-    }
-
-    // CRITICAL FIX: Calculate status independently for each month
-    // Count how many current month dates actually have entries
-    const datesWithEntries = new Set();
-    currentMonthEntries.forEach(entry => {
-      const entryDate = new Date(entry.date);
-      datesWithEntries.add(entryDate.getDate());
-    });
-
-    // Check if we have entries for all weekdays in current month
-    const currentMonthWeekdays = currentMonthDates.filter(date => {
-      const day = date.getDay();
-      return day !== 0 && day !== 6; // Exclude Sunday (0) and Saturday (6)
-    });
-
-    const allWeekdaysHaveEntries = currentMonthWeekdays.every(date =>
-      datesWithEntries.has(date.getDate())
-    );
-
-    // Check if ALL current month entries have hours > 0 (indicating they were properly filled)
-    const allEntriesHaveHours = currentMonthEntries.every(entry =>
-      parseFloat(entry.hours) > 0
-    );
-
-    let currentMonthStatus = 'DRAFT';
-
-    // ONLY consider it submitted if:
-    // 1. The overall timesheet has a submitted status (PENDING_APPROVAL, APPROVED, SUBMITTED)
-    // 2. ALL weekdays in the current month portion have entries
-    // 3. ALL entries for current month have hours > 0
-    if (apiTimesheet.status &&
-      (apiTimesheet.status === 'PENDING_APPROVAL' ||
-        apiTimesheet.status === 'APPROVED' ||
-        apiTimesheet.status === 'SUBMITTED') &&
-      allWeekdaysHaveEntries &&
-      allEntriesHaveHours) {
-      currentMonthStatus = apiTimesheet.status;
-    } else {
-      // If not all weekdays have entries, or entries don't have hours, or timesheet is not submitted, it's DRAFT
-      currentMonthStatus = 'DRAFT';
-    }
-
-    console.log('Monthly view status calculation:', {
+  // If no overlap with current month, return null
+  if (!hasOverlapWithCurrentMonth) {
+    console.log('No overlap with current month:', {
       weekStart: apiTimesheet.weekStartDate,
+      weekEnd: apiTimesheet.weekEndDate,
       currentMonth: currentMonth + 1,
       currentYear,
-      currentMonthDates: currentMonthDates.length,
-      currentMonthEntries: currentMonthEntries.length,
-      allWeekdaysHaveEntries,
-      allEntriesHaveHours,
-      overallStatus: apiTimesheet.status,
-      calculatedStatus: currentMonthStatus
+      currentMonthDatesCount: currentMonthDates.length
     });
+    return null;
+  }
 
-    const transformed = {
-      id: apiTimesheet.timesheetId || null,
-      userId: apiTimesheet.userId || userId,
-      project: selectedProject || (apiTimesheet.workingEntries?.[0]?.project) || '',
-      timesheetType: apiTimesheet.timesheetType || 'MONTHLY',
-      status: currentMonthStatus,
-      startDate: apiTimesheet.weekStartDate || '',
-      endDate: apiTimesheet.weekEndDate || '',
+  // Get ALL entries (working + non-working) for the CURRENT MONTH only
+  const currentMonthEntries = [
+    ...(apiTimesheet.workingEntries || []),
+    ...(apiTimesheet.nonWorkingEntries || [])
+  ].filter(entry => {
+    const entryDate = new Date(entry.date);
+    return entryDate.getMonth() === currentMonth &&
+      entryDate.getFullYear() === currentYear;
+  });
+
+  // If no entries for current month, return null
+  if (currentMonthEntries.length === 0) {
+    console.log('No entries for current month:', {
+      weekStart: apiTimesheet.weekStartDate,
+      weekEnd: apiTimesheet.weekEndDate,
+      currentMonth: currentMonth + 1,
+      currentMonthEntriesCount: currentMonthEntries.length
+    });
+    return null;
+  }
+
+  // Calculate status independently for each month
+  const datesWithEntries = new Set();
+  currentMonthEntries.forEach(entry => {
+    const entryDate = new Date(entry.date);
+    datesWithEntries.add(entryDate.toISOString().split('T')[0]);
+  });
+
+  // Check if we have entries for all weekdays in current month portion
+  const currentMonthWeekdays = currentMonthDates.filter(date => {
+    const day = date.getDay();
+    return day !== 0 && day !== 6; // Exclude Sunday (0) and Saturday (6)
+  });
+
+  const allWeekdaysHaveEntries = currentMonthWeekdays.every(date =>
+    datesWithEntries.has(date.toISOString().split('T')[0])
+  );
+
+  // Check if ALL current month entries have hours > 0
+  const allEntriesHaveHours = currentMonthEntries.every(entry =>
+    parseFloat(entry.hours) > 0
+  );
+
+  let currentMonthStatus = 'DRAFT';
+
+  if (apiTimesheet.status &&
+    (apiTimesheet.status === 'PENDING_APPROVAL' ||
+      apiTimesheet.status === 'APPROVED' ||
+      apiTimesheet.status === 'SUBMITTED') &&
+    allWeekdaysHaveEntries &&
+    allEntriesHaveHours) {
+    currentMonthStatus = apiTimesheet.status;
+  } else {
+    currentMonthStatus = 'DRAFT';
+  }
+
+  console.log('Monthly view status calculation:', {
+    timesheetId: apiTimesheet.timesheetId,
+    weekStart: apiTimesheet.weekStartDate,
+    weekEnd: apiTimesheet.weekEndDate,
+    currentMonth: currentMonth + 1,
+    currentYear,
+    weekDatesCount: weekDates.length,
+    currentMonthDates: currentMonthDates.length,
+    currentMonthEntries: currentMonthEntries.length,
+    allWeekdaysHaveEntries,
+    allEntriesHaveHours,
+    overallStatus: apiTimesheet.status,
+    calculatedStatus: currentMonthStatus
+  });
+
+  const transformed = {
+    id: apiTimesheet.timesheetId || null,
+    userId: apiTimesheet.userId || userId,
+    project: selectedProject || (apiTimesheet.workingEntries?.[0]?.project) || '',
+    timesheetType: apiTimesheet.timesheetType || 'MONTHLY',
+    status: currentMonthStatus,
+    startDate: apiTimesheet.weekStartDate || '',
+    endDate: apiTimesheet.weekEndDate || '',
+    monday: 0,
+    tuesday: 0,
+    wednesday: 0,
+    thursday: 0,
+    friday: 0,
+    saturday: 0,
+    sunday: 0,
+    notes: apiTimesheet.notes || '',
+    workingEntries: apiTimesheet.workingEntries || [],
+    nonWorkingEntries: apiTimesheet.nonWorkingEntries || [],
+    isEditable: false,
+    percentageOfTarget: apiTimesheet.percentageOfTarget || 0,
+    dayStatuses: {
+      monday: 'Working',
+      tuesday: 'Working',
+      wednesday: 'Working',
+      thursday: 'Working',
+      friday: 'Working',
+      saturday: 'Working',
+      sunday: 'Working'
+    },
+    sickLeave: {
       monday: 0,
       tuesday: 0,
       wednesday: 0,
       thursday: 0,
       friday: 0,
       saturday: 0,
-      sunday: 0,
-      notes: apiTimesheet.notes || '',
-      workingEntries: apiTimesheet.workingEntries || [],
-      nonWorkingEntries: apiTimesheet.nonWorkingEntries || [],
-      isEditable: false,
-      percentageOfTarget: apiTimesheet.percentageOfTarget || 0,
-      dayStatuses: {
-        monday: 'Working',
-        tuesday: 'Working',
-        wednesday: 'Working',
-        thursday: 'Working',
-        friday: 'Working',
-        saturday: 'Working',
-        sunday: 'Working'
-      },
-      sickLeave: {
-        monday: 0,
-        tuesday: 0,
-        wednesday: 0,
-        thursday: 0,
-        friday: 0,
-        saturday: 0,
-        sunday: 0
-      },
-      companyHoliday: {
-        monday: 0,
-        tuesday: 0,
-        wednesday: 0,
-        thursday: 0,
-        friday: 0,
-        saturday: 0,
-        sunday: 0
-      },
-      clientName: apiTimesheet.clientName || '',
-      approver: apiTimesheet.approver || '',
-    };
-
-    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-
-    // Process working entries - ONLY for current month
-    if (apiTimesheet.workingEntries) {
-      apiTimesheet.workingEntries.forEach(entry => {
-        const entryDate = new Date(entry.date);
-
-        // Only process if entry is in current calendar month
-        if (entryDate.getMonth() !== currentMonth || entryDate.getFullYear() !== currentYear) {
-          return;
-        }
-
-        const dayOfWeek = entryDate.getDay();
-        let dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-        const dayName = days[dayIndex];
-        const hours = parseFloat(entry.hours) || 0;
-
-        if (dayName && entry.project === (selectedProject || transformed.project)) {
-          transformed[dayName] = hours;
-        }
-      });
-    }
-
-    // Process non-working entries - ONLY for current month
-    if (apiTimesheet.nonWorkingEntries) {
-      apiTimesheet.nonWorkingEntries.forEach(entry => {
-        const entryDate = new Date(entry.date);
-
-        // Only process if entry is in current calendar month
-        if (entryDate.getMonth() !== currentMonth || entryDate.getFullYear() !== currentYear) {
-          return;
-        }
-
-        const dayOfWeek = entryDate.getDay();
-        let dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-        const dayName = days[dayIndex];
-        const hours = parseFloat(entry.hours) || 0;
-        const description = entry.description?.toLowerCase() || '';
-
-        if (dayName) {
-          if (description.includes('sick leave')) {
-            transformed.sickLeave[dayName] = hours;
-          } else if (description.includes('company holiday') || description.includes('holiday')) {
-            transformed.companyHoliday[dayName] = hours;
-          }
-        }
-      });
-    }
-
-    return transformed;
+      sunday: 0
+    },
+    companyHoliday: {
+      monday: 0,
+      tuesday: 0,
+      wednesday: 0,
+      thursday: 0,
+      friday: 0,
+      saturday: 0,
+      sunday: 0
+    },
+    clientName: apiTimesheet.clientName || '',
+    approver: apiTimesheet.approver || '',
   };
+
+  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+  // Process working entries - ONLY for current month
+  if (apiTimesheet.workingEntries) {
+    apiTimesheet.workingEntries.forEach(entry => {
+      const entryDate = new Date(entry.date);
+
+      // Only process if entry is in current calendar month
+      if (entryDate.getMonth() !== currentMonth || entryDate.getFullYear() !== currentYear) {
+        return;
+      }
+
+      const dayOfWeek = entryDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+      const dayName = days[dayOfWeek];
+      const hours = parseFloat(entry.hours) || 0;
+
+      if (dayName && entry.project === (selectedProject || transformed.project)) {
+        transformed[dayName] = hours;
+      }
+    });
+  }
+
+  // Process non-working entries - ONLY for current month
+  if (apiTimesheet.nonWorkingEntries) {
+    apiTimesheet.nonWorkingEntries.forEach(entry => {
+      const entryDate = new Date(entry.date);
+
+      // Only process if entry is in current calendar month
+      if (entryDate.getMonth() !== currentMonth || entryDate.getFullYear() !== currentYear) {
+        return;
+      }
+
+      const dayOfWeek = entryDate.getDay();
+      const dayName = days[dayOfWeek];
+      const hours = parseFloat(entry.hours) || 0;
+      const description = entry.description?.toLowerCase() || '';
+
+      if (dayName) {
+        if (description.includes('sick leave')) {
+          transformed.sickLeave[dayName] = hours;
+        } else if (description.includes('company holiday') || description.includes('holiday')) {
+          transformed.companyHoliday[dayName] = hours;
+        }
+      }
+    });
+  }
+
+  return transformed;
+};
 
   const isFridayInPresentWeek = () => {
     if (!selectedWeekStart || !isPresentWeek(selectedWeekStart)) return false;
