@@ -100,6 +100,7 @@ const ClientForm = ({
   const navigate = useNavigate();
   const [files, setFiles] = useState([]);
   const [removedFiles, setRemovedFiles] = useState([]);
+  const [removedFileIds, setRemovedFileIds] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currency, setCurrency] = useState(initialData?.currency || "USD");
   const { userName, userId } = useSelector((state) => state.auth);
@@ -128,7 +129,7 @@ const ClientForm = ({
             };
           } else if (typeof doc === 'object' && doc !== null) {
             return {
-              id: doc.id || index,
+              id: doc.id || doc.docId || index,
               name: doc.fileName || doc.name || 'Unknown Document',
               isExisting: true,
               originalData: doc,
@@ -373,163 +374,284 @@ const ClientForm = ({
 
   const formInitialValues = getFormInitialValues();
 
-  const handleFileChange = (event) => {
-    const selectedFiles = Array.from(event.target.files);
-    if (selectedFiles.length === 0) {
-      showToast("No file selected", "warning");
-      return;
-    }
-
-    const currentSize = files.reduce(
-      (sum, file) => sum + (file.isExisting ? 0 : file.size),
-      0
-    );
-    const newFilesSize = selectedFiles.reduce(
-      (sum, file) => sum + file.size,
-      0
-    );
-
-    if (currentSize + newFilesSize > 10 * 1024 * 1024) {
-      showToast("Total file size exceeds 10MB limit", "error");
-      return;
-    }
-
-    setFiles((prevFiles) => [...prevFiles, ...selectedFiles]);
-    showToast(
-      `${selectedFiles.length} file(s) selected successfully!`,
-      "success"
-    );
-  };
-
-const removeFile = (indexToRemove) => {
-  const fileToRemove = files[indexToRemove];
-  
-  // Track removed existing files
-  if (fileToRemove.isExisting && fileToRemove.originalName) {
-    setRemovedFiles(prev => [...prev, fileToRemove.originalName]);
-    showToast("File marked for removal", "info");
-  } else {
-    showToast("File removed", "info");
+ const handleFileChange = (event) => {
+  const selectedFiles = Array.from(event.target.files);
+  if (selectedFiles.length === 0) {
+    showToast("No file selected", "warning");
+    return;
   }
-  
-  setFiles((prevFiles) =>
-    prevFiles.filter((_, index) => index !== indexToRemove)
+
+  const currentSize = files.reduce(
+    (sum, file) => sum + (file.isExisting ? 0 : file.size),
+    0
+  );
+  const newFilesSize = selectedFiles.reduce(
+    (sum, file) => sum + file.size,
+    0
+  );
+
+  if (currentSize + newFilesSize > 10 * 1024 * 1024) {
+    showToast("Total file size exceeds 10MB limit", "error");
+    return;
+  }
+
+  // Store the actual File objects with metadata
+  const filesWithMetadata = selectedFiles.map(file => ({
+    ...file,
+    name: file.name,
+    size: file.size,
+    type: file.type,
+    isExisting: false,
+    originalFile: file // Store the actual File object
+  }));
+
+  setFiles((prevFiles) => [...prevFiles, ...filesWithMetadata]);
+  showToast(
+    `${selectedFiles.length} file(s) selected successfully!`,
+    "success"
   );
 };
-  // FIXED: Use FormData with multipart/form-data
-  const createClient = async (formData) => {
-    try {
-      const response = await httpService.post(`/api/us/requirements/client/addClient`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
 
-      return response.data;
-    } catch (error) {
-      console.error("Create client API call failed:", error);
-      
-      if (error.response?.data) {
-        throw new Error(error.response.data.message || JSON.stringify(error.response.data));
-      }
-      throw new Error(error.message || "Failed to create client");
+  const removeFile = (indexToRemove) => {
+    const fileToRemove = files[indexToRemove];
+    
+    // Track removed existing files with their IDs
+    if (fileToRemove.isExisting && fileToRemove.id) {
+      setRemovedFileIds(prev => [...prev, fileToRemove.id]);
+      showToast("File marked for removal", "info");
+    } else {
+      showToast("File removed", "info");
     }
+    
+    setFiles((prevFiles) =>
+      prevFiles.filter((_, index) => index !== indexToRemove)
+    );
   };
 
-  // FIXED: Use FormData with multipart/form-data for update
-  const updateClient = async (formData, clientId) => {
-    try {
-      const response = await httpService.put(`/api/us/requirements/client/${clientId}`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+ // FIXED: Use FormData with multipart/form-data
+const createClient = async (formData) => {
+  try {
+    const response = await httpService.post(`/api/us/requirements/client/addClient`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
 
-      return response.data;
-    } catch (error) {
-      console.error("Update client API call failed:", error);
-      
-      if (error.response?.data) {
-        throw new Error(error.response.data.message || JSON.stringify(error.response.data));
-      }
-      throw new Error(error.message || "Failed to update client");
+    return response.data;
+  } catch (error) {
+    console.error("Create client API call failed:", error);
+    
+    if (error.response?.data) {
+      throw new Error(error.response.data.message || JSON.stringify(error.response.data));
     }
-  };
+    throw new Error(error.message || "Failed to create client");
+  }
+};
 
-const handleSubmit = async (values, { resetForm }) => {
-  setIsSubmitting(true);
-
+const updateClient = async (clientId, clientData, filesToUpload = []) => {
   try {
     const formData = new FormData();
-
-    // Build the client data object matching your API structure
-    const clientData = {
-      clientName: values.clientName,
-      clientAddress: values.clientAddress || "",
-      positionType: values.positionType || "Full-Time",
-      netPayment: values.netPayment ? Number(values.netPayment) : 0,
-      supportingCustomers: values.supportingCustomers.map(customer => ({
-        customerName: customer.customerName || "",
-        netPayment: customer.netPayment ? Number(customer.netPayment) : 0
-      })),
-      clientWebsiteUrl: values.clientWebsiteUrl || "",
-      clientLinkedInUrl: values.clientLinkedInUrl || "",
-      onBoardedById: userId,
-      onBoardedByName: userName,
-      status: values.status || "ACTIVE",
-      feedBack: values.feedBack || "",
-      numberOfRequirements: values.numberOfRequirements || 0,
-      currency: currency || "USD",
-    };
-
-    console.log("Submitting client data:", JSON.stringify(clientData, null, 2));
-    console.log("Removed files:", removedFiles);
-    console.log("Is Edit Mode:", isEdit);
-    console.log("Client ID:", initialData?.clientId);
-
-    // Append the JSON object as a string
-    formData.append("dto", JSON.stringify(clientData));
-
-    // Append ALL files as supportingDocuments - both new files AND removed files
-    const newFiles = files.filter((file) => !file.isExisting);
     
-    // Append new files
-    newFiles.forEach((file) => {
-      formData.append("supportingDocuments", file);
-    });
-
-    // Append removed files as well (if you need to send them as supportingDocuments)
-    // Note: Since removed files are just filenames (not File objects), we need to handle this
-    // If backend expects File objects for removed files, we need a different approach
-    removedFiles.forEach((filename) => {
-      // Create a dummy file or send as string - depends on backend expectation
-      const dummyFile = new File([], filename, { type: 'application/octet-stream' });
-      formData.append("supportingDocuments", dummyFile);
-    });
-
-    console.log("New files being uploaded:", newFiles.length);
-    console.log("Removed files count:", removedFiles.length);
-    console.log("Total supportingDocuments being sent:", newFiles.length + removedFiles.length);
-
-    // Log FormData contents for debugging
-    console.log("FormData contents:");
+    // Append the client data as JSON
+    formData.append("dto", JSON.stringify(clientData));
+    
+    // REMOVED: File appending logic - no files in this payload
+    
+    console.log('FormData entries for client update:');
     for (let [key, value] of formData.entries()) {
       console.log(key, value instanceof File ? `${value.name} (File)` : value);
     }
 
+    const response = await httpService.put(
+      `/api/us/requirements/client/${clientId}`, 
+      formData, 
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error("Update client API call failed:", error);
+    
+    if (error.response?.data) {
+      throw new Error(error.response.data.message || JSON.stringify(error.response.data));
+    }
+    throw new Error(error.message || "Failed to update client");
+  }
+};
+
+const updateClientDocuments = async (clientId, deleteDocIds = [], remainingFiles = []) => {
+  try {
+    const formData = new FormData();
+    
+    // CRITICAL: Send files that should REMAIN after deletion
+    // For example: if you have files with IDs [1, 2] and delete ID 2, send file with ID 1
+    if (remainingFiles.length >= 0) {
+      remainingFiles.forEach((file) => {
+        // For existing files, we need to send their metadata or reference
+        // Check if it's a File object (newly uploaded) or existing file reference
+        if (file instanceof File) {
+          formData.append("files", file);
+        } else if (file.originalFile instanceof File) {
+          formData.append("files", file.originalFile);
+        } else if (file.isExisting) {
+          // For existing files, create a reference blob or send file info
+          // This depends on your backend expectations
+          // Option 1: Send file ID/name as blob
+          const fileBlob = new Blob([JSON.stringify({ id: file.id, name: file.name })], { type: 'application/json' });
+          formData.append("files", fileBlob, file.name);
+        }
+      });
+    } else {
+      // Append an empty blob when no files to satisfy backend requirement
+      formData.append("files", new Blob(), "");
+    }
+
+    const deleteDocIdsParam = deleteDocIds.join(',');
+    
+    console.log(`Calling document update API for client: ${clientId}`);
+    console.log(`Deleting document IDs: ${deleteDocIdsParam}`);
+    console.log(`Remaining files to keep: ${remainingFiles.length}`);
+    console.log('Remaining files:', remainingFiles);
+    
+    console.log('FormData entries for document update:');
+    for (let [key, value] of formData.entries()) {
+      console.log(key, value instanceof File ? `${value.name} (File)` : value instanceof Blob ? 'Blob' : value);
+    }
+
+    const response = await httpService.put(
+      `/api/us/requirements/clients/updateDocuments/${clientId}?deleteDocIds=${deleteDocIdsParam}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error("Update client documents API call failed:", error);
+    
+    if (error.response?.data) {
+      throw new Error(error.response.data.message || JSON.stringify(error.response.data));
+    }
+    throw new Error(error.message || "Failed to update client documents");
+  }
+};
+
+// Updated handleSubmit - only this part needs change
+const handleSubmit = async (values, { resetForm }) => {
+  setIsSubmitting(true);
+
+  try {
     let result;
     
     if (isEdit && initialData && initialData.clientId) {
+      // EDIT MODE
+      const clientData = {
+        clientName: values.clientName,
+        clientAddress: values.clientAddress || "",
+        positionType: values.positionType || "Full-Time",
+        netPayment: values.netPayment ? Number(values.netPayment) : 0,
+        supportingCustomers: values.supportingCustomers.map(customer => ({
+          customerName: customer.customerName || "",
+          netPayment: customer.netPayment ? Number(customer.netPayment) : 0
+        })),
+        clientWebsiteUrl: values.clientWebsiteUrl || "",
+        clientLinkedInUrl: values.clientLinkedInUrl || "",
+        onBoardedById: userId,
+        onBoardedByName: userName,
+        status: values.status || "ACTIVE",
+        feedBack: values.feedBack || "",
+        numberOfRequirements: values.numberOfRequirements || 0,
+        currency: currency || "USD",
+      };
+
+      console.log("Updating client data:", JSON.stringify(clientData, null, 2));
+      
       console.log("Calling UPDATE API for client ID:", initialData.clientId);
-      result = await updateClient(formData, initialData.clientId);
+      
+      // Update client WITHOUT files
+      result = await updateClient(initialData.clientId, clientData);
+      
+      // FIXED: Handle document updates if files were removed OR if we need to update documents
+      if (removedFileIds.length > 0 || files.length > 0) {
+        console.log("Handling document updates...");
+        console.log("Removed file IDs:", removedFileIds);
+        console.log("Current files state:", files);
+        
+        // CRITICAL FIX: Get REMAINING EXISTING files (files that should stay)
+        // Filter out: 1) Files that were marked for removal, 2) New files (they'll be uploaded via updateClientDocuments)
+        const remainingExistingFiles = files.filter(
+          (file) => file.isExisting && !removedFileIds.includes(file.id)
+        );
+        
+        // Get new files to upload
+        const newFilesToUpload = files.filter((file) => !file.isExisting);
+        
+        console.log("Remaining existing files to keep:", remainingExistingFiles);
+        console.log("New files to upload:", newFilesToUpload);
+        
+        // Combine remaining existing files and new files
+        const allFilesForDocumentUpdate = [...remainingExistingFiles, ...newFilesToUpload];
+        
+        // Call document update API with files that should REMAIN and new files to upload
+        const documentsResult = await updateClientDocuments(
+          initialData.clientId, 
+          removedFileIds,           // IDs to delete (e.g., [2])
+          allFilesForDocumentUpdate // All files that should exist after update
+        );
+        
+        console.log("Documents update result:", documentsResult);
+      }
+      
       showToast("Client updated successfully!", "success");
+      
     } else {
+      // CREATE MODE - unchanged
+      const formData = new FormData();
+      const clientData = {
+        clientName: values.clientName,
+        clientAddress: values.clientAddress || "",
+        positionType: values.positionType || "Full-Time",
+        netPayment: values.netPayment ? Number(values.netPayment) : 0,
+        supportingCustomers: values.supportingCustomers.map(customer => ({
+          customerName: customer.customerName || "",
+          netPayment: customer.netPayment ? Number(customer.netPayment) : 0
+        })),
+        clientWebsiteUrl: values.clientWebsiteUrl || "",
+        clientLinkedInUrl: values.clientLinkedInUrl || "",
+        onBoardedById: userId,
+        onBoardedByName: userName,
+        status: values.status || "ACTIVE",
+        feedBack: values.feedBack || "",
+        numberOfRequirements: values.numberOfRequirements || 0,
+        currency: currency || "USD",
+      };
+
+      console.log("Creating new client:", JSON.stringify(clientData, null, 2));
+      
+      formData.append("dto", JSON.stringify(clientData));
+      
+      files.forEach((file) => {
+        if (file instanceof File) {
+          formData.append("supportingDocuments", file);
+        } else if (file.originalFile instanceof File) {
+          formData.append("supportingDocuments", file.originalFile);
+        }
+      });
+
       console.log("Calling CREATE API");
       result = await createClient(formData);
       showToast("Client created successfully!", "success");
     }
 
-    // Reset removed files after successful submission
+    // Reset states
+    setRemovedFileIds([]);
     setRemovedFiles([]);
 
     if (!isEdit) {
@@ -538,9 +660,8 @@ const handleSubmit = async (values, { resetForm }) => {
       navigate('/dashboard/us-clients');
     }
 
-    // Call the onSubmit prop if provided
     if (onSubmit) {
-      onSubmit(formData, isEdit, result);
+      onSubmit(values, isEdit, result);
     }
 
     return result;
@@ -551,7 +672,6 @@ const handleSubmit = async (values, { resetForm }) => {
     if (error.response) {
       console.error("Server response:", error.response.data);
       console.error("Status code:", error.response.status);
-      console.error("Response headers:", error.response.headers);
     }
     
     showToast(error.message || "Failed to submit form", "error");
@@ -635,6 +755,7 @@ const handleSubmit = async (values, { resetForm }) => {
   };
 
   const handleCancel = () => {
+    setRemovedFileIds([]);
     setRemovedFiles([]);
     
     if (isEdit && onCancel) {
@@ -895,6 +1016,13 @@ const handleSubmit = async (values, { resetForm }) => {
                         </Typography>
                       )}
                     </Box>
+                    
+                    {/* Show removed file IDs for debugging */}
+                    {removedFileIds.length > 0 && (
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                        Files marked for deletion: {removedFileIds.join(', ')}
+                      </Typography>
+                    )}
                   </Paper>
                 </Grid>
 
@@ -959,6 +1087,7 @@ const handleSubmit = async (values, { resetForm }) => {
                       onClick={() => {
                         resetForm();
                         if (!isEdit) setFiles([]);
+                        setRemovedFileIds([]);
                         setRemovedFiles([]);
                         showToast("Form has been reset", "info");
                       }}
