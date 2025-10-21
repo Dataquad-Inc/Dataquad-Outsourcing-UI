@@ -19,6 +19,9 @@ import ClientForm from './OnBoardingClients'
 import { useNavigate } from 'react-router-dom'
 import httpService from '../../Services/httpService'
 import DocumentViewDialog from './DocumentViewDialog'
+import { toast, ToastContainer } from 'react-toastify'
+import ToastService from '../../Services/toastService'
+import axios from 'axios'
 
 const UsClients = () => {
   const navigate = useNavigate()
@@ -107,50 +110,99 @@ const UsClients = () => {
     }
   };
 
-  const handleViewDocuments = (client) => {
+const handleViewDocuments = (client) => {
     setSelectedClient(client);
+    
+    // Process documents to handle both string and object formats
+    let processedDocuments = [];
+    
+    if (client.supportingDocuments && Array.isArray(client.supportingDocuments)) {
+      processedDocuments = client.supportingDocuments.map((doc, index) => {
+        if (typeof doc === 'string') {
+          // If it's a string, create a simple object
+          return {
+            id: index,
+            name: doc,
+            type: getFileType(doc),
+            size: 0
+          };
+        } else if (typeof doc === 'object' && doc !== null) {
+          // If it's an object, extract the relevant properties
+          return {
+            id: doc.id || index,
+            name: doc.fileName || doc.name || 'Unknown Document',
+            filePath: doc.filePath,
+            contentType: doc.contentType,
+            size: doc.size || 0,
+            uploadedAt: doc.uploadedAt,
+            type: getFileType(doc.fileName || doc.name)
+          };
+        }
+        return null;
+      }).filter(Boolean); // Remove any null entries
+    }
+    
+    setSelectedClient({ 
+      ...client, 
+      processedDocuments 
+    });
     setViewDocumentOpen(true);
   };
 
-  const columns = [
-    {
-      id: 'clientName',
-      label: 'Client Name',
-      applyFilter: true,
-      filterType: 'text',
-      sortable: true,
-      render: (value, row) => value || 'N/A'
-    },
-    {
-      id: 'positionType',
-      label: 'Position Type',
-      applyFilter: true,
-      filterType: 'select',
-      filterOptions: [
-        { value: 'Full-Time', label: 'Full-Time' },
-        { value: 'Part-Time', label: 'Part-Time' },
-        { value: 'Contract', label: 'Contract' },
-        { value: 'Internship', label: 'Internship' }
-      ],
-      sortable: true,
-      render: (value, row) => value || 'N/A'
-    },
-    {
-      id: 'netPayment',
-      label: 'Net Payment',
-      applyFilter: true,
-      filterType: 'text',
-      sortable: true,
-      render: (value, row) => value ? `${value} Days` : '0 Days'
-    },
-    {
-      id: 'clientWebsiteUrl',
-      label: 'Website',
-      applyFilter: true,
-      filterType: 'text',
-      sortable: true,
-      render: (value, row) => (
-        value && value.startsWith('http') ? (
+  // Helper function to determine file type
+  const getFileType = (fileName) => {
+    if (!fileName) return "other";
+    const extension = fileName.split(".").pop().toLowerCase();
+    
+    if (["pdf"].includes(extension)) return "pdf";
+    if (["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg"].includes(extension)) return "image";
+    if (["doc", "docx"].includes(extension)) return "word";
+    if (["xls", "xlsx"].includes(extension)) return "excel";
+    if (["ppt", "pptx"].includes(extension)) return "powerpoint";
+    if (["txt", "csv"].includes(extension)) return "text";
+    return "other";
+  };
+
+ const columns = [
+  {
+    id: 'clientName',
+    label: 'Client Name',
+    applyFilter: true,
+    filterType: 'text',
+    sortable: true,
+    render: (value, row) => value || 'N/A'
+  },
+  {
+    id: 'positionType',
+    label: 'Position Type',
+    applyFilter: true,
+    filterType: 'select',
+    filterOptions: [
+      { value: 'Full-Time', label: 'Full-Time' },
+      { value: 'Part-Time', label: 'Part-Time' },
+      { value: 'Contract', label: 'Contract' },
+      { value: 'Internship', label: 'Internship' }
+    ],
+    sortable: true,
+    render: (value, row) => value || 'N/A'
+  },
+  {
+    id: 'netPayment',
+    label: 'Net Payment',
+    applyFilter: true,
+    filterType: 'text',
+    sortable: true,
+    render: (value, row) => value ? `${value} Days` : '0 Days'
+  },
+  {
+    id: 'clientWebsiteUrl',
+    label: 'Website',
+    applyFilter: true,
+    filterType: 'text',
+    sortable: true,
+    render: (value, row) => (
+      value && value.startsWith('http') ? (
+        <Typography component="span">
           <a 
             href={value} 
             target="_blank" 
@@ -159,19 +211,23 @@ const UsClients = () => {
           >
             Visit Website
           </a>
-        ) : (
-          <span style={{ color: '#999' }}>Not provided</span>
-        )
+        </Typography>
+      ) : (
+        <Typography component="span" sx={{ color: '#999' }}>
+          Not provided
+        </Typography>
       )
-    },
-    {
-      id: 'clientLinkedInUrl',
-      label: 'LinkedIn',
-      applyFilter: true,
-      filterType: 'text',
-      sortable: true,
-      render: (value, row) => (
-        value && value.startsWith('http') ? (
+    )
+  },
+  {
+    id: 'clientLinkedInUrl',
+    label: 'LinkedIn',
+    applyFilter: true,
+    filterType: 'text',
+    sortable: true,
+    render: (value, row) => (
+      value && value.startsWith('http') ? (
+        <Typography component="span">
           <a 
             href={value} 
             target="_blank" 
@@ -180,76 +236,84 @@ const UsClients = () => {
           >
             LinkedIn
           </a>
-        ) : (
-          <span style={{ color: '#999' }}>Not provided</span>
-        )
+        </Typography>
+      ) : (
+        <Typography component="span" sx={{ color: '#999' }}>
+          Not provided
+        </Typography>
       )
-    },
-    {
-      id: 'onBoardedBy',
-      label: 'Onboarded By',
-      applyFilter: true,
-      filterType: 'text',
-      sortable: true,
-      render: (value, row) => value || 'N/A'
-    },
-    {
-      id: 'status',
-      label: 'Status',
-      applyFilter: true,
-      filterType: 'select',
-      filterOptions: [
-        { value: 'ACTIVE', label: 'Active' },
-        { value: 'INACTIVE', label: 'Inactive' },
-        { value: 'PENDING', label: 'Pending' }
-      ],
-      sortable: true,
-      render: (value) => {
-        const statusValue = value || 'PENDING';
-        return (
-          <Box
-            sx={{
-              display: 'inline-block',
-              padding: '4px 12px',
-              borderRadius: '12px',
-              fontSize: '0.75rem',
-              fontWeight: 'bold',
-              backgroundColor: 
-                statusValue === 'ACTIVE' ? '#e8f5e8' :
-                statusValue === 'INACTIVE' ? '#ffe8e8' :
-                '#fff3cd',
-              color: 
-                statusValue === 'ACTIVE' ? '#2e7d32' :
-                statusValue === 'INACTIVE' ? '#d32f2f' :
-                '#856404',
-            }}
-          >
-            {statusValue}
-          </Box>
-        )
+    )
+  },
+  {
+    id: 'onBoardedByName',
+    label: 'Onboarded By',
+    applyFilter: true,
+    filterType: 'text',
+    sortable: true,
+    render: (value, row) => value || 'N/A'
+  },
+  {
+    id: 'status',
+    label: 'Status',
+    applyFilter: true,
+    filterType: 'select',
+    filterOptions: [
+      { value: 'ACTIVE', label: 'Active' },
+      { value: 'INACTIVE', label: 'Inactive' },
+      { value: 'PENDING', label: 'Pending' }
+    ],
+    sortable: true,
+    render: (value) => {
+      const statusValue = value || 'PENDING';
+      return (
+        <Typography
+          component="span"
+          sx={{
+            display: 'inline-block',
+            padding: '4px 12px',
+            borderRadius: '12px',
+            fontSize: '0.75rem',
+            fontWeight: 'bold',
+            backgroundColor: 
+              statusValue === 'ACTIVE' ? '#e8f5e8' :
+              statusValue === 'INACTIVE' ? '#ffe8e8' :
+              '#fff3cd',
+            color: 
+              statusValue === 'ACTIVE' ? '#2e7d32' :
+              statusValue === 'INACTIVE' ? '#d32f2f' :
+              '#856404',
+          }}
+        >
+          {statusValue}
+        </Typography>
+      )
+    }
+  },
+{
+    id: 'supportingCustomers',
+    label: 'Supporting Customers',
+    applyFilter: false,
+    sortable: false,
+    render: (value) => {
+      if (!value || !Array.isArray(value) || value.length === 0) {
+        return 'No customers';
       }
-    },
-    {
-      id: 'numberOfRequirements',
-      label: 'Requirements',
-      applyFilter: true,
-      filterType: 'text',
-      sortable: true,
-      render: (value) => (value || 0)
-    },
-    {
-      id: 'supportingCustomers',
-      label: 'Supporting Customers',
-      applyFilter: false,
-      sortable: false,
-      render: (value) => {
-        if (!value || !Array.isArray(value) || value.length === 0) {
-          return 'No customers';
-        }
-        
-        return (
-          <Box>
-            {value.map((customer, index) => (
+      
+      return (
+        <Box sx={{ width: 170 }}>
+          {value.map((customer, index) => {
+            // Safely extract netPayment value
+            let netPaymentValue = '0';
+            if (customer.netPayment !== null && customer.netPayment !== undefined) {
+              if (typeof customer.netPayment === 'object') {
+                // If it's an object, try to extract a value property
+                netPaymentValue = customer.netPayment.value || customer.netPayment.amount || '0';
+              } else {
+                netPaymentValue = customer.netPayment;
+              }
+            }
+            
+            return (
               <Box 
                 key={index} 
                 sx={{ 
@@ -257,106 +321,116 @@ const UsClients = () => {
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   mb: 0.5,
-                  fontSize: '0.875rem',
-                  width: 170
+                  fontSize: '0.875rem'
                 }}
               >
-                <span>{customer.customerName || 'Unnamed Customer'}</span>
-                <span style={{ color: '#666', marginLeft: '8px' }}>
-                  {customer.netPayment?.toLocaleString() || '0'} Days
-                </span>
+                <Typography variant="body2" component="span">
+                  {customer.customerName || 'Unnamed Customer'}
+                </Typography>
+                <Typography variant="body2" component="span" sx={{ color: '#666', marginLeft: '8px' }}>
+                  {String(netPaymentValue).toLocaleString()} Days
+                </Typography>
               </Box>
-            ))}
-          </Box>
-        );
-      }
-    },
-    {
-      id: 'supportingDocuments',
-      label: 'Supporting Documents',
-      applyFilter: false,
-      sortable: false,
-      render: (value, row) => {
-        if (!value || !Array.isArray(value) || value.length === 0) {
-          return 'No documents';
-        }
-        
-        return (
-          <Box>
-            {value.slice(0, 2).map((document, index) => (
-              <Box 
-                key={index}
-                sx={{
-                  display: 'block',
-                  mb: 0.5,
-                  fontSize: '0.75rem',
-                  color: '#666',
-                }}
-              >
-                {document.length > 30 ? document.substring(0, 30) + '...' : document}
-              </Box>
-            ))}
-            {value.length > 2 && (
-              <Typography variant="caption" color="primary">
-                +{value.length - 2} more
-              </Typography>
-            )}
-            <Box sx={{ mt: 0.5 }}>
-              <Typography 
-                variant="caption" 
-                color="primary" 
-                sx={{ 
-                  cursor: 'pointer',
-                  textDecoration: 'underline',
-                  '&:hover': { color: '#1565c0' }
-                }}
-                onClick={() => handleViewDocuments(row)}
-              >
-                View All Documents
-              </Typography>
-            </Box>
-          </Box>
-        );
-      }
-    },
-    {
-      id: 'actions',
-      label: 'Actions',
-      applyFilter: false,
-      sortable: false,
-      render: (value, row) => (
-        <Box display="flex" gap={1}>
-          <Tooltip title="Edit Client">
-            <IconButton
-              size="small"
-              color="primary"
-              onClick={() => handleEditClient(row)}
-            >
-              <Edit />
-            </IconButton>
-          </Tooltip>
-          {/* <Tooltip title="Download All Documents as ZIP">
-            <IconButton
-              size="small"
-              color="primary"
-              onClick={() => handleDownloadAllDocuments(row.id, row.clientName)}
-            >
-              <Download />
-            </IconButton>
-          </Tooltip> */}
-          <Tooltip title="Delete Client">
-            <IconButton
-              size="small"
-              color="error"
-              onClick={() => handleDeleteClick(row.id, row.clientName)}
-            >
-              <Delete />
-            </IconButton>
-          </Tooltip>
+            );
+          })}
         </Box>
-      ),
+      );
     }
-  ]
+  },
+{
+  id: 'supportingDocuments',
+  label: 'Supporting Documents',
+  applyFilter: false,
+  sortable: false,
+  render: (value, row) => {
+    // Process documents to extract names
+    let documentNames = [];
+    
+    if (value && Array.isArray(value)) {
+      documentNames = value.map(doc => {
+        if (typeof doc === 'string') {
+          return doc;
+        } else if (typeof doc === 'object' && doc !== null) {
+          return doc.fileName || doc.name || 'Unknown Document';
+        }
+        return 'Invalid Document';
+      }).filter(name => name !== 'Invalid Document');
+    }
+    
+    if (documentNames.length === 0) {
+      return 'No documents';
+    }
+    
+    return (
+      <Box>
+        {documentNames.slice(0, 2).map((documentName, index) => (
+          <Typography 
+            key={index}
+            variant="body2"
+            component="div"
+            sx={{
+              display: 'block',
+              mb: 0.5,
+              fontSize: '0.75rem',
+              color: '#666',
+            }}
+          >
+            {documentName.length > 30 ? documentName.substring(0, 30) + '...' : documentName}
+          </Typography>
+        ))}
+        {documentNames.length > 2 && (
+          <Typography variant="caption" color="primary" component="span">
+            +{documentNames.length - 2} more
+          </Typography>
+        )}
+        <Box sx={{ mt: 0.5 }}>
+          <Typography 
+            variant="caption" 
+            color="primary" 
+            component="span"
+            sx={{ 
+              cursor: 'pointer',
+              textDecoration: 'underline',
+              '&:hover': { color: '#1565c0' }
+            }}
+            onClick={() => handleViewDocuments(row)}
+          >
+            View All Documents
+          </Typography>
+        </Box>
+      </Box>
+    );
+  }
+},
+ {
+  id: 'actions',
+  label: 'Actions',
+  applyFilter: false,
+  sortable: false,
+  render: (value, row) => (
+    <Box display="flex" gap={1}>
+      <Tooltip title="Edit Client">
+        <IconButton
+          size="small"
+          color="primary"
+          onClick={() => handleEditClient(row)}
+        >
+          <Edit />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title="Delete Client">
+        <IconButton
+          size="small"
+          color="error"
+          onClick={() => handleDeleteClick(row.clientId, row.clientName)}
+        >
+          <Delete />
+        </IconButton>
+      </Tooltip>
+    </Box>
+  ),
+}
+]
 
   const handleCreateClient = () => {
     navigate('/dashboard/us-clients/create')
@@ -388,35 +462,61 @@ const UsClients = () => {
     setEditingClient(null)
   }
 
-  const handleFormSubmit = async (formData, isEdit, result) => {
+const handleFormSubmit = async (formData, isEdit, result) => {
+  try {
+    console.log('Form submitted successfully:', result);
+    handleCloseDrawer();
+    await fetchClients();
+    
+    // Show success toast
+    ToastService.success(`Client ${isEdit ? 'updated' : 'created'} successfully!`);
+    // Also show snackbar if you want both
+    showSnackbar(`Client ${isEdit ? 'updated' : 'created'} successfully!`, 'success');
+  } catch (error) {
+    console.error('Form submission error:', error);
+    
+    // Show error toast
+    ToastService.error(`Failed to ${isEdit ? 'update' : 'create'} client: ${error.message}`);
+    // Also show snackbar if you want both
+    showSnackbar(`Failed to ${isEdit ? 'update' : 'create'} client`, 'error');
+  }
+};
+
+const handleDeleteClick = async (clientId, clientName) => {
+  const idToDelete = clientId;
+  
+  if (!idToDelete) {
+    ToastService.error('Cannot delete: Client ID is missing');
+    showSnackbar('Cannot delete: Client ID is missing', 'error');
+    return;
+  }
+
+  const displayName = clientName || 'this client';
+  
+  if (window.confirm(`Are you sure you want to delete client "${displayName}"?`)) {
     try {
-      console.log('Form submitted successfully:', result);
-      handleCloseDrawer();
-      await fetchClients();
-      showSnackbar(`Client ${isEdit ? 'updated' : 'create'} successfully!`, 'success');
-    } catch (error) {
-      console.error('Form submission error:', error);
-      showSnackbar(`Failed to ${isEdit ? 'update' : 'create'} client`, 'error');
-    }
-  }
+      console.log('Deleting client with ID:', idToDelete);
+      
+      const response = await httpService.delete(`/api/us/requirements/client/delete/${idToDelete}`);
 
-  const handleDeleteClick = async (clientId, clientName) => {
-    if (window.confirm(`Are you sure you want to delete client "${clientName}"?`)) {
-      try {
-        const response = await httpService.delete(`/api/us/requirements/client/delete/${clientId}`);
-
-        if (response.data && response.data.success) {
-          showSnackbar('Client deleted successfully', 'success');
-          await fetchClients();
-        } else {
-          showSnackbar('Failed to delete client: ' + (response.data?.message || 'Unknown error'), 'error');
-        }
-      } catch (error) {
-        console.error("Delete client failed:", error);
-        showSnackbar('Error deleting client: ' + error.message, 'error');
+      if (response.data && response.data.success) {
+        // Show success toast
+        ToastService.success('Client deleted successfully');
+        showSnackbar('Client deleted successfully', 'success');
+        await fetchClients();
+      } else {
+        const errorMsg = response.data?.message || 'Unknown error';
+        ToastService.error(`Failed to delete client: ${errorMsg}`);
+        showSnackbar(`Failed to delete client: ${errorMsg}`, 'error');
       }
+    } catch (error) {
+      console.error("Delete client failed:", error);
+      const errorMsg = error.response?.data?.message || error.message;
+      ToastService.error(`Error deleting client: ${errorMsg}`);
+      showSnackbar(`Error deleting client: ${errorMsg}`, 'error');
     }
   }
+};
 
   const handlePageChange = (event, newPage) => {
     setPage(newPage)
@@ -550,7 +650,7 @@ const UsClients = () => {
         open={viewDocumentOpen}
         onClose={() => setViewDocumentOpen(false)}
         client={selectedClient}
-        documents={selectedClient?.supportingDocuments || []}
+        documents={selectedClient?.processedDocuments || []}
       />
 
       {/* Snackbar for notifications */}

@@ -250,6 +250,12 @@ const RecruiterInterviews = () => {
       width: 120,
       render: (row) => getInterviewLevelChip(row.interviewLevel),
     },
+     {
+      key: "latestInterviewStatus",
+      label: "Status",
+      width: 140,
+      render: (row) => getStatusChip(row.latestInterviewStatus, row),
+    },
     {
       key: "interviewDateTime",
       label: "Interview Date & Time",
@@ -257,12 +263,6 @@ const RecruiterInterviews = () => {
       render: (row) => formatDateTime(row.interviewDateTime),
     },
     { key: "duration", label: "Duration (min)", width: 120, align: "center" },
-    {
-      key: "latestInterviewStatus",
-      label: "Status",
-      width: 140,
-      render: (row) => getStatusChip(row.latestInterviewStatus, row),
-    },
     {
       key: "moveToBench",
       label: "Move to Bench",

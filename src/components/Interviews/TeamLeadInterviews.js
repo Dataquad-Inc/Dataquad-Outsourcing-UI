@@ -394,18 +394,18 @@ const handleEdit = (row, isReschedule = false, isScheduleJoining = false) => {
         render: (row) => getInterviewLevelChip(row.interviewLevel),
       },
       {
+        key: "latestInterviewStatus",
+        label: "Status",
+        width: 140,
+        render: (row) => getStatusChip(row.latestInterviewStatus, row, dispatch),
+      },
+      {
         key: "interviewDateTime",
         label: "Interview Date & Time",
         width: 200,
         render: (row) => formatDateTime(row.interviewDateTime),
       },
       { key: "duration", label: "Duration (min)", width: 120, align: "center" },
-      {
-        key: "latestInterviewStatus",
-        label: "Status",
-        width: 140,
-        render: (row) => getStatusChip(row.latestInterviewStatus, row, dispatch),
-      },
       {
         key: "zoomLink",
         label: "Meeting",

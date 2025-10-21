@@ -415,6 +415,17 @@ const AllInterviews = () => {
           ),
       },
       {
+        key: "latestInterviewStatus",
+        label: "Status",
+        width: 140,
+        render: (row) =>
+          loading || coordinatorLoading ? (
+            <Skeleton variant="rectangular" width={100} height={24} />
+          ) : (
+            getStatusChip(row.latestInterviewStatus, row, dispatch)
+          ),
+      },
+      {
         key: "interviewDateTime",
         label: "Date & Time",
         width: 180,
@@ -435,17 +446,6 @@ const AllInterviews = () => {
             <Skeleton width={50} height={24} />
           ) : (
             row.duration
-          ),
-      },
-      {
-        key: "latestInterviewStatus",
-        label: "Status",
-        width: 140,
-        render: (row) =>
-          loading || coordinatorLoading ? (
-            <Skeleton variant="rectangular" width={100} height={24} />
-          ) : (
-            getStatusChip(row.latestInterviewStatus, row, dispatch)
           ),
       },
       {
