@@ -56,7 +56,6 @@ const DocumentViewDialog = ({ open, onClose, client, documents }) => {
     const [previewContent, setPreviewContent] = useState(null);
     const [availableFiles, setAvailableFiles] = useState([]);
     const [filesLoading, setFilesLoading] = useState(false);
-    const [zipBlob, setZipBlob] = useState(null);
 
     // Load files when dialog opens
     useEffect(() => {
@@ -64,110 +63,51 @@ const DocumentViewDialog = ({ open, onClose, client, documents }) => {
             loadFiles();
         } else {
             setAvailableFiles([]);
-            setZipBlob(null);
         }
     }, [open, client]);
 
     const loadFiles = async () => {
-        if (!client || !client.id) return;
+        if (!client || !client.supportingDocuments) return;
 
         setFilesLoading(true);
         setError(null);
+        
         try {
-            const cleanClientId = String(client.id).trim();
-            const apiUrl = `https://mymulya.com/api/us/requirements/ClientsDocuments/downloadAll/${cleanClientId}`;
+            // Map supportingDocuments to file objects
+            const fileObjects = client.supportingDocuments.map((doc) => ({
+                id: doc.id,
+                name: doc.fileName,
+                size: doc.size,
+                type: getFileType(doc.fileName),
+                contentType: doc.contentType,
+                uploadedAt: doc.uploadedAt,
+                filePath: doc.filePath
+            }));
+            
+            setAvailableFiles(fileObjects);
+        } catch (error) {
+            console.error('Error loading files:', error);
+            setError('Failed to load documents: ' + error.message);
+        } finally {
+            setFilesLoading(false);
+        }
+    };
 
-            // Fetch the ZIP file
+    const fetchFileBlob = async (documentId) => {
+        try {
+            const apiUrl = `https://mymulya.com/api/us/requirements/client/download/${documentId}`;
+            
             const response = await fetch(apiUrl);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
             const blob = await response.blob();
-            setZipBlob(blob);
-
-            // Extract file list from ZIP
-            const fileObjects = await extractFileListFromZip(blob);
-            setAvailableFiles(fileObjects);
-
-        } catch (error) {
-            console.error('Error loading files:', error);
-            setError('Failed to load documents: ' + error.message);
-
-            // Fallback: create file objects from document names
-            const fileObjects = createFallbackFileObjects();
-            setAvailableFiles(fileObjects);
-        } finally {
-            setFilesLoading(false);
-        }
-    };
-
-    const extractFileListFromZip = async (blob) => {
-        try {
-            // Dynamically import JSZip
-            const JSZip = (await import('jszip')).default;
-            const zip = new JSZip();
-            const zipContent = await zip.loadAsync(blob);
-
-            const fileObjects = [];
-
-            // Extract file information without loading file content
-            zipContent.forEach((relativePath, zipEntry) => {
-                if (!zipEntry.dir) {
-                    fileObjects.push({
-                        id: zipEntry.name,
-                        name: zipEntry.name,
-                        size: zipEntry._data.uncompressedSize,
-                        type: getFileType(zipEntry.name),
-                        lastModified: zipEntry.date || new Date(),
-                        zipPath: zipEntry.name
-                    });
-                }
-            });
-
-            return fileObjects;
-        } catch (error) {
-            console.error('Error extracting ZIP file list:', error);
-            throw error;
-        }
-    };
-
-    const extractFileFromZip = async (fileName) => {
-        if (!zipBlob) {
-            throw new Error('ZIP file not loaded');
-        }
-
-        try {
-            const JSZip = (await import('jszip')).default;
-            const zip = new JSZip();
-            const zipContent = await zip.loadAsync(zipBlob);
-
-            const fileEntry = zipContent.file(fileName);
-            if (!fileEntry) {
-                throw new Error(`File ${fileName} not found in ZIP`);
-            }
-
-            const blob = await fileEntry.async('blob');
             return blob;
         } catch (error) {
-            console.error('Error extracting file from ZIP:', error);
+            console.error('Error fetching file:', error);
             throw error;
         }
-    };
-
-    const createFallbackFileObjects = () => {
-        if (!documents || documents.length === 0) {
-            return [];
-        }
-
-        return documents.map((docName, index) => ({
-            id: index,
-            name: docName,
-            type: getFileType(docName),
-            size: 0,
-            lastModified: new Date(),
-            zipPath: docName
-        }));
     };
 
     const handlePreview = async (file) => {
@@ -177,8 +117,7 @@ const DocumentViewDialog = ({ open, onClose, client, documents }) => {
         setPreviewContent(null);
 
         try {
-            // Extract and preview the specific file from ZIP
-            await previewFileFromZip(file);
+            await previewFile(file);
         } catch (error) {
             console.error('Preview failed:', error);
             setPreviewContent(
@@ -201,15 +140,14 @@ const DocumentViewDialog = ({ open, onClose, client, documents }) => {
         }
     };
 
-    const previewFileFromZip = async (file) => {
+    const previewFile = async (file) => {
         const fileType = getFileType(file.name);
 
         try {
-            // Extract the specific file from ZIP
-            const fileBlob = await extractFileFromZip(file.name);
+            // Fetch the file blob
+            const fileBlob = await fetchFileBlob(file.id);
 
             if (fileType === "pdf") {
-                // Create a proper PDF blob with correct MIME type
                 const pdfBlob = new Blob([fileBlob], { type: 'application/pdf' });
                 const pdfUrl = URL.createObjectURL(pdfBlob);
 
@@ -227,33 +165,6 @@ const DocumentViewDialog = ({ open, onClose, client, documents }) => {
                                     display: 'block'
                                 }}
                             />
-                            {/* Fallback options */}
-                            {/* <Box sx={{ 
-              position: 'absolute', 
-              top: 8, 
-              right: 8, 
-              display: 'flex', 
-              gap: 1 
-            }}>
-              <Button
-                variant="contained"
-                size="small"
-                startIcon={<OpenInNewIcon />}
-                onClick={() => {
-                  window.open(pdfUrl, '_blank');
-                }}
-              >
-                Open in New Tab
-              </Button>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<Download />}
-                onClick={() => handleDownloadIndividualFile(file)}
-              >
-                Download
-              </Button>
-            </Box> */}
                         </Box>
                         <Box sx={{ p: 1, bgcolor: 'background.paper', borderTop: 1, borderColor: 'divider' }}>
                             <Typography variant="caption" color="text.secondary">
@@ -330,7 +241,6 @@ const DocumentViewDialog = ({ open, onClose, client, documents }) => {
                     </Box>
                 );
             } else if (fileType === "text") {
-                const url = URL.createObjectURL(fileBlob);
                 try {
                     const text = await fileBlob.text();
                     setPreviewContent(
@@ -355,7 +265,6 @@ const DocumentViewDialog = ({ open, onClose, client, documents }) => {
                         </Box>
                     );
                 } catch (textError) {
-                    // If text extraction fails, show download option
                     setPreviewContent(
                         <Box sx={{ textAlign: "center", p: 4 }}>
                             {getPreviewIcon(file.name)}
@@ -375,7 +284,6 @@ const DocumentViewDialog = ({ open, onClose, client, documents }) => {
                         </Box>
                     );
                 }
-                URL.revokeObjectURL(url);
             } else if (fileType === "audio") {
                 const url = URL.createObjectURL(fileBlob);
                 setPreviewContent(
@@ -433,7 +341,6 @@ const DocumentViewDialog = ({ open, onClose, client, documents }) => {
                     </Box>
                 );
             } else {
-                // For other file types, show download option
                 const url = URL.createObjectURL(fileBlob);
                 setPreviewContent(
                     <Box sx={{ textAlign: "center", p: 4 }}>
@@ -485,10 +392,10 @@ const DocumentViewDialog = ({ open, onClose, client, documents }) => {
             );
         }
     };
+
     const handleDownloadIndividualFile = async (file) => {
         try {
-            // Extract and download the specific file from ZIP
-            const fileBlob = await extractFileFromZip(file.name);
+            const fileBlob = await fetchFileBlob(file.id);
             const url = URL.createObjectURL(fileBlob);
 
             const link = document.createElement('a');
@@ -499,7 +406,6 @@ const DocumentViewDialog = ({ open, onClose, client, documents }) => {
             link.click();
             document.body.removeChild(link);
 
-            // Clean up URL after download
             setTimeout(() => URL.revokeObjectURL(url), 1000);
 
             showSuccess(`Downloaded ${file.name} successfully!`);
@@ -510,8 +416,8 @@ const DocumentViewDialog = ({ open, onClose, client, documents }) => {
     };
 
     const handleDownloadAll = async () => {
-        if (!client || !client.id) {
-            setError('Client information is missing');
+        if (!client || !client.supportingDocuments || client.supportingDocuments.length === 0) {
+            setError('No documents available to download');
             return;
         }
 
@@ -519,19 +425,26 @@ const DocumentViewDialog = ({ open, onClose, client, documents }) => {
         setError(null);
 
         try {
-            const cleanClientId = String(client.id).trim();
-            const downloadUrl = `https://mymulya.com/api/us/requirements/ClientsDocuments/downloadAll/${cleanClientId}`;
+            // Download all files sequentially
+            for (const doc of client.supportingDocuments) {
+                const fileBlob = await fetchFileBlob(doc.id);
+                const url = URL.createObjectURL(fileBlob);
 
-            const link = document.createElement('a');
-            link.href = downloadUrl;
-            link.download = `Client_${client.clientName}_Documents.zip`;
-            link.target = '_blank';
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = doc.fileName;
+                link.style.display = 'none';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
 
-            showSuccess('Download started successfully! Check your downloads folder.');
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+                
+                // Small delay between downloads
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+
+            showSuccess('All documents downloaded successfully!');
 
         } catch (error) {
             console.error('Error downloading documents:', error);
@@ -608,6 +521,12 @@ const DocumentViewDialog = ({ open, onClose, client, documents }) => {
         return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + " " + sizes[i];
     };
 
+    const formatDate = (dateString) => {
+        if (!dateString) return "N/A";
+        const date = new Date(dateString);
+        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+    };
+
     return (
         <>
             <Dialog
@@ -641,26 +560,25 @@ const DocumentViewDialog = ({ open, onClose, client, documents }) => {
 
                     {success && (
                         <Alert severity="success" sx={{ mb: 2 }}>
-                            Download started successfully! Check your downloads folder.
+                            Download completed successfully!
                         </Alert>
                     )}
 
                     <Alert severity="info" sx={{ mb: 2 }}>
                         <Typography variant="body2">
                             <strong>Note:</strong> Click on any document to preview or download it individually.
-                            All files are extracted from the ZIP archive on-demand.
                         </Typography>
                     </Alert>
 
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        {availableFiles.length} document(s) found in ZIP archive
+                        {availableFiles.length} document(s) available
                     </Typography>
 
                     {/* Document List */}
                     {filesLoading ? (
                         <Box display="flex" justifyContent="center" alignItems="center" height="100px">
                             <CircularProgress />
-                            <Typography sx={{ ml: 2 }}>Loading documents from ZIP...</Typography>
+                            <Typography sx={{ ml: 2 }}>Loading documents...</Typography>
                         </Box>
                     ) : (
                         <Paper variant="outlined" sx={{ borderRadius: 2 }}>
@@ -755,6 +673,12 @@ const DocumentViewDialog = ({ open, onClose, client, documents }) => {
                                                                 >
                                                                     {formatFileSize(file.size)}
                                                                 </Typography>
+                                                                <Typography
+                                                                    variant="body2"
+                                                                    color="text.secondary"
+                                                                >
+                                                                    • {formatDate(file.uploadedAt)}
+                                                                </Typography>
                                                             </Stack>
                                                         }
                                                     />
@@ -771,7 +695,7 @@ const DocumentViewDialog = ({ open, onClose, client, documents }) => {
                     {availableFiles.length === 0 && !filesLoading && (
                         <Box display="flex" justifyContent="center" alignItems="center" height="100px">
                             <Typography color="text.secondary">
-                                No documents available in ZIP archive
+                                No documents available
                             </Typography>
                         </Box>
                     )}
@@ -785,7 +709,7 @@ const DocumentViewDialog = ({ open, onClose, client, documents }) => {
                         startIcon={downloadLoading ? <CircularProgress size={16} /> : <Download />}
                         disabled={downloadLoading || availableFiles.length === 0}
                     >
-                        {downloadLoading ? 'Downloading...' : `Download All as ZIP (${availableFiles.length})`}
+                        {downloadLoading ? 'Downloading...' : `Download All (${availableFiles.length})`}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -849,7 +773,7 @@ const DocumentViewDialog = ({ open, onClose, client, documents }) => {
                             }}
                         >
                             <CircularProgress />
-                            <Typography sx={{ ml: 2 }}>Extracting and loading preview...</Typography>
+                            <Typography sx={{ ml: 2 }}>Loading preview...</Typography>
                         </Box>
                     ) : (
                         previewContent

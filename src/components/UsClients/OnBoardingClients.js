@@ -48,6 +48,7 @@ import {
 } from "@mui/icons-material";
 import { useSelector } from "react-redux";
 import httpService from "../../Services/httpService";
+import axios from "axios";
 
 // Create a custom theme
 const theme = createTheme({
@@ -98,21 +99,18 @@ const ClientForm = ({
 }) => {
   const navigate = useNavigate();
   const [files, setFiles] = useState([]);
+  const [removedFiles, setRemovedFiles] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currency, setCurrency] = useState(initialData?.currency || "USD");
-  const { userName } = useSelector((state) => state.auth);
+  const { userName, userId } = useSelector((state) => state.auth);
   const [onBoardedByName, setOnBoardedBy] = useState(
-    initialData?.onBoardedBy || userName
-  );
-
-  const { employeesList: employees = [] } = useSelector(
-    (state) => state.employee || {}
+    initialData?.onBoardedByName || userName
   );
 
   useEffect(() => {
     if (initialData) {
-      setCurrency(initialData.currency || "INR");
-      setOnBoardedBy(initialData.onBoardedBy || "");
+      setCurrency(initialData.currency || "USD");
+      setOnBoardedBy(initialData.onBoardedByName || "");
 
       // Initialize files if editing and supportingDocuments are available
       if (
@@ -120,12 +118,31 @@ const ClientForm = ({
         initialData.supportingDocuments &&
         Array.isArray(initialData.supportingDocuments)
       ) {
-        setFiles(
-          initialData.supportingDocuments.map((docName) => ({
-            name: docName,
+        const initialFiles = initialData.supportingDocuments.map((doc, index) => {
+          if (typeof doc === 'string') {
+            return {
+              id: index,
+              name: doc,
+              isExisting: true,
+              originalName: doc
+            };
+          } else if (typeof doc === 'object' && doc !== null) {
+            return {
+              id: doc.id || index,
+              name: doc.fileName || doc.name || 'Unknown Document',
+              isExisting: true,
+              originalData: doc,
+              originalName: doc.fileName || doc.name || 'Unknown Document'
+            };
+          }
+          return {
+            name: String(doc),
             isExisting: true,
-          }))
-        );
+            originalName: String(doc)
+          };
+        });
+        
+        setFiles(initialFiles.filter(Boolean));
       }
     }
   }, [initialData, isEdit]);
@@ -155,13 +172,6 @@ const ClientForm = ({
             { value: "Internship", label: "Internship" },
           ],
         },
-        // {
-        //   name: "assignedTo",
-        //   label: "Assigned To",
-        //   type: "text",
-        //   xs: 12, sm: 6, md: 4,
-        //   icon: <Assignment color="primary" />,
-        // },
         {
           name: "clientWebsiteUrl",
           label: "Client Website URL",
@@ -189,146 +199,175 @@ const ClientForm = ({
       ],
     },
     {
-  section: "Payment Information",
-  fields: [
-    {
-      name: "currency",
-      label: "Currency",
-      type: "select",
-      xs: 12, sm: 6, md: 3,
-      icon: <AttachMoney color="primary" />,
-      defaultValue: "USD", // Add this line
-      options: [
-        // { value: "INR", label: "Rupee (INR)" },
-        { value: "USD", label: "Dollar (USD)" },
+      section: "Payment Information",
+      fields: [
+        {
+          name: "currency",
+          label: "Currency",
+          type: "select",
+          xs: 12, sm: 6, md: 3,
+          icon: <AttachMoney color="primary" />,
+          defaultValue: "USD",
+          options: [
+            { value: "USD", label: "Dollar (USD)" },
+          ],
+          customHandler: (e, setFieldValue) => {
+            setCurrency(e.target.value);
+            setFieldValue("currency", e.target.value);
+          },
+        },
+        {
+          name: "netPayment",
+          label: "Net Payment",
+          type: "number",
+          placeholder: "0",
+          xs: 12, sm: 6, md: 3,
+          endAdornment: <InputAdornment position="end">Days</InputAdornment>,
+        },
       ],
-      customHandler: (e, setFieldValue) => {
-        setCurrency(e.target.value);
-        setFieldValue("currency", e.target.value);
-      },
     },
-    {
-      name: "netPayment",
-      label: "Net Payment",
-      type: "number",
-      placeholder: "0",
-      xs: 12, sm: 6, md: 3,
-      endAdornment: <InputAdornment position="end">Days</InputAdornment>,
-    },
-  ],
-},
   ];
 
   const validationSchema = Yup.object().shape({
     clientName: Yup.string()
       .required("Client name is required")
+      .min(2, "Client name must be at least 2 characters")
       .max(50, "Client name must be at most 50 characters"),
+
     clientAddress: Yup.string()
       .nullable()
       .max(250, "Client address must be at most 250 characters"),
-    positionType: Yup.string().nullable(),
-    assignedTo: Yup.string().nullable(),
-    netPayment: Yup.number()
-      .positive("Must be a positive number")
+
+    positionType: Yup.string()
       .nullable()
-      .transform((value, originalValue) =>
-        originalValue === "" ? null : value
-      ),
-    supportingCustomers: Yup.array().of(
-      Yup.object().shape({
-        customerName: Yup.string().nullable(),
-        netPayment: Yup.number()
-          .min(0, "Net Payment cannot be negative")
-          .nullable()
-          .transform((value, originalValue) => originalValue === "" ? null : value)
-      })
-    ),
+      .oneOf(["Full-Time", "Part-Time", "Contract", "Internship", ""], "Invalid position type"),
+
+    currency: Yup.string()
+      .required("Currency is required")
+      .oneOf(["USD", "INR"], "Invalid currency"),
+
+    netPayment: Yup.number()
+      .typeError("Net payment must be a number")
+      .min(0, "Net payment cannot be negative")
+      .nullable(),
+
     clientWebsiteUrl: Yup.string()
       .url("Must be a valid URL")
-      .nullable()
-      .transform((value) => (value === "" ? null : value)),
+      .nullable(),
+
     clientLinkedInUrl: Yup.string()
       .url("Must be a valid URL")
+      .nullable(),
+
+    supportingCustomers: Yup.array()
+      .of(
+        Yup.object().shape({
+          customerName: Yup.string()
+            .nullable()
+            .max(100, "Customer name must be at most 100 characters"),
+          netPayment: Yup.number()
+            .typeError("Net payment must be a number")
+            .min(0, "Net payment cannot be negative")
+            .nullable(),
+        })
+      ),
+      
+
+    status: Yup.string()
       .nullable()
-      .transform((value) => (value === "" ? null : value)),
-    clientSpocName: Yup.array().of(Yup.string().nullable()),
-    clientSpocEmailid: Yup.array().of(
-      Yup.string().email("Invalid email format").nullable()
-    ),
-    clientSpocMobileNumber: Yup.array().of(
-      Yup.string()
-        .matches(
-          /^[0-9]{10}$|^[0-9]{15}$/,
-          "Phone number must be either 10 or 15 digits"
-        )
-        .nullable()
-    ),
-    clientSpocLinkedin: Yup.array().of(
-      Yup.string()
-        .url("Must be a valid LinkedIn URL")
-        .nullable()
-        .transform((value) => (value === "" ? null : value))
-    ),
-    supportingDocuments: Yup.array().of(Yup.string().nullable()).nullable(),
-    onBoardedBy: Yup.string().nullable(),
-    feedBack: Yup.string()
-      .nullable()
-      .max(1000, "Feedback must be at most 1000 characters")
-      .transform((value) => (value === "" ? null : value)),
+      .oneOf(["ACTIVE", "INACTIVE", "PENDING", ""], "Invalid status"),
+
+    numberOfRequirements: Yup.number()
+      .typeError("Number of requirements must be a number")
+      .min(0, "Number of requirements cannot be negative")
+      .nullable(),
   });
 
-  // Set default initial values
   const defaultInitialValues = {
     clientName: "",
     clientAddress: "",
     positionType: "",
-    assignedTo: "",
     netPayment: "",
-    onBoardedBy: onBoardedByName,
+    onBoardedByName: onBoardedByName,
     supportingCustomers: [],
     clientWebsiteUrl: "",
     clientLinkedInUrl: "",
-    clientSpocName: [""],
-    clientSpocEmailid: [""],
-    clientSpocMobileNumber: [""],
-    clientSpocLinkedin: [""],
     supportingDocuments: [],
     currency: "USD",
-    feedBack: ""
+    feedBack: "",
+    status: "ACTIVE",
+    numberOfRequirements: 0
   };
 
-  // Merge with initialData if available and ensure proper structure
   const getFormInitialValues = () => {
-    if (!initialData) return defaultInitialValues;
+    console.log('=== GET FORM INITIAL VALUES ===');
+    console.log('initialData:', initialData);
+    
+    if (!initialData) {
+      console.log('No initialData, using defaults');
+      return defaultInitialValues;
+    }
 
-    // Create a deep copy to avoid mutation
-    const mergedValues = { ...defaultInitialValues, ...initialData };
-
-    // Ensure arrays are properly initialized
-    const ensureArray = (field, defaultValue = [""]) => {
-      if (!Array.isArray(mergedValues[field]) || mergedValues[field].length === 0) {
-        mergedValues[field] = defaultValue;
+    const safeValue = (value, defaultVal = "") => {
+      if (value === null || value === undefined) return defaultVal;
+      if (typeof value === 'object') {
+        console.warn('Found object in safeValue:', value);
+        if (value.fileName) {
+          return value.fileName;
+        }
+        return value.value || value.amount || value.days || value.name || value.text || String(defaultVal);
       }
+      return value;
     };
 
-    ensureArray('clientSpocName');
-    ensureArray('clientSpocEmailid');
-    ensureArray('clientSpocMobileNumber');
-    ensureArray('clientSpocLinkedin');
+    const mergedValues = {
+      clientName: safeValue(initialData.clientName, ""),
+      clientAddress: safeValue(initialData.clientAddress, ""),
+      positionType: safeValue(initialData.positionType, ""),
+      netPayment: safeValue(initialData.netPayment, ""),
+      onBoardedByName: safeValue(initialData.onBoardedByName, onBoardedByName),
+      clientWebsiteUrl: safeValue(initialData.clientWebsiteUrl, ""),
+      clientLinkedInUrl: safeValue(initialData.clientLinkedInUrl, ""),
+      currency: safeValue(initialData.currency, "USD"),
+      feedBack: safeValue(initialData.feedBack, ""),
+      status: safeValue(initialData.status, "ACTIVE"),
+      numberOfRequirements: safeValue(initialData.numberOfRequirements, 0),
+      supportingCustomers: []
+    };
+
+    if (initialData.supportingCustomers) {
+      if (Array.isArray(initialData.supportingCustomers)) {
+        mergedValues.supportingCustomers = initialData.supportingCustomers.map((customer, idx) => {
+          console.log(`Processing customer ${idx}:`, customer);
+          
+          if (typeof customer === 'string') {
+            return {
+              customerName: customer,
+              netPayment: ""
+            };
+          }
+          
+          if (typeof customer === 'object' && customer !== null) {
+            const processedCustomer = {
+              customerName: safeValue(customer.customerName, ""),
+              netPayment: safeValue(customer.netPayment, "")
+            };
+            
+            console.log(`Processed customer ${idx}:`, processedCustomer);
+            return processedCustomer;
+          }
+          
+          return {
+            customerName: "",
+            netPayment: ""
+          };
+        });
+      }
+    }
+
+    console.log('Final merged values:', mergedValues);
+    console.log('=== END GET FORM INITIAL VALUES ===');
     
-    if (!Array.isArray(mergedValues.supportingCustomers)) {
-      mergedValues.supportingCustomers = [];
-    }
-
-    // Convert simple string array to object array if needed
-    if (mergedValues.supportingCustomers.length > 0 && 
-        typeof mergedValues.supportingCustomers[0] === 'string') {
-      mergedValues.supportingCustomers = mergedValues.supportingCustomers.map(customer => ({
-        customerName: customer,
-        netPayment: ""
-      }));
-    }
-
     return mergedValues;
   };
 
@@ -341,7 +380,6 @@ const ClientForm = ({
       return;
     }
 
-    // Check total file size (max 10MB)
     const currentSize = files.reduce(
       (sum, file) => sum + (file.isExisting ? 0 : file.size),
       0
@@ -363,14 +401,22 @@ const ClientForm = ({
     );
   };
 
-  const removeFile = (indexToRemove) => {
-    setFiles((prevFiles) =>
-      prevFiles.filter((_, index) => index !== indexToRemove)
-    );
+const removeFile = (indexToRemove) => {
+  const fileToRemove = files[indexToRemove];
+  
+  // Track removed existing files
+  if (fileToRemove.isExisting && fileToRemove.originalName) {
+    setRemovedFiles(prev => [...prev, fileToRemove.originalName]);
+    showToast("File marked for removal", "info");
+  } else {
     showToast("File removed", "info");
-  };
-
-  // API call function - Create Client
+  }
+  
+  setFiles((prevFiles) =>
+    prevFiles.filter((_, index) => index !== indexToRemove)
+  );
+};
+  // FIXED: Use FormData with multipart/form-data
   const createClient = async (formData) => {
     try {
       const response = await httpService.post(`/api/us/requirements/client/addClient`, formData, {
@@ -382,11 +428,15 @@ const ClientForm = ({
       return response.data;
     } catch (error) {
       console.error("Create client API call failed:", error);
-      throw new Error(error.response?.data?.message || "Failed to create client");
+      
+      if (error.response?.data) {
+        throw new Error(error.response.data.message || JSON.stringify(error.response.data));
+      }
+      throw new Error(error.message || "Failed to create client");
     }
   };
 
-  // Update client function (for edit mode)
+  // FIXED: Use FormData with multipart/form-data for update
   const updateClient = async (formData, clientId) => {
     try {
       const response = await httpService.put(`/api/us/requirements/client/${clientId}`, formData, {
@@ -398,111 +448,118 @@ const ClientForm = ({
       return response.data;
     } catch (error) {
       console.error("Update client API call failed:", error);
-      throw new Error(error.response?.data?.message || "Failed to update client");
-    }
-  };
-
-  const handleSubmit = async (values, { resetForm }) => {
-    setIsSubmitting(true);
-
-    try {
-      // Create a FormData object for file upload
-      const formData = new FormData();
-
-      // Prepare the client data according to API structure
-      const clientData = {
-        clientName: values.clientName,
-        clientAddress: values.clientAddress,
-        positionType: values.positionType,
-        netPayment: values.netPayment ? Number(values.netPayment) : 0,
-        supportingCustomers: values.supportingCustomers.map(customer => ({
-          customerName: customer.customerName,
-          netPayment: customer.netPayment ? Number(customer.netPayment) : 0
-        })),
-        clientWebsiteUrl: values.clientWebsiteUrl || "",
-        clientLinkedInUrl: values.clientLinkedInUrl || "",
-        supportingDocuments: [],
-        onBoardedBy: onBoardedByName,
-        assignedTo: values.assignedTo,
-        status: values.status || "ACTIVE",
-        feedBack: values.feedBack || "",
-        numberOfRequirements: values.numberOfRequirements || 0,
-        currency: currency,
-        // Contact information arrays
-        clientSpocName: values.clientSpocName.filter(name => name && name.trim() !== ""),
-        clientSpocEmailid: values.clientSpocEmailid.filter(email => email && email.trim() !== ""),
-        clientSpocMobileNumber: values.clientSpocMobileNumber.filter(mobile => mobile && mobile.trim() !== ""),
-        clientSpocLinkedin: values.clientSpocLinkedin.filter(linkedin => linkedin && linkedin.trim() !== ""),
-      };
-
-      // Add existing supporting document filenames if we're editing
-      if (isEdit) {
-        clientData.supportingDocuments = files
-          .filter((file) => file.isExisting)
-          .map((file) => file.name);
-      }
-
-      // Append the JSON object as a string with the correct field name
-      formData.append("dto", JSON.stringify(clientData));
-
-      // Append new files only (not the existing ones which we only have names for)
-      files
-        .filter((file) => !file.isExisting)
-        .forEach((file) => {
-          formData.append("supportingDocuments", file);
-        });
-
-      let result;
       
-      if (isEdit && initialData?.id) {
-        result = await updateClient(formData, initialData.id);
-        showToast("Client updated successfully!", "success");
-      } else {
-        result = await createClient(formData);
-        showToast("Client created successfully!", "success");
+      if (error.response?.data) {
+        throw new Error(error.response.data.message || JSON.stringify(error.response.data));
       }
-
-      // If parent component provided custom onSubmit handler, call it
-      if (onSubmit) {
-        await onSubmit(values, isEdit, result);
-      }
-
-      if (!isEdit) {
-        resetForm();
-        setFiles([]);
-        navigate('/dashboard/us-clients');
-      }
-
-      return result;
-
-    } catch (error) {
-      console.error("Form submission error:", error);
-      showToast(error.message || "Failed to submit form", "error");
-      throw error;
-    } finally {
-      setIsSubmitting(false);
+      throw new Error(error.message || "Failed to update client");
     }
   };
 
-  const addContactPerson = (values, setFieldValue) => {
-    const fields = ['clientSpocName', 'clientSpocEmailid', 'clientSpocMobileNumber', 'clientSpocLinkedin'];
-    fields.forEach((field) => {
-      setFieldValue(field, [...values[field], ""]);
+const handleSubmit = async (values, { resetForm }) => {
+  setIsSubmitting(true);
+
+  try {
+    const formData = new FormData();
+
+    // Build the client data object matching your API structure
+    const clientData = {
+      clientName: values.clientName,
+      clientAddress: values.clientAddress || "",
+      positionType: values.positionType || "Full-Time",
+      netPayment: values.netPayment ? Number(values.netPayment) : 0,
+      supportingCustomers: values.supportingCustomers.map(customer => ({
+        customerName: customer.customerName || "",
+        netPayment: customer.netPayment ? Number(customer.netPayment) : 0
+      })),
+      clientWebsiteUrl: values.clientWebsiteUrl || "",
+      clientLinkedInUrl: values.clientLinkedInUrl || "",
+      onBoardedById: userId,
+      onBoardedByName: userName,
+      status: values.status || "ACTIVE",
+      feedBack: values.feedBack || "",
+      numberOfRequirements: values.numberOfRequirements || 0,
+      currency: currency || "USD",
+    };
+
+    console.log("Submitting client data:", JSON.stringify(clientData, null, 2));
+    console.log("Removed files:", removedFiles);
+    console.log("Is Edit Mode:", isEdit);
+    console.log("Client ID:", initialData?.clientId);
+
+    // Append the JSON object as a string
+    formData.append("dto", JSON.stringify(clientData));
+
+    // Append ALL files as supportingDocuments - both new files AND removed files
+    const newFiles = files.filter((file) => !file.isExisting);
+    
+    // Append new files
+    newFiles.forEach((file) => {
+      formData.append("supportingDocuments", file);
     });
-    showToast("New contact person added", "info");
-  };
 
-  const removeContactPerson = (index, values, setFieldValue) => {
-    if (values.clientSpocName.length > 1) {
-      const fields = ['clientSpocName', 'clientSpocEmailid', 'clientSpocMobileNumber', 'clientSpocLinkedin'];
-      fields.forEach((field) => {
-        const newArray = [...values[field]];
-        newArray.splice(index, 1);
-        setFieldValue(field, newArray);
-      });
-      showToast("Contact person removed", "info");
+    // Append removed files as well (if you need to send them as supportingDocuments)
+    // Note: Since removed files are just filenames (not File objects), we need to handle this
+    // If backend expects File objects for removed files, we need a different approach
+    removedFiles.forEach((filename) => {
+      // Create a dummy file or send as string - depends on backend expectation
+      const dummyFile = new File([], filename, { type: 'application/octet-stream' });
+      formData.append("supportingDocuments", dummyFile);
+    });
+
+    console.log("New files being uploaded:", newFiles.length);
+    console.log("Removed files count:", removedFiles.length);
+    console.log("Total supportingDocuments being sent:", newFiles.length + removedFiles.length);
+
+    // Log FormData contents for debugging
+    console.log("FormData contents:");
+    for (let [key, value] of formData.entries()) {
+      console.log(key, value instanceof File ? `${value.name} (File)` : value);
     }
-  };
+
+    let result;
+    
+    if (isEdit && initialData && initialData.clientId) {
+      console.log("Calling UPDATE API for client ID:", initialData.clientId);
+      result = await updateClient(formData, initialData.clientId);
+      showToast("Client updated successfully!", "success");
+    } else {
+      console.log("Calling CREATE API");
+      result = await createClient(formData);
+      showToast("Client created successfully!", "success");
+    }
+
+    // Reset removed files after successful submission
+    setRemovedFiles([]);
+
+    if (!isEdit) {
+      resetForm();
+      setFiles([]);
+      navigate('/dashboard/us-clients');
+    }
+
+    // Call the onSubmit prop if provided
+    if (onSubmit) {
+      onSubmit(formData, isEdit, result);
+    }
+
+    return result;
+
+  } catch (error) {
+    console.error("Form submission error:", error);
+    
+    if (error.response) {
+      console.error("Server response:", error.response.data);
+      console.error("Status code:", error.response.status);
+      console.error("Response headers:", error.response.headers);
+    }
+    
+    showToast(error.message || "Failed to submit form", "error");
+    throw error;
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const renderFormField = (field, values, errors, touched, setFieldValue) => {
     if (field.type === "select") {
@@ -578,6 +635,8 @@ const ClientForm = ({
   };
 
   const handleCancel = () => {
+    setRemovedFiles([]);
+    
     if (isEdit && onCancel) {
       onCancel();
     } else {
@@ -634,146 +693,37 @@ const ClientForm = ({
                   </React.Fragment>
                 ))}
 
-                {/* Contact Persons Section */}
-                {/* <Grid item xs={12}>
-                  <Typography
-                    variant="h6"
-                    color="primary"
-                    sx={{
-                      mt: 1,
-                      mb: 1,
-                      fontWeight: 500,
-                      display: "flex",
-                      alignItems: "center",
-                    }}
-                  >
-                    <People sx={{ mr: 1 }} /> Contact Persons
-                  </Typography>
-                  <Divider sx={{ mb: 3 }} />
-                </Grid> */}
-
-                {/* {values.clientSpocName.map((_, index) => (
-                  <React.Fragment key={index}>
-                    <Grid item xs={12} sm={6} md={3}>
-                      <Field name={`clientSpocName.${index}`}>
-                        {({ field, meta }) => (
-                          <TextField
+                {/* Status Field for Edit Mode */}
+                {isEdit && (
+                  <Grid item xs={12} sm={6} md={4}>
+                    <Field name="status">
+                      {({ field, meta }) => (
+                        <FormControl fullWidth error={meta.touched && Boolean(meta.error)}>
+                          <InputLabel>Status</InputLabel>
+                          <Select
                             {...field}
-                            fullWidth
-                            label="Contact Name"
-                            placeholder="Enter contact name"
-                            error={meta.touched && Boolean(meta.error)}
-                            helperText={meta.touched && meta.error}
-                            InputProps={{
-                              startAdornment: (
-                                <InputAdornment position="start">
-                                  <Person color="primary" />
-                                </InputAdornment>
-                              ),
-                            }}
-                          />
-                        )}
-                      </Field>
-                    </Grid>
-
-                    <Grid item xs={12} sm={6} md={3}>
-                      <Field name={`clientSpocEmailid.${index}`}>
-                        {({ field, meta }) => (
-                          <TextField
-                            {...field}
-                            fullWidth
-                            label="Contact Email"
-                            type="email"
-                            placeholder="email@example.com"
-                            error={meta.touched && Boolean(meta.error)}
-                            helperText={meta.touched && meta.error}
-                            InputProps={{
-                              startAdornment: (
-                                <InputAdornment position="start">
-                                  <Email color="primary" />
-                                </InputAdornment>
-                              ),
-                            }}
-                          />
-                        )}
-                      </Field>
-                    </Grid>
-
-                    <Grid item xs={12} sm={6} md={3}>
-                      <Field name={`clientSpocMobileNumber.${index}`}>
-                        {({ field, meta }) => (
-                          <TextField
-                            {...field}
-                            fullWidth
-                            label="Contact Mobile"
-                            placeholder="Enter 10 or 15 digit number"
-                            error={meta.touched && Boolean(meta.error)}
-                            helperText={meta.touched && meta.error}
-                            InputProps={{
-                              startAdornment: (
-                                <InputAdornment position="start">
-                                  <Phone color="primary" />
-                                </InputAdornment>
-                              ),
-                            }}
-                          />
-                        )}
-                      </Field>
-                    </Grid>
-
-                    <Grid item xs={12} sm={6} md={2}>
-                      <Field name={`clientSpocLinkedin.${index}`}>
-                        {({ field, meta }) => (
-                          <TextField
-                            {...field}
-                            fullWidth
-                            label="LinkedIn URL"
-                            placeholder="https://linkedin.com/in/"
-                            error={meta.touched && Boolean(meta.error)}
-                            helperText={meta.touched && meta.error}
-                            InputProps={{
-                              startAdornment: (
-                                <InputAdornment position="start">
-                                  <LinkedIn color="primary" />
-                                </InputAdornment>
-                              ),
-                            }}
-                          />
-                        )}
-                      </Field>
-                    </Grid>
-
-                    <Grid item xs={12} sm={6} md={1}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-                        {values.clientSpocName.length > 1 && (
-                          <IconButton
-                            color="error"
-                            onClick={() => removeContactPerson(index, values, setFieldValue)}
-                            sx={{
-                              border: "1px solid",
-                              borderColor: "divider",
-                              borderRadius: 2,
-                            }}
+                            label="Status"
+                            startAdornment={
+                              <InputAdornment position="start">
+                                <WorkOutline color="primary" />
+                              </InputAdornment>
+                            }
                           >
-                            <RemoveCircleOutline />
-                          </IconButton>
-                        )}
-                      </Box>
-                    </Grid>
-                  </React.Fragment>
-                ))} */}
-{/* 
-                <Grid item xs={12}>
-                  <Button
-                    startIcon={<AddCircleOutline />}
-                    variant="outlined"
-                    color="primary"
-                    onClick={() => addContactPerson(values, setFieldValue)}
-                    sx={{ mt: 1 }}
-                  >
-                    Add Contact Person
-                  </Button>
-                </Grid> */}
+                            <MenuItem value="ACTIVE">Active</MenuItem>
+                            <MenuItem value="INACTIVE">Inactive</MenuItem>
+                            <MenuItem value="PENDING">Pending</MenuItem>
+                          </Select>
+                          {meta.touched && meta.error && (
+                            <Typography variant="caption" color="error">
+                              {meta.error}
+                            </Typography>
+                          )}
+                        </FormControl>
+                      )}
+                    </Field>
+                  </Grid>
+                )}
+
 
                 {/* Supporting Customers Section */}
                 <Grid item xs={12}>
@@ -1009,6 +959,7 @@ const ClientForm = ({
                       onClick={() => {
                         resetForm();
                         if (!isEdit) setFiles([]);
+                        setRemovedFiles([]);
                         showToast("Form has been reset", "info");
                       }}
                       startIcon={<RestartAlt />}
