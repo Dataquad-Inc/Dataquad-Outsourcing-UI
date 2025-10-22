@@ -557,7 +557,7 @@ const AllInterviews = () => {
       align: "center",
       render: (row) => {
         const status = row.latestInterviewStatus?.toUpperCase();
-        const showReschedule = ["CANCELLED","NO_SHOW"].includes(status);
+        const showReschedule = ["CANCELLED","NO_SHOW","RESCHEDULED"].includes(status);
         const showScheduleJoining = status === "SELECTED";
 
         return (
