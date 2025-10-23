@@ -71,6 +71,6 @@ export const usNavItems = (role) => [
     text: "Clients",
     path: "us-clients",
     icon: <BusinessIcon />,
-    roles: ["SUPERADMIN", "ADMIN"],
+    roles: commonRoles,
   },
 ];
