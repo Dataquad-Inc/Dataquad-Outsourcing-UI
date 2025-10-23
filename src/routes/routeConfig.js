@@ -800,7 +800,7 @@ const routeConfig = [
             path: "us-clients",
             element: (
               <ProtectedRoute
-                allowedRoles={["SUPERADMIN", "ADMIN"]}
+                allowedRoles={["SUPERADMIN","EMPLOYEE","TEAMLEAD", "RECRUITER","SALESEXECUTIVE","ADMIN",]}
                 allowedEntities={["US"]}
               />
             ),
