@@ -104,7 +104,7 @@ const HotList = React.memo(() => {
 
     } catch (err) {
       console.error("Error fetching hotlist:", err);
-      showErrorToast("Failed to load hotlist ");
+      showErrorToast("Failed to load hotlist");
     } finally {
       setLoading(false);
     }
@@ -155,8 +155,8 @@ const HotList = React.memo(() => {
   const handleFormSuccess = useCallback((data, action) => {
     showSuccessToast(
       action === "create"
-        ? "Consultant created successfully "
-        : "Consultant updated successfully "
+        ? "Consultant created successfully"
+        : "Consultant updated successfully"
     );
     setShowCreateForm(false);
     setEditingConsultant(null);
@@ -167,30 +167,54 @@ const HotList = React.memo(() => {
   const handleDelete = useCallback((row) => {
     const deleteConsultantAction = async () => {
       try {
-        const result = await hotlistAPI.deleteConsultant(row.consultantId,userId);
-        showSuccessToast(result.message || "Consultant deleted ");
+        const result = await hotlistAPI.deleteConsultant(row.consultantId, userId);
+        showSuccessToast(result.message || "Consultant deleted");
         setRefreshKey((prev) => prev + 1);
       } catch (error) {
         console.error("Delete error:", error);
-        showErrorToast("Failed to delete consultant ");
+        showErrorToast("Failed to delete consultant");
       }
     };
     showDeleteConfirm(deleteConsultantAction, row.name || "this consultant");
-  }, []);
+  }, [userId]);
 
   const handleNavigate = (consultantId) => {
     navigate(`/dashboard/hotlist/consultants/${consultantId}`);
   };
+
+  /** ---------------- View Handler ---------------- */
+  const handleView = useCallback((row) => {
+    navigate(`/dashboard/hotlist/consultants/${row.consultantId}`);
+  }, [navigate]);
+
+  /** ----------------   RTR Handler ---------------- */
+  // const handleNavigateRTR = useCallback((row) => {
+  //   // Navigate to RTR submission page with consultant data
+  //   navigate(`/dashboard/rtr/submit/${row.consultantId}`, {
+  //     state: { consultant: row }
+  //   });
+  // }, [navigate]);
+  const handleNavigateRTR = useCallback((row) => {
+  // Navigate to RTR form with consultant data in state
+  navigate(`/dashboard/rtr/rtr-form`, {
+    state: { 
+      consultantId: row.consultantId,
+      consultantName: row.name 
+    }
+  });
+}, [navigate]);
 
   /** ---------------- Columns ---------------- */
   const columns = getHotListColumns({
     handleNavigate,
     handleEdit,
     handleDelete,
+    handleView,
+    handleNavigateRTR, // ✅ Now passing the function
     loading,
     userRole: role,
     userId: userId,
-    filterOptions, // pass filter options
+    filterOptions,
   });
 
   /** ---------------- Render ---------------- */
