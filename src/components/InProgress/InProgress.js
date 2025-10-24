@@ -214,6 +214,46 @@ const processedData = useMemo(() => {
             filterable: true,
             width: 120
         },
+         {
+            key: "jobTitle",
+            label: "Job Title",
+            type: "text",
+            sortable: true,
+            filterable: true,
+            width: 120
+        },
+         {
+            key: "jobMode",
+            label: "Job Mode",
+            type: "text",
+            sortable: true,
+            filterable: true,
+            width: 120
+        },
+         {
+            key: "jobType",
+            label: "Job Type",
+            type: "text",
+            sortable: true,
+            filterable: true,
+            width: 120
+        },
+         {
+            key: "experienceRequired",
+            label: "Experience Required",
+            type: "text",
+            sortable: true,
+            filterable: true,
+            width: 120
+        },
+         {
+            key: "relevantExperience",
+            label: "Relevant Experience",
+            type: "text",
+            sortable: true,
+            filterable: true,
+            width: 120
+        },
         {
             key: "clientName",
             label: "Client",

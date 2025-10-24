@@ -355,18 +355,93 @@ const TimesheetList = () => {
       width: 120
     },
     {
-      key: 'totalWorkingDays',
+      key: 'totalMonthWorkingDays',
+      label: 'Total Days (Month)',
+      render: row => (
+        <Chip
+
+          label={`${row?.totalMonthWorkingDays} days`}
+          size="small"
+          variant="outlined"
+          sx={{
+            borderColor: theme.palette.info.light,
+            backgroundColor: alpha(theme.palette.info.light, 0.1),
+            color: theme.palette.info.dark,
+            fontWeight: 600
+          }}
+        />
+      ),
+      width: 140
+    },
+    {
+      key: 'weekendDays',
+      label: 'Weekend Days (Month)',
+      render: row => (
+        <Chip
+
+          label={`${row?.weekendDays} days`}
+          size="small"
+          variant="outlined"
+          sx={{
+            borderColor: theme.palette.primary.light,
+            backgroundColor: alpha(theme.palette.primary.light, 0.1),
+            color: theme.palette.primary.dark,
+            fontWeight: 600
+          }}
+        />
+      ),
+      width: 140
+    },
+    {
+      key: 'lastWorkedDays',
       label: 'Working Days',
+      render: row => (
+        <Chip
+          label={`${row?.lastWorkedDays} days`}
+          size="small"
+          variant="outlined"
+          sx={{
+            borderColor: theme.palette.success.light,
+            backgroundColor: alpha(theme.palette.success.light, 0.1),
+            color: theme.palette.success.dark,
+            fontWeight: 600
+          }}
+        />
+      ),
+      width: 140
+    },
+
+    {
+      key: 'totalWorkingDays',
+      label: 'Worked Days',
       render: row => (
         <Chip
           label={`${row?.totalWorkingDays} days`}
           size="small"
           variant="outlined"
           sx={{
-            borderColor: theme.palette.success.light,
-            backgroundColor: alpha(theme.palette.success.light, 0.1),
-            color: 'success.dark',
+            borderColor: theme.palette.info.dark,
+            backgroundColor: alpha(theme.palette.info.dark, 0.1),
+            color: 'info.dark',
             fontWeight: 600
+          }}
+        />
+      ),
+      width: 120
+    },
+    {
+      key: 'publicHolidays',
+      label: 'Public Holidays',
+      render: row => (
+        <Chip
+          label={row?.publicHolidays}
+          size="small"
+          variant="outlined"
+          sx={{
+            borderColor: theme.palette.warning.light,
+            backgroundColor: alpha(theme.palette.warning.light, 0.1),
+            color: 'warning.dark',
+            fontWeight: 500
           }}
         />
       ),
