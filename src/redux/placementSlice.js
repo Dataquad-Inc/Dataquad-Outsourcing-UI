@@ -110,8 +110,10 @@ export const fetchPlacements = createAsyncThunk(
 // Async thunk to create a new placement
 export const createPlacement = createAsyncThunk(
   "placement/createPlacement",
-  async (placementData, { rejectWithValue, dispatch }) => {
+  async (placementData, { rejectWithValue, dispatch,getState }) => {
     try {
+      const state=getState();
+      const userId=state.auth.userId;
       const submissionValues = {
         ...placementData,
         startDate: placementData.startDate
@@ -123,7 +125,7 @@ export const createPlacement = createAsyncThunk(
       };
 
       const response = await httpService.post(
-        "/candidate/placement/create-placement",
+        `/candidate/placement/create-placement/${userId}`,
         submissionValues
       );
 
@@ -150,7 +152,7 @@ export const createPlacement = createAsyncThunk(
 // Async thunk to update a placement
 export const updatePlacement = createAsyncThunk(
   "placement/updatePlacement",
-  async ({ id, placementData }, { rejectWithValue, dispatch }) => {
+  async ({ id, placementData }, { rejectWithValue, dispatch,getState }) => {
     try {
       const submissionValues = {
         ...placementData,
@@ -161,9 +163,11 @@ export const updatePlacement = createAsyncThunk(
           ? formatDateForAPI(placementData.endDate)
           : null,
       };
-
+      
+      const state=getState();
+      const userId=state.auth.userId
       const response = await httpService.put(
-        `/candidate/placement/update-placement/${id}`,
+        `/candidate/placement/update-placement/${id}/${userId}`,
         submissionValues
       );
 

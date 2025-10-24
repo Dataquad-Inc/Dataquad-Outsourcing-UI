@@ -8,10 +8,12 @@ import ToastService from "../Services/toastService";
 
 export const addtoPlacementHandler = createAsyncThunk(
     '/addPlacement',
-    async(data, {rejectWithValue}) => {
-      
+    async(data, {rejectWithValue,getState}) => {
+      const state = getState();
+      const userId = state.auth.userId;
+
         try{
-            const url = `/candidate/placement/create-placement`;
+            const url = `/candidate/placement/create-placement/${userId}`;
             const response = await httpService.post(url, data);
             console.log("response: ", response);
             return response.data;

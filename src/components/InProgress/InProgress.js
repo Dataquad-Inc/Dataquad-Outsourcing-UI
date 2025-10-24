@@ -240,19 +240,21 @@ const processedData = useMemo(() => {
         },
          {
             key: "experienceRequired",
-            label: "Experience Required",
+            label: "Required Exp",
             type: "text",
             sortable: true,
             filterable: true,
-            width: 120
+            align:'center',
+            width: 50
         },
          {
             key: "relevantExperience",
-            label: "Relevant Experience",
+            label: "Relevant Exp",
             type: "text",
             sortable: true,
             filterable: true,
-            width: 120
+            align:'center',
+            width: 50
         },
         {
             key: "clientName",
