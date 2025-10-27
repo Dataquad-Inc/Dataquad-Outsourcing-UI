@@ -1019,218 +1019,252 @@ const Timesheets = () => {
   };
 
 
-  const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
-    if (!apiTimesheet) {
-      console.log('No timesheet found, returning null');
-      return null;
-    }
+const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
+  if (!apiTimesheet) {
+    console.log('No timesheet found, returning null');
+    return null;
+  }
 
-    const currentMonth = currentCalendarMonth.getMonth();
-    const currentYear = currentCalendarMonth.getFullYear();
+  const currentMonth = currentCalendarMonth.getMonth();
+  const currentYear = currentCalendarMonth.getFullYear();
 
-    const weekDates = getWeekDatesArray(new Date(selectedWeekStart));
-    const currentMonthDates = weekDates.filter(date =>
-      date.getMonth() === currentMonth && date.getFullYear() === currentYear
-    );
+  // Get all dates in the selected week
+  const weekDates = getWeekDatesArray(new Date(selectedWeekStart));
+  
+  // Create a map of day names to their actual dates
+  const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+  const dayToDateMap = {};
+  const dateToDayMap = {}; // NEW: Map dates to day names
+  
+  days.forEach((day, index) => {
+    const date = weekDates[index];
+    dayToDateMap[day] = date;
+    dateToDayMap[formatDateToYMD(date)] = day; // NEW: Create reverse mapping
+  });
 
-    const otherMonthDates = weekDates.filter(date =>
-      date.getMonth() !== currentMonth || date.getFullYear() !== currentYear
-    );
+  console.log('Date to Day mapping:', dateToDayMap);
 
-    let currentMonthStatus = 'DRAFT';
-    let hasCurrentMonthEntries = false;
-    let hasCurrentMonthSubmission = false;
+  // Calculate status
+  let currentMonthStatus = 'DRAFT';
+  const hasAnyEntriesInCurrentMonth = apiTimesheet.workingEntries?.some(entry => {
+    const entryDate = new Date(entry.date);
+    return entryDate.getMonth() === currentMonth && 
+           entryDate.getFullYear() === currentYear &&
+           entry.project === selectedProject;
+  }) || apiTimesheet.nonWorkingEntries?.some(entry => {
+    const entryDate = new Date(entry.date);
+    return entryDate.getMonth() === currentMonth && 
+           entryDate.getFullYear() === currentYear;
+  });
 
-    // Check working entries for current month
-    if (apiTimesheet.workingEntries && apiTimesheet.workingEntries.length > 0) {
-      const currentMonthWorkingEntries = apiTimesheet.workingEntries.filter(entry => {
-        const entryDate = new Date(entry.date);
-        return entryDate.getMonth() === currentMonth &&
-          entryDate.getFullYear() === currentYear &&
-          entry.project === selectedProject;
-      });
+  if (hasAnyEntriesInCurrentMonth && apiTimesheet.status && apiTimesheet.status !== 'DRAFT') {
+    currentMonthStatus = apiTimesheet.status;
+  } else if (hasAnyEntriesInCurrentMonth) {
+    currentMonthStatus = 'DRAFT';
+  }
 
-      if (currentMonthWorkingEntries.length > 0) {
-        hasCurrentMonthEntries = true;
-        if (apiTimesheet.status && apiTimesheet.status !== 'DRAFT') {
-          hasCurrentMonthSubmission = true;
-        }
-      }
-    }
+  const submitted = (currentMonthStatus === 'SUBMITTED' ||
+    currentMonthStatus === 'APPROVED' ||
+    currentMonthStatus === 'PENDING_APPROVAL') && !isEditMode;
+  setIsSubmitted(submitted);
 
-    // Check non-working entries for current month
-    if (apiTimesheet.nonWorkingEntries && apiTimesheet.nonWorkingEntries.length > 0) {
-      const currentMonthNonWorkingEntries = apiTimesheet.nonWorkingEntries.filter(entry => {
-        const entryDate = new Date(entry.date);
-        return entryDate.getMonth() === currentMonth &&
-          entryDate.getFullYear() === currentYear;
-      });
-
-      if (currentMonthNonWorkingEntries.length > 0) {
-        hasCurrentMonthEntries = true;
-        if (apiTimesheet.status && apiTimesheet.status !== 'DRAFT') {
-          hasCurrentMonthSubmission = true;
-        }
-      }
-    }
-
-    if (hasCurrentMonthEntries) {
-      if (hasCurrentMonthSubmission) {
-        currentMonthStatus = apiTimesheet.status;
-      } else {
-        currentMonthStatus = 'DRAFT';
-      }
-    } else {
-      currentMonthStatus = 'DRAFT';
-    }
-
-    const submitted = (currentMonthStatus === 'SUBMITTED' ||
-      currentMonthStatus === 'APPROVED' ||
-      currentMonthStatus === 'PENDING_APPROVAL') && !isEditMode;
-    setIsSubmitted(submitted);
-
-    const transformed = {
-      id: apiTimesheet.timesheetId || null,
-      userId: apiTimesheet.userId || userId,
-      project: selectedProject,
-      timesheetType: apiTimesheet.timesheetType || 'WEEKLY',
-      status: currentMonthStatus,
-      startDate: apiTimesheet.weekStartDate || '',
-      endDate: apiTimesheet.weekEndDate || '',
+  const transformed = {
+    id: apiTimesheet.timesheetId || null,
+    userId: apiTimesheet.userId || userId,
+    project: selectedProject,
+    timesheetType: apiTimesheet.timesheetType || 'WEEKLY',
+    status: currentMonthStatus,
+    startDate: apiTimesheet.weekStartDate || '',
+    endDate: apiTimesheet.weekEndDate || '',
+    monday: 0,
+    tuesday: 0,
+    wednesday: 0,
+    thursday: 0,
+    friday: 0,
+    saturday: 0,
+    sunday: 0,
+    notes: apiTimesheet.notes || '',
+    workingEntries: apiTimesheet.workingEntries || [],
+    nonWorkingEntries: apiTimesheet.nonWorkingEntries || [],
+    isEditable: isEditMode || (!submitted && (currentMonthStatus === 'DRAFT' || !currentMonthStatus)),
+    percentageOfTarget: apiTimesheet.percentageOfTarget || 0,
+    dayStatuses: {
+      monday: 'Working',
+      tuesday: 'Working',
+      wednesday: 'Working',
+      thursday: 'Working',
+      friday: 'Working',
+      saturday: 'Working',
+      sunday: 'Working'
+    },
+    sickLeave: {
       monday: 0,
       tuesday: 0,
       wednesday: 0,
       thursday: 0,
       friday: 0,
       saturday: 0,
-      sunday: 0,
-      notes: apiTimesheet.notes || '',
-      workingEntries: apiTimesheet.workingEntries || [],
-      nonWorkingEntries: apiTimesheet.nonWorkingEntries || [],
-      isEditable: isEditMode || (!submitted && (currentMonthStatus === 'DRAFT' || !currentMonthStatus)),
-      percentageOfTarget: apiTimesheet.percentageOfTarget || 0,
-      dayStatuses: {
-        monday: 'Working',
-        tuesday: 'Working',
-        wednesday: 'Working',
-        thursday: 'Working',
-        friday: 'Working',
-        saturday: 'Working',
-        sunday: 'Working'
-      },
-      sickLeave: {
-        monday: 0,
-        tuesday: 0,
-        wednesday: 0,
-        thursday: 0,
-        friday: 0,
-        saturday: 0,
-        sunday: 0
-      },
-      companyHoliday: {
-        monday: 0,
-        tuesday: 0,
-        wednesday: 0,
-        thursday: 0,
-        friday: 0,
-        saturday: 0,
-        sunday: 0
-      },
-      clientName: apiTimesheet.clientName || '',
-      approver: apiTimesheet.approver || '',
-      startDate: apiTimesheet.startDate || apiTimesheet.weekStartDate || ''
-    };
-
-    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-
-    // Track which days have actual data entries
-    const daysWithWorkingData = new Set();
-    const daysWithNonWorkingData = new Set();
-
-    // Process working entries - ONLY for current month
-    if (apiTimesheet.workingEntries && apiTimesheet.workingEntries.length > 0) {
-      apiTimesheet.workingEntries.forEach(entry => {
-        const entryDate = new Date(entry.date);
-        const dayOfWeek = entryDate.getDay();
-
-        let dayIndex;
-        if (dayOfWeek === 0) {
-          dayIndex = 6;
-        } else {
-          dayIndex = dayOfWeek - 1;
-        }
-
-        const dayName = days[dayIndex];
-        const hours = parseFloat(entry.hours) || 0;
-
-        const isInCurrentMonth = entryDate.getMonth() === currentMonth &&
-          entryDate.getFullYear() === currentYear;
-        const isInSelectedWeek = isDateInSelectedWeek(entryDate, selectedWeekStart);
-
-        if (dayName && isInCurrentMonth && isInSelectedWeek && entry.project === selectedProject) {
-          console.log(`Adding ${hours} working hours to ${dayName} for date ${entry.date} (current month)`);
-          transformed[dayName] = hours; // Direct assignment, don't add to existing value
-          daysWithWorkingData.add(dayName);
-        }
-      });
-    }
-
-    // Process non-working entries - ONLY for current month
-    if (apiTimesheet.nonWorkingEntries) {
-      apiTimesheet.nonWorkingEntries.forEach(entry => {
-        const entryDate = new Date(entry.date);
-        const dayOfWeek = entryDate.getDay();
-
-        let dayIndex;
-        if (dayOfWeek === 0) {
-          dayIndex = 6;
-        } else {
-          dayIndex = dayOfWeek - 1;
-        }
-
-        const dayName = days[dayIndex];
-        const hours = parseFloat(entry.hours) || 0;
-        const description = entry.description?.toLowerCase() || '';
-
-        const isInCurrentMonth = entryDate.getMonth() === currentMonth &&
-          entryDate.getFullYear() === currentYear;
-        const isInSelectedWeek = isDateInSelectedWeek(entryDate, selectedWeekStart);
-
-        if (dayName && isInCurrentMonth && isInSelectedWeek) {
-          if (description.includes('sick leave')) {
-            transformed.sickLeave[dayName] = hours; // Direct assignment
-            daysWithNonWorkingData.add(dayName);
-          } else if (description.includes('company holiday') || description.includes('holiday')) {
-            transformed.companyHoliday[dayName] = hours; // Direct assignment
-            daysWithNonWorkingData.add(dayName);
-          }
-        }
-      });
-    }
-
-    // FIXED: For rejected timesheets in edit mode, preserve zero values and don't set defaults
-    if (currentMonthStatus === 'DRAFT' || (currentMonthStatus === 'REJECTED' && !isEditMode)) {
-      days.forEach(day => {
-        const dayDate = getDateForDay(selectedWeekStart, day);
-        const isInCurrentMonth = dayDate ?
-          (dayDate.getMonth() === currentMonth && dayDate.getFullYear() === currentYear) :
-          false;
-
-        // Only set default values for days that have NO data entries
-        if (isInCurrentMonth &&
-          !daysWithWorkingData.has(day) &&
-          !daysWithNonWorkingData.has(day) &&
-          ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].includes(day)) {
-          transformed[day] = 8;
-        }
-      });
-    }
-
-    transformed.percentageOfTarget = calculatePercentage(transformed);
-    setNotes(transformed.notes);
-
-    return transformed;
+      sunday: 0
+    },
+    companyHoliday: {
+      monday: 0,
+      tuesday: 0,
+      wednesday: 0,
+      thursday: 0,
+      friday: 0,
+      saturday: 0,
+      sunday: 0
+    },
+    clientName: apiTimesheet.clientName || '',
+    approver: apiTimesheet.approver || '',
+    startDate: apiTimesheet.startDate || apiTimesheet.weekStartDate || ''
   };
+
+  // Track which days have non-working data IN CURRENT CALENDAR MONTH
+  const daysWithNonWorkingData = new Set();
+
+  // FIRST: Process non-working entries - USING DATE MAPPING
+  if (apiTimesheet.nonWorkingEntries) {
+    apiTimesheet.nonWorkingEntries.forEach(entry => {
+      const entryDate = new Date(entry.date);
+      const entryDateStr = formatDateToYMD(entryDate);
+      
+      // Check if this entry date is in the current calendar view month
+      const isInCurrentCalendarMonth = entryDate.getMonth() === currentMonth &&
+        entryDate.getFullYear() === currentYear;
+
+      // Get the day name from our date mapping
+      const dayName = dateToDayMap[entryDateStr];
+      const hours = parseFloat(entry.hours) || 0;
+      const description = entry.description?.toLowerCase() || '';
+
+      if (dayName && isInCurrentCalendarMonth) {
+        if (description.includes('sick leave')) {
+          transformed.sickLeave[dayName] = hours;
+          daysWithNonWorkingData.add(dayName);
+          console.log(`Set sick leave for ${dayName}: ${hours} hours (date: ${entry.date})`);
+        } else if (description.includes('company holiday') || description.includes('holiday')) {
+          transformed.companyHoliday[dayName] = hours;
+          daysWithNonWorkingData.add(dayName);
+          console.log(`Set company holiday for ${dayName}: ${hours} hours (date: ${entry.date})`);
+        }
+      }
+    });
+  }
+
+  // SECOND: Process working entries - USING DATE MAPPING
+  if (apiTimesheet.workingEntries && apiTimesheet.workingEntries.length > 0) {
+    apiTimesheet.workingEntries.forEach(entry => {
+      const entryDate = new Date(entry.date);
+      const entryDateStr = formatDateToYMD(entryDate);
+      
+      // Check if this entry date is in the current calendar view month
+      const isInCurrentCalendarMonth = entryDate.getMonth() === currentMonth &&
+        entryDate.getFullYear() === currentYear;
+
+      // Get the day name from our date mapping
+      const dayName = dateToDayMap[entryDateStr];
+      const hours = parseFloat(entry.hours) || 0;
+
+      // Only process if in current calendar month and for selected project
+      if (dayName && isInCurrentCalendarMonth && entry.project === selectedProject) {
+        // Only add working hours if this day doesn't have non-working data
+        if (!daysWithNonWorkingData.has(dayName)) {
+          transformed[dayName] = hours;
+          console.log(`Adding ${hours} working hours to ${dayName} for date ${entry.date} (current calendar month: ${currentMonth + 1})`);
+        } else {
+          console.log(`Skipping working hours for ${dayName} because non-working entry exists`);
+          transformed[dayName] = 0; // Explicitly set to 0 when non-working entry exists
+        }
+      }
+    });
+  }
+
+  // THIRD: Set default hours ONLY for days that have no data
+  if (currentMonthStatus === 'DRAFT' || (currentMonthStatus === 'REJECTED' && !isEditMode)) {
+    days.forEach(day => {
+      const dayDate = dayToDateMap[day];
+      
+      // Check if this day is in the current calendar view month
+      const isInCurrentCalendarMonth = dayDate && 
+        dayDate.getMonth() === currentMonth && 
+        dayDate.getFullYear() === currentYear;
+
+      // Only process weekdays that are in current calendar month
+      if (isInCurrentCalendarMonth && 
+          ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].includes(day) &&
+          !daysWithNonWorkingData.has(day) && 
+          transformed[day] === 0) {
+        
+        // Check if this specific day has any entries in the API data for current month
+        const dayDateStr = formatDateToYMD(dayDate);
+        const hasWorkingEntry = apiTimesheet.workingEntries?.some(entry => 
+          formatDateToYMD(new Date(entry.date)) === dayDateStr && 
+          entry.project === selectedProject
+        );
+        const hasNonWorkingEntry = apiTimesheet.nonWorkingEntries?.some(entry => 
+          formatDateToYMD(new Date(entry.date)) === dayDateStr
+        );
+
+        // Only set default if no entry exists for this specific day
+        if (!hasWorkingEntry && !hasNonWorkingEntry) {
+          transformed[day] = 8;
+          console.log(`Setting default 8 hours for ${day} (${dayDateStr}) in calendar month ${currentMonth + 1}`);
+        } else {
+          console.log(`Not setting default for ${day} (${dayDateStr}) - entry exists`);
+        }
+      }
+    });
+  }
+
+  transformed.percentageOfTarget = calculatePercentage(transformed);
+  setNotes(transformed.notes);
+
+  console.log('Final transformed timesheet for calendar month:', {
+    calendarMonth: currentMonth + 1,
+    calendarYear: currentYear,
+    weekRange: `${formatDateToYMD(weekDates[0])} to ${formatDateToYMD(weekDates[6])}`,
+    daysInCurrentMonth: days.filter(day => {
+      const date = dayToDateMap[day];
+      return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+    }),
+    daysWithNonWorkingData: Array.from(daysWithNonWorkingData),
+    transformedHours: {
+      monday: { 
+        value: transformed.monday, 
+        date: formatDateToYMD(dayToDateMap.monday),
+        sickLeave: transformed.sickLeave.monday,
+        companyHoliday: transformed.companyHoliday.monday
+      },
+      tuesday: { 
+        value: transformed.tuesday, 
+        date: formatDateToYMD(dayToDateMap.tuesday),
+        sickLeave: transformed.sickLeave.tuesday,
+        companyHoliday: transformed.companyHoliday.tuesday
+      },
+      wednesday: { 
+        value: transformed.wednesday, 
+        date: formatDateToYMD(dayToDateMap.wednesday),
+        sickLeave: transformed.sickLeave.wednesday,
+        companyHoliday: transformed.companyHoliday.wednesday
+      },
+      thursday: { 
+        value: transformed.thursday, 
+        date: formatDateToYMD(dayToDateMap.thursday),
+        sickLeave: transformed.sickLeave.thursday,
+        companyHoliday: transformed.companyHoliday.thursday
+      },
+      friday: { 
+        value: transformed.friday, 
+        date: formatDateToYMD(dayToDateMap.friday),
+        sickLeave: transformed.sickLeave.friday,
+        companyHoliday: transformed.companyHoliday.friday
+      }
+    }
+  });
+
+  return transformed;
+};
 
 
   useEffect(() => {
@@ -1900,7 +1934,7 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
     return emptyTimesheet;
   };
 
-  const saveTimesheet = async (isSubmission = false, isEdit = false) => {
+const saveTimesheet = async (isSubmission = false, isEdit = false) => {
     if (!currentTimesheet) return;
 
     // Check if this is a rejected timesheet that needs special handling
@@ -1928,6 +1962,11 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
 
           const dateStr = formatDateToYMD(dayDate);
 
+          // Check if this day has any non-working entries
+          const hasSickLeave = currentTimesheet.sickLeave && currentTimesheet.sickLeave[day] > 0;
+          const hasHoliday = currentTimesheet.companyHoliday && currentTimesheet.companyHoliday[day] > 0;
+          const hasAnyNonWorkingEntry = hasSickLeave || hasHoliday;
+
           // Check if this day is enabled (in current calendar month)
           const isInCalendarMonth = isDateInCalendarMonth(dayDate, calendarValue);
 
@@ -1937,9 +1976,7 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
           if (isRejectedTimesheet && !isEditMode && !isEdit) {
             // For rejected timesheets not in edit mode, only include days with data
             const hasWorkingHours = currentTimesheet[day] > 0;
-            const hasSickLeave = currentTimesheet.sickLeave && currentTimesheet.sickLeave[day] > 0;
-            const hasHoliday = currentTimesheet.companyHoliday && currentTimesheet.companyHoliday[day] > 0;
-            shouldIncludeDay = (hasWorkingHours || hasSickLeave || hasHoliday) && isInCalendarMonth;
+            shouldIncludeDay = (hasWorkingHours || hasAnyNonWorkingEntry) && isInCalendarMonth;
           }
 
           // FIXED: Additional check to ensure dates belong to the correct timesheet week
@@ -1951,7 +1988,8 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
 
           // Only process days that should be included and are in the correct week
           if (shouldIncludeDay && isInSelectedWeek) {
-            if (currentTimesheet[day] >= 0 && !['saturday', 'sunday'].includes(day)) {
+            // CRITICAL FIX: Only add working entry if there's NO non-working entry for this day
+            if (!hasAnyNonWorkingEntry && currentTimesheet[day] >= 0 && !['saturday', 'sunday'].includes(day)) {
               workingEntries.push({
                 date: dateStr,
                 hours: currentTimesheet[day],
@@ -1960,7 +1998,7 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
             }
 
             // Sick leave - only if > 0
-            if (currentTimesheet.sickLeave && currentTimesheet.sickLeave[day] > 0) {
+            if (hasSickLeave) {
               nonWorkingEntries.push({
                 date: dateStr,
                 hours: currentTimesheet.sickLeave[day],
@@ -1970,7 +2008,7 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
             }
 
             // Company holiday - only if > 0
-            if (currentTimesheet.companyHoliday && currentTimesheet.companyHoliday[day] > 0) {
+            if (hasHoliday) {
               nonWorkingEntries.push({
                 date: dateStr,
                 hours: currentTimesheet.companyHoliday[day],
@@ -2061,6 +2099,11 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
 
           const dateStr = formatDateToYMD(dayDate);
 
+          // Check if this day has any non-working entries
+          const hasSickLeave = currentTimesheet.sickLeave && currentTimesheet.sickLeave[day] > 0;
+          const hasHoliday = currentTimesheet.companyHoliday && currentTimesheet.companyHoliday[day] > 0;
+          const hasAnyNonWorkingEntry = hasSickLeave || hasHoliday;
+
           // Check if this day is enabled (in current calendar month)
           const isInCalendarMonth = isDateInCalendarMonth(dayDate, calendarValue);
 
@@ -2069,7 +2112,8 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
 
           // Only process days that are in the current calendar month (or force include for rejected)
           if (shouldIncludeDay) {
-            if (currentTimesheet[day] >= 0 && !['saturday', 'sunday'].includes(day)) {
+            // CRITICAL FIX: Only add working entry if there's NO non-working entry for this day
+            if (!hasAnyNonWorkingEntry && currentTimesheet[day] >= 0 && !['saturday', 'sunday'].includes(day)) {
               workingEntries.push({
                 date: dateStr,
                 hours: currentTimesheet[day],
@@ -2078,7 +2122,7 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
             }
 
             // Sick leave - only if > 0
-            if (currentTimesheet.sickLeave && currentTimesheet.sickLeave[day] > 0) {
+            if (hasSickLeave) {
               nonWorkingEntries.push({
                 date: dateStr,
                 hours: currentTimesheet.sickLeave[day],
@@ -2088,7 +2132,7 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
             }
 
             // Company holiday - only if > 0
-            if (currentTimesheet.companyHoliday && currentTimesheet.companyHoliday[day] > 0) {
+            if (hasHoliday) {
               nonWorkingEntries.push({
                 date: dateStr,
                 hours: currentTimesheet.companyHoliday[day],
@@ -2265,6 +2309,11 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
 
         const dateStr = formatDateToYMD(dayDate);
 
+        // Check if this day has any non-working entries
+        const hasSickLeave = currentTimesheet.sickLeave && currentTimesheet.sickLeave[day] > 0;
+        const hasHoliday = currentTimesheet.companyHoliday && currentTimesheet.companyHoliday[day] > 0;
+        const hasAnyNonWorkingEntry = hasSickLeave || hasHoliday;
+
         let shouldIncludeDay = false;
 
         if (isRejectedTimesheet) {
@@ -2277,9 +2326,7 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
           } else {
             // For non-edit mode, use the original logic (only days with data)
             const hasWorkingHours = currentTimesheet[day] > 0;
-            const hasSickLeave = currentTimesheet.sickLeave && currentTimesheet.sickLeave[day] > 0;
-            const hasHoliday = currentTimesheet.companyHoliday && currentTimesheet.companyHoliday[day] > 0;
-            shouldIncludeDay = (hasWorkingHours || hasSickLeave || hasHoliday) && isInCalendarMonth;
+            shouldIncludeDay = (hasWorkingHours || hasAnyNonWorkingEntry) && isInCalendarMonth;
           }
         } else {
           // For non-rejected timesheets, use normal logic
@@ -2297,7 +2344,8 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
         const isInSelectedWeek = dayDate >= weekStart && dayDate <= weekEnd;
 
         if (shouldIncludeDay && isInSelectedWeek) {
-          if (currentTimesheet[day] >= 0 && !['saturday', 'sunday'].includes(day)) {
+          // CRITICAL FIX: Only add working entry if there's NO non-working entry for this day
+          if (!hasAnyNonWorkingEntry && currentTimesheet[day] >= 0 && !['saturday', 'sunday'].includes(day)) {
             workingEntries.push({
               date: dateStr,
               hours: currentTimesheet[day],
@@ -2306,7 +2354,7 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
           }
 
           // Sick leave - only if > 0
-          if (currentTimesheet.sickLeave && currentTimesheet.sickLeave[day] > 0) {
+          if (hasSickLeave) {
             nonWorkingEntries.push({
               date: dateStr,
               hours: currentTimesheet.sickLeave[day],
@@ -2316,7 +2364,7 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
           }
 
           // Company holiday - only if > 0
-          if (currentTimesheet.companyHoliday && currentTimesheet.companyHoliday[day] > 0) {
+          if (hasHoliday) {
             nonWorkingEntries.push({
               date: dateStr,
               hours: currentTimesheet.companyHoliday[day],
