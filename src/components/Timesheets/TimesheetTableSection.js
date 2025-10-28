@@ -194,7 +194,7 @@ const TimesheetTableSection = ({
                         {/* Work Hours Row */}
                         <TableRow>
                           <TableCell sx={{ fontWeight: 'bold', color: 'text.primary', pl: 2, py: 1 }}>
-                            Work Hours
+                            Work Hours/ Company Holiday
                           </TableCell>
                           {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => (
                             <TableCell key={day} align="center" sx={{ py: 1, px: 0.5 }}>
@@ -301,7 +301,7 @@ const TimesheetTableSection = ({
                 {/* Work Hours Row */}
                 <TableRow>
                   <TableCell sx={{ fontWeight: 'bold', color: 'text.primary', pl: 2, py: 1 }}>
-                    Work Hours
+                    Work Hours / Company Holiday
                   </TableCell>
                   {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => {
                     const dayDate = getDateForDay(selectedWeekStart, day);
@@ -350,7 +350,7 @@ const TimesheetTableSection = ({
                 {/* Sick Leave Row */}
                 <TableRow>
                   <TableCell sx={{ fontWeight: 'bold', color: 'primary.main', pl: 2, py: 1 }}>
-                    Sick Leave/Company Holiday
+                    Sick Leave
                   </TableCell>
                   {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => {
                     const isWeekend = day === 'saturday' || day === 'sunday';
