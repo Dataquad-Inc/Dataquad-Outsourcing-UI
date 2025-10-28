@@ -264,6 +264,10 @@ export const rightToRepresentAPI = {
     return apiGet("/hotlist/rtr-list", params);
   },
 
+  getSalesRtr: async (userId, params = {}) => {
+    return apiGet(`/hotlist/salesRtr-list/${userId}`, params);
+  },
+
   getRTRById: async (rtrId) => {
     if (!rtrId) throw new Error("RTR ID is required");
     return apiGet(`/hotlist/rtr-id/${rtrId}`);

@@ -69,8 +69,14 @@ const RtrList = React.memo(() => {
         ...(debouncedSearch ? { keyword: debouncedSearch } : {}),
         ...filterParams,
       };
+     
+      let result;
+      if(role === "SUPERADMIN" || role === "ADMIN"){
+        result = await rightToRepresentAPI.getAllRTR(params);
+      } else if(role === "SALESEXECUTIVE"){
+        result = await rightToRepresentAPI.getSalesRtr(userId, params);
+      }
 
-      const result = await rightToRepresentAPI.getAllRTR(params);
 
       setRtrList(result?.data?.content || []);
       setTotal(result?.data?.totalElements || 0);
