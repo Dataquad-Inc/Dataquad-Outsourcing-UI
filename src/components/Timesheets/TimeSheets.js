@@ -714,337 +714,402 @@ const Timesheets = () => {
     }
   }, [calendarValue.getMonth(), calendarValue.getFullYear()]);
 
-  const fetchOrCreateTimesheet = async () => {
-    if (!selectedProject || !selectedWeekStart) return;
+ // Complete fetchOrCreateTimesheet function with fix
+const fetchOrCreateTimesheet = async () => {
+  if (!selectedProject || !selectedWeekStart) return;
 
-    if (isCreateMode || isAddingNewTimesheet) {
-      const employeeId = tempEmployeeForAdd || selectedEmployee;
-      if (employeeId && selectedProject) {
-        setLoading(true);
-        try {
-          let resultAction;
-          if (role === 'EXTERNALEMPLOYEE' || isCreateMode || isAddingNewTimesheet) {
-
-            const selectedDate = new Date(calendarValue);
-            const monthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-            const monthEnd = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
-
-            const monthStartStr = formatDateToYMD(monthStart);
-            const monthEndStr = formatDateToYMD(monthEnd);
-
-            resultAction = await dispatch(fetchTimesheetsByUserIdWithDateRange({
-              userId: employeeId,
-              monthStart: monthStartStr,
-              monthEnd: monthEndStr
-            }));
-          } else {
-            console.log('Fetching timesheets for other roles in create/add mode without date range:', {
-              employeeId
-            });
-
-            resultAction = await dispatch(fetchTimesheetsByUserId(employeeId));
-          }
-
-          if (fetchTimesheetsByUserId.fulfilled.match(resultAction) || fetchTimesheetsByUserIdWithDateRange.fulfilled.match(resultAction)) {
-            const response = resultAction.payload;
-
-            // Extract timesheets from the nested structure based on which API was used
-            const timesheetData = role === 'EXTERNALEMPLOYEE' || isCreateMode || isAddingNewTimesheet ?
-              (response?.data?.timesheets || []) :
-              (response?.data || []);
-
-            console.log('Existing timesheets found:', timesheetData);
-
-            // Check if timesheet already exists for this week and project
-            const timesheetsArray = Array.isArray(timesheetData) ? timesheetData : [];
-            const existingTimesheet = timesheetsArray.find(ts => {
-              const tsWeekStart = new Date(ts.weekStartDate).toISOString().split("T")[0];
-              const hasProjectEntries = ts.workingEntries?.some(entry => entry.project === selectedProject);
-              return tsWeekStart === selectedWeekStart && hasProjectEntries;
-            });
-
-
-            const totalWorkingHours = response?.data?.totalWorkingHours || 0;
-            setMonthlyTotalWorkingHoursForEmployee(totalWorkingHours);
-
-            if (existingTimesheet) {
-              console.log("Timesheet already exists for this week and project:", existingTimesheet);
-              // Transform and use existing timesheet
-              const transformed = transformTimesheet(existingTimesheet, calendarValue);
-              const safeTransformed = { ...getEmptyTimesheet(selectedProject), ...transformed };
-              setCurrentTimesheet(safeTransformed);
-              setNotes(safeTransformed.notes || '');
-              setIsSubmitted(safeTransformed.status === 'SUBMITTED' || safeTransformed.status === 'APPROVED' || safeTransformed.status === 'PENDING_APPROVAL');
-              setHasUnsavedChanges(false);
-
-              if (existingTimesheet.attachments?.length > 0) {
-                const processedAttachments = existingTimesheet.attachments.map(att => ({
-                  id: att.id,
-                  name: att.filename,
-                  size: 0,
-                  type: att.filetype,
-                  uploadDate: new Date(att.uploadedAt),
-                  uploaded: true,
-                  url: null
-                }));
-                setAttachments(processedAttachments);
-              } else {
-                setAttachments([]);
-              }
-
-              ToastService.info('Existing timesheet found for this week and project');
-            } else {
-              console.log("No existing timesheet found, creating new empty timesheet");
-              // Create empty timesheet
-              const emptyTimesheet = getEmptyTimesheet(selectedProject);
-              setCurrentTimesheet(emptyTimesheet);
-              setNotes('');
-              setHasUnsavedChanges(false);
-              setIsSubmitted(false);
-              setAttachments([]);
-            }
-          } else {
-            const errorMessage = extractErrorMessage(resultAction.payload);
-            throw new Error(errorMessage);
-          }
-        } catch (error) {
-          console.error("Error checking existing timesheets in create mode:", error);
-          const errorMessage = extractErrorMessage(error);
-          ToastService.error(errorMessage);
-          setMonthlyTotalWorkingHoursForEmployee(0)
-          // Fallback: create empty timesheet
-          const emptyTimesheet = getEmptyTimesheet(selectedProject);
-          setCurrentTimesheet(emptyTimesheet);
-          setNotes('');
-          setHasUnsavedChanges(false);
-          setIsSubmitted(false);
-          setAttachments([]);
-        } finally {
-          setLoading(false);
-        }
-        return;
-      } else {
-        console.log('Cannot create timesheet - missing employeeId or project:', {
-          employeeId,
-          selectedProject
-        });
-        return;
-      }
-    }
-
-    // Rest of the function remains unchanged...
-    if ((role === 'ACCOUNTS' || role === 'ADMIN') && !isCreateMode && !isAddingNewTimesheet) {
-      console.log('Using monthly view for ACCOUNTS/INVOICE role');
-      await fetchMonthlyTimesheetData(selectedEmployee || userId);
-      return;
-    }
-
-    const isMonthlyView = (role === 'ACCOUNTS' || role === 'ADMIN') && !isCreateMode && !isAddingNewTimesheet;
-
-    if (isMonthlyView) {
+  if (isCreateMode || isAddingNewTimesheet) {
+    const employeeId = tempEmployeeForAdd || selectedEmployee;
+    if (employeeId && selectedProject) {
       setLoading(true);
       try {
-        const targetUserId = selectedEmployee || userId;
+        let resultAction;
+        if (role === 'EXTERNALEMPLOYEE' || isCreateMode || isAddingNewTimesheet) {
+          const selectedDate = new Date(calendarValue);
+          const monthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+          const monthEnd = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
 
-        // Calculate month start and end based on selected month/year
-        const selectedDate = new Date(calendarValue);
-        const monthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-        const monthEnd = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+          const monthStartStr = formatDateToYMD(monthStart);
+          const monthEndStr = formatDateToYMD(monthEnd);
 
-        const monthStartStr = formatDateToYMD(monthStart);
-        const monthEndStr = formatDateToYMD(monthEnd);
+          resultAction = await dispatch(fetchTimesheetsByUserIdWithDateRange({
+            userId: employeeId,
+            monthStart: monthStartStr,
+            monthEnd: monthEndStr
+          }));
+        } else {
+          resultAction = await dispatch(fetchTimesheetsByUserId(employeeId));
+        }
 
-        // Use the date range API for monthly view
-        const resultAction = await dispatch(fetchTimesheetsByUserIdWithDateRange({
-          userId: targetUserId,
-          monthStart: monthStartStr,
-          monthEnd: monthEndStr
-        }));
-
-        if (fetchTimesheetsByUserIdWithDateRange.fulfilled.match(resultAction)) {
+        if (fetchTimesheetsByUserId.fulfilled.match(resultAction) || fetchTimesheetsByUserIdWithDateRange.fulfilled.match(resultAction)) {
           const response = resultAction.payload;
+          const timesheetData = role === 'EXTERNALEMPLOYEE' || isCreateMode || isAddingNewTimesheet ?
+            (response?.data?.timesheets || []) :
+            (response?.data || []);
 
-          // Extract timesheets from the nested structure
-          const timesheetData = response?.data?.timesheets || [];
-          console.log('Monthly timesheet data received:', timesheetData);
+          console.log('🔍 Existing timesheets found:', timesheetData.length);
 
-          setTimeSheetData(timesheetData);
-
-          // Generate weeks for current month
-          const weeks = getWeeksInMonth(calendarValue);
-          setCurrentMonthWeeks(weeks);
-
-          // Process monthly timesheet data
-          const monthlyData = weeks.map(week => {
-            const weekTimesheet = timesheetData.find(ts => {
-              const tsWeekStart = new Date(ts.weekStartDate).toISOString().split("T")[0];
-              return tsWeekStart === week.startString &&
-                ts.workingEntries?.some(entry => entry.project === selectedProject);
-            });
-
-            return {
-              ...week,
-              timesheet: weekTimesheet ? transformTimesheet(weekTimesheet, calendarValue) : null,
-              hasData: !!weekTimesheet,
-              status: weekTimesheet?.status || 'NO_DATA'
-            };
+          const timesheetsArray = Array.isArray(timesheetData) ? timesheetData : [];
+          
+          // CRITICAL FIX: Find timesheet by checking if any date in the timesheet falls within the selected week
+          const weekStart = new Date(selectedWeekStart);
+          const weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekEnd.getDate() + 6);
+          
+          console.log('🔍 Looking for timesheet overlapping with week:', {
+            weekStart: formatDateToYMD(weekStart),
+            weekEnd: formatDateToYMD(weekEnd),
+            selectedProject
           });
 
-          setMonthlyTimesheetData(monthlyData);
-          setMonthlyViewMode(true);
+          const existingTimesheet = timesheetsArray.find(ts => {
+            const tsWeekStart = new Date(ts.weekStartDate);
+            const tsWeekEnd = new Date(ts.weekEndDate);
+            const hasProjectEntries = ts.workingEntries?.some(entry => entry.project === selectedProject) ||
+                                     ts.nonWorkingEntries?.some(entry => entry.project === selectedProject);
+            
+            // Check if there's any overlap between the timesheet's date range and selected week
+            const hasOverlap = (tsWeekStart <= weekEnd && tsWeekEnd >= weekStart);
+            
+            console.log('  Checking timesheet:', {
+              id: ts.timesheetId,
+              tsRange: `${formatDateToYMD(tsWeekStart)} - ${formatDateToYMD(tsWeekEnd)}`,
+              hasOverlap,
+              hasProjectEntries
+            });
+            
+            return hasOverlap && hasProjectEntries;
+          });
+
+          const totalWorkingHours = response?.data?.totalWorkingHours || 0;
+          setMonthlyTotalWorkingHoursForEmployee(totalWorkingHours);
+
+          if (existingTimesheet) {
+            console.log(" Timesheet found, transforming with current calendar month:", existingTimesheet.timesheetId);
+            
+            // CRITICAL FIX: Always pass current calendarValue to transform function
+            const transformed = transformTimesheet(existingTimesheet, calendarValue);
+            const safeTransformed = { ...getEmptyTimesheet(selectedProject), ...transformed };
+            
+            console.log(' Transformed result:', safeTransformed);
+            
+            setCurrentTimesheet(safeTransformed);
+            setNotes(safeTransformed.notes || '');
+            setIsSubmitted(safeTransformed.status === 'SUBMITTED' || safeTransformed.status === 'APPROVED' || safeTransformed.status === 'PENDING_APPROVAL');
+            setHasUnsavedChanges(false);
+
+            if (existingTimesheet.attachments?.length > 0) {
+              const processedAttachments = existingTimesheet.attachments.map(att => ({
+                id: att.id,
+                name: att.filename,
+                size: 0,
+                type: att.filetype,
+                uploadDate: new Date(att.uploadedAt),
+                uploaded: true,
+                url: null
+              }));
+              setAttachments(processedAttachments);
+            } else {
+              setAttachments([]);
+            }
+
+            ToastService.info('Existing timesheet found for this week and project');
+          } else {
+            console.log(" No existing timesheet found, creating new empty timesheet");
+            const emptyTimesheet = getEmptyTimesheet(selectedProject);
+            setCurrentTimesheet(emptyTimesheet);
+            setNotes('');
+            setHasUnsavedChanges(false);
+            setIsSubmitted(false);
+            setAttachments([]);
+          }
         } else {
           const errorMessage = extractErrorMessage(resultAction.payload);
           throw new Error(errorMessage);
         }
       } catch (error) {
-        console.error("Error fetching monthly timesheet:", error);
+        console.error("Error checking existing timesheets in create mode:", error);
         const errorMessage = extractErrorMessage(error);
         ToastService.error(errorMessage);
-        setMonthlyTimesheetData([]);
+        setMonthlyTotalWorkingHoursForEmployee(0);
+        const emptyTimesheet = getEmptyTimesheet(selectedProject);
+        setCurrentTimesheet(emptyTimesheet);
+        setNotes('');
+        setHasUnsavedChanges(false);
+        setIsSubmitted(false);
+        setAttachments([]);
       } finally {
         setLoading(false);
       }
       return;
+    } else {
+      return;
     }
+  }
+
+  if ((role === 'ACCOUNTS' || role === 'ADMIN') && !isCreateMode && !isAddingNewTimesheet) {
+    console.log('Using monthly view for ACCOUNTS/ADMIN role');
+    await fetchMonthlyTimesheetData(selectedEmployee || userId);
+    return;
+  }
+
+  const isMonthlyView = (role === 'ACCOUNTS' || role === 'ADMIN') && !isCreateMode && !isAddingNewTimesheet;
+
+  if (isMonthlyView) {
     setLoading(true);
     try {
       const targetUserId = selectedEmployee || userId;
+      const selectedDate = new Date(calendarValue);
+      const monthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+      const monthEnd = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
 
-      let resultAction;
-      if (role === 'EXTERNALEMPLOYEE') {
-        const selectedDate = new Date(calendarValue);
-        const monthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-        const monthEnd = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+      const monthStartStr = formatDateToYMD(monthStart);
+      const monthEndStr = formatDateToYMD(monthEnd);
 
-        const monthStartStr = formatDateToYMD(monthStart);
-        const monthEndStr = formatDateToYMD(monthEnd);
+      const resultAction = await dispatch(fetchTimesheetsByUserIdWithDateRange({
+        userId: targetUserId,
+        monthStart: monthStartStr,
+        monthEnd: monthEndStr
+      }));
 
-        resultAction = await dispatch(fetchTimesheetsByUserIdWithDateRange({
-          userId: targetUserId,
-          monthStart: monthStartStr,
-          monthEnd: monthEndStr
-        }));
-      } else {
-        // For other roles, use the regular API without date range
-        console.log('Fetching timesheets for other roles without date range:', {
-          targetUserId
-        });
-
-        resultAction = await dispatch(fetchTimesheetsByUserId(targetUserId));
-      }
-
-      if (fetchTimesheetsByUserId.fulfilled.match(resultAction) || fetchTimesheetsByUserIdWithDateRange.fulfilled.match(resultAction)) {
+      if (fetchTimesheetsByUserIdWithDateRange.fulfilled.match(resultAction)) {
         const response = resultAction.payload;
-
-        // Extract timesheets from the nested structure
-        const timesheetData = role === 'EXTERNALEMPLOYEE' ?
-          (response?.data?.timesheets || []) :
-          (response?.data || []);
-
-        console.log('Weekly timesheet data received:', timesheetData);
-        const totalWorkingHours = response?.data?.totalWorkingHours || 0;
-        setMonthlyTotalWorkingHoursForEmployee(totalWorkingHours);
-
+        const timesheetData = response?.data?.timesheets || [];
         setTimeSheetData(timesheetData);
 
-        let existingTimesheet = null;
+        const weeks = getWeeksInMonth(calendarValue);
+        setCurrentMonthWeeks(weeks);
 
-        if (response?.success && timesheetData) {
-          const timesheetsArray = Array.isArray(timesheetData) ? timesheetData : [];
-
-          existingTimesheet = timesheetsArray.find(ts => {
+        const monthlyData = weeks.map(week => {
+          const weekTimesheet = timesheetData.find(ts => {
             const tsWeekStart = new Date(ts.weekStartDate).toISOString().split("T")[0];
-            const hasProjectEntries = ts.workingEntries?.some(entry => entry.project === selectedProject);
-            return tsWeekStart === selectedWeekStart && hasProjectEntries;
+            return tsWeekStart === week.startString &&
+              ts.workingEntries?.some(entry => entry.project === selectedProject);
           });
-        }
 
-        if (existingTimesheet) {
-          console.log("Existing timesheet found:", existingTimesheet);
-          // PASS CURRENT CALENDAR MONTH TO TRANSFORM FUNCTION
-          const transformed = transformTimesheet(existingTimesheet, calendarValue);
-          const safeTransformed = { ...getEmptyTimesheet(selectedProject), ...transformed };
-          setCurrentTimesheet(safeTransformed);
-          setNotes(safeTransformed.notes || '');
-          setIsSubmitted(safeTransformed.status === 'SUBMITTED' || safeTransformed.status === 'APPROVED' || safeTransformed.status === 'PENDING_APPROVAL');
+          return {
+            ...week,
+            timesheet: weekTimesheet ? transformTimesheet(weekTimesheet, calendarValue) : null,
+            hasData: !!weekTimesheet,
+            status: weekTimesheet?.status || 'NO_DATA'
+          };
+        });
 
-          if (existingTimesheet.attachments?.length > 0) {
-            const processedAttachments = existingTimesheet.attachments.map(att => ({
-              id: att.id,
-              name: att.filename,
-              size: 0,
-              type: att.filetype,
-              uploadDate: new Date(att.uploadedAt),
-              uploaded: true,
-              url: null
-            }));
-            setAttachments(processedAttachments);
-          } else {
-            setAttachments([]);
-          }
-
-          setHasUnsavedChanges(false);
-        } else {
-          console.log("No existing timesheet found, creating new one");
-          const emptyTimesheet = getEmptyTimesheet(selectedProject);
-          setCurrentTimesheet(emptyTimesheet);
-          setNotes('');
-          setHasUnsavedChanges(false);
-          setIsSubmitted(false);
-          setAttachments([]);
-
-          await createNewTimesheetForEmployee(targetUserId);
-        }
+        setMonthlyTimesheetData(monthlyData);
+        setMonthlyViewMode(true);
       } else {
         const errorMessage = extractErrorMessage(resultAction.payload);
         throw new Error(errorMessage);
       }
     } catch (error) {
-      console.error("Error fetching timesheet:", error);
+      console.error("Error fetching monthly timesheet:", error);
       const errorMessage = extractErrorMessage(error);
       ToastService.error(errorMessage);
-
-      // Fallback: create empty timesheet on error
-      const emptyTimesheet = getEmptyTimesheet(selectedProject);
-      setCurrentTimesheet(emptyTimesheet);
-      setNotes('');
-      setHasUnsavedChanges(false);
-      setIsSubmitted(false);
-      setAttachments([]);
-
-      await createNewTimesheetForEmployee(selectedEmployee || userId);
+      setMonthlyTimesheetData([]);
     } finally {
       setLoading(false);
     }
-  };
+    return;
+  }
 
+  setLoading(true);
+  try {
+    const targetUserId = selectedEmployee || userId;
 
+    let resultAction;
+    if (role === 'EXTERNALEMPLOYEE') {
+      const selectedDate = new Date(calendarValue);
+      const monthStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+      const monthEnd = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+
+      const monthStartStr = formatDateToYMD(monthStart);
+      const monthEndStr = formatDateToYMD(monthEnd);
+
+      console.log('🔍 Fetching timesheets for month:', { monthStartStr, monthEndStr });
+
+      resultAction = await dispatch(fetchTimesheetsByUserIdWithDateRange({
+        userId: targetUserId,
+        monthStart: monthStartStr,
+        monthEnd: monthEndStr
+      }));
+    } else {
+      resultAction = await dispatch(fetchTimesheetsByUserId(targetUserId));
+    }
+
+    if (fetchTimesheetsByUserId.fulfilled.match(resultAction) || fetchTimesheetsByUserIdWithDateRange.fulfilled.match(resultAction)) {
+      const response = resultAction.payload;
+      const timesheetData = role === 'EXTERNALEMPLOYEE' ?
+        (response?.data?.timesheets || []) :
+        (response?.data || []);
+
+      console.log('📦 Weekly timesheet data received:', timesheetData.length, 'timesheets');
+      
+      const totalWorkingHours = response?.data?.totalWorkingHours || 0;
+      setMonthlyTotalWorkingHoursForEmployee(totalWorkingHours);
+      setTimeSheetData(timesheetData);
+
+      let existingTimesheet = null;
+
+      if (response?.success && timesheetData) {
+        const timesheetsArray = Array.isArray(timesheetData) ? timesheetData : [];
+
+        // CRITICAL FIX: Find timesheet by checking if any date in the timesheet overlaps with the selected week
+        const weekStart = new Date(selectedWeekStart);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        
+        console.log('🔍 Looking for timesheet overlapping with week:', {
+          weekStart: formatDateToYMD(weekStart),
+          weekEnd: formatDateToYMD(weekEnd),
+          selectedProject
+        });
+
+        existingTimesheet = timesheetsArray.find(ts => {
+          const tsWeekStart = new Date(ts.weekStartDate);
+          const tsWeekEnd = new Date(ts.weekEndDate);
+          const hasProjectEntries = ts.workingEntries?.some(entry => entry.project === selectedProject) ||
+                                   ts.nonWorkingEntries?.some(entry => entry.project === selectedProject);
+          
+          // Check if there's any overlap between the timesheet's date range and selected week
+          const hasOverlap = (tsWeekStart <= weekEnd && tsWeekEnd >= weekStart);
+          
+          console.log('  Checking timesheet:', {
+            id: ts.timesheetId,
+            tsRange: `${formatDateToYMD(tsWeekStart)} - ${formatDateToYMD(tsWeekEnd)}`,
+            hasOverlap,
+            hasProjectEntries,
+            project: selectedProject
+          });
+          
+          return hasOverlap && hasProjectEntries;
+        });
+      }
+
+      if (existingTimesheet) {
+        console.log("✅ Existing timesheet found:", existingTimesheet.timesheetId);
+        console.log("📅 Transforming with calendar month:", calendarValue.toISOString());
+        
+        // CRITICAL FIX: Always pass current calendarValue to transform function
+        const transformed = transformTimesheet(existingTimesheet, calendarValue);
+        const safeTransformed = { ...getEmptyTimesheet(selectedProject), ...transformed };
+        
+        console.log('📊 Final transformed data:', {
+          id: safeTransformed.id,
+          status: safeTransformed.status,
+          monday: safeTransformed.monday,
+          tuesday: safeTransformed.tuesday,
+          wednesday: safeTransformed.wednesday,
+          thursday: safeTransformed.thursday,
+          friday: safeTransformed.friday
+        });
+        
+        setCurrentTimesheet(safeTransformed);
+        setNotes(safeTransformed.notes || '');
+        setIsSubmitted(safeTransformed.status === 'SUBMITTED' || safeTransformed.status === 'APPROVED' || safeTransformed.status === 'PENDING_APPROVAL');
+
+        if (existingTimesheet.attachments?.length > 0) {
+          const processedAttachments = existingTimesheet.attachments.map(att => ({
+            id: att.id,
+            name: att.filename,
+            size: 0,
+            type: att.filetype,
+            uploadDate: new Date(att.uploadedAt),
+            uploaded: true,
+            url: null
+          }));
+          setAttachments(processedAttachments);
+        } else {
+          setAttachments([]);
+        }
+
+        setHasUnsavedChanges(false);
+      } else {
+        console.log(" No existing timesheet found, creating new one");
+        const emptyTimesheet = getEmptyTimesheet(selectedProject);
+        setCurrentTimesheet(emptyTimesheet);
+        setNotes('');
+        setHasUnsavedChanges(false);
+        setIsSubmitted(false);
+        setAttachments([]);
+
+        await createNewTimesheetForEmployee(targetUserId);
+      }
+    } else {
+      const errorMessage = extractErrorMessage(resultAction.payload);
+      throw new Error(errorMessage);
+    }
+  } catch (error) {
+    console.error("Error fetching timesheet:", error);
+    const errorMessage = extractErrorMessage(error);
+    ToastService.error(errorMessage);
+
+    const emptyTimesheet = getEmptyTimesheet(selectedProject);
+    setCurrentTimesheet(emptyTimesheet);
+    setNotes('');
+    setHasUnsavedChanges(false);
+    setIsSubmitted(false);
+    setAttachments([]);
+
+    await createNewTimesheetForEmployee(selectedEmployee || userId);
+  } finally {
+    setLoading(false);
+  }
+};
+
+// Updated transformTimesheet function with better logging
 const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
+  console.log('🟢 ========== TRANSFORM TIMESHEET START ==========');
+  console.log('📥 Input:', {
+    timesheetId: apiTimesheet?.timesheetId,
+    weekStartDate: apiTimesheet?.weekStartDate,
+    weekEndDate: apiTimesheet?.weekEndDate,
+    currentCalendarMonth: currentCalendarMonth.toISOString(),
+    selectedWeekStart,
+    selectedProject,
+    workingEntriesCount: apiTimesheet?.workingEntries?.length || 0,
+    nonWorkingEntriesCount: apiTimesheet?.nonWorkingEntries?.length || 0
+  });
+
   if (!apiTimesheet) {
-    console.log('No timesheet found, returning null');
+    console.log('❌ No timesheet provided');
     return null;
   }
 
   const currentMonth = currentCalendarMonth.getMonth();
   const currentYear = currentCalendarMonth.getFullYear();
 
-  // Get all dates in the selected week
-  const weekDates = getWeekDatesArray(new Date(selectedWeekStart));
+  console.log('📅 Current calendar context:', {
+    month: currentMonth + 1,
+    year: currentYear
+  });
+
+  // Generate week dates based on selectedWeekStart
+  const actualWeekStart = new Date(selectedWeekStart);
+  const weekDates = [];
   
-  // Create a map of day names to their actual dates
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(actualWeekStart);
+    date.setDate(actualWeekStart.getDate() + i);
+    weekDates.push(date);
+  }
+  
+  console.log(' Week dates generated:', weekDates.map(d => formatDateToYMD(d)));
+
+  // Create day-to-date mappings
   const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
   const dayToDateMap = {};
-  const dateToDayMap = {}; // NEW: Map dates to day names
+  const dateToDayMap = {};
   
   days.forEach((day, index) => {
     const date = weekDates[index];
+    const dateStr = formatDateToYMD(date);
     dayToDateMap[day] = date;
-    dateToDayMap[formatDateToYMD(date)] = day; // NEW: Create reverse mapping
+    dateToDayMap[dateStr] = day;
   });
 
-  console.log('Date to Day mapping:', dateToDayMap);
+  console.log(' Date-to-Day mapping created:', dateToDayMap);
 
-  // Calculate status
+  // Calculate status based on current month entries
   let currentMonthStatus = 'DRAFT';
   const hasAnyEntriesInCurrentMonth = apiTimesheet.workingEntries?.some(entry => {
     const entryDate = new Date(entry.date);
@@ -1062,6 +1127,12 @@ const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
   } else if (hasAnyEntriesInCurrentMonth) {
     currentMonthStatus = 'DRAFT';
   }
+
+  console.log('📊 Status:', {
+    apiStatus: apiTimesheet.status,
+    hasEntriesInCurrentMonth: hasAnyEntriesInCurrentMonth,
+    calculatedStatus: currentMonthStatus
+  });
 
   const submitted = (currentMonthStatus === 'SUBMITTED' ||
     currentMonthStatus === 'APPROVED' ||
@@ -1089,129 +1160,113 @@ const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
     isEditable: isEditMode || (!submitted && (currentMonthStatus === 'DRAFT' || !currentMonthStatus)),
     percentageOfTarget: apiTimesheet.percentageOfTarget || 0,
     dayStatuses: {
-      monday: 'Working',
-      tuesday: 'Working',
-      wednesday: 'Working',
-      thursday: 'Working',
-      friday: 'Working',
-      saturday: 'Working',
-      sunday: 'Working'
+      monday: 'Working', tuesday: 'Working', wednesday: 'Working',
+      thursday: 'Working', friday: 'Working', saturday: 'Working', sunday: 'Working'
     },
     sickLeave: {
-      monday: 0,
-      tuesday: 0,
-      wednesday: 0,
-      thursday: 0,
-      friday: 0,
-      saturday: 0,
-      sunday: 0
+      monday: 0, tuesday: 0, wednesday: 0, thursday: 0,
+      friday: 0, saturday: 0, sunday: 0
     },
     companyHoliday: {
-      monday: 0,
-      tuesday: 0,
-      wednesday: 0,
-      thursday: 0,
-      friday: 0,
-      saturday: 0,
-      sunday: 0
+      monday: 0, tuesday: 0, wednesday: 0, thursday: 0,
+      friday: 0, saturday: 0, sunday: 0
     },
     clientName: apiTimesheet.clientName || '',
-    approver: apiTimesheet.approver || '',
-    startDate: apiTimesheet.startDate || apiTimesheet.weekStartDate || ''
+    approver: apiTimesheet.approver || ''
   };
 
-  // Track which days have non-working data IN CURRENT CALENDAR MONTH
   const daysWithNonWorkingData = new Set();
 
-  // FIRST: Process non-working entries - USING DATE MAPPING
+  // Process non-working entries
+  console.log(' Processing', apiTimesheet.nonWorkingEntries?.length || 0, 'non-working entries');
   if (apiTimesheet.nonWorkingEntries) {
-    apiTimesheet.nonWorkingEntries.forEach(entry => {
-      const entryDate = new Date(entry.date);
-      const entryDateStr = formatDateToYMD(entryDate);
-      
-      // Check if this entry date is in the current calendar view month
-      const isInCurrentCalendarMonth = entryDate.getMonth() === currentMonth &&
-        entryDate.getFullYear() === currentYear;
-
-      // Get the day name from our date mapping
+    apiTimesheet.nonWorkingEntries.forEach((entry, idx) => {
+      const entryDateStr = entry.date;
       const dayName = dateToDayMap[entryDateStr];
-      const hours = parseFloat(entry.hours) || 0;
-      const description = entry.description?.toLowerCase() || '';
-
-      if (dayName && isInCurrentCalendarMonth) {
-        if (description.includes('sick leave')) {
-          transformed.sickLeave[dayName] = hours;
-          daysWithNonWorkingData.add(dayName);
-          console.log(`Set sick leave for ${dayName}: ${hours} hours (date: ${entry.date})`);
-        } else if (description.includes('company holiday') || description.includes('holiday')) {
-          transformed.companyHoliday[dayName] = hours;
-          daysWithNonWorkingData.add(dayName);
-          console.log(`Set company holiday for ${dayName}: ${hours} hours (date: ${entry.date})`);
+      
+      console.log(`  [${idx + 1}]`, {
+        date: entryDateStr,
+        dayName: dayName || 'NOT IN WEEK',
+        hours: entry.hours,
+        description: entry.description
+      });
+      
+      if (dayName) {
+        const entryDate = new Date(entry.date);
+        const isInCurrentMonth = entryDate.getMonth() === currentMonth && 
+                                 entryDate.getFullYear() === currentYear;
+        
+        console.log(`      → In current month: ${isInCurrentMonth}`);
+        
+        if (isInCurrentMonth) {
+          const hours = parseFloat(entry.hours) || 0;
+          const desc = entry.description?.toLowerCase() || '';
+          
+          if (desc.includes('sick leave')) {
+            transformed.sickLeave[dayName] = hours;
+            daysWithNonWorkingData.add(dayName);
+            console.log(`       Set ${hours}h sick leave for ${dayName}`);
+          } else if (desc.includes('holiday')) {
+            transformed.companyHoliday[dayName] = hours;
+            daysWithNonWorkingData.add(dayName);
+            console.log(`       Set ${hours}h holiday for ${dayName}`);
+          }
         }
       }
     });
   }
 
-  // SECOND: Process working entries - USING DATE MAPPING
-  if (apiTimesheet.workingEntries && apiTimesheet.workingEntries.length > 0) {
-    apiTimesheet.workingEntries.forEach(entry => {
-      const entryDate = new Date(entry.date);
-      const entryDateStr = formatDateToYMD(entryDate);
-      
-      // Check if this entry date is in the current calendar view month
-      const isInCurrentCalendarMonth = entryDate.getMonth() === currentMonth &&
-        entryDate.getFullYear() === currentYear;
-
-      // Get the day name from our date mapping
+  // Process working entries
+  console.log('🔄 Processing', apiTimesheet.workingEntries?.length || 0, 'working entries');
+  if (apiTimesheet.workingEntries) {
+    apiTimesheet.workingEntries.forEach((entry, idx) => {
+      const entryDateStr = entry.date;
       const dayName = dateToDayMap[entryDateStr];
-      const hours = parseFloat(entry.hours) || 0;
-
-      // Only process if in current calendar month and for selected project
-      if (dayName && isInCurrentCalendarMonth && entry.project === selectedProject) {
-        // Only add working hours if this day doesn't have non-working data
-        if (!daysWithNonWorkingData.has(dayName)) {
+      
+      console.log(`  [${idx + 1}]`, {
+        date: entryDateStr,
+        dayName: dayName || 'NOT IN WEEK',
+        hours: entry.hours,
+        project: entry.project
+      });
+      
+      if (dayName && entry.project === selectedProject) {
+        const entryDate = new Date(entry.date);
+        const isInCurrentMonth = entryDate.getMonth() === currentMonth && 
+                                 entryDate.getFullYear() === currentYear;
+        
+        console.log(`      → In current month: ${isInCurrentMonth}, Has non-working: ${daysWithNonWorkingData.has(dayName)}`);
+        
+        if (isInCurrentMonth && !daysWithNonWorkingData.has(dayName)) {
+          const hours = parseFloat(entry.hours) || 0;
           transformed[dayName] = hours;
-          console.log(`Adding ${hours} working hours to ${dayName} for date ${entry.date} (current calendar month: ${currentMonth + 1})`);
-        } else {
-          console.log(`Skipping working hours for ${dayName} because non-working entry exists`);
-          transformed[dayName] = 0; // Explicitly set to 0 when non-working entry exists
+          console.log(`       Set ${hours}h working for ${dayName}`);
         }
       }
     });
   }
 
-  // THIRD: Set default hours ONLY for days that have no data
+  // Set defaults for empty days
   if (currentMonthStatus === 'DRAFT' || (currentMonthStatus === 'REJECTED' && !isEditMode)) {
+    console.log(' Setting default hours for DRAFT/REJECTED status');
     days.forEach(day => {
       const dayDate = dayToDateMap[day];
-      
-      // Check if this day is in the current calendar view month
-      const isInCurrentCalendarMonth = dayDate && 
+      const isInCurrentMonth = dayDate && 
         dayDate.getMonth() === currentMonth && 
         dayDate.getFullYear() === currentYear;
 
-      // Only process weekdays that are in current calendar month
-      if (isInCurrentCalendarMonth && 
+      if (isInCurrentMonth && 
           ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].includes(day) &&
           !daysWithNonWorkingData.has(day) && 
           transformed[day] === 0) {
         
-        // Check if this specific day has any entries in the API data for current month
         const dayDateStr = formatDateToYMD(dayDate);
-        const hasWorkingEntry = apiTimesheet.workingEntries?.some(entry => 
-          formatDateToYMD(new Date(entry.date)) === dayDateStr && 
-          entry.project === selectedProject
-        );
-        const hasNonWorkingEntry = apiTimesheet.nonWorkingEntries?.some(entry => 
-          formatDateToYMD(new Date(entry.date)) === dayDateStr
-        );
+        const hasEntry = apiTimesheet.workingEntries?.some(e => e.date === dayDateStr && e.project === selectedProject) ||
+                        apiTimesheet.nonWorkingEntries?.some(e => e.date === dayDateStr);
 
-        // Only set default if no entry exists for this specific day
-        if (!hasWorkingEntry && !hasNonWorkingEntry) {
+        if (!hasEntry) {
           transformed[day] = 8;
-          console.log(`Setting default 8 hours for ${day} (${dayDateStr}) in calendar month ${currentMonth + 1}`);
-        } else {
-          console.log(`Not setting default for ${day} (${dayDateStr}) - entry exists`);
+          console.log(`   Set default 8h for ${day}`);
         }
       }
     });
@@ -1220,52 +1275,19 @@ const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
   transformed.percentageOfTarget = calculatePercentage(transformed);
   setNotes(transformed.notes);
 
-  console.log('Final transformed timesheet for calendar month:', {
-    calendarMonth: currentMonth + 1,
-    calendarYear: currentYear,
-    weekRange: `${formatDateToYMD(weekDates[0])} to ${formatDateToYMD(weekDates[6])}`,
-    daysInCurrentMonth: days.filter(day => {
-      const date = dayToDateMap[day];
-      return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
-    }),
-    daysWithNonWorkingData: Array.from(daysWithNonWorkingData),
-    transformedHours: {
-      monday: { 
-        value: transformed.monday, 
-        date: formatDateToYMD(dayToDateMap.monday),
-        sickLeave: transformed.sickLeave.monday,
-        companyHoliday: transformed.companyHoliday.monday
-      },
-      tuesday: { 
-        value: transformed.tuesday, 
-        date: formatDateToYMD(dayToDateMap.tuesday),
-        sickLeave: transformed.sickLeave.tuesday,
-        companyHoliday: transformed.companyHoliday.tuesday
-      },
-      wednesday: { 
-        value: transformed.wednesday, 
-        date: formatDateToYMD(dayToDateMap.wednesday),
-        sickLeave: transformed.sickLeave.wednesday,
-        companyHoliday: transformed.companyHoliday.wednesday
-      },
-      thursday: { 
-        value: transformed.thursday, 
-        date: formatDateToYMD(dayToDateMap.thursday),
-        sickLeave: transformed.sickLeave.thursday,
-        companyHoliday: transformed.companyHoliday.thursday
-      },
-      friday: { 
-        value: transformed.friday, 
-        date: formatDateToYMD(dayToDateMap.friday),
-        sickLeave: transformed.sickLeave.friday,
-        companyHoliday: transformed.companyHoliday.friday
-      }
-    }
+  console.log(' ========== TRANSFORM COMPLETE ==========');
+  console.log(' Output hours:', {
+    monday: transformed.monday,
+    tuesday: transformed.tuesday,
+    wednesday: transformed.wednesday,
+    thursday: transformed.thursday,
+    friday: transformed.friday,
+    saturday: transformed.saturday,
+    sunday: transformed.sunday
   });
 
   return transformed;
 };
-
 
   useEffect(() => {
     if ((role === 'ACCOUNTS' || role === 'ADMIN') && selectedEmployee && !isCreateMode && !isAddingNewTimesheet) {
