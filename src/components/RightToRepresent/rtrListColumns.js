@@ -8,7 +8,7 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 
 // ✅ Permission logic
 const hasPermission = (userRole) => {
-  return userRole !== "SALESEXECUTIVE"; // ❌ Sales Executive has no edit/delete
+  return userRole === "SALESEXECUTIVE" || userRole === "TEAMLEAD" || userRole === "SUPERADMIN"; // ❌ Sales Executive has no edit/delete
 };
 
 const renderValue = (value, width = 100, loading) =>

@@ -12,7 +12,7 @@ const HotlistContainer = () => {
 
   let tabs = [];
 
-  if (role === "SUPERADMIN") {
+  if (role === "SUPERADMIN" || role === "ADMIN") {
     // Tabs for SUPERADMIN
     tabs = [
       {
@@ -32,9 +32,11 @@ const HotlistContainer = () => {
       //   path: "/dashboard/hotlist/create",
       // },
     ];
-  } else {
-    // Tabs for TEAMLEAD, RECRUITER, SALESEXECUTIVE, etc.
-    tabs = [
+  }
+  
+   else if (role === "TEAMLEAD"){
+
+     tabs = [
       {
         label: "Home",
         icon: <Home />,
@@ -53,7 +55,38 @@ const HotlistContainer = () => {
     ];
 
     // Show only for TEAMLEAD / RECRUITER
-    if (role === "TEAMLEAD" || role === "SALESEXECUTIVE") {
+    if (role === "TEAMLEAD") {
+      tabs.splice(2, 0, {
+        label: "Team Consultants",
+        icon: <ListAltIcon />,
+        path: "/dashboard/hotlist/team-consultants",
+      });
+    }
+
+  } else {
+    // Tabs for TEAMLEAD, RECRUITER, SALESEXECUTIVE, etc.
+
+
+    tabs = [
+      {
+        label: "Home",
+        icon: <Home />,
+        path: "/dashboard/us-home",
+      },
+      // {
+      //   label: "Grand Hotlist",
+      //   icon: <ListAltIcon />,
+      //   path: "/dashboard/hotlist/master",
+      // },
+      {
+        label: "My Hotlist",
+        icon: <ListAltIcon />,
+        path: "/dashboard/hotlist/consultants",
+      },
+    ];
+
+    // Show only for TEAMLEAD / RECRUITER
+    if (role === "TEAMLEAD") {
       tabs.splice(2, 0, {
         label: "Team Consultants",
         icon: <ListAltIcon />,

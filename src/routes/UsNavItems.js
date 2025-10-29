@@ -33,7 +33,7 @@ export const usNavItems = (role) => [
   },
   {
     text: "Hotlist",
-    path: role === "SUPERADMIN" ? "hotlist/master" : "hotlist/consultants",
+    path: role === "SUPERADMIN" || role === "ADMIN" || role === "TEAMLEAD" ? "hotlist/master" : "hotlist/consultants",
     icon: <GroupIcon />,
     roles: commonRoles,
   },
@@ -59,7 +59,7 @@ export const usNavItems = (role) => [
     text: "RTR",
     path: "rtr/rtr-list", // 👈 direct link to RTR module
     icon: <ListAltIcon />, // List icon fits RTR view
-    roles: commonRoles,
+    roles: ["SUPERADMIN","SALESEXECUTIVE","TEAMLEAD"],
   },
   {
     text: "Submissions",
