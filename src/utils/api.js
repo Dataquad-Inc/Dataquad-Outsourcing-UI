@@ -268,6 +268,10 @@ export const rightToRepresentAPI = {
     return apiGet(`/hotlist/salesRtr-list/${userId}`, params);
   },
 
+  getTeamLeadRtr: async (userId, params = {}) => {
+    return apiGet(`/hotlist/teamRtr-list/${userId}`, params);
+  },
+
   getRTRById: async (rtrId) => {
     if (!rtrId) throw new Error("RTR ID is required");
     return apiGet(`/hotlist/rtr-id/${rtrId}`);
@@ -289,6 +293,13 @@ export const rightToRepresentAPI = {
       data: { deletedBy: userId },
     });
   },
+
+  moveRtrToInterviews: async (userId, rtrData) => {
+    if (!userId) throw new Error("User ID is required");
+    if (!rtrData) throw new Error("RTR data is required");
+
+    return apiPost(`/hotlist/schedule-rtrInterview/${userId}`, rtrData);
+  }
 };
 
 // ========== Hotlist/Consultant Management APIs ==========

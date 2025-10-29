@@ -7,6 +7,7 @@ import { showErrorToast, showSuccessToast } from "../../utils/toastUtils";
 import showDeleteConfirm from "../../utils/showDeleteConfirm";
 import { rightToRepresentAPI } from "../../utils/api";
 import { useSelector } from "react-redux";
+import ScheduleInterviewForm from "./ScheduleInterviewForm"; // Add this import
 
 const useDebounce = (value, delay) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -30,6 +31,10 @@ const RtrList = React.memo(() => {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 500);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // Schedule Interview Dialog State
+  const [scheduleInterviewOpen, setScheduleInterviewOpen] = useState(false);
+  const [selectedRtr, setSelectedRtr] = useState(null);
 
   // Initialize filters from localStorage
   const [filters, setFilters] = useState(() => {
@@ -76,7 +81,9 @@ const RtrList = React.memo(() => {
       } else if(role === "SALESEXECUTIVE"){
         result = await rightToRepresentAPI.getSalesRtr(userId, params);
       }
-
+        else if (role === "TEAMLEAD"){
+        result = await rightToRepresentAPI.getTeamLeadRtr(userId, params);
+      }
 
       setRtrList(result?.data?.content || []);
       setTotal(result?.data?.totalElements || 0);
@@ -135,10 +142,25 @@ const RtrList = React.memo(() => {
     setPage(0); // Reset to first page when filters change
   }, []);
 
+  /** ---------------- Schedule Interview Handlers ---------------- */
+  const handleScheduleInterview = useCallback((row) => {
+    setSelectedRtr(row);
+    setScheduleInterviewOpen(true);
+  }, []);
+
+  const handleInterviewScheduled = useCallback(() => {
+    setRefreshKey(prev => prev + 1); // Refresh the list
+    showSuccessToast("Interview scheduled successfully!");
+  }, []);
+
+  const handleCloseScheduleInterview = useCallback(() => {
+    setScheduleInterviewOpen(false);
+    setSelectedRtr(null);
+  }, []);
+
   /** ---------------- CRUD Handlers ---------------- */
   const handleEdit = useCallback(
     (row) => {
-      // Navigate to RTR edit form with rtrId
       navigate(`/dashboard/rtr/rtr-form/${row.rtrId}`);
     },
     [navigate]
@@ -146,9 +168,7 @@ const RtrList = React.memo(() => {
 
   const handleView = useCallback(
     (row) => {
-      // Navigate to RTR view details (you can create a separate view component)
       console.log("View RTR:", row);
-      // For now, just navigate to edit
       navigate(`/dashboard/rtr/rtr-form/${row.rtrId}`);
     },
     [navigate]
@@ -177,7 +197,6 @@ const RtrList = React.memo(() => {
 
   const handleNavigate = useCallback(
     (rtrId) => {
-      // Navigate to RTR details/edit page
       navigate(`/dashboard/rtr/rtr-list`);
     },
     [navigate]
@@ -189,6 +208,7 @@ const RtrList = React.memo(() => {
     handleEdit,
     handleDelete,
     handleView,
+    handleScheduleInterview, // Pass the new handler
     loading,
     userRole: role,
     userId,
@@ -224,6 +244,15 @@ const RtrList = React.memo(() => {
         }}
         onRefresh={() => setRefreshKey((prev) => prev + 1)}
         onFiltersChange={handleFiltersChange}
+      />
+
+      {/* Schedule Interview Dialog */}
+      <ScheduleInterviewForm
+        open={scheduleInterviewOpen}
+        onClose={handleCloseScheduleInterview}
+        rtrId={selectedRtr?.rtrId}
+        consultantName={selectedRtr?.consultantName}
+        onSuccess={handleInterviewScheduled}
       />
     </Box>
   );
