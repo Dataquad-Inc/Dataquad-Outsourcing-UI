@@ -55,7 +55,7 @@ const HotlistContainer = () => {
     ];
 
     // Show only for TEAMLEAD / RECRUITER
-    if (role === "TEAMLEAD") {
+    if (role === "TEAMLEAD" || role === "SALESEXECUTIVE") {
       tabs.splice(2, 0, {
         label: "Team Consultants",
         icon: <ListAltIcon />,
@@ -86,7 +86,7 @@ const HotlistContainer = () => {
     ];
 
     // Show only for TEAMLEAD / RECRUITER
-    if (role === "TEAMLEAD") {
+    if (role === "TEAMLEAD" || role === "SALESEXECUTIVE") {
       tabs.splice(2, 0, {
         label: "Team Consultants",
         icon: <ListAltIcon />,
