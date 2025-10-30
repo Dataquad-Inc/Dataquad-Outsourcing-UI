@@ -29,6 +29,7 @@ const roleColors = {
   RECRUITER: "#1976d2", // Primary Blue
   SALESEXECUTIVE: "#ed6c02", // Orange (Warning)
   EMPLOYEE: "#2e7d32", // Green (Success)
+  GRANDSALES: "#f57c00", // Dark Orange
 };
 
 const getEmployeeColumns = ({ handleEdit, handleDelete, loading }) => [

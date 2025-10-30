@@ -63,6 +63,7 @@ const OnBoardNewEmployee = () => {
     { value: "SALESEXECUTIVE", label: "Sales Executive" },
     { value: "ADMIN", label: "Admin" },
     { value: "SUPERADMIN", label: "Super Admin" },
+    { value: "GRANDSALES", label: "Grand Sales" },
   ];
 
   const genderOptions = [

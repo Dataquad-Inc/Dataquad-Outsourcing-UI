@@ -78,7 +78,7 @@ const RtrList = React.memo(() => {
       let result;
       if(role === "SUPERADMIN" || role === "ADMIN"){
         result = await rightToRepresentAPI.getAllRTR(params);
-      } else if(role === "SALESEXECUTIVE"){
+      } else if(role === "SALESEXECUTIVE" || role === "GRANDSALES"){
         result = await rightToRepresentAPI.getSalesRtr(userId, params);
       }
         else if (role === "TEAMLEAD"){

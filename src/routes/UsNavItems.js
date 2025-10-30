@@ -21,6 +21,7 @@ const commonRoles = [
   "RECRUITER",
   "SALESEXECUTIVE",
   "ADMIN",
+  "GRANDSALES"
 ];
 
 // ✅ Adroit Route Config
@@ -33,7 +34,7 @@ export const usNavItems = (role) => [
   },
   {
     text: "Hotlist",
-    path: role === "SUPERADMIN" || role === "ADMIN" || role === "TEAMLEAD" ? "hotlist/master" : "hotlist/consultants",
+    path: role === "SUPERADMIN" || role === "ADMIN" || role === "TEAMLEAD" || role === "GRANDSALES" ? "hotlist/master" : "hotlist/consultants",
     icon: <GroupIcon />,
     roles: commonRoles,
   },
@@ -53,13 +54,13 @@ export const usNavItems = (role) => [
     text: "Requirements",
     path: "us-requirements",
     icon: <AssignmentIcon />,
-    roles: ["SUPERADMIN", "TEAMLEAD", "ADMIN"],
+    roles: ["SUPERADMIN", "TEAMLEAD", "ADMIN","GRANDSALES","RECRUITER"],
   },
   {
     text: "RTR",
     path: "rtr/rtr-list", // 👈 direct link to RTR module
     icon: <ListAltIcon />, // List icon fits RTR view
-    roles: ["SUPERADMIN","SALESEXECUTIVE","TEAMLEAD"],
+    roles: ["SUPERADMIN","SALESEXECUTIVE","TEAMLEAD","GRANDSALES"],
   },
   {
     text: "Submissions",

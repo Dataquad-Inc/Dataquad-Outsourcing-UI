@@ -32,7 +32,7 @@ const RequirementsList = () => {
   
   const [filterOptions, setFilterOptions] = useState({});
 
-  const { userId } = useSelector((state) => state.auth);
+  const { userId, role } = useSelector((state) => state.auth);
 
   // Confirm Dialog state
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -127,14 +127,24 @@ const RequirementsList = () => {
       if (keyword.trim()) {
         params.keyword = keyword.trim();
       }
-
-      const response = await axios.get(
+       let response;
+       if(role === "RECRUITER" || role === "GRANDSALES"){
+      response = await axios.get(
+        `https://mymulya.com/api/us/requirements/requirements-user/${userId}`,
+        {
+          params,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    } else {
+      response = await axios.get(
         "https://mymulya.com/api/us/requirements/allRequirements",
         {
           params,
           headers: { "Content-Type": "application/json" },
         }
       );
+    }
 
       const data = response.data;
       if (data.success && data.data) {
