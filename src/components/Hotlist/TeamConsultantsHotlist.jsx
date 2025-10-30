@@ -163,7 +163,7 @@ const TeamConsultantsHotlist = React.memo(() => {
   const handleDelete = useCallback((row) => {
     const deleteConsultantAction = async () => {
       try {
-        const result = await hotlistAPI.deleteConsultant(row.consultantId,userId);
+        const result = await hotlistAPI.deleteConsultant(row.consultantId, userId);
         showSuccessToast(result.message || "Consultant deleted ");
         setRefreshKey((prev) => prev + 1);
       } catch (error) {
@@ -172,17 +172,35 @@ const TeamConsultantsHotlist = React.memo(() => {
       }
     };
     showDeleteConfirm(deleteConsultantAction, row.name || "this consultant");
-  }, []);
+  }, [userId]);
 
   const handleNavigate = (consultantId) => {
     navigate(`/dashboard/hotlist/team-consultants/${consultantId}`);
   };
+
+  /** ---------------- ✅ View Handler (ADDED) ---------------- */
+  const handleView = useCallback((row) => {
+    navigate(`/dashboard/hotlist/team-consultants/${row.consultantId}`);
+  }, [navigate]);
+
+  /** ---------------- ✅ RTR Handler (ADDED - THIS IS THE KEY FIX) ---------------- */
+  const handleNavigateRTR = useCallback((row) => {
+    // Navigate to RTR form with consultant data in state
+    navigate(`/dashboard/rtr/rtr-form`, {
+      state: { 
+        consultantId: row.consultantId,
+        consultantName: row.name 
+      }
+    });
+  }, [navigate]);
 
   /** ---------------- Columns ---------------- */
   const columns = getHotListColumns({
     handleNavigate,
     handleEdit,
     handleDelete,
+    handleView, // ✅ ADDED: Pass view handler
+    handleNavigateRTR, // ✅ ADDED: Pass RTR handler - THIS FIXES THE ISSUE
     loading,
     userRole: role,
     userId: userId,
