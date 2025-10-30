@@ -230,7 +230,11 @@ export const requirementsAPI = {
   getAllRequirements: async (params = {}) => {
     return apiGet("/api/us/requirements/allRequirements", params);
   },
-
+  
+  getRequirementsByUserId: async (userId, params = {}) => {
+    if (!userId) throw new Error("User ID is required");
+    return apiGet(`/api/us/requirements-user/${userId}`, params);
+  },
   // Create new requirement with form data (for file uploads)
   createRequirement: async (userId, requirementData) => {
     if (!requirementData) throw new Error("Form data is required");

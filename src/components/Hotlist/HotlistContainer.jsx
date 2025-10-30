@@ -12,7 +12,7 @@ const HotlistContainer = () => {
 
   let tabs = [];
 
-  if (role === "SUPERADMIN" || role === "ADMIN") {
+  if (role === "SUPERADMIN" || role === "ADMIN" || role === "GRANDSALES") {
     // Tabs for SUPERADMIN
     tabs = [
       {

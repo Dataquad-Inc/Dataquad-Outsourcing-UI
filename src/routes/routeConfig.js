@@ -185,6 +185,7 @@ const routeConfig = [
           "SALESEXECUTIVE",
           "EXTERNALEMPLOYEE",
           "ACCOUNTS",
+          "GRANDSALES"
         ]}
       />
     ),
@@ -231,6 +232,7 @@ const routeConfig = [
                   "RECRUITER",
                   "ADMIN",
                   "SALESEXECUTIVE",
+                  "GRANDSALES"
                 ]}
                 allowedEntities={["US"]}
               />
@@ -592,6 +594,7 @@ const routeConfig = [
                   "EMPLOYEE",
                   "RECRUITER",
                   "SALESEXECUTIVE",
+                  "GRANDSALES"
                 ]}
                 allowedEntities={["US"]}
               />
@@ -650,6 +653,7 @@ const routeConfig = [
                 allowedRoles={[
                   "SUPERADMIN",
                   "ADMIN",
+                  "GRANDSALES",
                   "TEAMLEAD",
                   "EMPLOYEE",
                   "RECRUITER",
@@ -687,6 +691,7 @@ const routeConfig = [
                 allowedRoles={[
                   "SUPERADMIN",
                   "ADMIN",
+                  "GRANDSALES",
                   "TEAMLEAD",
                   "EMPLOYEE",
                   "RECRUITER",
@@ -720,6 +725,7 @@ const routeConfig = [
                 allowedRoles={[
                   "SUPERADMIN",
                   "ADMIN",
+                  "GRANDSALES",
                   "TEAMLEAD",
                   "EMPLOYEE",
                   "RECRUITER",
@@ -758,7 +764,7 @@ const routeConfig = [
             path: "us-employees",
             element: (
               <ProtectedRoute
-                allowedRoles={["SUPERADMIN", "ADMIN"]}
+                allowedRoles={["SUPERADMIN", "ADMIN","GRANDSALES"]}
                 allowedEntities={["US"]}
               />
             ),
@@ -800,7 +806,7 @@ const routeConfig = [
             path: "us-clients",
             element: (
               <ProtectedRoute
-                allowedRoles={["SUPERADMIN","EMPLOYEE","TEAMLEAD", "RECRUITER","SALESEXECUTIVE","ADMIN",]}
+                allowedRoles={["SUPERADMIN","EMPLOYEE","TEAMLEAD", "RECRUITER","SALESEXECUTIVE","ADMIN","GRANDSALES"]}
                 allowedEntities={["US"]}
               />
             ),

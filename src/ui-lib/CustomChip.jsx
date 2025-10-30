@@ -45,6 +45,11 @@ const roleConfig = {
     icon: PersonIcon,
     label: "Employee",
   },
+  GRANDSALES: {
+    color: "#f57c00",
+    icon: BusinessIcon,
+    label: "Grand Sales",
+  },
 };
 
 const jobTypeConfig = {
