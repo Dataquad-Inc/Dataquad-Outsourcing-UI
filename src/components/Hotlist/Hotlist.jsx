@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useState } from "react";
-import { Box, useTheme } from "@mui/material";
+import { Box, useTheme, Button, ToggleButton, ToggleButtonGroup } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import CustomDataTable from "../../ui-lib/CustomDataTable";
 import getHotListColumns from "./hotListColumns";
@@ -7,11 +7,19 @@ import CreateConsultant from "./CreateConsultant";
 import {
   showErrorToast,
   showSuccessToast,
-  showInfoToast,
 } from "../../utils/toastUtils";
 import showDeleteConfirm from "../../utils/showDeleteConfirm";
 import { hotlistAPI } from "../../utils/api";
 import { useSelector } from "react-redux";
+
+const useDebounce = (value, delay) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
+};
 
 const HotList = React.memo(() => {
   const theme = useTheme();
@@ -24,7 +32,11 @@ const HotList = React.memo(() => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 500);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // Status filter state
+  const [statusFilter, setStatusFilter] = useState("");
 
   // filters
   const [filters, setFilters] = useState({});
@@ -81,10 +93,15 @@ const HotList = React.memo(() => {
         }
       });
 
+      // Add status filter to params if selected
+      if (statusFilter) {
+        filterParams["statusFilter"] = statusFilter;
+      }
+
       const params = {
         page,
         size: rowsPerPage,
-        ...(search ? { keyword: search } : {}),
+        ...(debouncedSearch ? { keyword: debouncedSearch } : {}),
         ...filterParams,
       };
 
@@ -112,8 +129,9 @@ const HotList = React.memo(() => {
     page,
     rowsPerPage,
     userId,
-    search,
+    debouncedSearch,
     filters,
+    statusFilter,
     role,
     filterOptions,
     extractFilterOptionsFromData,
@@ -121,7 +139,19 @@ const HotList = React.memo(() => {
 
   useEffect(() => {
     fetchData();
-  }, [fetchData, refreshKey]);
+  }, [fetchData, refreshKey, debouncedSearch]);
+
+  /** ---------------- Status Filter Handler ---------------- */
+  const handleStatusFilterChange = useCallback((event, newStatus) => {
+    setStatusFilter(newStatus);
+    setPage(0); // Reset to first page when status filter changes
+  }, []);
+
+  /** ---------------- Clear Status Filter ---------------- */
+  const handleClearStatusFilter = useCallback(() => {
+    setStatusFilter("");
+    setPage(0);
+  }, []);
 
   /** ---------------- Filter Handler ---------------- */
   const handleFiltersChange = useCallback((newFilters) => {
@@ -187,22 +217,15 @@ const HotList = React.memo(() => {
     navigate(`/dashboard/hotlist/consultants/${row.consultantId}`);
   }, [navigate]);
 
-  /** ----------------   RTR Handler ---------------- */
-  // const handleNavigateRTR = useCallback((row) => {
-  //   // Navigate to RTR submission page with consultant data
-  //   navigate(`/dashboard/rtr/submit/${row.consultantId}`, {
-  //     state: { consultant: row }
-  //   });
-  // }, [navigate]);
+  /** ---------------- RTR Handler ---------------- */
   const handleNavigateRTR = useCallback((row) => {
-  // Navigate to RTR form with consultant data in state
-  navigate(`/dashboard/rtr/rtr-form`, {
-    state: { 
-      consultantId: row.consultantId,
-      consultantName: row.name 
-    }
-  });
-}, [navigate]);
+    navigate(`/dashboard/rtr/rtr-form`, {
+      state: { 
+        consultantId: row.consultantId,
+        consultantName: row.name 
+      }
+    });
+  }, [navigate]);
 
   /** ---------------- Columns ---------------- */
   const columns = getHotListColumns({
@@ -210,7 +233,7 @@ const HotList = React.memo(() => {
     handleEdit,
     handleDelete,
     handleView,
-    handleNavigateRTR, // ✅ Now passing the function
+    handleNavigateRTR,
     loading,
     userRole: role,
     userId: userId,
@@ -221,33 +244,98 @@ const HotList = React.memo(() => {
   return (
     <Box>
       {!showCreateForm ? (
-        <CustomDataTable
-          title="My Hotlist"
-          columns={columns}
-          rows={consultants}
-          total={total}
-          page={page}
-          rowsPerPage={rowsPerPage}
-          search={search}
-          loading={loading}
-          filters={filters}
-          onPageChange={(e, newPage) => setPage(newPage)}
-          onRowsPerPageChange={(e) => {
-            setRowsPerPage(parseInt(e.target.value, 10));
-            setPage(0);
-          }}
-          onSearchChange={(e) => {
-            setSearch(e.target.value);
-            setPage(0);
-          }}
-          onSearchClear={() => {
-            setSearch("");
-            setPage(0);
-          }}
-          onRefresh={() => setRefreshKey((prev) => prev + 1)}
-          onFiltersChange={handleFiltersChange}
-          onCreateNew={handleCreateNew}
-        />
+        <>
+          {/* Status Filter Toggle Buttons */}
+          <Box sx={{ 
+            mb: 2, 
+            display: 'flex', 
+            justifyContent: 'flex-start', 
+            alignItems: 'center', 
+            margin: '10px' 
+          }}>
+            <ToggleButtonGroup
+              value={statusFilter}
+              exclusive
+              onChange={handleStatusFilterChange}
+              aria-label="consultant status"
+              size="small"
+            >
+              <ToggleButton 
+                value="ACTIVE" 
+                aria-label="active"
+                sx={{ 
+                  px: 3,
+                  fontWeight: statusFilter === 'ACTIVE' ? 'bold' : 'normal',
+                  backgroundColor: statusFilter === 'ACTIVE' ? theme.palette.primary.main : 'inherit',
+                  color: statusFilter === 'ACTIVE' ? theme.palette.primary.contrastText : theme.palette.primary.main,
+                  '&:hover': {
+                    backgroundColor: statusFilter === 'ACTIVE' ? theme.palette.primary.dark : theme.palette.action.hover,
+                  }
+                }}
+              >
+                ACTIVE
+              </ToggleButton>
+              <ToggleButton 
+                value="INACTIVE" 
+                aria-label="inactive"
+                sx={{ 
+                  px: 3,
+                  fontWeight: statusFilter === 'INACTIVE' ? 'bold' : 'normal',
+                  backgroundColor: statusFilter === 'INACTIVE' ? theme.palette.primary.main : 'inherit',
+                  color: statusFilter === 'INACTIVE' ? theme.palette.primary.contrastText : theme.palette.primary.main,
+                  '&:hover': {
+                    backgroundColor: statusFilter === 'INACTIVE' ? theme.palette.primary.dark : theme.palette.action.hover,
+                  }
+                }}
+              >
+                INACTIVE
+              </ToggleButton>
+            </ToggleButtonGroup>
+            
+            {/* Clear Status Filter Button */}
+            {statusFilter && (
+              <Button
+                onClick={handleClearStatusFilter}
+                variant="outlined"
+                size="small"
+                sx={{
+                  ml: 2,
+                  textTransform: 'none'
+                }}
+              >
+                Clear Status Filter
+              </Button>
+            )}
+          </Box>
+
+          <CustomDataTable
+            title="My Hotlist"
+            columns={columns}
+            rows={consultants}
+            total={total}
+            page={page}
+            rowsPerPage={rowsPerPage}
+            search={search}
+            loading={loading}
+            filters={filters}
+            onPageChange={(e, newPage) => setPage(newPage)}
+            onRowsPerPageChange={(e) => {
+              setRowsPerPage(parseInt(e.target.value, 10));
+              setPage(0);
+            }}
+            onSearchChange={(e) => {
+              setSearch(e.target.value);
+              setPage(0);
+            }}
+            onSearchClear={() => {
+              setSearch("");
+              setPage(0);
+            }}
+            onRefresh={() => setRefreshKey((prev) => prev + 1)}
+            onFiltersChange={handleFiltersChange}
+            onCreateNew={handleCreateNew}
+          />
+        </>
       ) : (
         <CreateConsultant
           onClose={handleFormCancel}

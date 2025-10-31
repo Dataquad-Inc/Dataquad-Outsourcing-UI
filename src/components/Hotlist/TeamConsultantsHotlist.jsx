@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useState } from "react";
-import { useTheme, Box } from "@mui/material";
+import { useTheme, Box, Button, ToggleButton, ToggleButtonGroup } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import CustomDataTable from "../../ui-lib/CustomDataTable";
 import getHotListColumns from "./hotListColumns";
@@ -37,7 +37,10 @@ const TeamConsultantsHotlist = React.memo(() => {
   const debouncedSearch = useDebounce(search, 500);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // NEW: filters state
+  // Status filter state
+  const [statusFilter, setStatusFilter] = useState("");
+
+  // filters state
   const [filters, setFilters] = useState({});
   const [filterOptions, setFilterOptions] = useState({});
 
@@ -88,6 +91,11 @@ const TeamConsultantsHotlist = React.memo(() => {
         }
       });
 
+      // Add status filter to params if selected
+      if (statusFilter) {
+        filterParams["statusFilter"] = statusFilter;
+      }
+
       const params = {
         page,
         size: rowsPerPage,
@@ -107,11 +115,23 @@ const TeamConsultantsHotlist = React.memo(() => {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, userId, debouncedSearch, filters]);
+  }, [page, rowsPerPage, userId, debouncedSearch, filters, statusFilter]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData, refreshKey]);
+
+  /** ---------------- Status Filter Handler ---------------- */
+  const handleStatusFilterChange = useCallback((event, newStatus) => {
+    setStatusFilter(newStatus);
+    setPage(0); // Reset to first page when status filter changes
+  }, []);
+
+  /** ---------------- Clear Status Filter ---------------- */
+  const handleClearStatusFilter = useCallback(() => {
+    setStatusFilter("");
+    setPage(0);
+  }, []);
 
   /** ---------------- Filter Handlers ---------------- */
   const handleFiltersChange = useCallback((newFilters) => {
@@ -178,12 +198,12 @@ const TeamConsultantsHotlist = React.memo(() => {
     navigate(`/dashboard/hotlist/team-consultants/${consultantId}`);
   };
 
-  /** ---------------- ✅ View Handler (ADDED) ---------------- */
+  /** ---------------- View Handler ---------------- */
   const handleView = useCallback((row) => {
     navigate(`/dashboard/hotlist/team-consultants/${row.consultantId}`);
   }, [navigate]);
 
-  /** ---------------- ✅ RTR Handler (ADDED - THIS IS THE KEY FIX) ---------------- */
+  /** ---------------- RTR Handler ---------------- */
   const handleNavigateRTR = useCallback((row) => {
     // Navigate to RTR form with consultant data in state
     navigate(`/dashboard/rtr/rtr-form`, {
@@ -199,45 +219,110 @@ const TeamConsultantsHotlist = React.memo(() => {
     handleNavigate,
     handleEdit,
     handleDelete,
-    handleView, // ✅ ADDED: Pass view handler
-    handleNavigateRTR, // ✅ ADDED: Pass RTR handler - THIS FIXES THE ISSUE
+    handleView,
+    handleNavigateRTR,
     loading,
     userRole: role,
     userId: userId,
-    filterOptions, // Pass filter options here
+    filterOptions,
   });
 
   /** ---------------- Render ---------------- */
   return (
     <Box>
       {!showCreateForm ? (
-        <CustomDataTable
-          title="Team Consultants Hotlist"
-          columns={columns}
-          rows={consultants}
-          total={total}
-          page={page}
-          rowsPerPage={rowsPerPage}
-          search={search}
-          loading={loading}
-          filters={filters}
-          onFiltersChange={handleFiltersChange}
-          onPageChange={(e, newPage) => setPage(newPage)}
-          onRowsPerPageChange={(e) => {
-            setRowsPerPage(parseInt(e.target.value, 10));
-            setPage(0);
-          }}
-          onSearchChange={(e) => {
-            setSearch(e.target.value);
-            setPage(0);
-          }}
-          onSearchClear={() => {
-            setSearch("");
-            setPage(0);
-          }}
-          onRefresh={() => setRefreshKey((prev) => prev + 1)}
-          onCreateNew={handleCreateNew}
-        />
+        <>
+          {/* Status Filter Toggle Buttons */}
+          <Box sx={{ 
+            mb: 2, 
+            display: 'flex', 
+            justifyContent: 'flex-start', 
+            alignItems: 'center', 
+            margin: '10px' 
+          }}>
+            <ToggleButtonGroup
+              value={statusFilter}
+              exclusive
+              onChange={handleStatusFilterChange}
+              aria-label="consultant status"
+              size="small"
+            >
+              <ToggleButton 
+                value="ACTIVE" 
+                aria-label="active"
+                sx={{ 
+                  px: 3,
+                  fontWeight: statusFilter === 'ACTIVE' ? 'bold' : 'normal',
+                  backgroundColor: statusFilter === 'ACTIVE' ? theme.palette.primary.main : 'inherit',
+                  color: statusFilter === 'ACTIVE' ? theme.palette.primary.contrastText : theme.palette.primary.main,
+                  '&:hover': {
+                    backgroundColor: statusFilter === 'ACTIVE' ? theme.palette.primary.dark : theme.palette.action.hover,
+                  }
+                }}
+              >
+                ACTIVE
+              </ToggleButton>
+              <ToggleButton 
+                value="INACTIVE" 
+                aria-label="inactive"
+                sx={{ 
+                  px: 3,
+                  fontWeight: statusFilter === 'INACTIVE' ? 'bold' : 'normal',
+                  backgroundColor: statusFilter === 'INACTIVE' ? theme.palette.primary.main : 'inherit',
+                  color: statusFilter === 'INACTIVE' ? theme.palette.primary.contrastText : theme.palette.primary.main,
+                  '&:hover': {
+                    backgroundColor: statusFilter === 'INACTIVE' ? theme.palette.primary.dark : theme.palette.action.hover,
+                  }
+                }}
+              >
+                INACTIVE
+              </ToggleButton>
+            </ToggleButtonGroup>
+            
+            {/* Clear Status Filter Button */}
+            {statusFilter && (
+              <Button
+                onClick={handleClearStatusFilter}
+                variant="outlined"
+                size="small"
+                sx={{
+                  ml: 2,
+                  textTransform: 'none'
+                }}
+              >
+                Clear Status Filter
+              </Button>
+            )}
+          </Box>
+
+          <CustomDataTable
+            title="Team Consultants Hotlist"
+            columns={columns}
+            rows={consultants}
+            total={total}
+            page={page}
+            rowsPerPage={rowsPerPage}
+            search={search}
+            loading={loading}
+            filters={filters}
+            onFiltersChange={handleFiltersChange}
+            onPageChange={(e, newPage) => setPage(newPage)}
+            onRowsPerPageChange={(e) => {
+              setRowsPerPage(parseInt(e.target.value, 10));
+              setPage(0);
+            }}
+            onSearchChange={(e) => {
+              setSearch(e.target.value);
+              setPage(0);
+            }}
+            onSearchClear={() => {
+              setSearch("");
+              setPage(0);
+            }}
+            onRefresh={() => setRefreshKey((prev) => prev + 1)}
+            onCreateNew={handleCreateNew}
+          />
+        </>
       ) : (
         <CreateConsultant
           onClose={handleFormCancel}
