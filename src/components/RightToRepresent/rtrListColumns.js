@@ -5,11 +5,13 @@ import Delete from "@mui/icons-material/Delete";
 import Visibility from "@mui/icons-material/Visibility";
 import ReusableMenu from "../../ui-lib/ReusableMenu";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
+import { useSelector } from "react-redux";
 
 // ✅ Permission logic
 const hasPermission = (userRole) => {
   return userRole === "SALESEXECUTIVE" || userRole === "TEAMLEAD" || userRole === "SUPERADMIN" || userRole === "GRANDSALES"; // ❌ Sales Executive has no edit/delete
 };
+
 
 const renderValue = (value, width = 100, loading) =>
   loading ? <Skeleton width={width} /> : value;
@@ -40,7 +42,9 @@ const getRTRListColumns = ({
       const canEdit = hasPermission(userRole);
       const canDelete = hasPermission(userRole);
       const canView = true;
-
+      
+      
+ 
       if (!canEdit && !canDelete && !canView) {
         return <Box sx={{ minWidth: 80 }}>-</Box>;
       }
@@ -181,6 +185,14 @@ const getRTRListColumns = ({
     filterOptions: filterOptions.salesExecutive || [],
     render: (v) => renderValue(v, 100, loading),
   },
+  (userRole === "TEAMLEAD" && {
+    id: "createdBy",
+    label: "Submitted By",
+    filterType: "text",
+    applyFilter: true,
+    filterOptions: filterOptions.createdBy || [],
+    render: (v) => renderValue(v, 100, loading),
+  }),
   {
     id: "vendorName",
     label: "Vendor Name",
