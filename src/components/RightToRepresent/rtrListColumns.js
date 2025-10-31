@@ -186,11 +186,11 @@ const getRTRListColumns = ({
     render: (v) => renderValue(v, 100, loading),
   },
   (userRole === "TEAMLEAD" && {
-    id: "createdBy",
+    id: "createdByName",
     label: "Submitted By",
     filterType: "text",
     applyFilter: true,
-    filterOptions: filterOptions.createdBy || [],
+    filterOptions: filterOptions.createdByName || [],
     render: (v) => renderValue(v, 100, loading),
   }),
   {
