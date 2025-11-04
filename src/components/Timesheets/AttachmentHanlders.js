@@ -168,55 +168,89 @@ export const useAttachmentsHandler = () => {
   };
 
 
-  const uploadFilesToServer = async (timesheetId, files, startDate = null, endDate = null, currentTimesheet, selectedWeekStart) => {
-    try {
-      let finalStartDate = startDate;
-      let finalEndDate = endDate;
+const uploadFilesToServer = async (timesheetId, files, startDate = null, endDate = null, currentTimesheet, selectedWeekStart) => {
+  try {
+    let finalStartDate = startDate;
+    let finalEndDate = endDate;
 
-      if ((!startDate || !endDate) && currentTimesheet) {
-        console.log('Dates are null, calculating from timesheet...');
+    if ((!startDate || !endDate) && currentTimesheet) {
+      console.log('Dates are null, calculating from timesheet...');
 
-        const dateRange = getWorkingDateRange(currentTimesheet, selectedWeekStart);
-        if (dateRange) {
-          finalStartDate = dateRange.start;
-          finalEndDate = dateRange.end;
-          console.log('Using calculated date range:', dateRange);
+      // Use getWorkingDateRange for attachment uploads
+      // This ensures the date range aligns with the timesheet week structure (Mon-Fri in current month)
+      const dateRange = getWorkingDateRange(currentTimesheet);
+      
+      if (dateRange) {
+        finalStartDate = dateRange.start;
+        finalEndDate = dateRange.end;
+        console.log('Using calculated working date range:', dateRange);
+      } else {
+        // Fallback: Calculate Monday-Friday range within current month
+        const weekStartDate = new Date(selectedWeekStart);
+        const monday = new Date(weekStartDate);
+        const friday = new Date(weekStartDate);
+        friday.setDate(monday.getDate() + 4);
+        
+        // Check if we need to limit to current month
+        if (calendarValue) {
+          const currentMonth = calendarValue.getMonth();
+          const currentYear = calendarValue.getFullYear();
+          
+          const mondayInCurrentMonth = monday.getMonth() === currentMonth && monday.getFullYear() === currentYear;
+          const fridayInCurrentMonth = friday.getMonth() === currentMonth && friday.getFullYear() === currentYear;
+          
+          if (mondayInCurrentMonth && fridayInCurrentMonth) {
+            finalStartDate = formatDateToYMD(monday);
+            finalEndDate = formatDateToYMD(friday);
+          } else if (mondayInCurrentMonth && !fridayInCurrentMonth) {
+            const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0);
+            finalStartDate = formatDateToYMD(monday);
+            finalEndDate = formatDateToYMD(lastDayOfMonth);
+          } else if (!mondayInCurrentMonth && fridayInCurrentMonth) {
+            const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
+            finalStartDate = formatDateToYMD(firstDayOfMonth);
+            finalEndDate = formatDateToYMD(friday);
+          } else {
+            // If neither in current month, use the week range as is
+            finalStartDate = formatDateToYMD(monday);
+            finalEndDate = formatDateToYMD(friday);
+          }
         } else {
-          // Final fallback: use week start/end
-          const weekInfo = getWeekDates(selectedWeekStart);
-          finalStartDate = weekInfo.startString;
-          finalEndDate = weekInfo.endString;
-          console.log('Using week date range fallback:', weekInfo);
+          finalStartDate = formatDateToYMD(monday);
+          finalEndDate = formatDateToYMD(friday);
         }
+        
+        console.log('Using calculated fallback range:', { finalStartDate, finalEndDate });
       }
-
-      const uploadParams = {
-        timesheetId,
-        files
-      };
-
-      if (finalStartDate && finalEndDate && finalStartDate !== 'null' && finalEndDate !== 'null') {
-        uploadParams.attachmentStartDate = finalStartDate;
-        uploadParams.attachmentEndDate = finalEndDate;
-        console.log('Including date parameters:', { finalStartDate, finalEndDate });
-      } else {
-        console.log('Skipping date parameters - they are null or invalid');
-      }
-
-      const resultAction = await dispatch(uploadTimesheetAttachments(uploadParams));
-
-      if (uploadTimesheetAttachments.fulfilled.match(resultAction)) {
-        return resultAction.payload;
-      } else {
-        const errorMessage = extractErrorMessage(resultAction.payload);
-        throw new Error(errorMessage || 'Failed to upload attachments');
-      }
-    } catch (error) {
-      console.error('Error uploading files:', error);
-      const errorMessage = extractErrorMessage(error);
-      throw new Error(errorMessage);
     }
-  };
+
+    const uploadParams = {
+      timesheetId,
+      files
+    };
+
+    if (finalStartDate && finalEndDate && finalStartDate !== 'null' && finalEndDate !== 'null') {
+      uploadParams.attachmentStartDate = finalStartDate;
+      uploadParams.attachmentEndDate = finalEndDate;
+      console.log('Including date parameters:', { finalStartDate, finalEndDate });
+    } else {
+      console.log('Skipping date parameters - they are null or invalid');
+    }
+
+    const resultAction = await dispatch(uploadTimesheetAttachments(uploadParams));
+
+    if (uploadTimesheetAttachments.fulfilled.match(resultAction)) {
+      return resultAction.payload;
+    } else {
+      const errorMessage = extractErrorMessage(resultAction.payload);
+      throw new Error(errorMessage || 'Failed to upload attachments');
+    }
+  } catch (error) {
+    console.error('Error uploading files:', error);
+    const errorMessage = extractErrorMessage(error);
+    throw new Error(errorMessage);
+  }
+};
 
   const handleFileSelect = (event) => {
     const files = Array.from(event.target.files);
@@ -224,79 +258,83 @@ export const useAttachmentsHandler = () => {
     setSelectedFiles(files);
   };
 
-  const handleUploadAttachments = async (currentTimesheet, selectedWeekStart, setHasUnsavedChanges) => {
-    if (selectedFiles.length === 0) {
-      ToastService.warning('Please select at least one file to upload');
-      return;
-    }
+const handleUploadAttachments = async (currentTimesheet, selectedWeekStart, setHasUnsavedChanges) => {
+  if (selectedFiles.length === 0) {
+    ToastService.warning('Please select at least one file to upload');
+    return;
+  }
 
-    setUploading(true);
+  setUploading(true);
 
-    try {
-      if (currentTimesheet && currentTimesheet.id) {
-        console.log('Timesheet has ID, uploading directly to server');
+  try {
+    if (currentTimesheet && currentTimesheet.id) {
+      console.log('Timesheet has ID, uploading directly to server');
 
-        // Check if dates should be included based on working hours
-        const editableRange = getEditableDateRange(currentTimesheet, selectedWeekStart);
-        const uploadResponse = await uploadFilesToServer(
-          currentTimesheet.id,
-          selectedFiles,
-          editableRange ? editableRange.start : null,
-          editableRange ? editableRange.end : null,
-          currentTimesheet,
-          selectedWeekStart
-        );
+      // For attachment uploads, use the working date range (Monday-Friday within current month)
+      // This ensures attachments align with the timesheet week structure
+      const dateRange = getWorkingDateRange(currentTimesheet);
+      
+      console.log('Date range for upload:', dateRange);
+      
+      const uploadResponse = await uploadFilesToServer(
+        currentTimesheet.id,
+        selectedFiles,
+        dateRange ? dateRange.start : null,
+        dateRange ? dateRange.end : null,
+        currentTimesheet,
+        selectedWeekStart
+      );
 
-        if (uploadResponse && uploadResponse.success) {
-          const newAttachments = selectedFiles.map((file, index) => ({
-            id: Date.now() * 1000 + Math.floor(Math.random() * 1000) + index, // Integer only
-            name: file.name,
-            size: file.size,
-            type: file.type,
-            uploadDate: new Date(),
-            url: uploadResponse.fileUrls ? uploadResponse.fileUrls.find(url => url.includes(file.name)) : null,
-            uploaded: true
-          }));
-
-          setAttachments(prev => [...prev, ...newAttachments]);
-          ToastService.success(`${selectedFiles.length} file(s) uploaded successfully`);
-        } else {
-          const errorMessage = extractErrorMessage(uploadResponse);
-          ToastService.error(errorMessage || 'Failed to upload files to server');
-        }
-      } else {
-        // Store files temporarily if no timesheet ID - they'll be uploaded on save/submit
-        console.log('No timesheet ID, storing files for later upload');
-        const tempAttachments = selectedFiles.map((file, index) => ({
-          id: Date.now() * 1000 + Math.floor(Math.random() * 1000) + index, // Integer only
+      if (uploadResponse && uploadResponse.success) {
+        const newAttachments = selectedFiles.map((file, index) => ({
+          id: Date.now() * 1000 + Math.floor(Math.random() * 1000) + index,
           name: file.name,
           size: file.size,
           type: file.type,
           uploadDate: new Date(),
-          file: file,
-          uploaded: false
+          url: uploadResponse.fileUrls ? uploadResponse.fileUrls.find(url => url.includes(file.name)) : null,
+          uploaded: true
         }));
-        setAttachments(prev => [...prev, ...tempAttachments]);
-        setPendingAttachments(prev => [...prev, ...tempAttachments]);
-        ToastService.info(`${selectedFiles.length} file(s) added and will be uploaded when timesheet is saved`);
-        setHasUnsavedChanges(true); // Mark as having unsaved changes
-      }
 
-      setUploadDialogOpen(false);
-      setSelectedFiles([]);
-
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+        setAttachments(prev => [...prev, ...newAttachments]);
+        ToastService.success(`${selectedFiles.length} file(s) uploaded successfully`);
+      } else {
+        const errorMessage = extractErrorMessage(uploadResponse);
+        ToastService.error(errorMessage || 'Failed to upload files to server');
       }
-    } catch (error) {
-      console.error('Error processing files:', error);
-      const errorMessage = extractErrorMessage(error);
-      ToastService.error(errorMessage);
-    } finally {
-      setUploading(false);
+    } else {
+      // Store files temporarily if no timesheet ID
+      console.log('No timesheet ID, storing files for later upload');
+      const tempAttachments = selectedFiles.map((file, index) => ({
+        id: Date.now() * 1000 + Math.floor(Math.random() * 1000) + index,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        uploadDate: new Date(),
+        file: file,
+        uploaded: false
+      }));
+      setAttachments(prev => [...prev, ...tempAttachments]);
+      setPendingAttachments(prev => [...prev, ...tempAttachments]);
+      ToastService.info(`${selectedFiles.length} file(s) added and will be uploaded when timesheet is saved`);
+      setHasUnsavedChanges(true);
     }
-  };
+
+    setUploadDialogOpen(false);
+    setSelectedFiles([]);
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  } catch (error) {
+    console.error('Error processing files:', error);
+    const errorMessage = extractErrorMessage(error);
+    ToastService.error(errorMessage);
+  } finally {
+    setUploading(false);
+  }
+};
 
   const fetchTimesheetAttachments = async (timesheetId) => {
     if (!timesheetId) return [];
