@@ -63,6 +63,7 @@ class WebSocketService {
     
     if (this.connected && this.client) {
       try {
+        // Send immediately without waiting for response
         this.client.publish(messageData);
       } catch (error) {
         console.error('Failed to send message:', error);

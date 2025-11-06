@@ -173,7 +173,7 @@ const ChatArea = ({
                         <Button 
                           size="small" 
                           variant="outlined"
-                          onClick={() => api.downloadFile(message.id, message.fileName)}
+                          onClick={() => api.downloadFile(message.fileId, message.fileName)}
                           sx={{ 
                             textTransform: 'none',
                             justifyContent: 'flex-start'
@@ -242,7 +242,10 @@ const ChatArea = ({
           <input
             type="file"
             ref={fileInputRef}
-            onChange={(e) => onFileUpload(e.target.files[0])}
+            onChange={(e) => {
+              onFileUpload(e.target.files[0]);
+              e.target.value = '';
+            }}
             style={{ display: 'none' }}
           />
           <IconButton onClick={() => fileInputRef.current?.click()}>

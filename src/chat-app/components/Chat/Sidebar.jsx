@@ -80,7 +80,10 @@ const Sidebar = ({ currentUser, selectedChat, onChatSelect, onlineUsers, unreadC
         <ListItem disablePadding>
           <ListItemButton
             selected={selectedChat?.type === 'general'}
-            onClick={() => onChatSelect({ type: 'general', name: 'General', id: 'general' })}
+            onClick={() => {
+              onChatSelect({ type: 'general', name: 'General', id: 'general' });
+              onClearUnread('general');
+            }}
             sx={{ 
               '&.Mui-selected': { bgcolor: '#ff8c00', color: 'white' },
               '&:hover': { bgcolor: '#f0f0f0', color: 'black' }
@@ -88,6 +91,19 @@ const Sidebar = ({ currentUser, selectedChat, onChatSelect, onlineUsers, unreadC
           >
             <Tag sx={{ mr: 2, color: '#666666' }} />
             <ListItemText primary="General" />
+            {(unreadCounts['general'] || 0) > 0 && (
+              <Badge 
+                badgeContent={unreadCounts['general']} 
+                color="error" 
+                sx={{ 
+                  '& .MuiBadge-badge': { 
+                    fontSize: '0.75rem',
+                    minWidth: '18px',
+                    height: '18px'
+                  } 
+                }}
+              />
+            )}
           </ListItemButton>
         </ListItem>
 

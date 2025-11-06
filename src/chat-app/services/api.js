@@ -32,10 +32,11 @@ export const api = {
     }
   },
 
-  uploadFile: async (file, senderId, recipientId = null) => {
+  uploadFile: async (file, senderId, chatType, recipientId = null) => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('senderId', senderId);
+    formData.append('chatType', chatType);
     if (recipientId) {
       formData.append('recipientId', recipientId);
     }

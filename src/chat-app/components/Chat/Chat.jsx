@@ -13,7 +13,7 @@ import Sidebar from '../Chat/Sidebar';
 import ChatArea from '../Chat/ChatArea';
 import '../Chat/Chat.css';
 
-const Chat = ({ user, open, onClose }) => {
+const Chat = ({ user, open, onClose, onUnreadCountChange }) => {
   const [messages, setMessages] = useState([]);
   const [selectedChat, setSelectedChat] = useState({ type: 'general', name: 'General', id: 'general' });
   const [typingUsers, setTypingUsers] = useState(new Map());
@@ -25,42 +25,52 @@ const Chat = ({ user, open, onClose }) => {
     return saved ? JSON.parse(saved) : [];
   });
   const typingTimeoutRef = useRef(null);
-
+  
   const onMessageReceived = (message) => {
     const currentUserId = user.userId;
     const selectedUserId = selectedChat.userId || selectedChat.id;
     
-    if (selectedChat.type === 'general' && !message.recipientId) {
+    // Add message to current chat view
+    if ((selectedChat.type === 'general' && !message.recipientId) ||
+        (selectedChat.type === 'direct' && message.recipientId && 
+         ((message.senderId === selectedUserId && message.recipientId === currentUserId) ||
+          (message.senderId === currentUserId && message.recipientId === selectedUserId)))) {
       setMessages(prev => [...prev, message]);
     }
-    else if (selectedChat.type === 'direct' && message.recipientId && 
-             ((message.senderId === selectedUserId && message.recipientId === currentUserId) ||
-              (message.senderId === currentUserId && message.recipientId === selectedUserId))) {
-      setMessages(prev => [...prev, message]);
-    }
-    else if (message.recipientId === currentUserId && message.senderId !== currentUserId) {
-      const senderUser = allUsers.find(u => (u.userId || u.id) === message.senderId);
-      
-      if (senderUser) {
-        setDirectMessageUsers(prev => {
-          if (!prev.find(u => u.id === message.senderId)) {
-            const newUser = {
-              id: senderUser.userId || senderUser.id,
-              name: senderUser.userName || senderUser.name
-            };
+    
+    // Handle unread counts for messages not in current view
+    if (message.senderId !== currentUserId) {
+      if (!message.recipientId) {
+        // General message - increment unread if not viewing general chat
+        if (selectedChat.type !== 'general') {
+          setUnreadCounts(prev => ({
+            ...prev,
+            general: (prev.general || 0) + 1
+          }));
+        }
+      } else if (message.recipientId === currentUserId) {
+        // Direct message to current user
+        const senderUser = allUsers.find(u => (u.userId || u.id) === message.senderId);
+        
+        if (senderUser && !directMessageUsers.find(u => u.id === message.senderId)) {
+          const newUser = {
+            id: senderUser.userId || senderUser.id,
+            name: senderUser.userName || senderUser.name
+          };
+          setDirectMessageUsers(prev => {
             const newDirectMessages = [...prev, newUser];
             localStorage.setItem(`directMessages_${currentUserId}`, JSON.stringify(newDirectMessages));
             return newDirectMessages;
-          }
-          return prev;
-        });
-      }
-      
-      if (selectedChat.type !== 'direct' || selectedUserId !== message.senderId) {
-        setUnreadCounts(prev => ({
-          ...prev,
-          [message.senderId]: (prev[message.senderId] || 0) + 1
-        }));
+          });
+        }
+        
+        // Increment unread count if not viewing this direct chat
+        if (selectedChat.type !== 'direct' || selectedUserId !== message.senderId) {
+          setUnreadCounts(prev => ({
+            ...prev,
+            [message.senderId]: (prev[message.senderId] || 0) + 1
+          }));
+        }
       }
     }
   };
@@ -147,20 +157,16 @@ const Chat = ({ user, open, onClose }) => {
   };
 
   const handleSendMessage = (content) => {
-    const currentUserId = user.userId;
-    const selectedUserId = selectedChat.userId || selectedChat.id;
-    
     handleStopTyping();
     
     const messageData = {
-      senderId: currentUserId,
+      senderId: user.userId,
       content,
-      messageType: 'TEXT',
-      sentAt: new Date().toISOString()
+      messageType: 'TEXT'
     };
 
     if (selectedChat.type === 'direct') {
-      messageData.recipientId = selectedUserId;
+      messageData.recipientId = selectedChat.userId || selectedChat.id;
     }
 
     sendMessage(messageData);
@@ -194,27 +200,23 @@ const Chat = ({ user, open, onClose }) => {
   const handleFileUpload = async (file) => {
     if (file && file.size <= 10 * 1024 * 1024) {
       try {
-        const currentUserId = user.userId;
-        const selectedUserId = selectedChat.userId || selectedChat.id;
+        const chatType = selectedChat.type === 'general' ? 'GENERAL' : 'DIRECT';
+        const recipientId = selectedChat.type === 'direct' ? (selectedChat.userId || selectedChat.id) : null;
         
-        const response = await api.uploadFile(file, currentUserId, selectedChat.type === 'direct' ? selectedUserId : null);
+        const fileId = await api.uploadFile(file, user.userId, chatType, recipientId);
         
         const fileMessage = {
-          senderId: currentUserId,
+          senderId: user.userId,
           content: `📎 ${file.name}`,
           messageType: 'FILE',
-          fileName: file.name,
-          fileType: file.type,
-          fileSize: file.size,
-          sentAt: new Date().toISOString()
+          fileId: parseInt(fileId)
         };
 
         if (selectedChat.type === 'direct') {
-          fileMessage.recipientId = selectedUserId;
+          fileMessage.recipientId = recipientId;
         }
 
         sendMessage(fileMessage);
-        setTimeout(() => loadMessages(), 500);
       } catch (error) {
         console.error('File upload failed:', error);
       }
@@ -239,6 +241,14 @@ const Chat = ({ user, open, onClose }) => {
       return updated;
     });
   };
+  
+  // Calculate and send total unread count to parent
+  useEffect(() => {
+    if (onUnreadCountChange) {
+      const total = Object.values(unreadCounts).reduce((sum, count) => sum + count, 0);
+      onUnreadCountChange(total);
+    }
+  }, [unreadCounts, onUnreadCountChange]);
 
   return (
     <Dialog 

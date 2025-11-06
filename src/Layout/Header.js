@@ -68,6 +68,7 @@ const Header = ({
   );
 
   const [chatOpen, setChatOpen] = useState(false);
+  const [totalUnreadCount, setTotalUnreadCount] = useState(0);
 
   // Generate a stable color for each user based on their userId
   const userColor = useMemo(() => {
@@ -362,7 +363,9 @@ const Header = ({
               onClick={() => setChatOpen(true)}
               title="Open Chat"
             >
-              <WhatsAppIcon />
+              <Badge badgeContent={totalUnreadCount > 0 ? totalUnreadCount : null} color="error">
+                <WhatsAppIcon />
+              </Badge>
             </IconButton>
             {/* Dark Mode Switch */}
             {/* Notifications IconButton */}
@@ -409,11 +412,12 @@ const Header = ({
       <Chat
         user={{
           userId: userId,
-          username: userName,
+          userName: userName,
           userEmail: email
         }}
         open={chatOpen}
         onClose={() => setChatOpen(false)}
+        onUnreadCountChange={setTotalUnreadCount}
       />
       {/* Leave Application Drawer */}
       <Drawer
