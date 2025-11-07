@@ -1,17 +1,19 @@
 import React from "react";
-import { Box, Skeleton } from "@mui/material";
+import { Box, Skeleton, IconButton, Tooltip } from "@mui/material";
 import Edit from "@mui/icons-material/Edit";
 import Delete from "@mui/icons-material/Delete";
 import Visibility from "@mui/icons-material/Visibility";
-import ReusableMenu from "../../ui-lib/ReusableMenu";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
 import { useSelector } from "react-redux";
 
 // ✅ Permission logic
 const hasPermission = (userRole) => {
-  return userRole === "SALESEXECUTIVE" || userRole === "TEAMLEAD" || userRole === "SUPERADMIN" || userRole === "GRANDSALES"; // ❌ Sales Executive has no edit/delete
+  return (
+    userRole === "SALESEXECUTIVE" ||
+    userRole === "TEAMLEAD" ||
+    userRole === "SUPERADMIN" ||
+    userRole === "GRANDSALES"
+  ); // ❌ Sales Executive has no edit/delete
 };
-
 
 const renderValue = (value, width = 100, loading) =>
   loading ? <Skeleton width={width} /> : value;
@@ -35,48 +37,44 @@ const getRTRListColumns = ({
         return (
           <Box sx={{ display: "flex", gap: 1 }}>
             <Skeleton variant="circular" width={32} height={32} />
+            <Skeleton variant="circular" width={32} height={32} />
           </Box>
         );
       }
 
       const canEdit = hasPermission(userRole);
       const canDelete = hasPermission(userRole);
-      const canView = true;
-      
-      
- 
-      if (!canEdit && !canDelete && !canView) {
+
+      if (!canEdit && !canDelete ) {
         return <Box sx={{ minWidth: 80 }}>-</Box>;
       }
 
-      // ✅ Build actions dynamically
-      const actionOptions = [];
-
-      
-      if (canEdit)
-        actionOptions.push({
-          label: "Edit RTR",
-          icon: <Edit fontSize="small" color="primary" />,
-          action: () => handleEdit(row),
-        });
-
-      if (canDelete)
-        actionOptions.push({
-          label: "Delete RTR",
-          icon: <Delete fontSize="small" color="error" />,
-          action: () => handleDelete(row),
-        });
-
       return (
-        <ReusableMenu
-          options={actionOptions.map((opt) => opt.label)}
-          onSelect={(label) => {
-            const selected = actionOptions.find((opt) => opt.label === label);
-            if (selected) selected.action();
-          }}
-          icon={<MoreVertIcon />}
-          menuWidth="15ch"
-        />
+        <Box sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
+          {canEdit && (
+            <Tooltip title="Edit RTR">
+              <IconButton
+                size="small"
+                color="primary"
+                onClick={() => handleEdit(row)}
+              >
+                <Edit fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+
+          {canDelete && (
+            <Tooltip title="Delete RTR">
+              <IconButton
+                size="small"
+                color="error"
+                onClick={() => handleDelete(row)}
+              >
+                <Delete fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
       );
     },
   },
@@ -185,14 +183,14 @@ const getRTRListColumns = ({
     filterOptions: filterOptions.salesExecutive || [],
     render: (v) => renderValue(v, 100, loading),
   },
-  (userRole === "TEAMLEAD" && {
+  userRole === "TEAMLEAD" && {
     id: "createdByName",
     label: "Submitted By",
     filterType: "text",
     applyFilter: true,
     filterOptions: filterOptions.createdByName || [],
     render: (v) => renderValue(v, 100, loading),
-  }),
+  },
   {
     id: "vendorName",
     label: "Vendor Name",
