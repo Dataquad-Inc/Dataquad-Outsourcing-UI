@@ -290,4 +290,7 @@ const getHotListColumns = ({
   },
 ];
 
+
+// hotlist columns
+
 export default getHotListColumns;
