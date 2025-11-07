@@ -24,15 +24,26 @@ const ChatArea = ({
   onStopTyping,
   onFileUpload,
   typingUsers = new Map(),
-  onlineUsers = []
+  onlineUsers = [],
+  onLoadMore,
+  hasMoreMessages,
+  isLoadingMore
 }) => {
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  const handleScroll = (e) => {
+    const { scrollTop } = e.target;
+    if (scrollTop === 0 && hasMoreMessages && !isLoadingMore) {
+      onLoadMore();
+    }
+  };
 
   const handleSendMessage = () => {
     if (newMessage.trim()) {
@@ -115,7 +126,18 @@ const ChatArea = ({
       </Paper>
 
       {/* Messages Area */}
-      <Box sx={{ flex: 1, overflow: 'auto', p: 1, bgcolor: '#ffffff' }}>
+      <Box 
+        ref={messagesContainerRef}
+        onScroll={handleScroll}
+        sx={{ flex: 1, overflow: 'auto', p: 1, bgcolor: '#ffffff' }}
+      >
+        {isLoadingMore && (
+          <Box sx={{ textAlign: 'center', py: 2 }}>
+            <Typography variant="body2" color="textSecondary">
+              Loading more messages...
+            </Typography>
+          </Box>
+        )}
         <List sx={{ p: 0 }}>
           {messages.map((message, index) => {
             const isOwnMessage = message.senderId === (currentUser.userId || currentUser.id);

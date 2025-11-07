@@ -24,6 +24,9 @@ const Chat = ({ user, open, onClose, onUnreadCountChange }) => {
     const saved = localStorage.getItem(`directMessages_${user.userId}`);
     return saved ? JSON.parse(saved) : [];
   });
+  const [currentPage, setCurrentPage] = useState(0);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const typingTimeoutRef = useRef(null);
   
   const onMessageReceived = (message) => {
@@ -141,19 +144,38 @@ const Chat = ({ user, open, onClose, onUnreadCountChange }) => {
     }
   }, [selectedChat, open]);
 
-  const loadMessages = () => {
+  const loadMessages = (page = 0, append = false) => {
     const currentUserId = user.userId;
     const selectedUserId = selectedChat.userId || selectedChat.id;
     
     if (selectedChat.type === 'general') {
-      api.getMessages(50).then(data => {
-        setMessages(data.reverse());
+      api.getMessages(page, 10).then(data => {
+        if (data.length < 10) setHasMoreMessages(false);
+        if (append) {
+          setMessages(prev => [...data.reverse(), ...prev]);
+        } else {
+          setMessages(data.reverse());
+        }
       }).catch(console.error);
     } else if (selectedChat.type === 'direct') {
-      api.getDirectMessages(currentUserId, selectedUserId, 50).then(data => {
-        setMessages(data.reverse());
+      api.getDirectMessages(currentUserId, selectedUserId, page, 10).then(data => {
+        if (data.length < 10) setHasMoreMessages(false);
+        if (append) {
+          setMessages(prev => [...data.reverse(), ...prev]);
+        } else {
+          setMessages(data.reverse());
+        }
       }).catch(console.error);
     }
+  };
+
+  const loadMoreMessages = () => {
+    if (isLoadingMore || !hasMoreMessages) return;
+    setIsLoadingMore(true);
+    const nextPage = currentPage + 1;
+    setCurrentPage(nextPage);
+    loadMessages(nextPage, true);
+    setTimeout(() => setIsLoadingMore(false), 500);
   };
 
   const handleSendMessage = (content) => {
@@ -231,6 +253,8 @@ const Chat = ({ user, open, onClose, onUnreadCountChange }) => {
     }
     setSelectedChat(chat);
     setMessages([]);
+    setCurrentPage(0);
+    setHasMoreMessages(true);
     setTypingUsers(new Map());
   };
 
@@ -285,6 +309,9 @@ const Chat = ({ user, open, onClose, onUnreadCountChange }) => {
             onFileUpload={handleFileUpload}
             typingUsers={typingUsers}
             onlineUsers={onlineUsers}
+            onLoadMore={loadMoreMessages}
+            hasMoreMessages={hasMoreMessages}
+            isLoadingMore={isLoadingMore}
           />
         </Box>
       </DialogContent>

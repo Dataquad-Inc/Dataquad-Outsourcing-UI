@@ -21,9 +21,9 @@ export const api = {
     return response.text();
   },
 
-  getMessages: async (limit = 50) => {
+  getMessages: async (page = 0, limit = 10) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/messages?limit=${limit}`);
+      const response = await fetch(`${API_BASE_URL}/messages?page=${page}&limit=${limit}`);
       if (!response.ok) throw new Error('Failed to fetch messages');
       return response.json();
     } catch (error) {
@@ -51,9 +51,9 @@ export const api = {
     return response.text();
   },
 
-  getDirectMessages: async (userId1, userId2, limit = 50) => {
+  getDirectMessages: async (userId1, userId2, page = 0, limit = 10) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/messages/direct?user1=${userId1}&user2=${userId2}&limit=${limit}`);
+      const response = await fetch(`${API_BASE_URL}/messages/direct?user1=${userId1}&user2=${userId2}&page=${page}&limit=${limit}`);
       if (!response.ok) throw new Error('Failed to fetch direct messages');
       return response.json();
     } catch (error) {
