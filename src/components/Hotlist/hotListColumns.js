@@ -1,11 +1,9 @@
 import React from "react";
-import { Box, Skeleton } from "@mui/material";
+import { Box, Skeleton, IconButton, Tooltip, Button } from "@mui/material";
 import Edit from "@mui/icons-material/Edit";
 import Delete from "@mui/icons-material/Delete";
 import Visibility from "@mui/icons-material/Visibility";
-import ReusableMenu from "../../ui-lib/ReusableMenu";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
-import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn"; 
+import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
 import CustomChip from "../../ui-lib/CustomChip";
 
 // ✅ Permission logic
@@ -21,7 +19,7 @@ const getHotListColumns = ({
   handleEdit,
   handleDelete,
   handleView,
-  handleNavigateRTR, // 🆕 New callback for RTR
+  handleNavigateRTR,
   loading,
   userRole,
   userId,
@@ -34,68 +32,95 @@ const getHotListColumns = ({
     render: (_, row) => {
       if (loading) {
         return (
-          <Box sx={{ display: "flex", gap: 1 }}>
+          <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
             <Skeleton variant="circular" width={32} height={32} />
+            <Skeleton variant="circular" width={32} height={32} />
+            <Skeleton variant="circular" width={32} height={32} />
+            <Skeleton width={60} height={32} />
           </Box>
         );
       }
 
       const canEdit = hasPermission(userRole);
       const canDelete = hasPermission(userRole);
-      const canView = true;
       const canSubmitRTR = true; // 🆕 Allow all roles to submit RTR (optional restriction possible)
 
-      if (!canEdit && !canDelete && !canView && !canSubmitRTR) {
+      if (!canEdit && !canDelete && !canSubmitRTR) {
         return <Box sx={{ minWidth: 80 }}>-</Box>;
       }
 
-      // ✅ Build actions dynamically
-      const actionOptions = [];
-
-      if (canView)
-        actionOptions.push({
-          label: "View Candidate",
-          icon: <Visibility fontSize="small" color="info" />,
-          action: () => handleView(row),
-        });
-
-      if (canEdit)
-        actionOptions.push({
-          label: "Edit Candidate",
-          icon: <Edit fontSize="small" color="primary" />,
-          action: () => handleEdit(row),
-        });
-
-      if (canDelete)
-        actionOptions.push({
-          label: "Delete Candidate",
-          icon: <Delete fontSize="small" color="error" />,
-          action: () => handleDelete(row),
-        });
-
-      // 🆕 New Submit RTR action
-      if (canSubmitRTR)
-        actionOptions.push({
-          label: "Submit RTR",
-          icon: <AssignmentTurnedInIcon fontSize="small" color="success" />,
-          action: () => handleNavigateRTR(row),
-        });
-
       return (
-        <ReusableMenu
-          options={actionOptions.map((opt) => opt.label)}
-          onSelect={(label) => {
-            const selected = actionOptions.find((opt) => opt.label === label);
-            if (selected) selected.action();
+        <Box
+          sx={{
+            display: "flex",
+            gap: 1,
+            alignItems: "center",
+            flexWrap: "nowrap",
           }}
-          icon={<MoreVertIcon />}
-          menuWidth="18ch"
-        />
+        >
+          {/* View Button */}
+          <Tooltip title="View Candidate">
+            <IconButton
+              size="small"
+              color="info"
+              onClick={() => handleView(row)}
+            >
+              <Visibility fontSize="small" />
+            </IconButton>
+          </Tooltip>
+
+          {canEdit && (
+            <Tooltip title="Edit Candidate">
+              <IconButton
+                size="small"
+                color="primary"
+                onClick={() => handleEdit(row)}
+              >
+                <Edit fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+
+          {canDelete && (
+            <Tooltip title="Delete Candidate">
+              <IconButton
+                size="small"
+                color="error"
+                onClick={() => handleDelete(row)}
+              >
+                <Delete fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+
+          {canSubmitRTR && (
+            <Tooltip title="Submit RTR">
+              <Button
+                variant="contained"
+                color="success"
+                size="small"
+                startIcon={<AssignmentTurnedInIcon fontSize="small" />}
+                onClick={() => handleNavigateRTR(row)}
+                sx={{
+                  minWidth: "auto",
+                  px: 1.5,
+                  py: 0.5,
+                  fontSize: "0.75rem",
+                  textTransform: "none",
+                  whiteSpace: "nowrap",
+                  height: "32px",
+                }}
+              >
+                Submit RTR
+              </Button>
+            </Tooltip>
+          )}
+        </Box>
       );
     },
   },
 
-  // ✅ Other columns
+  // ✅ Other columns (unchanged)
   {
     id: "consultantId",
     label: "Consultant ID",
