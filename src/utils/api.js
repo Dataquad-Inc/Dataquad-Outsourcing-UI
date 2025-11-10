@@ -407,6 +407,21 @@ export const hotlistAPI = {
   },
 };
 
+// Interviews API
+export const interviewsAPI ={
+  getAllInterviews: async(params={})=>{
+    return apiGet(`/hotlist/rtrInterviews-list`,params)
+  },
+ getSalesInterviews: async (userId, params = {}) => {
+    if (!userId) throw new Error("User ID is required");
+    return apiGet(`/hotlist/salesRtrInterviews-list/${userId}`, params)
+  },
+  getTeamInterviews: async (userId, params = {}) => {
+    if (!userId) throw new Error("User ID is required");
+    return apiGet(`/hotlist/teamRtrInterviews-list/${userId}`, params)
+  }
+}
+
 // ========== File Management APIs ==========
 export const fileAPI = {
   // Upload resume file

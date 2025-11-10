@@ -9,6 +9,7 @@ import { element } from "prop-types";
 
 import UsEmployeesContainer from "../components/UsEmployees/UsEmployeesContainer";
 import EditRtrForm from "../components/RightToRepresent/EditRtrForm";
+import UsInterviewsRouter from "../components/UsInterviews/UsInterviewRouter";
 
 const Loadable = (Component) => (
   <Suspense
@@ -148,6 +149,10 @@ const UsClientsList = lazy(() => import("../components/UsClients/UsClients"));
 const UsOnboardClients = lazy(() =>
   import("../components/UsClients/OnBoardingClients")
 );
+
+//Us Interviews
+const UsAllInterviews = lazy(() => import("../components/UsInterviews/AllInterviews"))
+const InterviewsContainer = lazy(() => import("../components/UsInterviews/UsInterviewsContainer"))
 //Timesheets
 const Timesheets = lazy(() => import("../components/Timesheets/TimeSheets"));
 const TimesheetsForAdmin = lazy(() =>
@@ -764,7 +769,7 @@ const routeConfig = [
             path: "us-employees",
             element: (
               <ProtectedRoute
-                allowedRoles={["SUPERADMIN", "ADMIN","GRANDSALES"]}
+                allowedRoles={["SUPERADMIN", "ADMIN", "GRANDSALES"]}
                 allowedEntities={["US"]}
               />
             ),
@@ -806,7 +811,7 @@ const routeConfig = [
             path: "us-clients",
             element: (
               <ProtectedRoute
-                allowedRoles={["SUPERADMIN","EMPLOYEE","TEAMLEAD", "RECRUITER","SALESEXECUTIVE","ADMIN","GRANDSALES"]}
+                allowedRoles={["SUPERADMIN", "EMPLOYEE", "TEAMLEAD", "RECRUITER", "SALESEXECUTIVE", "ADMIN", "GRANDSALES"]}
                 allowedEntities={["US"]}
               />
             ),
@@ -822,6 +827,35 @@ const routeConfig = [
                   {
                     path: "us-create",
                     element: Loadable(UsOnboardClients),
+                  },
+                ],
+              },
+            ],
+          },
+
+          //US Interviews
+
+
+          {
+            path: "us-interviews",
+            element: (
+              <ProtectedRoute
+                allowedRoles={["SUPERADMIN", "SALESEXECUTIVE", "TEAMLEAD"]}
+                allowedEntities={["US"]}
+              />
+            ),
+            children: [
+              {
+                path: "",
+                element: <InterviewsContainer />,
+                children: [
+                  {
+                    index: true,
+                    element: Loadable(UsAllInterviews),
+                  },
+                  {
+                    path: "all-interviews",
+                    element: Loadable(UsAllInterviews),
                   },
                 ],
               },
