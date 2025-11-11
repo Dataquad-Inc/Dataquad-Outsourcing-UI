@@ -74,10 +74,10 @@ export const usNavItems = (role) => [
     icon: <BusinessIcon />,
     roles: commonRoles,
   },
-  // {
-  //   text:"Interviews",
-  //   path:"us-interviews",
-  //   icon:<EventNoteIcon/>,
-  //   roles:["SUPERADMIN","SALESEXECUTIVE","TEAMLEAD"]
-  // }
+  {
+    text:"Interviews",
+    path:"us-interviews",
+    icon:<EventNoteIcon/>,
+    roles:["SUPERADMIN","SALESEXECUTIVE","TEAMLEAD"]
+  }
 ];

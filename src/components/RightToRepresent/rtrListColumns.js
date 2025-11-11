@@ -3,6 +3,7 @@ import { Box, Skeleton, IconButton, Tooltip } from "@mui/material";
 import Edit from "@mui/icons-material/Edit";
 import Delete from "@mui/icons-material/Delete";
 import Visibility from "@mui/icons-material/Visibility";
+import CalendarToday from "@mui/icons-material/CalendarToday"; // ✅ Added for Schedule Interview
 import { useSelector } from "react-redux";
 
 // ✅ Permission logic
@@ -23,6 +24,7 @@ const getRTRListColumns = ({
   handleEdit,
   handleDelete,
   handleView,
+  handleScheduleInterview, // ✅ Added handler for schedule interview
   loading,
   userRole,
   userId,
@@ -38,19 +40,34 @@ const getRTRListColumns = ({
           <Box sx={{ display: "flex", gap: 1 }}>
             <Skeleton variant="circular" width={32} height={32} />
             <Skeleton variant="circular" width={32} height={32} />
+            <Skeleton variant="circular" width={32} height={32} />
           </Box>
         );
       }
 
       const canEdit = hasPermission(userRole);
       const canDelete = hasPermission(userRole);
+      const canScheduleInterview = hasPermission(userRole); // ✅ Add permission logic for scheduling
 
-      if (!canEdit && !canDelete ) {
+      if (!canEdit && !canDelete && !canScheduleInterview) {
         return <Box sx={{ minWidth: 80 }}>-</Box>;
       }
 
       return (
         <Box sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
+          {/* ✅ Schedule Interview Button */}
+          {canScheduleInterview && (
+            <Tooltip title="Schedule Interview">
+              <IconButton
+                size="small"
+                color="primary"
+                onClick={() => handleScheduleInterview(row)}
+              >
+                <CalendarToday fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+
           {canEdit && (
             <Tooltip title="Edit RTR">
               <IconButton

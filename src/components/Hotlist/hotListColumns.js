@@ -8,7 +8,7 @@ import CustomChip from "../../ui-lib/CustomChip";
 
 // ✅ Permission logic
 const hasPermission = (userRole) => {
-  return userRole !== "SALESEXECUTIVE"; // ❌ Sales Executive has no edit/delete
+  return userRole !== "SALESEXECUTIVE"; 
 };
 
 const renderValue = (value, width = 100, loading) =>

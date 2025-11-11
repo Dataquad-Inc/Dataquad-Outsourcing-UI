@@ -18,6 +18,9 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { rightToRepresentAPI } from "../../utils/api";
 import { showSuccessToast, showErrorToast } from "../../utils/toastUtils";
+import { useSelector } from "react-redux";
+
+
 
 const ScheduleInterviewForm = ({ open, onClose, rtrId, consultantName, onSuccess }) => {
   const [loading, setLoading] = useState(false);
@@ -27,6 +30,7 @@ const ScheduleInterviewForm = ({ open, onClose, rtrId, consultantName, onSuccess
     interviewerEmailId: "",
     zoomLink: "",
   });
+  const { userId } = useSelector((state) => state.auth);
 
   const [errors, setErrors] = useState({});
 
@@ -66,7 +70,7 @@ const ScheduleInterviewForm = ({ open, onClose, rtrId, consultantName, onSuccess
 
     if (!formData.zoomLink.trim()) {
       newErrors.zoomLink = "Zoom link is required";
-    } else if (!formData.zoomLink.startsWith('http')) {
+    } else if (!formData.zoomLink.startsWith('https')) {
       newErrors.zoomLink = "Please enter a valid URL";
     }
 
@@ -88,7 +92,7 @@ const ScheduleInterviewForm = ({ open, onClose, rtrId, consultantName, onSuccess
         zoomLink: formData.zoomLink
       };
 
-      const result = await rightToRepresentAPI.moveRtrToInterviews(payload);
+      const result = await rightToRepresentAPI.moveRtrToInterviews(userId,payload);
       
       showSuccessToast(result.message || "Interview scheduled successfully!");
       onSuccess();
