@@ -419,6 +419,15 @@ export const interviewsAPI ={
   getTeamInterviews: async (userId, params = {}) => {
     if (!userId) throw new Error("User ID is required");
     return apiGet(`/hotlist/teamRtrInterviews-list/${userId}`, params)
+  },
+   updateInterviews: async(userId,payload)=>{
+    if (!userId) throw new Error("User ID is required");
+    return apiPut(`/hotlist/update-rtrInterview/${userId}`,payload)
+  },
+   deleteInterviews:async(interviewId,userId)=>{
+    if (!interviewId) throw new Error("Interview ID is required");
+    if (!userId) throw new Error("User ID is required");
+    return apiDelete(`/hotlist/delete-rtrInterview/${interviewId}/${userId}`)
   }
 }
 

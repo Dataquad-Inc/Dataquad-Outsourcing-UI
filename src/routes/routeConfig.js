@@ -834,8 +834,6 @@ const routeConfig = [
           },
 
           //US Interviews
-
-
           {
             path: "us-interviews",
             element: (
@@ -851,11 +849,7 @@ const routeConfig = [
                 children: [
                   {
                     index: true,
-                    element: Loadable(UsAllInterviews),
-                  },
-                  {
-                    path: "all-interviews",
-                    element: Loadable(UsAllInterviews),
+                    element: Loadable(UsInterviewsRouter), // Use the router
                   },
                 ],
               },

@@ -7,8 +7,10 @@ import TeamInterviews from './TeamInterviews';
 const UsInterviewsRouter = () => {
   const { role } = useSelector(state => state.auth);
   
+  console.log('Current role:', role);
+  
   // Check user role and render appropriate component
-  if (role === 'SUPERADMIN') {
+  if (role === 'SUPERADMIN' || role === 'ADMIN') {
     return <AllInterviews />;
   } else if (role === 'SALESEXECUTIVE') {
     return <SalesInterviews />;

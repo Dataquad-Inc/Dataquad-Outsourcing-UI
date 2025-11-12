@@ -1,7 +1,21 @@
 import React from 'react';
+import {
+  Link,
+  Chip,
+  Box,
+  IconButton,
+  Tooltip
+} from '@mui/material';
+import {
+  Edit as EditIcon,
+  Delete as DeleteIcon
+} from '@mui/icons-material';
 
-const ColumnsForInterviews = () => {
-  const columns = [
+const ColumnsForInterviews = ({ onEdit, onDelete, userRole = 'all', showActions = true } = {}) => {
+  const safeOnEdit = onEdit || (() => console.log('Edit function not provided'));
+  const safeOnDelete = onDelete || (() => console.log('Delete function not provided'));
+
+  const baseColumns = [
     {
       id: 'interviewId',
       label: 'Interview ID',
@@ -67,6 +81,19 @@ const ColumnsForInterviews = () => {
         { value: 'Cancelled', label: 'Cancelled' },
         { value: 'Rescheduled', label: 'Rescheduled' },
       ],
+      render: (value) => (
+        <Chip
+          label={value}
+          color={
+            value === 'Completed' ? 'success' :
+            value === 'Scheduled' ? 'primary' :
+            value === 'Cancelled' ? 'error' :
+            value === 'Rescheduled' ? 'warning' : 'default'
+          }
+          variant="outlined"
+          size="small"
+        />
+      ),
     },
     {
       id: 'interviewDateTime',
@@ -103,37 +130,78 @@ const ColumnsForInterviews = () => {
         { value: 'false', label: 'No' },
       ],
       render: (value) => (
-        <span style={{ 
-          color: value ? '#4caf50' : '#f44336',
-          fontWeight: 'bold'
-        }}>
-          {value ? 'Yes' : 'No'}
-        </span>
+        <Chip
+          label={value ? 'Yes' : 'No'}
+          color={value ? 'success' : 'error'}
+          size="small"
+        />
       ),
     },
     {
       id: 'zoomLink',
       label: 'Zoom Link',
-      render: (value, row) => value ? (
-        <a 
-          href={value} 
-          target="_blank" 
-          rel="noopener noreferrer" 
-          style={{ 
-            color: '#1976d2',
+      render: (value) => value ? (
+        <Link
+          href={value}
+          target="_blank"
+          rel="noopener noreferrer"
+          sx={{
+            fontWeight: 500,
             textDecoration: 'none',
-            fontWeight: '500'
+            '&:hover': {
+              textDecoration: 'underline'
+            }
           }}
-          onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
-          onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
         >
           Join Meeting
-        </a>
+        </Link>
       ) : 'Not Available',
     }
   ];
 
-  return columns;
+  // Add actions column only if showActions is true
+  if (showActions) {
+    baseColumns.push({
+      id: 'actions',
+      label: 'Actions',
+      render: (_, row) => (
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          <Tooltip title="Edit Interview">
+            <IconButton
+              onClick={() => safeOnEdit(row)}
+              size="small"
+              color="primary"
+              sx={{
+                '&:hover': {
+                  backgroundColor: 'primary.light',
+                  color: 'white'
+                }
+              }}
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Delete Interview">
+            <IconButton
+              onClick={() => safeOnDelete(row)} 
+              size="small"
+              color="error"
+              sx={{
+                '&:hover': {
+                  backgroundColor: 'error.light',
+                  color: 'white'
+                }
+              }}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ),
+    });
+  }
+
+  return baseColumns;
 };
 
 export default ColumnsForInterviews;
