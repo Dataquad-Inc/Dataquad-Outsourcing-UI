@@ -202,6 +202,11 @@ const RtrList = React.memo(() => {
     [navigate]
   );
 
+
+   const handleInterviewSuccess = () => {
+    navigate("/dashboard/us-interviews");
+  };
+
   /** ---------------- Columns ---------------- */
   const columns = getRTRListColumns({
     handleNavigate,
@@ -252,7 +257,7 @@ const RtrList = React.memo(() => {
         onClose={handleCloseScheduleInterview}
         rtrId={selectedRtr?.rtrId}
         consultantName={selectedRtr?.consultantName}
-        onSuccess={handleInterviewScheduled}
+        onSuccess={handleInterviewSuccess}
       />
     </Box>
   );
