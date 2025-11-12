@@ -9,7 +9,7 @@ class WebSocketService {
   }
 
   connect(onMessageReceived, onTypingReceived, onStatusReceived, userId) {
-    const socket = new SockJS('http://localhost:1234/ws');
+    const socket = new SockJS('https://mymulya.com/chatservice/ws');
     this.client = new Client({
       webSocketFactory: () => socket,
       onConnect: () => {

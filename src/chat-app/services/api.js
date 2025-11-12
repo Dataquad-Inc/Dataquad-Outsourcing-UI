@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:1234/api';
+const API_BASE_URL = 'https://mymulya.com/chatservice/api';
 
 export const api = {
   getAllUsers: async () => {
