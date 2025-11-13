@@ -1,0 +1,75 @@
+/* Slack-like color scheme */
+:root {
+  --primary-orange: #ff6b35;
+  --primary-orange-dark: #e55a2b;
+  --primary-orange-light: #ff8c69;
+  --accent-teal: #4ecdc4;
+  --accent-navy: #45b7d1;
+  --neutral-white: #ffffff;
+  --neutral-light: #f8f9fa;
+  --neutral-medium: #e9ecef;
+  --neutral-dark: #495057;
+  --text-primary: #2d3436;
+  --text-secondary: #636e72;
+  --shadow-soft: 0 2px 12px rgba(0, 0, 0, 0.08);
+  --border-radius: 12px;
+}
+
+.chat-container {
+  height: 100vh;
+  display: flex;
+}
+
+.sidebar {
+  width: 280px;
+  background-color: var(--neutral-white);
+  color: var(--text-primary);
+  border-right: 1px solid var(--neutral-medium);
+  box-shadow: var(--shadow-soft);
+}
+
+.chat-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--neutral-white);
+}
+
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+  background-color: var(--neutral-white);
+}
+
+.message {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--slack-gray-medium);
+}
+
+.message:hover {
+  background-color: var(--neutral-light);
+}
+
+.input-area {
+  padding: 16px;
+  border-top: 1px solid var(--neutral-medium);
+  background-color: var(--neutral-white);
+}
+
+.sidebar-search {
+  background-color: var(--slack-orange-dark);
+  border: none;
+  color: white;
+}
+
+.sidebar-search input {
+  color: white;
+}
+
+.chat-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--neutral-medium);
+  background-color: var(--neutral-white);
+  box-shadow: var(--shadow-soft);
+}

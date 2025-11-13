@@ -30,6 +30,8 @@ import logoOrg from "../assets/dashbaordLogo.svg";
 import ApplyLeave from "../components/LeaveCalender/ApplyLeave";
 import { useNavigate } from "react-router-dom";
 import EntityToggle from "../utils/EntityToggle";
+import Chat from "../chat-app/components/Chat/Chat";
+import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 
 // Dark color palette for user avatars
 const darkColorPalette = [
@@ -64,6 +66,9 @@ const Header = ({
   const { userId, userName, email, role, logInTimeStamp, entity } = useSelector(
     (state) => state.auth
   );
+
+  const [chatOpen, setChatOpen] = useState(false);
+  const [totalUnreadCount, setTotalUnreadCount] = useState(0);
 
   // Generate a stable color for each user based on their userId
   const userColor = useMemo(() => {
@@ -144,7 +149,7 @@ const Header = ({
       // Redirect based on newEntity value
       if (newEntity === "IN") {
         navigate("/dashboard/home", { replace: true });
-        
+
       } else if (newEntity === "US") {
         navigate("/dashboard/us-home", { replace: true });
       }
@@ -282,7 +287,7 @@ const Header = ({
         position="fixed"
         elevation={0}
         sx={{
-          width:"100%",
+          width: "100%",
           ml: { sm: `${isCollapsed ? collapsedWidth : drawerWidth}px` },
           zIndex: theme.zIndex.drawer + 1,
           background: theme.palette.background.default,
@@ -352,7 +357,17 @@ const Header = ({
                 handleEntityToggle={handleEntityToggle}
               />
             )}
-
+            <IconButton
+              size="large"
+              color="inherit"
+              onClick={() => setChatOpen(true)}
+              title="Open Chat"
+            >
+              <Badge badgeContent={totalUnreadCount > 0 ? totalUnreadCount : null} color="error">
+                <WhatsAppIcon />
+              </Badge>
+            </IconButton>
+            {/* Dark Mode Switch */}
             {/* Notifications IconButton */}
             <IconButton
               size="large"
@@ -393,7 +408,17 @@ const Header = ({
 
       {renderMenu}
       {renderNotificationsMenu}
-
+      {/* Chat Component */}
+      <Chat
+        user={{
+          userId: userId,
+          userName: userName,
+          userEmail: email
+        }}
+        open={chatOpen}
+        onClose={() => setChatOpen(false)}
+        onUnreadCountChange={setTotalUnreadCount}
+      />
       {/* Leave Application Drawer */}
       <Drawer
         anchor="right"
