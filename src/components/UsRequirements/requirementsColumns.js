@@ -8,7 +8,7 @@ import {
   Tooltip,
   Button,
 } from "@mui/material";
-import { Edit, Delete, Visibility, Download } from "@mui/icons-material";
+import { Edit, Delete, Visibility, Download, PersonAdd } from "@mui/icons-material";
 import { formatDateTime } from "../../utils/dateformate";
 import CustomChip from "../../ui-lib/CustomChip";
 
@@ -20,6 +20,8 @@ const getRequirementsColumns = ({
   handleNagivateToReqProfile,
   handleDownloadJD,
   handleViewDescription,
+  handleSubmitCandidate,
+  userRole,
   filterOptions = {}, // Pass filter options from parent component
 }) => [
   {
@@ -27,7 +29,7 @@ const getRequirementsColumns = ({
     label: "Actions",
     applyFilter: false,
     render: (_, row) => (
-      <Box sx={{ display: "flex", gap: 1 }}>
+      <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
         <Tooltip title="Edit">
           <IconButton size="small" onClick={() => handleEdit(row.jobId)}>
             <Edit fontSize="small" />
@@ -42,10 +44,31 @@ const getRequirementsColumns = ({
             <Delete fontSize="small" />
           </IconButton>
         </Tooltip>
+        {(userRole === "RECRUITER" || userRole === "TEAMLEAD") && (
+          <Tooltip title="Submit Candidate">
+            <Button
+              variant="contained"
+              size="small"
+              color="primary"
+              startIcon={<PersonAdd fontSize="small" />}
+              onClick={() => handleSubmitCandidate(row)}
+              sx={{
+                textTransform: "none",
+                minWidth: "auto",
+                px: 1,
+                py: 0.5,
+                fontSize: "0.75rem",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Submit
+            </Button>
+          </Tooltip>
+        )}
       </Box>
     ),
     align: "center",
-    width: "100px", // Optional: set a fixed width for better alignment
+    width: "180px", // Adjusted width for compact layout
   },
   {
     id: "jobId",
