@@ -3,18 +3,18 @@ import { Box, Skeleton, IconButton, Tooltip } from "@mui/material";
 import Edit from "@mui/icons-material/Edit";
 import Delete from "@mui/icons-material/Delete";
 import Visibility from "@mui/icons-material/Visibility";
-import CalendarToday from "@mui/icons-material/CalendarToday"; // ✅ Added for Schedule Interview
+import CalendarToday from "@mui/icons-material/CalendarToday"; // ✅ Schedule Interview
 import { useSelector } from "react-redux";
 
 // ✅ Permission logic
-const hasPermission = (userRole) => {
-  return (
-    userRole === "SALESEXECUTIVE" ||
-    userRole === "TEAMLEAD" ||
-    userRole === "SUPERADMIN" ||
-    userRole === "GRANDSALES"
-  ); // ❌ Sales Executive has no edit/delete
-};
+const canEdit = (role) =>
+  role === "TEAMLEAD" || role === "SUPERADMIN" ||role === "SALESEXECUTIVE";
+
+const canDelete = (role) =>
+  role === "TEAMLEAD" || role === "SUPERADMIN" ;
+
+const canScheduleInterview = (role) =>
+  role === "TEAMLEAD" || role === "SUPERADMIN" || role === "SALESEXECUTIVE";
 
 const renderValue = (value, width = 100, loading) =>
   loading ? <Skeleton width={width} /> : value;
@@ -45,18 +45,18 @@ const getRTRListColumns = ({
         );
       }
 
-      const canEdit = hasPermission(userRole);
-      const canDelete = hasPermission(userRole);
-      const canScheduleInterview = hasPermission(userRole); // ✅ Add permission logic for scheduling
+      const allowEdit = canEdit(userRole);
+      const allowDelete = canDelete(userRole);
+      const allowSchedule = canScheduleInterview(userRole);
 
-      if (!canEdit && !canDelete && !canScheduleInterview) {
+      if (!allowEdit && !allowDelete && !allowSchedule) {
         return <Box sx={{ minWidth: 80 }}>-</Box>;
       }
 
       return (
         <Box sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
           {/* ✅ Schedule Interview Button */}
-          {canScheduleInterview && (
+          {allowSchedule && (
             <Tooltip title="Schedule Interview">
               <IconButton
                 size="small"
@@ -68,7 +68,8 @@ const getRTRListColumns = ({
             </Tooltip>
           )}
 
-          {canEdit && (
+          {/* ✅ Edit Button */}
+          {allowEdit && (
             <Tooltip title="Edit RTR">
               <IconButton
                 size="small"
@@ -80,7 +81,8 @@ const getRTRListColumns = ({
             </Tooltip>
           )}
 
-          {canDelete && (
+          {/* ✅ Delete Button — Only SuperAdmin & TeamLead */}
+          {allowDelete && (
             <Tooltip title="Delete RTR">
               <IconButton
                 size="small"
@@ -96,7 +98,7 @@ const getRTRListColumns = ({
     },
   },
 
-  // ✅ RTR specific columns
+  // ✅ RTR columns
   {
     id: "rtrId",
     label: "RTR ID",
@@ -170,7 +172,7 @@ const getRTRListColumns = ({
             return "error.main";
           case "In Review":
             return "warning.main";
-          case "On Hold":
+          case "On Hold":                           
             return "text.secondary";
           default:
             return "primary.main";

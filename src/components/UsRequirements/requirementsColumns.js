@@ -8,7 +8,7 @@ import {
   Tooltip,
   Button,
 } from "@mui/material";
-import { Edit, Delete, Visibility, Download } from "@mui/icons-material";
+import { Edit, Delete, Visibility, Download, PersonAdd } from "@mui/icons-material";
 import { formatDateTime } from "../../utils/dateformate";
 import CustomChip from "../../ui-lib/CustomChip";
 
@@ -20,6 +20,8 @@ const getRequirementsColumns = ({
   handleNagivateToReqProfile,
   handleDownloadJD,
   handleViewDescription,
+  handleSubmitCandidate,
+  userRole,
   filterOptions = {}, // Pass filter options from parent component
 }) => [
   {
@@ -42,10 +44,21 @@ const getRequirementsColumns = ({
             <Delete fontSize="small" />
           </IconButton>
         </Tooltip>
+        {(userRole === "RECRUITER" || userRole === "TEAMLEAD") && (
+          <Tooltip title="Submit Candidate">
+            <IconButton
+              size="small"
+              color="primary"
+              onClick={() => handleSubmitCandidate(row)}
+            >
+              <PersonAdd fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
       </Box>
     ),
     align: "center",
-    width: "100px", // Optional: set a fixed width for better alignment
+    width: "150px", // Optional: set a fixed width for better alignment
   },
   {
     id: "jobId",

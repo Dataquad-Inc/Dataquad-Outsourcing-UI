@@ -18,7 +18,7 @@ const RequirementsList = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [keyword, setSearch] = useState("");
-  
+
   // Initialize filters from localStorage
   const [filters, setFilters] = useState(() => {
     try {
@@ -29,7 +29,7 @@ const RequirementsList = () => {
       return {};
     }
   });
-  
+
   const [filterOptions, setFilterOptions] = useState({});
 
   const { userId, role } = useSelector((state) => state.auth);
@@ -127,24 +127,24 @@ const RequirementsList = () => {
       if (keyword.trim()) {
         params.keyword = keyword.trim();
       }
-       let response;
-       if(role === "RECRUITER" || role === "GRANDSALES"){
-      response = await axios.get(
-        `https://mymulya.com/api/us/requirements/requirements-user/${userId}`,
-        {
-          params,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-    } else {
-      response = await axios.get(
-        "https://mymulya.com/api/us/requirements/allRequirements",
-        {
-          params,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-    }
+      let response;
+      if (role === "RECRUITER" || role === "GRANDSALES") {
+        response = await axios.get(
+          `https://mymulya.com/api/us/requirements/requirements-user/${userId}`,
+          {
+            params,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      } else {
+        response = await axios.get(
+          "https://mymulya.com/api/us/requirements/allRequirements",
+          {
+            params,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
 
       const data = response.data;
       if (data.success && data.data) {
@@ -169,7 +169,16 @@ const RequirementsList = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, keyword, filters, buildFilterParams, filterOptions]);
+  }, [
+    page,
+    rowsPerPage,
+    keyword,
+    filters,
+    buildFilterParams,
+    filterOptions,
+    role,
+    userId,
+  ]);
 
   const extractFilterOptionsFromData = (data) => {
     const options = {
@@ -259,6 +268,12 @@ const RequirementsList = () => {
     setConfirmOpen(true);
   };
 
+  /** ---------------- Submit Candidate ---------------- */
+  const handleSubmitCandidate = (job) => {
+    // Navigate or open modal
+    navigate(`/submit-candidate/${job.jobId}`, { state: job });
+  };
+
   const handleConfirmDelete = async () => {
     try {
       if (!userId || !deleteJobId) return;
@@ -295,6 +310,8 @@ const RequirementsList = () => {
     handleEdit,
     handleDelete: handleRequestDelete,
     handleViewDescription,
+    handleSubmitCandidate,
+    userRole: role,
     filterOptions,
     loading,
   });
