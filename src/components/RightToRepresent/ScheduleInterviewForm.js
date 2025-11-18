@@ -20,8 +20,6 @@ import { rightToRepresentAPI } from "../../utils/api";
 import { showSuccessToast, showErrorToast } from "../../utils/toastUtils";
 import { useSelector } from "react-redux";
 
-
-
 const ScheduleInterviewForm = ({ open, onClose, rtrId, consultantName, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -29,17 +27,22 @@ const ScheduleInterviewForm = ({ open, onClose, rtrId, consultantName, onSuccess
     interviewDateTime: null,
     interviewerEmailId: "",
     zoomLink: "",
+    duration: "",
+    remarks: ""
   });
   const { userId } = useSelector((state) => state.auth);
 
   const [errors, setErrors] = useState({});
 
   const interviewLevels = [
-    "L1 - Technical Screening",
-    "L2 - Technical Deep Dive",
-    "L3 - Managerial Round",
-    "L4 - HR Round",
-    "Final - Client Round"
+    "Technical Assessment (Test)",
+    "Technical Screening",
+    "L1 - Vendor Round",
+    "L2 - Vendor Round",
+    "C1 - Client Round",
+    "C2 - Client Round",
+    "F - Final Client Round",
+    "HM - HR Round"
   ];
 
   const validateForm = () => {
@@ -51,8 +54,6 @@ const ScheduleInterviewForm = ({ open, onClose, rtrId, consultantName, onSuccess
 
     if (!formData.interviewDateTime) {
       newErrors.interviewDateTime = "Interview date and time is required";
-    } else if (new Date(formData.interviewDateTime) <= new Date()) {
-      newErrors.interviewDateTime = "Interview date must be in the future";
     }
 
     if (!formData.interviewerEmailId.trim()) {
@@ -62,15 +63,14 @@ const ScheduleInterviewForm = ({ open, onClose, rtrId, consultantName, onSuccess
     }
 
     if (formData.duration) {
-      const durationNum = Number(formData.duration);        
+      const durationNum = Number(formData.duration);
       if (isNaN(durationNum) || durationNum <= 0) {
         newErrors.duration = "Please enter a valid duration";
       }
     }
 
-    if (!formData.zoomLink.trim()) {
-      newErrors.zoomLink = "Zoom link is required";
-    } else if (!formData.zoomLink.startsWith('https')) {
+    // Removed zoomLink validation to make it optional
+    if (formData.zoomLink && !formData.zoomLink.startsWith('https')) {
       newErrors.zoomLink = "Please enter a valid URL";
     }
 
@@ -83,17 +83,19 @@ const ScheduleInterviewForm = ({ open, onClose, rtrId, consultantName, onSuccess
 
     try {
       setLoading(true);
-      
+
       const payload = {
         rtrId: rtrId,
         interviewLevel: formData.interviewLevel,
         interviewDateTime: formData.interviewDateTime.toISOString(),
         interviewerEmailId: formData.interviewerEmailId,
-        zoomLink: formData.zoomLink
+        zoomLink: formData.zoomLink || "", // Empty string if not provided
+        duration: formData.duration ? Number(formData.duration) : null,
+        remarks: formData.remarks || ""
       };
 
-      const result = await rightToRepresentAPI.moveRtrToInterviews(userId,payload);
-      
+      const result = await rightToRepresentAPI.moveRtrToInterviews(userId, payload);
+
       showSuccessToast(result.message || "Interview scheduled successfully!");
       onSuccess();
       handleClose();
@@ -111,6 +113,8 @@ const ScheduleInterviewForm = ({ open, onClose, rtrId, consultantName, onSuccess
       interviewDateTime: null,
       interviewerEmailId: "",
       zoomLink: "",
+      duration: "",
+      remarks: ""
     });
     setErrors({});
     onClose();
@@ -121,7 +125,7 @@ const ScheduleInterviewForm = ({ open, onClose, rtrId, consultantName, onSuccess
       ...prev,
       [field]: value
     }));
-    
+
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({
@@ -133,8 +137,8 @@ const ScheduleInterviewForm = ({ open, onClose, rtrId, consultantName, onSuccess
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Dialog 
-        open={open} 
+      <Dialog
+        open={open}
         onClose={handleClose}
         maxWidth="sm"
         fullWidth
@@ -183,7 +187,7 @@ const ScheduleInterviewForm = ({ open, onClose, rtrId, consultantName, onSuccess
                   helperText: errors.interviewDateTime
                 }
               }}
-              minDateTime={new Date()}
+              // Removed minDateTime to enable past dates
             />
 
             {/* Interviewer Email */}
@@ -196,37 +200,51 @@ const ScheduleInterviewForm = ({ open, onClose, rtrId, consultantName, onSuccess
               helperText={errors.interviewerEmailId}
               fullWidth
             />
+
+            {/* Duration */}
             <TextField
-              label="Duration"
+              label="Duration (minutes)"
               type="number"
               value={formData.duration}
               onChange={(e) => handleChange("duration", e.target.value)}
               error={!!errors.duration}
               helperText={errors.duration}
               fullWidth
+              placeholder="Enter duration in minutes"
             />
 
-            {/* Zoom Link */}
+            {/* Zoom Link - Now Optional */}
             <TextField
-              label="Zoom Meeting Link *"
+              label="Zoom Meeting Link"
               value={formData.zoomLink}
               onChange={(e) => handleChange("zoomLink", e.target.value)}
               error={!!errors.zoomLink}
               helperText={errors.zoomLink}
               fullWidth
-              placeholder="https://zoom.us/j/..."
+              placeholder="https://zoom.us/j/... or other meeting platform"
+            />
+
+            {/* Remarks Field */}
+            <TextField
+              label="Remarks"
+              value={formData.remarks}
+              onChange={(e) => handleChange("remarks", e.target.value)}
+              multiline
+              rows={3}
+              fullWidth
+              placeholder="Add any additional notes or remarks about the interview..."
             />
           </Box>
         </DialogContent>
 
         <DialogActions>
-          <Button 
+          <Button
             onClick={handleClose}
             disabled={loading}
           >
             Cancel
           </Button>
-          <Button 
+          <Button
             onClick={handleSubmit}
             variant="contained"
             disabled={loading}
