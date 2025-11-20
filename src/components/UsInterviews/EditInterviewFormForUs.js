@@ -19,11 +19,11 @@ import {
   FormHelperText
 } from '@mui/material';
 import { interviewsAPI } from '../../utils/api';
-import { 
-  showSuccessToast, 
-  showErrorToast, 
+import {
+  showSuccessToast,
+  showErrorToast,
   showLoadingToast,
-  dismissToast 
+  dismissToast
 } from '../../utils/toastUtils';
 
 // Validation Schema
@@ -66,12 +66,12 @@ const EditInterviewFormForUs = ({ interview, onClose, onSave }) => {
         // Convert datetime to ISO format
         const submitData = {
           ...values,
-          interviewDateTime: values.interviewDateTime ? 
+          interviewDateTime: values.interviewDateTime ?
             new Date(values.interviewDateTime).toISOString() : null
         };
 
         const response = await interviewsAPI.updateInterviews(userId, submitData);
-        
+
         if (response.success) {
           dismissToast(loadingToastId);
           showSuccessToast('Interview updated successfully!');
@@ -98,9 +98,9 @@ const EditInterviewFormForUs = ({ interview, onClose, onSave }) => {
   useEffect(() => {
     if (interview) {
       // Format date for datetime-local input
-      const interviewDate = interview.interviewDateTime ? 
+      const interviewDate = interview.interviewDateTime ?
         new Date(interview.interviewDateTime).toISOString().slice(0, 16) : '';
-      
+
       formik.setValues({
         interviewId: interview.interviewId || '',
         interviewStatus: interview.interviewStatus || '',
@@ -177,10 +177,14 @@ const EditInterviewFormForUs = ({ interview, onClose, onSave }) => {
                 onBlur={formik.handleBlur}
                 label="Interview Level"
               >
-                <MenuItem value="L1">L1</MenuItem>
-                <MenuItem value="L2">L2</MenuItem>
-                <MenuItem value="L3">L3</MenuItem>
-                <MenuItem value="Final">Final</MenuItem>
+                <MenuItem value="Technical Assessment (Test)">Technical Assessment (Test)</MenuItem>
+                <MenuItem value="Technical Screening">Technical Screening</MenuItem>
+                <MenuItem value="L1 - Vendor Round">L1 - Vendor Round</MenuItem>
+                <MenuItem value="L2 - Vendor Round">L2 - Vendor Round</MenuItem>
+                <MenuItem value="C1 - Client Round">C1 - Client Round</MenuItem>
+                <MenuItem value="C2 - Client Round">C2 - Client Round</MenuItem>
+                <MenuItem value="F - Final Client Round">F - Final Client Round</MenuItem>
+                <MenuItem value="HM - HR Round">HM - HR Round</MenuItem>
               </Select>
               {formik.touched.interviewLevel && formik.errors.interviewLevel && (
                 <FormHelperText>{formik.errors.interviewLevel}</FormHelperText>
