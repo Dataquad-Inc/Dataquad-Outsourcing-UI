@@ -178,7 +178,7 @@ const uploadFilesToServer = async (timesheetId, files, startDate = null, endDate
 
       // Use getWorkingDateRange for attachment uploads
       // This ensures the date range aligns with the timesheet week structure (Mon-Fri in current month)
-      const dateRange = getWorkingDateRange(currentTimesheet);
+      const dateRange = getEditableDateRange(currentTimesheet);
       
       if (dateRange) {
         finalStartDate = dateRange.start;
@@ -272,7 +272,7 @@ const handleUploadAttachments = async (currentTimesheet, selectedWeekStart, setH
 
       // For attachment uploads, use the working date range (Monday-Friday within current month)
       // This ensures attachments align with the timesheet week structure
-      const dateRange = getWorkingDateRange(currentTimesheet);
+      const dateRange = getEditableDateRange(currentTimesheet)
       
       console.log('Date range for upload:', dateRange);
       
