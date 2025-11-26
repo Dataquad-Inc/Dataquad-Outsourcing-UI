@@ -26,6 +26,12 @@ const HotlistContainer = () => {
         path: "/dashboard/hotlist/master",
       },
 
+      {
+        label:"W2 Hotlist",
+        icon:<ListAltIcon />,
+        path:'/dashboard/hotlist/w2',
+      }
+
       // {
       //   label: "Add Consultant",
       //   icon: <PersonAddIcon />,
