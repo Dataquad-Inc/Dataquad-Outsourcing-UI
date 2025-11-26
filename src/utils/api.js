@@ -405,6 +405,9 @@ export const hotlistAPI = {
   moveToYetToOnboard: async (consultantId) => {
     return apiPatch(`hotlist/moveToYetToOnBoard/${consultantId}`);
   },
+  getW2Hotlist: async(params={})=>{
+    return apiGet(`/hotlist/all-w2-Consultants`, params)
+  }
 };
 
 // Interviews API

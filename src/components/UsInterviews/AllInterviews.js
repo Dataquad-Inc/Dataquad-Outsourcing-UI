@@ -159,14 +159,14 @@ const AllInterviews = () => {
   }, [fetchInterviews]);
 
   // Debounced search effect
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setPage(0);
-      fetchInterviews(0, rowsPerPage, search, filters);
-    }, 500);
+  // useEffect(() => {
+  //   const timer = setTimeout(() => {
+  //     setPage(0);
+  //     fetchInterviews(0, rowsPerPage, search, filters);
+  //   }, 500);
 
-    return () => clearTimeout(timer);
-  }, [search, fetchInterviews, rowsPerPage, filters]);
+  //   return () => clearTimeout(timer);
+  // }, [search, fetchInterviews, rowsPerPage, filters]);
 
   // Handle page change
   const handlePageChange = (event, newPage) => {

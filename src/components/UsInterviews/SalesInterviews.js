@@ -160,16 +160,16 @@ const SalesInterviews = () => {
   }, [fetchInterviews, userId]);
 
   // Debounced search effect
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (userId) {
-        setPage(0);
-        fetchInterviews(0, rowsPerPage, search, filters);
-      }
-    }, 500);
+  // useEffect(() => {
+  //   const timer = setTimeout(() => {
+  //     if (userId) {
+  //       setPage(0);
+  //       fetchInterviews(0, rowsPerPage, search, filters);
+  //     }
+  //   }, 500);
 
-    return () => clearTimeout(timer);
-  }, [search, fetchInterviews, rowsPerPage, filters, userId]);
+  //   return () => clearTimeout(timer);
+  // }, [search, fetchInterviews, rowsPerPage, filters, userId]);
 
   // Handle page change
   const handlePageChange = (event, newPage) => {

@@ -117,6 +117,7 @@ const CreateConsultant = lazy(() =>
 );
 const MasterHotlist = lazy(() => import("../components/Hotlist/MasterHotlist"));
 
+const W2Hotlist=lazy(()=>import("../components/Hotlist/W2Hotlist"))
 //yet-to-bonboard
 
 const YetToOnBoardContainer = lazy(() =>
@@ -616,6 +617,10 @@ const routeConfig = [
                   {
                     path: "master", // /dashboard/hotlist/master
                     element: Loadable(MasterHotlist),
+                  },
+                  {
+                    path:"w2", // /dashboard/hotlist/w2`
+                    element: Loadable(W2Hotlist)
                   },
                   {
                     path: "master/:consultantId", // /dashboard/hotlist/master/:consultantId
