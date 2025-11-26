@@ -230,7 +230,7 @@ export const requirementsAPI = {
   getAllRequirements: async (params = {}) => {
     return apiGet("/api/us/requirements/allRequirements", params);
   },
-  
+
   getRequirementsByUserId: async (userId, params = {}) => {
     if (!userId) throw new Error("User ID is required");
     return apiGet(`/api/us/requirements-user/${userId}`, params);
@@ -303,7 +303,7 @@ export const rightToRepresentAPI = {
     if (!rtrData) throw new Error("RTR data is required");
 
     return apiPost(`/hotlist/schedule-rtrInterview/${userId}`, rtrData);
-  }
+  },
 };
 
 // ========== Hotlist/Consultant Management APIs ==========
@@ -411,28 +411,54 @@ export const hotlistAPI = {
 };
 
 // Interviews API
-export const interviewsAPI ={
-  getAllInterviews: async(params={})=>{
-    return apiGet(`/hotlist/rtrInterviews-list`,params)
+export const interviewsAPI = {
+  getAllInterviews: async (params = {}) => {
+    return apiGet(`/hotlist/rtrInterviews-list`, params);
   },
- getSalesInterviews: async (userId, params = {}) => {
+  getSalesInterviews: async (userId, params = {}) => {
     if (!userId) throw new Error("User ID is required");
-    return apiGet(`/hotlist/salesRtrInterviews-list/${userId}`, params)
+    return apiGet(`/hotlist/salesRtrInterviews-list/${userId}`, params);
   },
   getTeamInterviews: async (userId, params = {}) => {
     if (!userId) throw new Error("User ID is required");
-    return apiGet(`/hotlist/teamRtrInterviews-list/${userId}`, params)
+    return apiGet(`/hotlist/teamRtrInterviews-list/${userId}`, params);
   },
-   updateInterviews: async(userId,payload)=>{
+  updateInterviews: async (userId, payload) => {
     if (!userId) throw new Error("User ID is required");
-    return apiPut(`/hotlist/update-rtrInterview/${userId}`,payload)
+    return apiPut(`/hotlist/update-rtrInterview/${userId}`, payload);
   },
-   deleteInterviews:async(interviewId,userId)=>{
+  deleteInterviews: async (interviewId, userId) => {
     if (!interviewId) throw new Error("Interview ID is required");
     if (!userId) throw new Error("User ID is required");
-    return apiDelete(`/hotlist/delete-rtrInterview/${interviewId}/${userId}`)
-  }
-}
+    return apiDelete(`/hotlist/delete-rtrInterview/${interviewId}/${userId}`);
+  },
+};
+
+// ========== Candidate Submission APIs ==========
+
+export const usSubmissionAPI = {
+  createSubmission: async (userId, dto, resume) => {
+    if (!userId) throw new Error("User ID is required");
+    if (!dto) throw new Error("Submission DTO is required");
+
+    const formData = new FormData();
+
+    // Append DTO fields
+    Object.entries(dto).forEach(([key, value]) => {
+      formData.append(key, value);
+    });
+
+    // Append resume file (optional)
+    if (resume) {
+      formData.append("resume", resume);
+    }
+
+    return apiPostFormData(
+      `/api/us/requirements/create-submission/${userId}`,
+      formData
+    );
+  },
+};
 
 // ========== File Management APIs ==========
 export const fileAPI = {

@@ -936,7 +936,7 @@ const DynamicFormUltra = ({
                 ? "email"
                 : field.type === "number"
                 ? "number"
-                : "text"
+                : "text"  
             }
             value={value}
             onChange={formik.handleChange}

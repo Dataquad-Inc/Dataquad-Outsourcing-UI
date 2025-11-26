@@ -8,7 +8,7 @@ import CustomChip from "../../ui-lib/CustomChip";
 
 // ✅ Permission logic
 const hasPermission = (userRole) => {
-  return userRole !== "SALESEXECUTIVE"; 
+  return userRole !== "SALESEXECUTIVE";
 };
 
 const renderValue = (value, width = 100, loading) =>
@@ -42,23 +42,12 @@ const getHotListColumns = ({
       }
 
       const canEdit = hasPermission(userRole);
-      const canDelete = hasPermission(userRole);
-      const canSubmitRTR = true; // 🆕 Allow all roles to submit RTR (optional restriction possible)
-
-      if (!canEdit && !canDelete && !canSubmitRTR) {
-        return <Box sx={{ minWidth: 80 }}>-</Box>;
-      }
+      const canDelete = userRole === "SUPERADMIN"; // 👈 Restrict delete
+      const canSubmitRTR = true;
 
       return (
-        <Box
-          sx={{
-            display: "flex",
-            gap: 1,
-            alignItems: "center",
-            flexWrap: "nowrap",
-          }}
-        >
-          {/* View Button */}
+        <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+          {/* View */}
           <Tooltip title="View Candidate">
             <IconButton
               size="small"
@@ -69,6 +58,7 @@ const getHotListColumns = ({
             </IconButton>
           </Tooltip>
 
+          {/* Edit */}
           {canEdit && (
             <Tooltip title="Edit Candidate">
               <IconButton
@@ -81,6 +71,7 @@ const getHotListColumns = ({
             </Tooltip>
           )}
 
+          {/* Delete (Only SUPERADMIN) */}
           {canDelete && (
             <Tooltip title="Delete Candidate">
               <IconButton
@@ -93,34 +84,32 @@ const getHotListColumns = ({
             </Tooltip>
           )}
 
-          {canSubmitRTR && (
-            <Tooltip title="Submit RTR">
-              <Button
-                variant="contained"
-                color="success"
-                size="small"
-                startIcon={<AssignmentTurnedInIcon fontSize="small" />}
-                onClick={() => handleNavigateRTR(row)}
-                sx={{
-                  minWidth: "auto",
-                  px: 1.5,
-                  py: 0.5,
-                  fontSize: "0.75rem",
-                  textTransform: "none",
-                  whiteSpace: "nowrap",
-                  height: "32px",
-                }}
-              >
-                Submit RTR
-              </Button>
-            </Tooltip>
-          )}
+          {/* Submit RTR */}
+          <Tooltip title="Submit RTR">
+            <Button
+              variant="contained"
+              color="success"
+              size="small"
+              startIcon={<AssignmentTurnedInIcon fontSize="small" />}
+              onClick={() => handleNavigateRTR(row)}
+              sx={{
+                minWidth: "auto",
+                px: 1.5,
+                py: 0.5,
+                fontSize: "0.75rem",
+                textTransform: "none",
+                whiteSpace: "nowrap",
+                height: "32px",
+              }}
+            >
+              Submit RTR
+            </Button>
+          </Tooltip>
         </Box>
       );
     },
   },
 
-  // ✅ Other columns (unchanged)
   {
     id: "consultantId",
     label: "Consultant ID",
@@ -289,7 +278,6 @@ const getHotListColumns = ({
     render: (v) => renderValue(v, 50, loading),
   },
 ];
-
 
 // hotlist columns
 

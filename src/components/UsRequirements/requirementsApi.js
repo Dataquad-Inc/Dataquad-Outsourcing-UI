@@ -134,4 +134,4 @@ const requirementsApi = {
   }
 };
 
-export default requirementsApi;
+export default requirementsApi; 

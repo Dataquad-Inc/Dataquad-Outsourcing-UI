@@ -4,12 +4,11 @@ import ProtectedRoute from "./ProtectedRoute";
 import { Box, CircularProgress, Typography } from "@mui/material";
 import JobDetails from "../components/Requirements/jobTracking/JobDetails";
 import InterviewsRouter from "../components/Interviews/InterviewsRouter";
-import DashboardHomeRedirect from "./DashboardHomeRedirect"; // NEW
-import { element } from "prop-types";
-
+import DashboardHomeRedirect from "./DashboardHomeRedirect";
 import UsEmployeesContainer from "../components/UsEmployees/UsEmployeesContainer";
 import EditRtrForm from "../components/RightToRepresent/EditRtrForm";
 import UsInterviewsRouter from "../components/UsInterviews/UsInterviewRouter";
+import { Navigate } from "react-router-dom";
 
 const Loadable = (Component) => (
   <Suspense
@@ -44,7 +43,6 @@ const AllSubmissions = lazy(() =>
 );
 
 //----------IND Team Creation--------------
-
 const IndTeamList = lazy(() => import("../components/Users/IndTeamList"));
 const IndTeamContainer = lazy(() =>
   import("../components/Users/IndTeamContainer")
@@ -54,7 +52,6 @@ const CreateTeamInd = lazy(() => import("../components/Users/CreateTeamInd"));
 const IndTeamCreate = lazy(() => import("../components/Users/IndTeamCreate"));
 
 //---------------------------------------
-
 const Assigned = lazy(() => import("../components/Assigned/Assigned"));
 const Requirements = lazy(() =>
   import("../components/Requirements/Requirements")
@@ -88,9 +85,7 @@ const RtrContainer = lazy(() =>
 );
 
 //hotlist
-
 const Hotlist = lazy(() => import("../components/Hotlist/Hotlist"));
-
 const YetToOnboard = lazy(() =>
   import("../components/YetToOnboard/YetToOnboard")
 );
@@ -119,7 +114,6 @@ const MasterHotlist = lazy(() => import("../components/Hotlist/MasterHotlist"));
 
 const W2Hotlist=lazy(()=>import("../components/Hotlist/W2Hotlist"))
 //yet-to-bonboard
-
 const YetToOnBoardContainer = lazy(() =>
   import("../components/YetToOnboard/YetToOnBoardContainer")
 );
@@ -151,9 +145,31 @@ const UsOnboardClients = lazy(() =>
   import("../components/UsClients/OnBoardingClients")
 );
 
+//US Submissions - Add these imports
+const UsSubmissionsContainer = lazy(() =>
+  import("../components/UsSubmissions/UsSubmissionsContainer")
+);
+const UsSubmissionsList = lazy(() =>
+  import("../components/UsSubmissions/UsSubmissionsList")
+);
+
+const CreateUsSubmission = lazy(() =>
+  import("../components/UsSubmissions/CreateUsSubmission")
+);
+
+
+const EditUSSubmission = lazy(() =>
+  import("../components/UsSubmissions/EditUSSubmission")
+);
+
 //Us Interviews
-const UsAllInterviews = lazy(() => import("../components/UsInterviews/AllInterviews"))
-const InterviewsContainer = lazy(() => import("../components/UsInterviews/UsInterviewsContainer"))
+const UsAllInterviews = lazy(() =>
+  import("../components/UsInterviews/AllInterviews")
+);
+const InterviewsContainer = lazy(() =>
+  import("../components/UsInterviews/UsInterviewsContainer")
+);
+
 //Timesheets
 const Timesheets = lazy(() => import("../components/Timesheets/TimeSheets"));
 const TimesheetsForAdmin = lazy(() =>
@@ -163,7 +179,6 @@ const EmployeeTimesheetDetail = lazy(() =>
   import("../components/Timesheets/EmployeeTimesheetDetail")
 );
 
-// const HotlistDetail = lazy(() => import("../components/Hotlist/HotlistDetail"));
 const Unauthorized = lazy(() => import("../pages/Unauthorized"));
 const DeniedAccessCard = lazy(() =>
   import("../pages/NotFound/DeniedAccessCard")
@@ -191,7 +206,7 @@ const routeConfig = [
           "SALESEXECUTIVE",
           "EXTERNALEMPLOYEE",
           "ACCOUNTS",
-          "GRANDSALES"
+          "GRANDSALES",
         ]}
       />
     ),
@@ -238,7 +253,7 @@ const routeConfig = [
                   "RECRUITER",
                   "ADMIN",
                   "SALESEXECUTIVE",
-                  "GRANDSALES"
+                  "GRANDSALES",
                 ]}
                 allowedEntities={["US"]}
               />
@@ -537,6 +552,7 @@ const routeConfig = [
               },
             ],
           },
+
           //Timesheets
           {
             path: "timesheets",
@@ -600,7 +616,7 @@ const routeConfig = [
                   "EMPLOYEE",
                   "RECRUITER",
                   "SALESEXECUTIVE",
-                  "GRANDSALES"
+                  "GRANDSALES",
                 ]}
                 allowedEntities={["US"]}
               />
@@ -811,12 +827,21 @@ const routeConfig = [
               },
             ],
           },
+
           //US Clients
           {
             path: "us-clients",
             element: (
               <ProtectedRoute
-                allowedRoles={["SUPERADMIN", "EMPLOYEE", "TEAMLEAD", "RECRUITER", "SALESEXECUTIVE", "ADMIN", "GRANDSALES"]}
+                allowedRoles={[
+                  "SUPERADMIN",
+                  "EMPLOYEE",
+                  "TEAMLEAD",
+                  "RECRUITER",
+                  "SALESEXECUTIVE",
+                  "ADMIN",
+                  "GRANDSALES",
+                ]}
                 allowedEntities={["US"]}
               />
             ),
@@ -860,10 +885,54 @@ const routeConfig = [
               },
             ],
           },
+
+          // US SUBMISSIONS - MOVED INSIDE DASHBOARD ROUTES
+          {
+            path: "us-submissions",
+            element: (
+              <ProtectedRoute
+                allowedRoles={[
+                  "SUPERADMIN",
+                  "ADMIN",
+                  "TEAMLEAD",
+                  "EMPLOYEE",
+                  "RECRUITER",
+                  "SALESEXECUTIVE",
+                  "GRANDSALES",
+                ]}
+                allowedEntities={["US"]}
+              />
+            ),
+            children: [
+              {
+                path: "",
+                element: <UsSubmissionsContainer />,
+                children: [
+                  {
+                    index: true,
+                    element: <Navigate to="submissions-list" replace />,
+                  },
+                  {
+                    path: "submissions-list",
+                    element: Loadable(UsSubmissionsList),
+                  },
+                  {
+                    path: "create-submission",
+                    element: Loadable(CreateUsSubmission),
+                  },
+                  {
+                    path:"edit/:submissionId" ,
+                    element: Loadable(EditUSSubmission),
+                  },
+                ],
+              },
+            ],
+          },
         ],
       },
     ],
   },
+
   { path: "/", element: Loadable(LoginPage) },
   { path: "/access", element: Loadable(DeniedAccessCard) },
   { path: "/unauthorized", element: Loadable(Unauthorized) },
