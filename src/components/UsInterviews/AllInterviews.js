@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Alert,
   Dialog,
@@ -8,31 +8,21 @@ import {
   Button,
   Typography,
   Box,
-  CircularProgress,
-} from "@mui/material";
-import { Warning as WarningIcon } from "@mui/icons-material";
-import CustomDataTable from "../../ui-lib/CustomDataTable";
-import { interviewsAPI } from "../../utils/api";
-import ColumnsForInterviews from "./ColumnsForInterviews";
-import EditInterviewFormForUs from "./EditInterviewFormForUs";
-import {
-  showSuccessToast,
-  showErrorToast,
+  CircularProgress
+} from '@mui/material';
+import { Warning as WarningIcon } from '@mui/icons-material';
+import CustomDataTable from '../../ui-lib/CustomDataTable';
+import { interviewsAPI } from '../../utils/api';
+import ColumnsForInterviews from './ColumnsForInterviews';
+import EditInterviewFormForUs from './EditInterviewFormForUs';
+import { 
+  showSuccessToast, 
+  showErrorToast, 
   showInfoToast,
   showLoadingToast,
-  dismissToast,
-} from "../../utils/toastUtils";
-import { useSelector } from "react-redux";
-
-// Add debounce hook
-const useDebounce = (value, delay) => {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-  useEffect(() => {
-    const handler = setTimeout(() => setDebouncedValue(value), delay);
-    return () => clearTimeout(handler);
-  }, [value, delay]);
-  return debouncedValue;
-};
+  dismissToast 
+} from '../../utils/toastUtils';
+import { useSelector } from 'react-redux';
 
 const AllInterviews = () => {
   const [interviews, setInterviews] = useState([]);
@@ -41,72 +31,46 @@ const AllInterviews = () => {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
-  const [search, setSearch] = useState("");
-  const debouncedSearch = useDebounce(search, 500); // Add debounced search
-  const [refreshKey, setRefreshKey] = useState(0); // Add refresh key for manual refresh
+  const [search, setSearch] = useState('');
+  const [filters, setFilters] = useState({});
   const [editingInterview, setEditingInterview] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
-  const { userId } = useSelector((state) => state.auth);
 
-  // Initialize filters from localStorage
-  const [filters, setFilters] = useState(() => {
-    try {
-      const stored = localStorage.getItem("allInterviewFilters");
-      return stored ? JSON.parse(stored) : {};
-    } catch (error) {
-      console.error("Error loading filters:", error);
-      return {};
-    }
-  });
+  const {userId}=useSelector(state=>state.auth);
 
   const columns = ColumnsForInterviews({
     onEdit: setEditingInterview,
     onDelete: setDeleteConfirm,
-    showActions: true,
+    showActions: true
   });
 
-  /** ---------------- Fetch Data ---------------- */
-  const fetchInterviews = useCallback(async () => {
+  const fetchInterviews = useCallback(async (currentPage = page, currentRowsPerPage = rowsPerPage, searchTerm = search, currentFilters = filters) => {
+    setLoading(true);
+    setError(null);
+    
     try {
-      setLoading(true);
-      setError(null);
-
-      // Build filter parameters
-      const filterParams = {};
-      Object.entries(filters).forEach(([key, filter]) => {
-        if (filter.value) {
-          if (filter.type === "dateRange") {
-            if (filter.value.from)
-              filterParams[`${key}From`] = filter.value.from;
-            if (filter.value.to) filterParams[`${key}To`] = filter.value.to;
-          } else {
-            filterParams[key] = filter.value;
-          }
-        }
-      });
-
       const params = {
-        page,
-        size: rowsPerPage,
-        ...(debouncedSearch ? { search: debouncedSearch } : {}),
-        ...filterParams,
+        page: currentPage,
+        size: currentRowsPerPage,
+        ...(searchTerm && { search: searchTerm }),
+        ...currentFilters
       };
 
       const response = await interviewsAPI.getAllInterviews(params);
-
+      
       if (response.success) {
         setInterviews(response.data.content || []);
         setTotal(response.data.totalElements || 0);
       } else {
-        setError(response.message || "Failed to fetch interviews");
-        showErrorToast(response.message || "Failed to fetch interviews");
+        setError(response.message || 'Failed to fetch interviews');
+        showErrorToast(response.message || 'Failed to fetch interviews');
         setInterviews([]);
         setTotal(0);
       }
     } catch (error) {
       console.error("Error fetching interviews:", error);
-      const errorMessage = "An error occurred while fetching interviews";
+      const errorMessage = 'An error occurred while fetching interviews';
       setError(errorMessage);
       showErrorToast(errorMessage);
       setInterviews([]);
@@ -114,67 +78,49 @@ const AllInterviews = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, debouncedSearch, filters]);
+  }, [page, rowsPerPage, search, filters]);
 
-  // Initial fetch and when dependencies change
-  useEffect(() => {
-    fetchInterviews();
-  }, [fetchInterviews, refreshKey, debouncedSearch]);
-
-  /** ---------------- Filter Handlers ---------------- */
-  const handleFiltersChange = useCallback((newFilters) => {
-    setFilters(newFilters);
-    setPage(0); // Reset to first page when filters change
-  }, []);
-
-  /** ---------------- CRUD Handlers ---------------- */
   // Handle edit save
   const handleEditSave = async (updatedInterview) => {
-    const loadingToastId = showLoadingToast("Updating interview...");
-
+    const loadingToastId = showLoadingToast('Updating interview...');
+    
     try {
-      setInterviews((prev) =>
-        prev.map((interview) =>
-          interview.interviewId === updatedInterview.interviewId
-            ? updatedInterview
-            : interview
-        )
-      );
-
+      setInterviews(prev => prev.map(interview => 
+        interview.interviewId === updatedInterview.interviewId ? updatedInterview : interview
+      ));
+      
       dismissToast(loadingToastId);
-      showSuccessToast("Interview updated successfully!");
-      setRefreshKey((prev) => prev + 1); // Refresh the data
+      showSuccessToast('Interview updated successfully!');
+      fetchInterviews(); // Refresh to ensure data consistency
     } catch (error) {
       dismissToast(loadingToastId);
-      showErrorToast("Failed to update interview");
+      showErrorToast('Failed to update interview');
     }
   };
 
   // Handle delete
   const handleDelete = async (interview) => {
-    const loadingToastId = showLoadingToast("Deleting interview...");
-
+    const loadingToastId = showLoadingToast('Deleting interview...');
+    
     try {
       setLoading(true);
-      const response = await interviewsAPI.deleteInterviews(
-        interview.interviewId,
-        userId
-      );
-
+      const response = await interviewsAPI.deleteInterviews(interview.interviewId,userId);
+      
       if (response.success) {
-        setRefreshKey((prev) => prev + 1); // Refresh the data
+        setInterviews(prev => prev.filter(i => i.interviewId !== interview.interviewId));
+        setTotal(prev => prev - 1);
         setDeleteConfirm(null);
         dismissToast(loadingToastId);
-        showSuccessToast("Interview deleted successfully!");
+        showSuccessToast('Interview deleted successfully!');
       } else {
         dismissToast(loadingToastId);
-        showErrorToast(response.message || "Failed to delete interview");
-        setError(response.message || "Failed to delete interview");
+        showErrorToast(response.message || 'Failed to delete interview');
+        setError(response.message || 'Failed to delete interview');
       }
     } catch (error) {
-      console.error("Error deleting interview:", error);
+      console.error('Error deleting interview:', error);
       dismissToast(loadingToastId);
-      const errorMessage = "An error occurred while deleting the interview";
+      const errorMessage = 'An error occurred while deleting the interview';
       setError(errorMessage);
       showErrorToast(errorMessage);
     } finally {
@@ -182,23 +128,22 @@ const AllInterviews = () => {
     }
   };
 
-  // Handle refresh
+  // Handle refresh with toast
   const handleRefresh = () => {
-    showInfoToast("Refreshing interviews...");
-    setRefreshKey((prev) => prev + 1);
+    showInfoToast('Refreshing interviews...');
+    fetchInterviews();
   };
 
-  // Handle search clear
+  // Handle search clear with toast
   const handleSearchClear = () => {
-    setSearch("");
-    setPage(0);
-    showInfoToast("Search cleared");
+    setSearch('');
+    showInfoToast('Search cleared');
   };
 
-  // Handle search change
-  const handleSearchChange = (event) => {
-    
-    setSearch(event.target.value);
+  // Handle filters change with toast
+  const handleFiltersChange = (newFilters) => {
+    const filterCount = Object.keys(newFilters).length;
+    setFilters(newFilters);
     setPage(0);
     
     if (filterCount > 0) {
@@ -236,7 +181,12 @@ const AllInterviews = () => {
     showInfoToast(`Showing ${newRowsPerPage} interviews per page`);
   };
 
-  const transformedRows = interviews.map((interview) => ({
+  // Handle search change
+  const handleSearchChange = (event) => {
+    setSearch(event.target.value);
+  };
+
+  const transformedRows = interviews.map(interview => ({
     ...interview,
   }));
 
@@ -260,9 +210,15 @@ const AllInterviews = () => {
         onRefresh={handleRefresh}
         onFiltersChange={handleFiltersChange}
       />
-
+      
       {error && (
-        <Alert severity="error" sx={{ mt: 2 }} onClose={() => setError(null)}>
+        <Alert 
+          severity="error" 
+          sx={{ 
+            mt: 2
+          }}
+          onClose={() => setError(null)}
+        >
           {error}
         </Alert>
       )}
@@ -284,15 +240,8 @@ const AllInterviews = () => {
           maxWidth="xs"
           fullWidth
         >
-          <DialogTitle sx={{ textAlign: "center", pb: 1 }}>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 1,
-              }}
-            >
+          <DialogTitle sx={{ textAlign: 'center', pb: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
               <WarningIcon color="warning" />
               <Typography variant="h6" component="span">
                 Confirm Delete
@@ -301,19 +250,13 @@ const AllInterviews = () => {
           </DialogTitle>
           <DialogContent>
             <Typography textAlign="center">
-              Are you sure you want to delete interview{" "}
-              <strong>{deleteConfirm.interviewId}</strong>?
+              Are you sure you want to delete interview <strong>{deleteConfirm.interviewId}</strong>?
             </Typography>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              textAlign="center"
-              sx={{ mt: 1 }}
-            >
+            <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mt: 1 }}>
               This action cannot be undone.
             </Typography>
           </DialogContent>
-          <DialogActions sx={{ justifyContent: "center", gap: 1, pb: 3 }}>
+          <DialogActions sx={{ justifyContent: 'center', gap: 1, pb: 3 }}>
             <Button
               onClick={() => setDeleteConfirm(null)}
               variant="outlined"
@@ -331,7 +274,7 @@ const AllInterviews = () => {
               startIcon={loading ? <CircularProgress size={16} /> : null}
               sx={{ minWidth: 100 }}
             >
-              {loading ? "Deleting..." : "Delete"}
+              {loading ? 'Deleting...' : 'Delete'}
             </Button>
           </DialogActions>
         </Dialog>
