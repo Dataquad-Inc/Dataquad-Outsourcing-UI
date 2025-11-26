@@ -12,7 +12,6 @@ import HomeIcon from "@mui/icons-material/Home";
 import AutorenewIcon from "@mui/icons-material/Autorenew";
 import PeopleIcon from "@mui/icons-material/People";
 import BadgeIcon from "@mui/icons-material/Badge";
-import { icons } from "lucide-react";
 
 const commonRoles = [
   "SUPERADMIN",
@@ -21,7 +20,7 @@ const commonRoles = [
   "RECRUITER",
   "SALESEXECUTIVE",
   "ADMIN",
-  "GRANDSALES"
+  "GRANDSALES",
 ];
 
 // ✅ Adroit Route Config
@@ -34,7 +33,13 @@ export const usNavItems = (role) => [
   },
   {
     text: "Hotlist",
-    path: role === "SUPERADMIN" || role === "ADMIN" || role === "TEAMLEAD" || role === "GRANDSALES" ? "hotlist/master" : "hotlist/consultants",
+    path:
+      role === "SUPERADMIN" ||
+      role === "ADMIN" ||
+      role === "TEAMLEAD" ||
+      role === "GRANDSALES"
+        ? "hotlist/master"
+        : "hotlist/consultants",
     icon: <GroupIcon />,
     roles: commonRoles,
   },
@@ -54,17 +59,17 @@ export const usNavItems = (role) => [
     text: "Requirements",
     path: "us-requirements",
     icon: <AssignmentIcon />,
-    roles: ["SUPERADMIN", "TEAMLEAD", "ADMIN","GRANDSALES","RECRUITER"],
+    roles: ["SUPERADMIN", "TEAMLEAD", "ADMIN", "GRANDSALES", "RECRUITER"],
   },
   {
     text: "RTR",
-    path: "rtr/rtr-list", // 👈 direct link to RTR module
-    icon: <ListAltIcon />, // List icon fits RTR view
-    roles: ["SUPERADMIN","SALESEXECUTIVE","TEAMLEAD","GRANDSALES"],
+    path: "rtr/rtr-list",
+    icon: <ListAltIcon />,
+    roles: ["SUPERADMIN", "SALESEXECUTIVE", "TEAMLEAD", "GRANDSALES"],
   },
   {
     text: "Submissions",
-    // path: "us-submissions",
+    path: "us-submissions/submissions-list", // Fixed path
     icon: <SendIcon />,
     roles: commonRoles,
   },
@@ -75,9 +80,9 @@ export const usNavItems = (role) => [
     roles: commonRoles,
   },
   {
-    text:"Interviews",
-    path:"us-interviews",
-    icon:<EventNoteIcon/>,
-    roles:["SUPERADMIN","SALESEXECUTIVE","TEAMLEAD"]
-  }
+    text: "Interviews",
+    path: "us-interviews",
+    icon: <EventNoteIcon />,
+    roles: ["SUPERADMIN", "SALESEXECUTIVE", "TEAMLEAD"],
+  },
 ];

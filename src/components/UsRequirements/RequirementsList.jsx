@@ -269,10 +269,16 @@ const RequirementsList = () => {
   };
 
   /** ---------------- Submit Candidate ---------------- */
-  const handleSubmitCandidate = (job) => {
-    // Navigate or open modal
-    navigate(`/submit-candidate/${job.jobId}`, { state: job });
-  };
+const handleSubmitCandidate = (job) => {
+  // Navigate to the correct path according to your routing structure
+  navigate(`/dashboard/us-submissions/create-submission`, { 
+    state: { 
+      job,
+      jobId: job.jobId,
+      userId: userId // This comes from useSelector at the top
+    } 
+  });
+};
 
   const handleConfirmDelete = async () => {
     try {
