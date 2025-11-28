@@ -26,32 +26,36 @@ const UsEmployees = () => {
   const BASE_URL = "https://mymulya.com";
 
   /** ---------------- Fetch Employees ---------------- */
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const apiPage = Math.max(page, 0);
+const fetchData = useCallback(async () => {
+  try {
+    setLoading(true);
+    const apiPage = Math.max(page, 0);
 
-      const response = await fetch(
-        `${BASE_URL}/hotlist/user/allUsers?page=${apiPage}&size=${rowsPerPage}&keyword=${search}`
-      );
+    const response = await fetch(
+      `${BASE_URL}/hotlist/user/allUsers?page=${apiPage}&size=${rowsPerPage}&search=${search}`
+    );
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch employees");
-      }
-
-      const result = await response.json();
-      const data = result?.data?.content ?? [];
-      const totalElements = result?.data?.totalElements ?? data.length;
-
-      setEmployees(data);
-      setTotal(totalElements);
-    } catch (error) {
-      console.error("Error fetching employees:", error);
-      showErrorToast("Failed to load employees");
-    } finally {
-      setLoading(false);
+    if (!response.ok) {
+      throw new Error("Failed to fetch employees");
     }
-  }, [page, rowsPerPage, search]);
+
+    const result = await response.json();
+
+    // ✔ Correct JSON extraction
+    const data = result?.data?.content ?? [];
+    const totalElements = result?.data?.totalElements ?? data.length;
+
+    setEmployees(data);
+    setTotal(totalElements);
+
+  } catch (error) {
+    console.error("Error fetching employees:", error);
+    showErrorToast("Failed to load employees");
+  } finally {
+    setLoading(false);
+  }
+}, [page, rowsPerPage, search]);
+
 
   React.useEffect(() => {
     fetchData();
