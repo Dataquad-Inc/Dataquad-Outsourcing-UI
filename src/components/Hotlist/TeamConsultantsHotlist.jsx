@@ -38,7 +38,7 @@ const TeamConsultantsHotlist = React.memo(() => {
   const [refreshKey, setRefreshKey] = useState(0);
 
   // Status filter state
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ACTIVE");
 
   // filters state
   const [filters, setFilters] = useState({});

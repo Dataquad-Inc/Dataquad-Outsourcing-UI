@@ -643,6 +643,10 @@ const routeConfig = [
                     element: Loadable(ConsultantProfile),
                   },
                   {
+                    path: "w2/:consultantId", // /dashboard/hotlist/w2/:consultantId
+                    element: Loadable(ConsultantProfile),
+                  },
+                  {
                     path: "consultants/:consultantId", // /dashboard/hotlist/consultants/:id
                     element: Loadable(ConsultantProfile),
                   },

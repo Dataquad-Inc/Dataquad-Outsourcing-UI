@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useState } from "react";
-import { useTheme, Box } from "@mui/material";
+import { useTheme, Box, ToggleButtonGroup, ToggleButton } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import CustomDataTable from "../../ui-lib/CustomDataTable";
 import getRTRListColumns from "./rtrListColumns";
@@ -8,6 +8,7 @@ import showDeleteConfirm from "../../utils/showDeleteConfirm";
 import { rightToRepresentAPI } from "../../utils/api";
 import { useSelector } from "react-redux";
 import ScheduleInterviewForm from "./ScheduleInterviewForm"; // Add this import
+import { set } from "date-fns";
 
 const useDebounce = (value, delay) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -31,6 +32,7 @@ const RtrList = React.memo(() => {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 500);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [viewMode, setViewMode] = useState("default"); // Add this state
 
   // Schedule Interview Dialog State
   const [scheduleInterviewOpen, setScheduleInterviewOpen] = useState(false);
@@ -74,14 +76,14 @@ const RtrList = React.memo(() => {
         ...(debouncedSearch ? { keyword: debouncedSearch } : {}),
         ...filterParams,
       };
-     
+
       let result;
-      if(role === "SUPERADMIN" || role === "ADMIN"){
+      if (role === "SUPERADMIN" || role === "ADMIN") {
         result = await rightToRepresentAPI.getAllRTR(params);
-      } else if(role === "SALESEXECUTIVE" || role === "GRANDSALES"){
+      } else if (role === "SALESEXECUTIVE" || role === "GRANDSALES") {
         result = await rightToRepresentAPI.getSalesRtr(userId, params);
       }
-        else if (role === "TEAMLEAD"){
+      else if (role === "TEAMLEAD") {
         result = await rightToRepresentAPI.getTeamLeadRtr(userId, params);
       }
 
@@ -97,6 +99,50 @@ const RtrList = React.memo(() => {
       showErrorToast("Failed to load RTR list");
     } finally {
       setLoading(false);
+    }
+  }, [page, rowsPerPage, debouncedSearch, filters, filterOptions]);
+
+
+  const fetchTodayRtr = useCallback(async () => {
+    try {
+      setLoading(true);
+      const filterParams = {};
+      Object.entries(filters).forEach(([key, filter]) => {
+        if (filter.value) {
+          if (filter.type === "dateRange") {
+            if (filter.value.from)
+              filterParams[`${key}From`] = filter.value.from;
+            if (filter.value.to) filterParams[`${key}To`] = filter.value.to;
+          } else {
+            filterParams[key] = filter.value;
+          }
+        }
+      });
+
+      const date = new Date().toISOString().split("T")[0];
+
+      const params = {
+        page,
+        size: rowsPerPage,
+        date: date,
+        ...(debouncedSearch ? { keyword: debouncedSearch } : {}),
+        ...filterParams,
+      };
+      const result = await rightToRepresentAPI.getTodaysRtr(params);
+      setRtrList(result?.data?.content || []);
+      setTotal(result?.data?.totalElements || 0);
+
+      if (Object.keys(filterOptions).length === 0 && result?.data?.content) {
+        extractFilterOptionsFromData(result.data.content);
+      }
+
+    }
+    catch (err) {
+      console.error("Error fetching today's RTR list:", err);
+      showErrorToast("Failed to load today's RTR list");
+    }
+    finally {
+      setLoading(false)
     }
   }, [page, rowsPerPage, debouncedSearch, filters, filterOptions]);
 
@@ -132,9 +178,25 @@ const RtrList = React.memo(() => {
     setFilterOptions(options);
   }, []);
 
+  // Modified useEffect to handle both view modes
   useEffect(() => {
-    fetchData();
-  }, [fetchData, refreshKey, debouncedSearch]);
+    if (viewMode === "today") {
+      fetchTodayRtr();
+    } else {
+      fetchData();
+    }
+  }, [fetchData, fetchTodayRtr, refreshKey, debouncedSearch, viewMode]);
+
+  // Handle Today's RTR button click
+  const handleTodayRtrClick = useCallback(() => {
+    setViewMode("today");
+    setPage(0); // Reset to first page
+  }, []);
+
+  // Handle refresh to maintain current view mode
+  const handleRefresh = useCallback(() => {
+    setRefreshKey(prev => prev + 1);
+  }, []);
 
   /** ---------------- Filter Handlers ---------------- */
   const handleFiltersChange = useCallback((newFilters) => {
@@ -203,7 +265,7 @@ const RtrList = React.memo(() => {
   );
 
 
-   const handleInterviewSuccess = () => {
+  const handleInterviewSuccess = () => {
     navigate("/dashboard/us-interviews");
   };
 
@@ -223,8 +285,44 @@ const RtrList = React.memo(() => {
   /** ---------------- Render ---------------- */
   return (
     <Box>
+
+      <ToggleButtonGroup
+        color="primary" 
+        exclusive
+        size="small" 
+        sx={{ margin: '10px' }}
+        value={viewMode}
+      >
+        <ToggleButton 
+          value="default"
+          onClick={() => setViewMode("default")}
+          sx={{
+            px: 3,
+            fontWeight: 'bold',
+            backgroundColor: viewMode === "default" ? theme.palette.primary.main : 'inherit',
+            color: viewMode === "default" ? theme.palette.primary.contrastText : theme.palette.primary.main,
+          }}
+          size="medium"
+        >
+          All RTR
+        </ToggleButton>
+        <ToggleButton 
+          value="today"
+          onClick={handleTodayRtrClick}
+          sx={{
+            px: 3,
+            fontWeight: 'bold',
+            backgroundColor: viewMode === "today" ? theme.palette.primary.main : 'inherit',
+            color: viewMode === "today" ? theme.palette.primary.contrastText : theme.palette.primary.main,
+          }}
+          size="medium"
+        >
+          Today's RTR
+        </ToggleButton>
+      </ToggleButtonGroup>
+
       <CustomDataTable
-        title="RTR List"
+        title={viewMode === "today" ? "Today's RTR List" : "RTR List"}
         columns={columns}
         rows={rtrList}
         total={total}
@@ -247,7 +345,7 @@ const RtrList = React.memo(() => {
           setSearch("");
           setPage(0);
         }}
-        onRefresh={() => setRefreshKey((prev) => prev + 1)}
+        onRefresh={handleRefresh}
         onFiltersChange={handleFiltersChange}
       />
 
