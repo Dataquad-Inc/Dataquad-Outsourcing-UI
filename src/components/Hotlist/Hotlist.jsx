@@ -36,7 +36,7 @@ const HotList = React.memo(() => {
   const [refreshKey, setRefreshKey] = useState(0);
 
   // Status filter state
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ACTIVE");
 
   // filters
   const [filters, setFilters] = useState({});

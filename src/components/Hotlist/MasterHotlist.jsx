@@ -37,7 +37,7 @@ const MasterHotlist = React.memo(() => {
   const [refreshKey, setRefreshKey] = useState(0);
 
   // Status filter state
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ACTIVE");
 
   // Initialize filters from localStorage
   const [filters, setFilters] = useState(() => {

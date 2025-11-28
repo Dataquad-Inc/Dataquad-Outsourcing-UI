@@ -304,6 +304,9 @@ export const rightToRepresentAPI = {
 
     return apiPost(`/hotlist/schedule-rtrInterview/${userId}`, rtrData);
   },
+  getTodaysRtr:async(params={})=>{
+     return apiGet(`/hotlist/rtr-list-today`,params)
+  }
 };
 
 // ========== Hotlist/Consultant Management APIs ==========
