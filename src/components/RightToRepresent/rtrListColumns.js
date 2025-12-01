@@ -214,7 +214,7 @@ const getRTRListColumns = ({
   id: 'createdAt',
   label: 'Created At',
   applyFilter: true,
-  filterType: 'date',
+  filterType: 'dateRange',
   render: (value) =>
     value
       ? new Date(value).toLocaleString("en-IN", {
