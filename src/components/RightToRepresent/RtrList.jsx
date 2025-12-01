@@ -7,8 +7,7 @@ import { showErrorToast, showSuccessToast } from "../../utils/toastUtils";
 import showDeleteConfirm from "../../utils/showDeleteConfirm";
 import { rightToRepresentAPI } from "../../utils/api";
 import { useSelector } from "react-redux";
-import ScheduleInterviewForm from "./ScheduleInterviewForm"; // Add this import
-import { set } from "date-fns";
+import ScheduleInterviewForm from "./ScheduleInterviewForm";
 
 const useDebounce = (value, delay) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -32,7 +31,7 @@ const RtrList = React.memo(() => {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 500);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [viewMode, setViewMode] = useState("default"); // Add this state
+  const [viewMode, setViewMode] = useState("default");
 
   // Schedule Interview Dialog State
   const [scheduleInterviewOpen, setScheduleInterviewOpen] = useState(false);
@@ -51,24 +50,45 @@ const RtrList = React.memo(() => {
 
   const [filterOptions, setFilterOptions] = useState({});
 
+  const formatLocalDate = (date) => {
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
   /** ---------------- Fetch Data ---------------- */
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
 
-      // Build filter parameters
+      // Build filter parameters - FIXED: Proper date range handling
       const filterParams = {};
-      Object.entries(filters).forEach(([key, filter]) => {
-        if (filter.value) {
-          if (filter.type === "dateRange") {
-            if (filter.value.from)
-              filterParams[`${key}From`] = filter.value.from;
-            if (filter.value.to) filterParams[`${key}To`] = filter.value.to;
-          } else {
-            filterParams[key] = filter.value;
-          }
-        }
-      });
+    Object.entries(filters).forEach(([key, filter]) => {
+
+  // ✅ FIXED createdAt date range handling
+  if (key === "createdAt" && filter.type === "dateRange") {
+        const fromDate = filter?.value?.from
+          ? formatLocalDate(filter.value.from)
+          : null;
+
+        const toDate = filter?.value?.to
+          ? formatLocalDate(filter.value.to)
+          : null;
+
+        if (fromDate) filterParams["fromDate"] = fromDate;
+        if (toDate) filterParams["toDate"] = toDate;
+
+        return; // prevent normal flow
+  }
+
+  // normal filters
+  if (filter.value) {
+    filterParams[key] = filter.value;
+  }
+});
+
 
       const params = {
         page,
@@ -77,31 +97,64 @@ const RtrList = React.memo(() => {
         ...filterParams,
       };
 
+      console.log("🔍 FILTER DEBUG ================");
+      console.log("Active Filters:", filters);
+      console.log("Filter Params:", filterParams);
+      console.log("Final API Params:", params);
+
       let result;
       if (role === "SUPERADMIN" || role === "ADMIN") {
         result = await rightToRepresentAPI.getAllRTR(params);
       } else if (role === "SALESEXECUTIVE" || role === "GRANDSALES") {
         result = await rightToRepresentAPI.getSalesRtr(userId, params);
-      }
-      else if (role === "TEAMLEAD") {
+      } else if (role === "TEAMLEAD") {
         result = await rightToRepresentAPI.getTeamLeadRtr(userId, params);
       }
 
-      setRtrList(result?.data?.content || []);
-      setTotal(result?.data?.totalElements || 0);
+      console.log("📊 RESPONSE DEBUG ==============");
+      console.log("API Response:", result?.data);
+      console.log("Total Elements:", result?.data?.totalElements);
+      console.log("Content Length:", result?.data?.content?.length);
 
-      // Extract filter options from the data if not already set
-      if (Object.keys(filterOptions).length === 0 && result?.data?.content) {
-        extractFilterOptionsFromData(result.data.content);
+      // FIXED: Always update state with response data
+      if (result?.data) {
+        const newContent = result.data.content || [];
+        const newTotal = result.data.totalElements || 0;
+        
+        setRtrList(newContent);
+        setTotal(newTotal);
+        
+        console.log("✅ STATE UPDATED:", {
+          contentCount: newContent.length,
+          totalElements: newTotal
+        });
+      } else {
+        setRtrList([]);
+        setTotal(0);
       }
+
     } catch (err) {
-      console.error("Error fetching RTR list:", err);
+      console.error("❌ Error fetching RTR list:", err);
       showErrorToast("Failed to load RTR list");
+      // FIXED: Clear data on error
+      setRtrList([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, debouncedSearch, filters, filterOptions]);
+  }, [page, rowsPerPage, debouncedSearch, filters, role, userId]);
 
+  // Add this useEffect to monitor state changes
+  useEffect(() => {
+    console.log("🔄 STATE UPDATE:", {
+      rtrListCount: rtrList.length,
+      total,
+      page,
+      rowsPerPage,
+      filtersCount: Object.keys(filters).length,
+      filters
+    });
+  }, [rtrList, total, page, rowsPerPage, filters]);
 
   const fetchTodayRtr = useCallback(async () => {
     try {
@@ -112,7 +165,8 @@ const RtrList = React.memo(() => {
           if (filter.type === "dateRange") {
             if (filter.value.from)
               filterParams[`${key}From`] = filter.value.from;
-            if (filter.value.to) filterParams[`${key}To`] = filter.value.to;
+            if (filter.value.to) 
+              filterParams[`${key}To`] = filter.value.to;
           } else {
             filterParams[key] = filter.value;
           }
@@ -128,7 +182,10 @@ const RtrList = React.memo(() => {
         ...(debouncedSearch ? { keyword: debouncedSearch } : {}),
         ...filterParams,
       };
+      
       const result = await rightToRepresentAPI.getTodaysRtr(params);
+      
+      // FIXED: Always update state
       setRtrList(result?.data?.content || []);
       setTotal(result?.data?.totalElements || 0);
 
@@ -136,13 +193,14 @@ const RtrList = React.memo(() => {
         extractFilterOptionsFromData(result.data.content);
       }
 
-    }
-    catch (err) {
+    } catch (err) {
       console.error("Error fetching today's RTR list:", err);
       showErrorToast("Failed to load today's RTR list");
-    }
-    finally {
-      setLoading(false)
+      // FIXED: Clear data on error
+      setRtrList([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
     }
   }, [page, rowsPerPage, debouncedSearch, filters, filterOptions]);
 
@@ -158,7 +216,6 @@ const RtrList = React.memo(() => {
     };
 
     data.forEach((item) => {
-      // Extract unique values for each filterable field
       Object.keys(options).forEach((field) => {
         const value = item[field];
         if (value && !options[field].find((opt) => opt.value === value)) {
@@ -170,7 +227,6 @@ const RtrList = React.memo(() => {
       });
     });
 
-    // Sort options alphabetically
     Object.keys(options).forEach((field) => {
       options[field].sort((a, b) => a.label?.localeCompare(b.label || "") || 0);
     });
@@ -178,28 +234,27 @@ const RtrList = React.memo(() => {
     setFilterOptions(options);
   }, []);
 
-  // Modified useEffect to handle both view modes
+  // FIXED: Proper dependency array to trigger re-fetch on filter changes
   useEffect(() => {
     if (viewMode === "today") {
       fetchTodayRtr();
     } else {
       fetchData();
     }
-  }, [fetchData, fetchTodayRtr, refreshKey, debouncedSearch, viewMode]);
+  }, [viewMode, page, rowsPerPage, debouncedSearch, filters, refreshKey]);
 
-  // Handle Today's RTR button click
   const handleTodayRtrClick = useCallback(() => {
     setViewMode("today");
-    setPage(0); // Reset to first page
+    setPage(0);
   }, []);
 
-  // Handle refresh to maintain current view mode
   const handleRefresh = useCallback(() => {
     setRefreshKey(prev => prev + 1);
   }, []);
 
   /** ---------------- Filter Handlers ---------------- */
   const handleFiltersChange = useCallback((newFilters) => {
+    console.log("🎯 FILTERS CHANGED:", newFilters);
     setFilters(newFilters);
     setPage(0); // Reset to first page when filters change
   }, []);
@@ -211,7 +266,7 @@ const RtrList = React.memo(() => {
   }, []);
 
   const handleInterviewScheduled = useCallback(() => {
-    setRefreshKey(prev => prev + 1); // Refresh the list
+    setRefreshKey(prev => prev + 1);
     showSuccessToast("Interview scheduled successfully!");
   }, []);
 
@@ -236,7 +291,6 @@ const RtrList = React.memo(() => {
     [navigate]
   );
 
-  /** ---------------- Delete ---------------- */
   const handleDelete = useCallback(
     (row) => {
       const deleteRTRAction = async () => {
@@ -264,7 +318,6 @@ const RtrList = React.memo(() => {
     [navigate]
   );
 
-
   const handleInterviewSuccess = () => {
     navigate("/dashboard/us-interviews");
   };
@@ -275,7 +328,7 @@ const RtrList = React.memo(() => {
     handleEdit,
     handleDelete,
     handleView,
-    handleScheduleInterview, // Pass the new handler
+    handleScheduleInterview,
     loading,
     userRole: role,
     userId,
@@ -285,7 +338,6 @@ const RtrList = React.memo(() => {
   /** ---------------- Render ---------------- */
   return (
     <Box>
-
       <ToggleButtonGroup
         color="primary" 
         exclusive
@@ -349,7 +401,6 @@ const RtrList = React.memo(() => {
         onFiltersChange={handleFiltersChange}
       />
 
-      {/* Schedule Interview Dialog */}
       <ScheduleInterviewForm
         open={scheduleInterviewOpen}
         onClose={handleCloseScheduleInterview}
