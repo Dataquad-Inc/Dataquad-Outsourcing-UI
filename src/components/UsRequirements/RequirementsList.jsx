@@ -130,7 +130,7 @@ const RequirementsList = () => {
       let response;
       if (role === "RECRUITER" || role === "GRANDSALES") {
         response = await axios.get(
-          `https://mymulya.com/api/us/requirements/requirements-user/${userId}`,
+          `https://mymulya.com/api/us/requirements/v2/get-requirements/${userId}`,
           {
             params,
             headers: { "Content-Type": "application/json" },
@@ -147,12 +147,12 @@ const RequirementsList = () => {
       }
 
       const data = response.data;
-      if (data.success && data.data) {
-        setRequirements(data.data.content || []);
-        setTotal(data.data.totalElements || 0);
+      if ( data.content) {
+        setRequirements(data.content || []);
+        setTotal(data.totalElements || 0);
 
         if (Object.keys(filterOptions).length === 0) {
-          extractFilterOptionsFromData(data.data.content || []);
+          extractFilterOptionsFromData(data.content || []);
         }
       } else {
         showErrorToast(data.message || "Failed to load requirements");
@@ -210,9 +210,9 @@ const RequirementsList = () => {
     setFilterOptions(options);
   };
 
-  useEffect(() => {
-    fetchFilterOptions();
-  }, [fetchFilterOptions]);
+  // useEffect(() => {
+  //   fetchFilterOptions();
+  // }, [fetchFilterOptions]);
 
   useEffect(() => {
     fetchData();
@@ -227,7 +227,7 @@ const RequirementsList = () => {
   const handleDownloadJD = async (jobId) => {
     try {
       const response = await fetch(
-        `https://mymulya.com/api/us/requirements/download-jd/${jobId}`,
+        `https://mymulya.com/api/us/requirements/v2/download-jd/${jobId}`,
         { method: "GET", headers: { Accept: "application/pdf" } }
       );
 
@@ -285,7 +285,7 @@ const handleSubmitCandidate = (job) => {
       if (!userId || !deleteJobId) return;
 
       await axios.delete(
-        `https://mymulya.com/api/us/requirements/delete-requirement/${deleteJobId}?userId=${userId}`
+        `https://mymulya.com/api/us/requirements/v2/delete-requirement/${deleteJobId}`
       );
 
       setConfirmOpen(false);

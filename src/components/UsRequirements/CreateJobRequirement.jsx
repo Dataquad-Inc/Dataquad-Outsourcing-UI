@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
 import DynamicFormUltra from "../FormContainer/DynamicFormUltra";
-import { fetchRecruiters } from "../../redux/usEmployees";
+import { fetchRecruiters,fetchEmployeesUs } from "../../redux/usEmployees";
 import { usClientsAPI } from "../../utils/api";
 
 const CreateJobRequirement = ({
@@ -22,7 +22,7 @@ const CreateJobRequirement = ({
   const [clientsError, setClientsError] = useState(null);
 
   // Get employees and current user from Redux
-  const { recruiters = [], loadingEmployees } = useSelector(
+  const { recruiters = [],employees=[], loadingEmployees } = useSelector(
     (state) => state.usEmployees
   );
   const { userName, userId } = useSelector((state) => state.auth);
@@ -50,6 +50,11 @@ const CreateJobRequirement = ({
     value: emp.employeeId,
   }));
 
+  const teamLeadOptions=employees.map((emp)=>({
+    label: emp.employeeName,
+    value: emp.employeeId,
+  }))
+
   const clientOptions = clients.map((client) => ({
     label: client.clientName,
     value: client.clientName,
@@ -57,6 +62,7 @@ const CreateJobRequirement = ({
 
   useEffect(() => {
     dispatch(fetchRecruiters("RECRUITER"));
+    dispatch(fetchEmployeesUs("TEAMLEAD"));
     fetchClients();
   }, [dispatch]);
 
@@ -76,6 +82,7 @@ const CreateJobRequirement = ({
     salaryPackage: "",
     status: "Open",
     assignedUsers: [],
+    teamLeadIds:[],
     jobDescriptionType: "text",
     jobDescription: "",
     jobDescriptionFile: null,
@@ -236,6 +243,14 @@ const CreateJobRequirement = ({
           helperText: "Select team members to assign this requirement to",
           icon: "SupervisorAccount",
         },
+        {
+          name: "teamsLeadIds",
+          label: "Assign to Teamleads",
+          type: "multiselect",
+          options: teamLeadOptions,
+          helperText: "Select team members to assign this requirement to",
+          icon: "SupervisorAccount",
+        },
       ],
     },
     {
@@ -261,67 +276,76 @@ const CreateJobRequirement = ({
   ];
 
   // Handle form submission
-  const handleSubmit = async (values, { setSubmitting, resetForm }) => {
-    try {
-      const apiPayload = {
-        jobTitle: values.jobTitle,
-        clientName: values.clientName,
-        jobType: values.jobType,
-        location: values.location,
-        jobMode: values.jobMode,
-        experienceRequired: values.experienceRequired,
-        noticePeriod: values.noticePeriod || "",
-        relevantExperience: values.relevantExperience || "",
-        qualification: values.qualification || "",
-        salaryPackage: values.salaryPackage || "",
-        noOfPositions: parseInt(values.noOfPositions) || 1,
-        status: values.status || "Open",
-        visaType: values.visaType || "",
-        assignedBy: userId,
-        userIds: (values.assignedUsers || []).join(","),
-      };
+const handleSubmit = async (values, { setSubmitting, resetForm }) => {
+  try {
+    const formData = new FormData();
 
-      // Use FormData
-      const formData = new FormData();
+    // Attach text fields
+    formData.append("jobTitle", values.jobTitle);
+    formData.append("clientId", values.clientId);
+    formData.append("clientName", values.clientName);
+    formData.append("jobType", values.jobType);
+    formData.append("location", values.location);
+    formData.append("jobMode", values.jobMode);
+    formData.append("experienceRequired", values.experienceRequired);
+    formData.append("relevantExperience", values.relevantExperience || "");
+    formData.append("noticePeriod", values.noticePeriod || "");
+    formData.append("qualification", values.qualification || "");
+    formData.append("salaryPackage", values.salaryPackage || "");
+    formData.append("billRate", values.billRate || "");
+    formData.append("noOfPositions", parseInt(values.noOfPositions) || 1);
+    formData.append("visaType", values.visaType || "");
+    formData.append("remarks", values.remarks || "");
 
-      Object.keys(apiPayload).forEach((key) => {
-        formData.append(key, apiPayload[key]);
-      });
+    // Convert array → comma string
+    formData.append(
+      "assignedUsers",
+      (values.assignedUsers || []).join(",")
+    );
 
-      if (values.jobDescriptionType === "file" && values.jobDescriptionFile) {
-        formData.append(
-          "jobDescriptionFile",
-          values.jobDescriptionFile,
-          values.jobDescriptionFile.name
-        );
-      } else {
-        formData.append("jobDescription", values.jobDescription?.trim() || "");
-      }
+    formData.append(
+      "teamsLeadIds",
+      (values.teamsLeadIds || []).join(",")
+    );
 
-      const response = await axios.post(
-        `https://mymulya.com/api/us/requirements/post-requirement/${userId}`,
-        formData,
-        { headers: { "Content-Type": "multipart/form-data" } }
-      );
+    // Handle job description (file or text)
+  formData.append("jobDescription", values.jobDescription?.trim() || "");
 
-      if (response?.data?.success) {
-        showSuccessToast("Requirement created successfully!");
-        resetForm();
-        navigate("/dashboard/us-requirements");
-      } else {
-        showErrorToast(
-          response?.data?.message || "Failed to create requirement"
-        );
-      }
-    } catch (error) {
-      console.error("Error creating requirement:", error);
-      showErrorToast(
-        error.response?.data?.message || "Failed to create requirement"
-      );
-    } finally {
-      setSubmitting(false);
+// Always send JD file if selected
+if (values.jobDescriptionFile instanceof File) {
+  formData.append(
+    "jobDescriptionFile",
+    values.jobDescriptionFile,
+    values.jobDescriptionFile.name
+  );
+}
+
+
+    // API call
+    const response = await axios.post(
+      `https://mymulya.com/api/us/requirements/v2/post-requirement/${userId}`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } }
+    );
+
+    // Success
+    if (response?.data?.success) {
+      showSuccessToast("Requirement created successfully!");
+      resetForm();
+      navigate("/dashboard/us-requirements");
+    } else {
+      showErrorToast(response?.data?.message || "Failed to create requirement");
     }
-  };
+  } catch (error) {
+    console.error("Error creating requirement:", error);
+    showErrorToast(
+      error.response?.data?.message || "Failed to create requirement"
+    );
+  } finally {
+    setSubmitting(false);
+  }
+};
+
 
   const handleCancel = () => {
     navigate("/dashboard/us-requirements");
