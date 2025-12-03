@@ -358,7 +358,7 @@ const RtrList = React.memo(() => {
         >
           All RTR
         </ToggleButton>
-        <ToggleButton 
+        {role==="SUPERADMIN" &&  <ToggleButton 
           value="today"
           onClick={handleTodayRtrClick}
           sx={{
@@ -370,7 +370,8 @@ const RtrList = React.memo(() => {
           size="medium"
         >
           Today's RTR
-        </ToggleButton>
+        </ToggleButton>}
+       
       </ToggleButtonGroup>
 
       <CustomDataTable
