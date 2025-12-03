@@ -5,7 +5,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 
 import DynamicFormUltra from "../FormContainer/DynamicFormUltra";
-import { fetchAllEmployeesUs } from "../../redux/usEmployees";
+import { fetchAllEmployeesUs,fetchRecruiters } from "../../redux/usEmployees";
 import { LoadingSpinner } from "../../ui-lib/LoadingSpinner";
 
 const EditJobRequirement = () => {
@@ -14,7 +14,7 @@ const EditJobRequirement = () => {
   const { jobId } = useParams(); // Get jobId from URL params
 
   // Get employees and current user from Redux
-  const { employees = [], loadingEmployees } = useSelector(
+  const {recruiters=[], employees = [], loadingEmployees } = useSelector(
     (state) => state.usEmployees
   );
   const { userName, userId } = useSelector((state) => state.auth);
@@ -23,13 +23,19 @@ const EditJobRequirement = () => {
   const [loading, setLoading] = useState(true);
 
   // Transform employees for multiselect
-  const employeeOptions = employees.map((emp) => ({
+ const employeeOptions = recruiters.map((emp) => ({
     label: emp.employeeName,
     value: emp.employeeId,
   }));
 
+  const teamLeadOptions=employees.map((emp)=>({
+    label: emp.employeeName,
+    value: emp.employeeId,
+  }))
+
   useEffect(() => {
-    dispatch(fetchAllEmployeesUs("RECRUITER"));
+    dispatch(fetchRecruiters("RECRUITER"));
+    dispatch(fetchAllEmployeesUs("TEAMLEAD")); // Fetch TeamLeads as well
   }, []);
 
   useEffect(() => {
@@ -38,12 +44,13 @@ const EditJobRequirement = () => {
     }
   }, [jobId, employees]);
 
+
   // Fetch existing requirement data
   const fetchRequirementData = async () => {
     try {
       setLoading(true);
       const response = await axios.get(
-        `https://mymulya.com/api/us/requirements/requirement-id/${jobId}`
+        `https://mymulya.com/api/us/requirements/v2/get-requirement/${jobId}`
       );
 
       if (response.data.success && response.data.data) {
@@ -68,7 +75,19 @@ const EditJobRequirement = () => {
             employeeOptions.some((emp) => emp.value === id)
           );
         }
+       let teamLeadUsersArray = [];
 
+        // FIX: Handle teamLeadIds which comes as an array of strings from API
+        if (data.teamsLeadIds && Array.isArray(data.teamsLeadIds)) {
+          // teamsLeadIds is already an array, so map it directly
+          teamLeadUsersArray = data.teamsLeadIds
+            .map((id) => id.toString().trim())
+            .filter((id) =>
+              teamLeadOptions.some((emp) => emp.value === id)
+            );
+        }
+
+      
         // Alternative approach: if you have assignedUsers array in the response
         // You can also try using data.assignedUsers if it exists
         if (data.assignedUsers && Array.isArray(data.assignedUsers)) {
@@ -94,12 +113,15 @@ const EditJobRequirement = () => {
           salaryPackage: data.salaryPackage || "",
           status: data.status || "Open",
           assignedUsers: assignedUsersArray, // Use the processed array
+          teamsLeadIds: teamLeadUsersArray,
           jobDescription: data.jobDescription || "",
           // Note: jobDescriptionFile will be handled separately if needed
         };
 
         console.log("Form data with assigned users:", formData.assignedUsers);
+        console.log("Form data with team leads:", formData.teamsLeadIds);
         console.log("Available employee options:", employeeOptions);
+        console.log("Available team lead options:", teamLeadOptions);
 
         setInitialData(formData);
       } else {
@@ -266,6 +288,14 @@ const EditJobRequirement = () => {
           helperText: "Select team members to assign this requirement to",
           icon: "SupervisorAccount",
         },
+        {
+          name: "teamsLeadIds",
+          label: "Assign to TeamLeads",
+          type: "multiselect",
+          options: teamLeadOptions,
+          helperText: "Select team lead to assign this requirement to",
+          icon: "SupervisorAccount",
+        },
       ],
     },
     {
@@ -309,8 +339,9 @@ const EditJobRequirement = () => {
         status: values.status || "Open",
         visaType: values.visaType || "",
         assignedById: userId, 
-        assignedByName:userName,
-        userIds: (values.assignedUsers || []).join(","),
+        assignedByName:userName,   
+        assignedUsers : (values.assignedUsers || []).join(","),
+        teamsLeadIds: (values.teamsLeadIds || []).join(","),
       };
 
       // Use FormData
@@ -331,8 +362,8 @@ const EditJobRequirement = () => {
       }
 
       // Use the same endpoint but with PUT method and jobId as parameter
-      const response = await axios.post(
-        `https://mymulya.com/api/us/requirements/post-requirement/${userId}`,
+      const response = await axios.put(
+        `https://mymulya.com/api/us/requirements/v2/update-requirement/${userId}`,
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );

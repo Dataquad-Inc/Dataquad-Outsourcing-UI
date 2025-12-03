@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from "react";
 import { Button, MenuItem, TextField, Stack } from "@mui/material";
-import CustomDataTable from "../../ui-lib/CustomDataTable"; // ✅ use same table as MasterHotlist
+import CustomDataTable from "../../ui-lib/CustomDataTable";
 import getEmployeeColumns from "./EmployeeTableColumnConfig";
 import {
   showSuccessToast,
@@ -26,36 +26,34 @@ const UsEmployees = () => {
   const BASE_URL = "https://mymulya.com";
 
   /** ---------------- Fetch Employees ---------------- */
-const fetchData = useCallback(async () => {
-  try {
-    setLoading(true);
-    const apiPage = Math.max(page, 0);
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const apiPage = Math.max(page, 0);
 
-    const response = await fetch(
-      `${BASE_URL}/hotlist/user/allUsers?page=${apiPage}&size=${rowsPerPage}&search=${search}`
-    );
+      const response = await fetch(
+        `${BASE_URL}/hotlist/user/allUsers?page=${apiPage}&size=${rowsPerPage}&search=${search}`
+      );
 
-    if (!response.ok) {
-      throw new Error("Failed to fetch employees");
+      if (!response.ok) {
+        throw new Error("Failed to fetch employees");
+      }
+
+      const result = await response.json();
+
+      const data = result?.data?.content ?? [];
+      const totalElements = result?.data?.totalElements ?? data.length;
+
+      setEmployees(data);
+      setTotal(totalElements);
+
+    } catch (error) {
+      console.error("Error fetching employees:", error);
+      showErrorToast("Failed to load employees");
+    } finally {
+      setLoading(false);
     }
-
-    const result = await response.json();
-
-    // ✔ Correct JSON extraction
-    const data = result?.data?.content ?? [];
-    const totalElements = result?.data?.totalElements ?? data.length;
-
-    setEmployees(data);
-    setTotal(totalElements);
-
-  } catch (error) {
-    console.error("Error fetching employees:", error);
-    showErrorToast("Failed to load employees");
-  } finally {
-    setLoading(false);
-  }
-}, [page, rowsPerPage, search]);
-
+  }, [page, rowsPerPage, search]);
 
   React.useEffect(() => {
     fetchData();
@@ -106,7 +104,8 @@ const fetchData = useCallback(async () => {
       const payload = {
         ...selectedEmployee,
         ...formValues,
-        roles: [formValues.roles], // ensure roles is array
+        // ✅ FIX: Send roles as string, not array
+        roles: formValues.roles,
       };
 
       delete payload.password;
@@ -175,7 +174,9 @@ const fetchData = useCallback(async () => {
         title={`Edit Employee - ${selectedEmployee?.userName}`}
         actions={
           <>
-            <Button onClick={() => setOpenEdit(false)} variant="outlined">Cancel</Button>
+            <Button onClick={() => setOpenEdit(false)} variant="outlined">
+              Cancel
+            </Button>
             <Button variant="contained" onClick={handleSave}>
               Update Employee
             </Button>
