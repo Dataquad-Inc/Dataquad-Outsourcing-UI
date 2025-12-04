@@ -51,12 +51,12 @@ const RtrList = React.memo(() => {
   const [filterOptions, setFilterOptions] = useState({});
 
   const formatLocalDate = (date) => {
-  const d = new Date(date);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
 
   /** ---------------- Fetch Data ---------------- */
   const fetchData = useCallback(async () => {
@@ -65,29 +65,29 @@ const RtrList = React.memo(() => {
 
       // Build filter parameters - FIXED: Proper date range handling
       const filterParams = {};
-    Object.entries(filters).forEach(([key, filter]) => {
+      Object.entries(filters).forEach(([key, filter]) => {
 
-  // ✅ FIXED createdAt date range handling
-  if (key === "createdAt" && filter.type === "dateRange") {
-        const fromDate = filter?.value?.from
-          ? formatLocalDate(filter.value.from)
-          : null;
+        // ✅ FIXED createdAt date range handling
+        if (key === "createdAt" && filter.type === "dateRange") {
+          const fromDate = filter?.value?.from
+            ? formatLocalDate(filter.value.from)
+            : null;
 
-        const toDate = filter?.value?.to
-          ? formatLocalDate(filter.value.to)
-          : null;
+          const toDate = filter?.value?.to
+            ? formatLocalDate(filter.value.to)
+            : null;
 
-        if (fromDate) filterParams["fromDate"] = fromDate;
-        if (toDate) filterParams["toDate"] = toDate;
+          if (fromDate) filterParams["fromDate"] = fromDate;
+          if (toDate) filterParams["toDate"] = toDate;
 
-        return; // prevent normal flow
-  }
+          return; // prevent normal flow
+        }
 
-  // normal filters
-  if (filter.value) {
-    filterParams[key] = filter.value;
-  }
-});
+        // normal filters
+        if (filter.value) {
+          filterParams[key] = filter.value;
+        }
+      });
 
 
       const params = {
@@ -120,10 +120,10 @@ const RtrList = React.memo(() => {
       if (result?.data) {
         const newContent = result.data.content || [];
         const newTotal = result.data.totalElements || 0;
-        
+
         setRtrList(newContent);
         setTotal(newTotal);
-        
+
         console.log("✅ STATE UPDATED:", {
           contentCount: newContent.length,
           totalElements: newTotal
@@ -165,7 +165,7 @@ const RtrList = React.memo(() => {
           if (filter.type === "dateRange") {
             if (filter.value.from)
               filterParams[`${key}From`] = filter.value.from;
-            if (filter.value.to) 
+            if (filter.value.to)
               filterParams[`${key}To`] = filter.value.to;
           } else {
             filterParams[key] = filter.value;
@@ -182,9 +182,17 @@ const RtrList = React.memo(() => {
         ...(debouncedSearch ? { keyword: debouncedSearch } : {}),
         ...filterParams,
       };
-      
-      const result = await rightToRepresentAPI.getTodaysRtr(params);
-      
+
+      let result;
+      if (role === "SUPERADMIN" ) {
+        result = await rightToRepresentAPI.getTodaysRtr(params);
+      } else if (role === "TEAMLEAD") {
+        result = await rightToRepresentAPI.getTodaysTeamRtr(userId, params);
+      }
+      else if (role === "SALESEXECUTIVE") {
+        result = await rightToRepresentAPI.getTodaysSalesRtr(userId, params);
+      }
+
       // FIXED: Always update state
       setRtrList(result?.data?.content || []);
       setTotal(result?.data?.totalElements || 0);
@@ -339,13 +347,13 @@ const RtrList = React.memo(() => {
   return (
     <Box>
       <ToggleButtonGroup
-        color="primary" 
+        color="primary"
         exclusive
-        size="small" 
+        size="small"
         sx={{ margin: '10px' }}
         value={viewMode}
       >
-        <ToggleButton 
+        <ToggleButton
           value="default"
           onClick={() => setViewMode("default")}
           sx={{
@@ -358,7 +366,7 @@ const RtrList = React.memo(() => {
         >
           All RTR
         </ToggleButton>
-        {role==="SUPERADMIN" &&  <ToggleButton 
+        <ToggleButton
           value="today"
           onClick={handleTodayRtrClick}
           sx={{
@@ -370,8 +378,8 @@ const RtrList = React.memo(() => {
           size="medium"
         >
           Today's RTR
-        </ToggleButton>}
-       
+        </ToggleButton>
+
       </ToggleButtonGroup>
 
       <CustomDataTable
