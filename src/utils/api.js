@@ -306,6 +306,16 @@ export const rightToRepresentAPI = {
   },
   getTodaysRtr:async(params={})=>{
      return apiGet(`/hotlist/rtr-list-today`,params)
+  },
+
+  getTodaysTeamRtr:async(userId,params={})=>{
+    if (!userId) throw new Error("User ID is required");
+    return apiGet(`/hotlist/teamRtr-list-today/${userId}`, params)
+  },
+
+  getTodaysSalesRtr:async(userId,params={})=>{
+    if (!userId) throw new Error("User ID is required");
+    return apiGet(`/hotlist/salesRtr-list-today/${userId}`, params)
   }
 };
 

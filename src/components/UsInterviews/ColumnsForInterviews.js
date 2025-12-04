@@ -58,16 +58,32 @@ const ColumnsForInterviews = ({ onEdit, onDelete, userRole = 'all', showActions 
       applyFilter: true,
       filterType: 'text',
     },
+    // {
+    //   id: 'interviewLevel',
+    //   label: 'Level',
+    //   applyFilter: true,
+    //   filterType: 'select',
+    //   filterOptions: [
+    //     { value: 'L1', label: 'L1' },
+    //     { value: 'L2', label: 'L2' },
+    //     { value: 'L3', label: 'L3' },
+    //     { value: 'Final', label: 'Final' },
+    //   ],
+    // },
     {
       id: 'interviewLevel',
       label: 'Level',
       applyFilter: true,
       filterType: 'select',
       filterOptions: [
-        { value: 'L1', label: 'L1' },
-        { value: 'L2', label: 'L2' },
-        { value: 'L3', label: 'L3' },
-        { value: 'Final', label: 'Final' },
+        { value: 'Technical Assessment (Test)', label: 'Technical Assessment (Test)' },
+        { value: 'Technical Screening', label: 'Technical Screening' },
+        { value: 'L1 - Vendor Round', label: 'L1 - Vendor Round' },
+        { value: 'L2 - Vendor Round', label: 'L2 - Vendor Round' },
+        { value: 'C1 - Client Round', label: 'C1 - Client Round' },
+        { value: 'C2 - Client Round', label: 'C2 - Client Round' },
+        { value: 'F - Final Client Round', label: 'F - Final Client Round' },
+        { value: 'HM - HR Round', label: 'HM - HR Round' },
       ],
     },
     {
@@ -86,9 +102,9 @@ const ColumnsForInterviews = ({ onEdit, onDelete, userRole = 'all', showActions 
           label={value}
           color={
             value === 'Completed' ? 'success' :
-            value === 'Scheduled' ? 'primary' :
-            value === 'Cancelled' ? 'error' :
-            value === 'Rescheduled' ? 'warning' : 'default'
+              value === 'Scheduled' ? 'primary' :
+                value === 'Cancelled' ? 'error' :
+                  value === 'Rescheduled' ? 'warning' : 'default'
           }
           variant="outlined"
           size="small"
@@ -183,7 +199,7 @@ const ColumnsForInterviews = ({ onEdit, onDelete, userRole = 'all', showActions 
           </Tooltip>
           <Tooltip title="Delete Interview">
             <IconButton
-              onClick={() => safeOnDelete(row)} 
+              onClick={() => safeOnDelete(row)}
               size="small"
               color="error"
               sx={{

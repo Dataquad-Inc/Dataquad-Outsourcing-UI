@@ -24,6 +24,16 @@ import {
 } from '../../utils/toastUtils';
 import { useSelector } from 'react-redux';
 
+// Add useDebounce hook like in RtrList
+const useDebounce = (value, delay) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
+};
+
 const AllInterviews = () => {
   const [interviews, setInterviews] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -32,12 +42,23 @@ const AllInterviews = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState({});
+  const debouncedSearch = useDebounce(search, 500);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [editingInterview, setEditingInterview] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
+  const { userId } = useSelector(state => state.auth);
 
-  const {userId}=useSelector(state=>state.auth);
+  // Initialize filters from localStorage like RtrList
+  const [filters, setFilters] = useState(() => {
+    try {
+      const stored = localStorage.getItem('allInterviewFilters');
+      return stored ? JSON.parse(stored) : {};
+    } catch (error) {
+      console.error('Error loading filters:', error);
+      return {};
+    }
+  });
 
   const columns = ColumnsForInterviews({
     onEdit: setEditingInterview,
@@ -45,17 +66,46 @@ const AllInterviews = () => {
     showActions: true
   });
 
-  const fetchInterviews = useCallback(async (currentPage = page, currentRowsPerPage = rowsPerPage, searchTerm = search, currentFilters = filters) => {
+  const fetchInterviews = useCallback(async () => {
     setLoading(true);
     setError(null);
     
     try {
+      // Build filter parameters like RtrList
+      const filterParams = {};
+      Object.entries(filters).forEach(([key, filter]) => {
+        // Handle date range filters
+        if (filter.type === 'dateRange') {
+          // Format dates like in RtrList
+          const formatDate = (date) => {
+            if (!date) return null;
+            const d = new Date(date);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+          };
+
+          const fromDate = filter?.value?.from ? formatDate(filter.value.from) : null;
+          const toDate = filter?.value?.to ? formatDate(filter.value.to) : null;
+
+          if (fromDate) filterParams[`${key}From`] = fromDate;
+          if (toDate) filterParams[`${key}To`] = toDate;
+        } 
+        // Handle regular value filters
+        else if (filter.value) {
+          filterParams[key] = filter.value;
+        }
+      });
+
       const params = {
-        page: currentPage,
-        size: currentRowsPerPage,
-        ...(searchTerm && { search: searchTerm }),
-        ...currentFilters
+        page,
+        size: rowsPerPage,
+        ...(debouncedSearch ? { search: debouncedSearch } : {}),
+        ...filterParams
       };
+
+      console.log('📊 Interview API Params:', params);
 
       const response = await interviewsAPI.getAllInterviews(params);
       
@@ -63,13 +113,14 @@ const AllInterviews = () => {
         setInterviews(response.data.content || []);
         setTotal(response.data.totalElements || 0);
       } else {
-        setError(response.message || 'Failed to fetch interviews');
-        showErrorToast(response.message || 'Failed to fetch interviews');
+        const errorMsg = response.message || 'Failed to fetch interviews';
+        setError(errorMsg);
+        showErrorToast(errorMsg);
         setInterviews([]);
         setTotal(0);
       }
     } catch (error) {
-      console.error("Error fetching interviews:", error);
+      console.error('Error fetching interviews:', error);
       const errorMessage = 'An error occurred while fetching interviews';
       setError(errorMessage);
       showErrorToast(errorMessage);
@@ -78,7 +129,7 @@ const AllInterviews = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, search, filters]);
+  }, [page, rowsPerPage, debouncedSearch, filters, refreshKey]);
 
   // Handle edit save
   const handleEditSave = async (updatedInterview) => {
@@ -91,7 +142,8 @@ const AllInterviews = () => {
       
       dismissToast(loadingToastId);
       showSuccessToast('Interview updated successfully!');
-      fetchInterviews(); // Refresh to ensure data consistency
+      // Refresh the data to ensure consistency
+      setRefreshKey(prev => prev + 1);
     } catch (error) {
       dismissToast(loadingToastId);
       showErrorToast('Failed to update interview');
@@ -104,7 +156,7 @@ const AllInterviews = () => {
     
     try {
       setLoading(true);
-      const response = await interviewsAPI.deleteInterviews(interview.interviewId,userId);
+      const response = await interviewsAPI.deleteInterviews(interview.interviewId, userId);
       
       if (response.success) {
         setInterviews(prev => prev.filter(i => i.interviewId !== interview.interviewId));
@@ -131,17 +183,27 @@ const AllInterviews = () => {
   // Handle refresh with toast
   const handleRefresh = () => {
     showInfoToast('Refreshing interviews...');
-    fetchInterviews();
+    setRefreshKey(prev => prev + 1);
   };
 
   // Handle search clear with toast
   const handleSearchClear = () => {
     setSearch('');
+    setPage(0);
     showInfoToast('Search cleared');
   };
 
-  // Handle filters change with toast
-  const handleFiltersChange = (newFilters) => {
+  // Handle filters change with toast - Like RtrList
+  const handleFiltersChange = useCallback((newFilters) => {
+    console.log('🎯 Interview Filters Changed:', newFilters);
+    
+    // Save to localStorage
+    try {
+      localStorage.setItem('allInterviewFilters', JSON.stringify(newFilters));
+    } catch (error) {
+      console.error('Error saving filters:', error);
+    }
+    
     const filterCount = Object.keys(newFilters).length;
     setFilters(newFilters);
     setPage(0);
@@ -151,22 +213,7 @@ const AllInterviews = () => {
     } else {
       showInfoToast('All filters cleared');
     }
-  };
-
-  // Initial fetch and when dependencies change
-  useEffect(() => {
-    fetchInterviews();
-  }, [fetchInterviews]);
-
-  // Debounced search effect
-  // useEffect(() => {
-  //   const timer = setTimeout(() => {
-  //     setPage(0);
-  //     fetchInterviews(0, rowsPerPage, search, filters);
-  //   }, 500);
-
-  //   return () => clearTimeout(timer);
-  // }, [search, fetchInterviews, rowsPerPage, filters]);
+  }, []);
 
   // Handle page change
   const handlePageChange = (event, newPage) => {
@@ -184,7 +231,25 @@ const AllInterviews = () => {
   // Handle search change
   const handleSearchChange = (event) => {
     setSearch(event.target.value);
+    setPage(0);
   };
+
+  // Fetch data when dependencies change - Like RtrList
+  useEffect(() => {
+    fetchInterviews();
+  }, [fetchInterviews]);
+
+  // Add this useEffect to monitor state changes (optional for debugging)
+  useEffect(() => {
+    console.log('🔄 Interview State Update:', {
+      interviewsCount: interviews.length,
+      total,
+      page,
+      rowsPerPage,
+      filtersCount: Object.keys(filters).length,
+      filters
+    });
+  }, [interviews, total, page, rowsPerPage, filters]);
 
   const transformedRows = interviews.map(interview => ({
     ...interview,

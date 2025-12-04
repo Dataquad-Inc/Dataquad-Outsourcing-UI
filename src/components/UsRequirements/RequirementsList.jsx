@@ -128,7 +128,7 @@ const RequirementsList = () => {
         params.keyword = keyword.trim();
       }
       let response;
-      if (role === "RECRUITER" || role === "GRANDSALES") {
+      if (role === "RECRUITER" || role === "GRANDSALES" || role === "TEAMLEAD" || role === "SUPERADMIN") {
         response = await axios.get(
           `https://mymulya.com/api/us/requirements/v2/get-requirements/${userId}`,
           {
