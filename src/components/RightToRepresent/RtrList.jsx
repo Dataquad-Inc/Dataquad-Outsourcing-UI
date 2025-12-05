@@ -21,7 +21,7 @@ const useDebounce = (value, delay) => {
 const RtrList = React.memo(() => {
   const theme = useTheme();
   const navigate = useNavigate();
-  const { userId, role } = useSelector((state) => state.auth);
+  const { userId, role ,userName} = useSelector((state) => state.auth);
 
   const [rtrList, setRtrList] = useState([]);
   const [total, setTotal] = useState(0);
@@ -342,6 +342,10 @@ const RtrList = React.memo(() => {
     userId,
     filterOptions,
   });
+
+  const UserName=rtrList.map((item)=>item.createdBy)
+
+  console.log("-----createdby-----",UserName)
 
   /** ---------------- Render ---------------- */
   return (

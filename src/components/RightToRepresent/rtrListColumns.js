@@ -202,7 +202,7 @@ const getRTRListColumns = ({
     filterOptions: filterOptions.salesExecutive || [],
     render: (v) => renderValue(v, 100, loading),
   },
-  userRole === "TEAMLEAD" && {
+  (userRole === "TEAMLEAD" || userRole === "SUPERADMIN") && {
     id: "createdByName",
     label: "Submitted By",
     filterType: "text",
@@ -210,6 +210,7 @@ const getRTRListColumns = ({
     filterOptions: filterOptions.createdByName || [],
     render: (v) => renderValue(v, 100, loading),
   },
+
  {
   id: 'createdAt',
   label: 'Created At',

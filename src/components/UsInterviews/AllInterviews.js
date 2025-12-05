@@ -101,7 +101,7 @@ const AllInterviews = () => {
       const params = {
         page,
         size: rowsPerPage,
-        ...(debouncedSearch ? { search: debouncedSearch } : {}),
+        ...(debouncedSearch ? { keyword: debouncedSearch } : {}),
         ...filterParams
       };
 

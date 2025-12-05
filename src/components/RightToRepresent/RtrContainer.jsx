@@ -9,7 +9,7 @@ const RtrContainer = () => {
     {
       label: "RTR List",
       icon: <ListAltIcon />,
-      path: "/dashboard/hotlist/rtr-list",
+      path: "/dashboard/rtr/rtr-list",
     },
   ];
 

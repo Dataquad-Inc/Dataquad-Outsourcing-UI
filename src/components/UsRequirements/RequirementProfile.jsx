@@ -14,6 +14,11 @@ import {
   IconButton,
   Tooltip,
   Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
 } from "@mui/material";
 import {
   ArrowBack,
@@ -30,6 +35,8 @@ import {
 } from "@mui/icons-material";
 import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 import { useParams, useNavigate } from "react-router-dom";
+import axios from "axios";
+import { showErrorToast, showSuccessToast } from "../../utils/toastUtils";
 
 const RequirementProfile = () => {
   const { jobId } = useParams();
@@ -39,13 +46,15 @@ const RequirementProfile = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [downloadLoading, setDownloadLoading] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const fetchJobDetails = async () => {
       try {
         setLoading(true);
         const res = await fetch(
-          `https://mymulya.com/api/us/requirements/requirement-id/${jobId}`
+          `https://mymulya.com/api/us/requirements/v2/get-requirement/${jobId}`
         );
         const data = await res.json();
         if (data.success && data.data) {
@@ -67,7 +76,7 @@ const RequirementProfile = () => {
     try {
       setDownloadLoading(true);
       const res = await fetch(
-        `https://mymulya.com/api/us/requirements/download-jd/${jobId}`,
+        `https://mymulya.com/api/us/requirements/v2/download-jd/${jobId}`,
         { headers: { Accept: "application/pdf" } }
       );
       if (!res.ok) throw new Error("Failed to download JD");
@@ -102,8 +111,39 @@ const RequirementProfile = () => {
   };
 
   const handleBack = () => navigate(-1);
-  const handleEdit = () => console.log("Edit job");
-  const handleDelete = () => console.log("Delete job");
+  const handleEdit = () => navigate(`/dashboard/us-requirements/edit/${jobId}`);
+
+  // Open delete confirmation dialog
+  const handleDeleteClick = () => {
+    setDeleteDialogOpen(true);
+  };
+
+  // Close delete confirmation dialog
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
+  };
+
+  // Confirm and execute delete
+  const handleDeleteConfirm = async () => {
+    try {
+      setDeleting(true);
+      const response = await axios.delete(
+        `https://mymulya.com/api/us/requirements/v2/delete-requirement/${jobId}`
+      );
+      showSuccessToast("Requirement deleted successfully");
+      setDeleteDialogOpen(false);
+      // Navigate back to the main requirements list
+      navigate("/dashboard/us-requirements");
+      return response.data;
+    } catch (error) {
+      console.error("Error deleting requirement:", error);
+      showErrorToast(
+        error.response?.data?.message || "Failed to delete requirement"
+      );
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   // Reusable InfoRow component
   const InfoRow = ({ icon: Icon, label, value, fullWidth = false }) => (
@@ -155,7 +195,42 @@ const RequirementProfile = () => {
     );
 
   return (
-    <Container  sx={{ py: 2 }}>
+    <Container sx={{ py: 2 }}>
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleDeleteCancel}
+        aria-labelledby="delete-dialog-title"
+        aria-describedby="delete-dialog-description"
+      >
+        <DialogTitle id="delete-dialog-title">
+          Confirm Delete
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="delete-dialog-description">
+            Are you sure you want to delete this requirement? This action cannot be undone.
+            <br />
+            <strong>Job Title:</strong> {jobData.jobTitle}
+            <br />
+            <strong>Client:</strong> {jobData.clientName}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDeleteCancel} disabled={deleting}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            color="error"
+            variant="contained"
+            disabled={deleting}
+            startIcon={deleting ? <CircularProgress size={20} /> : <DeleteForeverIcon />}
+          >
+            {deleting ? "Deleting..." : "Delete"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Header with Back Button */}
       <Box sx={{ mb: 3 }}>
         <Button startIcon={<ArrowBack />} onClick={handleBack} sx={{ mb: 2 }}>
@@ -212,7 +287,7 @@ const RequirementProfile = () => {
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Delete Job">
-                  <IconButton sx={{ color: "white" }} onClick={handleDelete}>
+                  <IconButton sx={{ color: "white" }} onClick={handleDeleteClick}>
                     <DeleteForeverIcon />
                   </IconButton>
                 </Tooltip>
@@ -452,7 +527,7 @@ const RequirementProfile = () => {
                       fullWidth
                       color="error"
                       startIcon={<DeleteForeverIcon />}
-                      onClick={handleDelete}
+                      onClick={handleDeleteClick}
                     >
                       Delete Job
                     </Button>

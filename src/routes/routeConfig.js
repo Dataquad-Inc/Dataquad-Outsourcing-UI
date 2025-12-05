@@ -117,7 +117,9 @@ const W2Hotlist=lazy(()=>import("../components/Hotlist/W2Hotlist"))
 const YetToOnBoardContainer = lazy(() =>
   import("../components/YetToOnboard/YetToOnBoardContainer")
 );
-
+const OnHoldConsultants = lazy(() =>
+  import("../components/YetToOnboard/OnHoldConsultants")
+);
 //US Requirements
 const RequirementsContainer = lazy(() =>
   import("../components/UsRequirements/RequirementsContainer")
@@ -743,6 +745,10 @@ const routeConfig = [
                     path: "create-consultant",
                     element: Loadable(CreateConsultant),
                   },
+                  {
+                    path: "onhold-consultants",
+                    element: Loadable(OnHoldConsultants),
+                  }
                 ],
               },
             ],
