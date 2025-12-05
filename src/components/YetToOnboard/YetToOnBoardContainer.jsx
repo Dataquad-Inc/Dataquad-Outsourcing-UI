@@ -12,6 +12,11 @@ const YetToOnBoardContainer = () => {
       icon: <ListAltIcon />,
       path: "/dashboard/yet-to-onboard",
     },
+     {
+      label: "OnHold Consultants",
+      icon: <ListAltIcon />,
+      path: "/dashboard/yet-to-onboard/onhold-consultants",
+    },
     {
       label: "Add Consultant",
       icon: <PersonAddIcon />,
