@@ -404,7 +404,7 @@ export const hotlistAPI = {
   },
 
   getYetToOnboardConsultants: async (params = {}) => {
-    return apiGet("/hotlist/onHoldConsultants", params);
+    return apiGet("/hotlist/yetToOnBoardConsultants", params);
   },
 
   getOnHoldConsultants: async (params = {}) => {
