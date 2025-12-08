@@ -35,7 +35,7 @@ const getRequirementsColumns = ({
             <Edit fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Tooltip title="Delete">
+        {(userRole==="SUPERADMIN") &&(<Tooltip title="Delete">
           <IconButton
             size="small"
             color="error"
@@ -43,7 +43,7 @@ const getRequirementsColumns = ({
           >
             <Delete fontSize="small" />
           </IconButton>
-        </Tooltip>
+        </Tooltip>)}
         {(userRole === "RECRUITER" || userRole === "TEAMLEAD") && (
           <Tooltip title="Submit Candidate">
             <Button
