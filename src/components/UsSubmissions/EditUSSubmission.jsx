@@ -365,7 +365,7 @@ const EditUSSubmission = ({
       try {
         setLoading(true);
         const response = await axios.get(
-          `https://mymulya.com/api/us/requirements/get-submission-by-id/${submissionId}`
+          `https://mymulya.com/api/us/requirements/get-submission/by-id/${submissionId}`
         );
 
         if (response.data) {
@@ -412,6 +412,9 @@ const EditUSSubmission = ({
     }
   }, [submissionId, navigate]);
 
+  useEffect(()=>{
+    dispatch(fetchRecruiters());
+  },[dispatch])
   // Resume handlers
   const handleViewResume = async (submissionId, candidateName) => {
     try {
@@ -598,7 +601,7 @@ const EditUSSubmission = ({
       const dtoBlob = new Blob([JSON.stringify(cleanDTO)], {
         type: "application/json",
       });
-      formData.append("dto", dtoBlob);
+      formData.append("submissionDTO", dtoBlob);
 
       // Append resume file only if provided
       if (values.resume) {
@@ -617,7 +620,7 @@ const EditUSSubmission = ({
       });
 
       const response = await axios.put(
-        `https://mymulya.com/api/us/requirements/update-submission/${submissionId}/${userId}`,
+        `https://mymulya.com/api/us/requirements/update-submission/${submissionId}`,
         formData,
         {
           headers: {
