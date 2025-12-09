@@ -132,6 +132,22 @@ const getRequirementsColumns = ({
     render: (v) => renderValue(v),
   },
   {
+    id: "billRate",
+    label: "Bill Rate",
+    applyFilter: true,
+    filterType: "number",
+    filterOptions:  [],
+    render: (v) => renderValue(v),
+  },
+  {
+    id: "payRate",
+    label: "Pay Rate",
+    applyFilter: true,
+    filterType: "number",
+    filterOptions:  [],
+    render: (v) => renderValue(v),
+  },
+  {
     id: "experienceRequired",
     label: "Exp Req",
     applyFilter: true,
@@ -153,13 +169,7 @@ const getRequirementsColumns = ({
     filterOptions: filterOptions.qualification || [],
     render: (v) => renderValue(v),
   },
-  {
-    id: "salaryPackage",
-    label: "Salary Package (LPA)",
-    applyFilter: true,
-    filterType: "number",
-    render: (v) => renderValue(v),
-  },
+ 
   {
     id: "noOfPositions",
     label: "No. of Positions",
