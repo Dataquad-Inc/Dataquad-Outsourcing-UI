@@ -116,7 +116,7 @@ const UsSubmissionsList = () => {
       let response;
       if (role === "RECRUITER" || role === "GRANDSALES") {
         response = await axios.get(
-          `https://mymulya.com/api/us/requirements/get-submission/self/${userId}`,
+          `https://mymulya.com/api/us/requirements/get-submission/${userId}`,
           {
             params,
             headers: { "Content-Type": "application/json" },
