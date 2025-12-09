@@ -124,6 +124,22 @@ const getRequirementsColumns = ({
       value ? <CustomChip jobType={value} size="small" /> : "-",
   },
   {
+    id: "submissions",
+    label: "submissions",
+    applyFilter: true,
+    filterType: "text",
+    filterOptions: filterOptions.submissions || [],
+    render: (v) => renderValue(v),
+  },
+  {
+    id: "interviews",
+    label: "interviews",
+    applyFilter: true,
+    filterType: "text",
+    filterOptions: filterOptions.interviews || [],
+    render: (v) => renderValue(v),
+  },
+  {
     id: "location",
     label: "Location",
     applyFilter: true,
