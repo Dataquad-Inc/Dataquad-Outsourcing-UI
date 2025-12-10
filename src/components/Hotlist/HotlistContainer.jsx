@@ -30,7 +30,12 @@ const HotlistContainer = () => {
         label:"W2 Hotlist",
         icon:<ListAltIcon />,
         path:'/dashboard/hotlist/w2',
-      }
+      },
+      // {
+      //   label:"Full-Time Hotlist",
+      //   icon:<ListAltIcon />, 
+      //   path:'/dashboard/hotlist/full-time',
+      // }
 
       // {
       //   label: "Add Consultant",

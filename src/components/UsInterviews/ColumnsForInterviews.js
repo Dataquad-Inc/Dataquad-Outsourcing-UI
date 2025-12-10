@@ -58,6 +58,12 @@ const ColumnsForInterviews = ({ onEdit, onDelete, userRole = 'all', showActions 
       applyFilter: true,
       filterType: 'text',
     },
+    {
+      id: 'createdBy',
+      label: 'Created By',
+      applyFilter: true,
+      filterType: 'text',
+    },
     // {
     //   id: 'interviewLevel',
     //   label: 'Level',
