@@ -285,6 +285,9 @@ const getHotListUserSections = (
           options: [
             { label: "W2", value: "W2" },
             { label: "C2C", value: "C2C" },
+            { label: "FULL-TIME", value: "FULL-TIME" },
+            { label: "CONTRACT", value: "CONTRACT" },
+            { label: "GUEST-HOUSE", value: "GUEST-HOUSE" },
           ],
         },
       ],

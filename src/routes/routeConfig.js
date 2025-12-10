@@ -9,6 +9,8 @@ import UsEmployeesContainer from "../components/UsEmployees/UsEmployeesContainer
 import EditRtrForm from "../components/RightToRepresent/EditRtrForm";
 import UsInterviewsRouter from "../components/UsInterviews/UsInterviewRouter";
 import { Navigate } from "react-router-dom";
+import { element } from "prop-types";
+import FullTimeHotlist from "../components/Hotlist/FullTimeHotlist";
 
 const Loadable = (Component) => (
   <Suspense
@@ -642,6 +644,10 @@ const routeConfig = [
                   {
                     path: "w2", // /dashboard/hotlist/w2`
                     element: Loadable(W2Hotlist),
+                  },
+                  {
+                    path:'full-time', // /dashboard/hotlist/full-time`
+                    element:Loadable(FullTimeHotlist)
                   },
                   {
                     path: "master/:consultantId", // /dashboard/hotlist/master/:consultantId

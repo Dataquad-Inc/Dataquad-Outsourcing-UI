@@ -424,6 +424,9 @@ export const hotlistAPI = {
   },
   getW2Hotlist: async(params={})=>{
     return apiGet(`/hotlist/all-w2-Consultants`, params)
+  },
+  getFullTimeHotlist:async(params={})=>{
+    return apiGet(`/hotlist/all-fulltime-Consultants`,params)
   }
 };
 
