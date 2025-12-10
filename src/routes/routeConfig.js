@@ -112,7 +112,7 @@ const CreateConsultant = lazy(() =>
 );
 const MasterHotlist = lazy(() => import("../components/Hotlist/MasterHotlist"));
 
-const W2Hotlist=lazy(()=>import("../components/Hotlist/W2Hotlist"))
+const W2Hotlist = lazy(() => import("../components/Hotlist/W2Hotlist"));
 //yet-to-bonboard
 const YetToOnBoardContainer = lazy(() =>
   import("../components/YetToOnboard/YetToOnBoardContainer")
@@ -159,6 +159,9 @@ const CreateUsSubmission = lazy(() =>
   import("../components/UsSubmissions/CreateUsSubmission")
 );
 
+const CandidateProfile = lazy(() =>
+  import("../components/UsSubmissions/CandidateProfile")
+);
 
 const EditUSSubmission = lazy(() =>
   import("../components/UsSubmissions/EditUSSubmission")
@@ -637,8 +640,8 @@ const routeConfig = [
                     element: Loadable(MasterHotlist),
                   },
                   {
-                    path:"w2", // /dashboard/hotlist/w2`
-                    element: Loadable(W2Hotlist)
+                    path: "w2", // /dashboard/hotlist/w2`
+                    element: Loadable(W2Hotlist),
                   },
                   {
                     path: "master/:consultantId", // /dashboard/hotlist/master/:consultantId
@@ -748,7 +751,7 @@ const routeConfig = [
                   {
                     path: "onhold-consultants",
                     element: Loadable(OnHoldConsultants),
-                  }
+                  },
                 ],
               },
             ],
@@ -927,11 +930,15 @@ const routeConfig = [
                     element: Loadable(UsSubmissionsList),
                   },
                   {
+                    path: "candidate-profile/:submissionId",
+                    element: Loadable(CandidateProfile),
+                  },
+                  {
                     path: "create-submission",
                     element: Loadable(CreateUsSubmission),
                   },
                   {
-                    path:"edit/:submissionId" ,
+                    path: "edit/:submissionId",
                     element: Loadable(EditUSSubmission),
                   },
                 ],

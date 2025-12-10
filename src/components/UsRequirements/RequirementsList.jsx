@@ -275,7 +275,9 @@ const handleSubmitCandidate = (job) => {
     state: { 
       job,
       jobId: job.jobId,
-      userId: userId // This comes from useSelector at the top
+      userId: userId ,
+      billRate:job.billRate,
+      payRate:job.payRate
     } 
   });
 };

@@ -1,19 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import axios from "axios";
 import DynamicFormUltra from "../FormContainer/DynamicFormUltra";
 import { showSuccessToast, showErrorToast } from "../../utils/toastUtils";
-import { fetchRecruiters } from "../../redux/usEmployees";
 import { Box, Typography, Chip, IconButton } from "@mui/material";
 import { Description, Delete, Visibility, Download } from "@mui/icons-material";
 
-const getUSSubmissionFieldsConfig = (employees = [], existingResume = null) => {
-  const recruiterOptions = employees.map((emp) => ({
-    label: emp.employeeName || emp.name,
-    value: emp.employeeId,
-  }));
-
+const getUSSubmissionFieldsConfig = (
+  employees = [],
+  jobBillRate,
+  jobPayRate,
+  existingResume = null
+) => {
   return [
     {
       section: "Personal Details",
@@ -54,9 +53,9 @@ const getUSSubmissionFieldsConfig = (employees = [], existingResume = null) => {
         },
         {
           name: "sslNumber",
-          label: "SSN / SSL Number",
+          label: "SSN Number",
           type: "text",
-          placeholder: "Enter SSN or SSL number",
+          placeholder: "Enter SSN number",
           icon: "Security",
           gridSize: { xs: 12, sm: 6 },
         },
@@ -72,7 +71,7 @@ const getUSSubmissionFieldsConfig = (employees = [], existingResume = null) => {
     },
 
     {
-      section: "Job & Recruiter Details",
+      section: "Job & Visa Details",
       fields: [
         {
           name: "jobId",
@@ -84,36 +83,21 @@ const getUSSubmissionFieldsConfig = (employees = [], existingResume = null) => {
           gridSize: { xs: 12, sm: 6 },
         },
         {
-          name: "recruiterId",
-          label: "Recruiter ID",
-          type: "select",
-          required: true,
-          options: recruiterOptions,
-          placeholder: "Select recruiter",
-          searchable: true,
-          icon: "SupervisorAccount",
-          gridSize: { xs: 12, sm: 6 },
-        },
-        {
-          name: "recruiterName",
-          label: "Recruiter Name",
-          type: "text",
-          placeholder: "Enter recruiter name",
-          icon: "Person",
-          gridSize: { xs: 12, sm: 6 },
-        },
-        {
           name: "visaType",
           label: "Visa Type",
           type: "select",
           required: true,
           options: [
-            { label: "H1B", value: "H1B" },
-            { label: "OPT", value: "OPT" },
-            { label: "H4 EAD", value: "H4 EAD" },
-            { label: "Green Card", value: "Green Card" },
-            { label: "Citizen", value: "Citizen" },
-            { label: "Other", value: "Other" },
+            { value: "H1B", label: "H1B" },
+            { value: "OPT", label: "OPT" },
+            { value: "STEM_OPT", label: "STEM OPT" },
+            { value: "OPT_EAD", label: "OPT EAD" },
+            { value: "H4_EAD", label: "H4 EAD" },
+            { value: "GC_EAD", label: "GC EAD" },
+            { value: "CPT", label: "CPT" },
+            { value: "GC", label: "Green Card" },
+            { value: "Citizen", label: "Citizen" },
+            { value: "Other", label: "Other" },
           ],
           placeholder: "Select visa type",
           icon: "VerifiedUser",
@@ -198,27 +182,21 @@ const getUSSubmissionFieldsConfig = (employees = [], existingResume = null) => {
       section: "Compensation & Notice",
       fields: [
         {
-          name: "currentCTC",
-          label: "Current CTC",
-          type: "text",
-          placeholder: "e.g., 10 LPA or $80,000",
-          icon: "AttachMoney",
-          gridSize: { xs: 12, sm: 6 },
-        },
-        {
-          name: "expectedCTC",
-          label: "Expected CTC",
-          type: "text",
-          placeholder: "e.g., 15 LPA or $100,000",
-          icon: "RequestQuote",
-          gridSize: { xs: 12, sm: 6 },
-        },
-        {
           name: "billRate",
           label: "Bill Rate",
           type: "text",
+          required: true,
           placeholder: "e.g., $80/hr",
           icon: "AttachMoney",
+          gridSize: { xs: 12, sm: 6 },
+        },
+        {
+          name: "payRate",
+          label: "Pay Rate",
+          type: "text",
+          required: true,
+          placeholder: "e.g., $60/hr",
+          icon: "Paid",
           gridSize: { xs: 12, sm: 6 },
         },
         {
@@ -228,6 +206,16 @@ const getUSSubmissionFieldsConfig = (employees = [], existingResume = null) => {
           placeholder: "e.g., 30 days or 2 weeks",
           icon: "Schedule",
           gridSize: { xs: 12, sm: 6 },
+        },
+        {
+          name: "confirmRTR",
+          label: "RTR Confirmation",
+          type: "text",
+          required: true,
+          placeholder: "RTR Confirmation",
+          icon: "Verified",
+          gridSize: { xs: 12 },
+          helperText: "RTR Confirmation",
         },
       ],
     },
@@ -340,6 +328,24 @@ const getUSSubmissionFieldsConfig = (employees = [], existingResume = null) => {
         },
       ],
     },
+
+    {
+      section: "Supporting Documents",
+      fields: [
+        {
+          name: "documents",
+          label: "Update Supporting Documents",
+          type: "file",
+          required: false,
+          multiple: true,
+          accept: ".pdf,.jpg,.png,.doc,.docx",
+          maxSize: 25,
+          icon: "AttachFile",
+          helperText: "Upload additional documents (max 25MB total)",
+          gridSize: { xs: 12 },
+        },
+      ],
+    },
   ];
 };
 
@@ -350,14 +356,14 @@ const EditUSSubmission = ({
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { submissionId } = useParams();
+  const location = useLocation();
 
   const [initialData, setInitialData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [existingResume, setExistingResume] = useState(null);
   const [resumeRemoved, setResumeRemoved] = useState(false);
 
-  const { recruiters = [] } = useSelector((state) => state.usEmployees);
-  const { userId } = useSelector((state) => state.auth);
+  const { userId, userName } = useSelector((state) => state.auth);
 
   // Fetch submission data including resume info
   useEffect(() => {
@@ -382,7 +388,7 @@ const EditUSSubmission = ({
                 fileName: `resume_${
                   response.data.candidateName || "candidate"
                 }.pdf`,
-                uploadDate: new Date().toLocaleDateString(), // You might want to get this from your API
+                uploadDate: new Date().toLocaleDateString(),
                 onView: () =>
                   handleViewResume(submissionId, response.data.candidateName),
                 onDownload: () =>
@@ -412,9 +418,6 @@ const EditUSSubmission = ({
     }
   }, [submissionId, navigate]);
 
-  useEffect(()=>{
-    dispatch(fetchRecruiters());
-  },[dispatch])
   // Resume handlers
   const handleViewResume = async (submissionId, candidateName) => {
     try {
@@ -427,11 +430,7 @@ const EditUSSubmission = ({
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-
-      // Open in new tab
       window.open(url, "_blank");
-
-      // Clean up URL after some time
       setTimeout(() => window.URL.revokeObjectURL(url), 1000);
     } catch (error) {
       console.error("Error loading resume:", error);
@@ -458,7 +457,6 @@ const EditUSSubmission = ({
       link.click();
       link.remove();
 
-      // Clean up URL
       setTimeout(() => window.URL.revokeObjectURL(url), 1000);
     } catch (error) {
       console.error("Error downloading resume:", error);
@@ -474,8 +472,14 @@ const EditUSSubmission = ({
 
   // Memoize form config with existing resume data
   const formConfig = useMemo(
-    () => getUSSubmissionFieldsConfig(recruiters, existingResume),
-    [recruiters, existingResume]
+    () =>
+      getUSSubmissionFieldsConfig(
+        [],
+        initialData?.billRate,
+        initialData?.payRate,
+        existingResume
+      ),
+    [initialData, existingResume]
   );
 
   const initialValues = useMemo(() => {
@@ -487,23 +491,22 @@ const EditUSSubmission = ({
         dob: "",
         visaType: "",
         jobId: "",
-        recruiterId: "",
-        recruiterName: "",
         totalExperience: "",
         relevantExperience: "",
         qualification: "",
         requiredTechnologiesRating: "",
         communicationSkillsRating: "",
         relocation: false,
-        expectedCTC: "",
-        currentCTC: "",
         billRate: "",
+        payRate: "",
         noticePeriod: "",
         currentLocation: "",
         overallFeedback: "",
         employmentType: "",
         sslNumber: "",
+        confirmRTR: "",
         resume: null,
+        documents: [],
       };
     }
 
@@ -514,23 +517,22 @@ const EditUSSubmission = ({
       dob: initialData.dob || "",
       visaType: initialData.visaType || "",
       jobId: initialData.jobId || "",
-      recruiterId: initialData.recruiterId || "",
-      recruiterName: initialData.recruiterName || "",
       totalExperience: initialData.totalExperience || "",
       relevantExperience: initialData.relevantExperience || "",
       qualification: initialData.qualification || "",
       requiredTechnologiesRating: initialData.requiredTechnologiesRating || "",
       communicationSkillsRating: initialData.communicationSkillsRating || "",
       relocation: Boolean(initialData.relocation),
-      expectedCTC: initialData.expectedCTC || "",
-      currentCTC: initialData.currentCTC || "",
       billRate: initialData.billRate || "",
+      payRate: initialData.payRate || "",
       noticePeriod: initialData.noticePeriod || "",
       currentLocation: initialData.currentLocation || "",
       overallFeedback: initialData.overallFeedback || "",
       employmentType: initialData.employmentType || "",
       sslNumber: initialData.sslNumber || "",
+      confirmRTR: initialData.confirmRTR || "",
       resume: null,
+      documents: [],
     };
   }, [initialData]);
 
@@ -544,25 +546,45 @@ const EditUSSubmission = ({
         showErrorToast("User ID is required");
         return;
       }
+      if (!values.resume && resumeRemoved) {
+        showErrorToast(
+          "Resume is required! Either keep existing or upload new one."
+        );
+        return;
+      }
       if (
         !values.candidateName ||
         !values.candidateEmail ||
-        !values.mobileNumber
+        !values.mobileNumber ||
+        !values.confirmRTR
       ) {
         showErrorToast("Please fill all required fields");
         return;
       }
 
-      // Create submission DTO
+      // Validate RTR confirmation text
+      if (!values.confirmRTR) {
+        showErrorToast(
+          "Please type 'CONFIRM RTR' to confirm the candidate has signed the Right to Represent form"
+        );
+        return;
+      }
+
+      // Create submission DTO matching backend structure
       const submissionDTO = {
         candidateName: values.candidateName?.trim() || "",
         candidateEmail: values.candidateEmail?.trim() || "",
-        mobileNumber: values.mobileNumber?.trim() || "",
         dob: values.dob || null,
-        visaType: values.visaType || "",
+        mobileNumber: values.mobileNumber?.trim() || "",
+        recruiterId: userId,
+        recruiterName: userName,
         jobId: values.jobId?.trim() || "",
-        recruiterId: values.recruiterId || "",
-        recruiterName: values.recruiterName?.trim() || "",
+        visaType: values.visaType || "",
+        billRate: values.billRate?.trim() || "",
+        payRate: values.payRate ? parseFloat(values.payRate) : null,
+        confirmRTR: values.confirmRTR?.trim() || "",
+        noticePeriod: values.noticePeriod?.trim() || "",
+        currentLocation: values.currentLocation?.trim() || "",
         totalExperience: values.totalExperience
           ? parseFloat(values.totalExperience)
           : null,
@@ -570,17 +592,12 @@ const EditUSSubmission = ({
           ? parseFloat(values.relevantExperience)
           : null,
         qualification: values.qualification?.trim() || "",
+        communicationSkillsRating: values.communicationSkillsRating || "",
         requiredTechnologiesRating: values.requiredTechnologiesRating
           ? parseFloat(values.requiredTechnologiesRating)
           : null,
-        communicationSkillsRating: values.communicationSkillsRating || "",
-        relocation: Boolean(values.relocation),
-        expectedCTC: values.expectedCTC?.trim() || "",
-        currentCTC: values.currentCTC?.trim() || "",
-        billRate: values.billRate?.trim() || "",
-        noticePeriod: values.noticePeriod?.trim() || "",
-        currentLocation: values.currentLocation?.trim() || "",
         overallFeedback: values.overallFeedback?.trim() || "",
+        relocation: Boolean(values.relocation),
         employmentType: values.employmentType || "",
         sslNumber: values.sslNumber?.trim() || "",
         removeResume: resumeRemoved && !values.resume, // Flag to remove resume
@@ -591,6 +608,8 @@ const EditUSSubmission = ({
         Object.entries(submissionDTO).filter(([_, value]) => {
           if (value === null || value === undefined) return false;
           if (typeof value === "string" && value.trim() === "") return false;
+          if (typeof value === "number" && isNaN(value)) return false;
+          if (typeof value === "boolean") return true;
           return true;
         })
       );
@@ -601,7 +620,7 @@ const EditUSSubmission = ({
       const dtoBlob = new Blob([JSON.stringify(cleanDTO)], {
         type: "application/json",
       });
-      formData.append("submissionDTO", dtoBlob);
+      formData.append("dto", dtoBlob);
 
       // Append resume file only if provided
       if (values.resume) {
@@ -612,11 +631,29 @@ const EditUSSubmission = ({
         }
       }
 
+      // Append supporting documents if any
+      if (values.documents && values.documents.length > 0) {
+        if (values.documents instanceof FileList) {
+          Array.from(values.documents).forEach((file) => {
+            formData.append("documents", file);
+          });
+        } else if (Array.isArray(values.documents)) {
+          values.documents.forEach((file) => {
+            if (file) {
+              formData.append("documents", file);
+            }
+          });
+        } else if (values.documents instanceof File) {
+          formData.append("documents", values.documents);
+        }
+      }
+
       console.log("Updating submission:", {
         dto: cleanDTO,
         resume: values.resume ? "New resume provided" : "No resume update",
         removeResume: resumeRemoved,
         userId: userId,
+        endpoint: `https://mymulya.com/api/us/requirements/update-submission/${submissionId}`,
       });
 
       const response = await axios.put(
@@ -627,6 +664,14 @@ const EditUSSubmission = ({
             "Content-Type": "multipart/form-data",
           },
           timeout: 30000,
+          onUploadProgress: (progressEvent) => {
+            if (progressEvent.total) {
+              const percentCompleted = Math.round(
+                (progressEvent.loaded * 100) / progressEvent.total
+              );
+              console.log(`Upload progress: ${percentCompleted}%`);
+            }
+          },
         }
       );
 
@@ -641,8 +686,45 @@ const EditUSSubmission = ({
       }
     } catch (error) {
       console.error("Update error:", error);
-      // Error handling remains the same as before
-      // ... (keep your existing error handling code)
+
+      // Enhanced error logging
+      console.error("Error details:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        headers: error.response?.headers,
+        request: error.request,
+      });
+
+      // Enhanced error handling
+      if (error.code === "NETWORK_ERROR" || error.message.includes("Network")) {
+        showErrorToast("Network error - please check your connection");
+      } else if (error.response?.status === 400) {
+        const serverMessage = error.response.data?.message;
+        showErrorToast(
+          serverMessage || "Bad request - please check all required fields"
+        );
+      } else if (error.response?.status === 413) {
+        showErrorToast(
+          "File too large - please upload a smaller file (max 5MB for resume, 25MB total for documents)"
+        );
+      } else if (error.response?.status === 415) {
+        showErrorToast(
+          "Unsupported file type - please upload PDF, DOC, DOCX, JPG, or PNG"
+        );
+      } else if (error.response?.status === 500) {
+        showErrorToast("Server error - please try again later");
+      } else if (error.response?.data) {
+        const errorData = error.response.data;
+        const errorMessage =
+          errorData.message ||
+          errorData.error ||
+          errorData.details ||
+          "Update failed. Please try again.";
+        showErrorToast(errorMessage);
+      } else {
+        showErrorToast("Update failed. Please try again.");
+      }
     } finally {
       setSubmitting(false);
     }
