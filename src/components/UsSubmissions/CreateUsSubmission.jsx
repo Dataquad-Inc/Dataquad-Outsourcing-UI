@@ -6,7 +6,11 @@ import DynamicFormUltra from "../FormContainer/DynamicFormUltra";
 import { showSuccessToast, showErrorToast } from "../../utils/toastUtils";
 import { fetchRecruiters } from "../../redux/usEmployees";
 
-const getUSSubmissionFieldsConfig = (employees = []) => {
+const getUSSubmissionFieldsConfig = (
+  employees = [],
+  jobBillRate,
+  jobPayRate
+) => {
   const recruiterOptions = employees.map((emp) => ({
     label: emp.employeeName || emp.name,
     value: emp.employeeId,
@@ -52,9 +56,9 @@ const getUSSubmissionFieldsConfig = (employees = []) => {
         },
         {
           name: "sslNumber",
-          label: "SSN / SSL Number",
+          label: "SSN Number",
           type: "text",
-          placeholder: "Enter SSN or SSL number",
+          placeholder: "Enter SSN number",
           icon: "Security",
           gridSize: { xs: 12, sm: 6 },
         },
@@ -70,7 +74,7 @@ const getUSSubmissionFieldsConfig = (employees = []) => {
     },
 
     {
-      section: "Job & Recruiter Details",
+      section: "Job & Visa Details",
       fields: [
         {
           name: "jobId",
@@ -82,36 +86,21 @@ const getUSSubmissionFieldsConfig = (employees = []) => {
           gridSize: { xs: 12, sm: 6 },
         },
         {
-          name: "recruiterId",
-          label: "Recruiter ID",
-          type: "select",
-          required: true,
-          options: recruiterOptions,
-          placeholder: "Select recruiter",
-          searchable: true,
-          icon: "SupervisorAccount",
-          gridSize: { xs: 12, sm: 6 },
-        },
-        {
-          name: "recruiterName",
-          label: "Recruiter Name",
-          type: "text",
-          placeholder: "Enter recruiter name",
-          icon: "Person",
-          gridSize: { xs: 12, sm: 6 },
-        },
-        {
           name: "visaType",
           label: "Visa Type",
           type: "select",
           required: true,
           options: [
-            { label: "H1B", value: "H1B" },
-            { label: "OPT", value: "OPT" },
-            { label: "H4 EAD", value: "H4 EAD" },
-            { label: "Green Card", value: "Green Card" },
-            { label: "Citizen", value: "Citizen" },
-            { label: "Other", value: "Other" },
+            { value: "H1B", label: "H1B" },
+            { value: "OPT", label: "OPT" },
+            { value: "STEM_OPT", label: "STEM OPT" },
+            { value: "OPT_EAD", label: "OPT EAD" },
+            { value: "H4_EAD", label: "H4 EAD" },
+            { value: "GC_EAD", label: "GC EAD" },
+            { value: "CPT", label: "CPT" },
+            { value: "GC", label: "Green Card" },
+            { value: "Citizen", label: "Citizen" },
+            { value: "Other", label: "Other" },
           ],
           placeholder: "Select visa type",
           icon: "VerifiedUser",
@@ -196,29 +185,26 @@ const getUSSubmissionFieldsConfig = (employees = []) => {
       section: "Compensation & Notice",
       fields: [
         {
-          name: "currentCTC",
-          label: "Current CTC",
-          type: "text",
-          placeholder: "e.g., 10 LPA or $80,000",
-          icon: "AttachMoney",
-          gridSize: { xs: 12, sm: 6 },
-        },
-        {
-          name: "expectedCTC",
-          label: "Expected CTC",
-          type: "text",
-          placeholder: "e.g., 15 LPA or $100,000",
-          icon: "RequestQuote",
-          gridSize: { xs: 12, sm: 6 },
-        },
-        {
           name: "billRate",
           label: "Bill Rate",
           type: "text",
+          required: true,
+          disabled: true,
           placeholder: "e.g., $80/hr",
           icon: "AttachMoney",
           gridSize: { xs: 12, sm: 6 },
         },
+        {
+          name: "payRate",
+          label: "Pay Rate",
+          type: "text",
+          required: true,
+          disabled: true,
+          placeholder: "e.g., $60/hr",
+          icon: "Paid",
+          gridSize: { xs: 12, sm: 6 },
+        },
+
         {
           name: "noticePeriod",
           label: "Notice Period",
@@ -226,6 +212,16 @@ const getUSSubmissionFieldsConfig = (employees = []) => {
           placeholder: "e.g., 30 days or 2 weeks",
           icon: "Schedule",
           gridSize: { xs: 12, sm: 6 },
+        },
+        {
+          name: "confirmRTR",
+          label: "RTR Confirmation",
+          type: "text",
+          required: true,
+          placeholder: "RTR Confirmation",
+          icon: "Verified",
+          gridSize: { xs: 12 },
+          helperText: "RTR Confirmation",
         },
       ],
     },
@@ -270,6 +266,24 @@ const getUSSubmissionFieldsConfig = (employees = []) => {
         },
       ],
     },
+
+    {
+      section: "Supporting Documents",
+      fields: [
+        {
+          name: "documents",
+          label: "Upload Supporting Documents",
+          type: "file",
+          required: false,
+          multiple: true,
+          accept: ".pdf,.jpg,.png,.doc,.docx",
+          maxSize: 25,
+          icon: "AttachFile",
+          helperText: "Upload additional documents (max 25MB total)",
+          gridSize: { xs: 12 },
+        },
+      ],
+    },
   ];
 };
 
@@ -286,27 +300,25 @@ const CreateUSSubmission = ({
     job,
     jobId,
     userId: redirectedUserId,
-    jobTitle,
-    clientName,
+    billRate: jobBillRate,
+    payRate: jobPayRate,
   } = location?.state || {};
 
   const { recruiters = [], loading: recruitersLoading } = useSelector(
     (state) => state.usEmployees
   );
-  const { userId: loggedUserId } = useSelector((state) => state.auth);
 
-  // Final userId priority: navigation state -> redux auth
-  const finalUserId = redirectedUserId || loggedUserId;
+  const { userId, userName } = useSelector((state) => state.auth);
 
-  // Fetch recruiters for dropdown
+  // Fetch recruiters for dropdown (removed but keeping for future use if needed)
   useEffect(() => {
     dispatch(fetchRecruiters("RECRUITER"));
   }, [dispatch]);
 
   // Memoize form config to prevent unnecessary re-renders
   const formConfig = useMemo(
-    () => getUSSubmissionFieldsConfig(recruiters),
-    [recruiters]
+    () => getUSSubmissionFieldsConfig(recruiters, jobBillRate, jobPayRate),
+    [recruiters, jobBillRate, jobPayRate]
   );
 
   const initialValues = useMemo(
@@ -317,25 +329,24 @@ const CreateUSSubmission = ({
       dob: "",
       visaType: "",
       jobId: jobId || "",
-      recruiterId: "",
-      recruiterName: "",
       totalExperience: "",
       relevantExperience: "",
       qualification: "",
       requiredTechnologiesRating: "",
       communicationSkillsRating: "",
       relocation: false,
-      expectedCTC: "",
-      currentCTC: "",
-      billRate: "",
+      billRate: jobBillRate || "", // Pre-populated from job
+      payRate: jobPayRate || "", // Pre-populated from job
       noticePeriod: "",
       currentLocation: "",
       overallFeedback: "",
       employmentType: "",
       sslNumber: "",
+      confirmRTR: "", // Text field - empty string
       resume: null,
+      documents: [],
     }),
-    [jobId]
+    [jobId, jobBillRate, jobPayRate]
   );
 
   const handleSubmit = async (values, { setSubmitting, resetForm }) => {
@@ -345,7 +356,7 @@ const CreateUSSubmission = ({
         showErrorToast("Job ID is required");
         return;
       }
-      if (!finalUserId) {
+      if (!userId) {
         showErrorToast("User ID is required");
         return;
       }
@@ -362,16 +373,29 @@ const CreateUSSubmission = ({
         return;
       }
 
+      // Validate RTR confirmation text
+      if (!values.confirmRTR) {
+        showErrorToast(
+          "Please type 'CONFIRM RTR' to confirm the candidate has signed the Right to Represent form"
+        );
+        return;
+      }
+
       // Create submission DTO matching backend structure
       const submissionDTO = {
         candidateName: values.candidateName?.trim() || "",
         candidateEmail: values.candidateEmail?.trim() || "",
-        mobileNumber: values.mobileNumber?.trim() || "",
         dob: values.dob || null,
-        visaType: values.visaType || "",
+        mobileNumber: values.mobileNumber?.trim() || "",
+        recruiterId: userId,
+        recruiterName: userName,
         jobId: values.jobId?.trim() || "",
-        recruiterId: values.recruiterId || "",
-        recruiterName: values.recruiterName?.trim() || "",
+        visaType: values.visaType || "",
+        billRate: values.billRate?.trim() || "",
+        payRate: values.payRate ? parseFloat(values.payRate) : null,
+        confirmRTR: values.confirmRTR?.trim() || "",
+        noticePeriod: values.noticePeriod?.trim() || "",
+        currentLocation: values.currentLocation?.trim() || "",
         totalExperience: values.totalExperience
           ? parseFloat(values.totalExperience)
           : null,
@@ -379,16 +403,12 @@ const CreateUSSubmission = ({
           ? parseFloat(values.relevantExperience)
           : null,
         qualification: values.qualification?.trim() || "",
-        requiredTechnologiesRating: values.requiredTechnologiesRating,
-
-        communicationSkillsRating: values.communicationSkillsRating,
-        relocation: Boolean(values.relocation),
-        expectedCTC: values.expectedCTC?.trim() || "",
-        currentCTC: values.currentCTC?.trim() || "",
-        billRate: values.billRate?.trim() || "",
-        noticePeriod: values.noticePeriod?.trim() || "",
-        currentLocation: values.currentLocation?.trim() || "",
+        communicationSkillsRating: values.communicationSkillsRating || "",
+        requiredTechnologiesRating: values.requiredTechnologiesRating
+          ? parseFloat(values.requiredTechnologiesRating)
+          : null,
         overallFeedback: values.overallFeedback?.trim() || "",
+        relocation: Boolean(values.relocation),
         employmentType: values.employmentType || "",
         sslNumber: values.sslNumber?.trim() || "",
       };
@@ -398,13 +418,15 @@ const CreateUSSubmission = ({
         Object.entries(submissionDTO).filter(([_, value]) => {
           if (value === null || value === undefined) return false;
           if (typeof value === "string" && value.trim() === "") return false;
+          if (typeof value === "number" && isNaN(value)) return false;
+          if (typeof value === "boolean") return true; // Keep boolean values
           return true;
         })
       );
 
       const formData = new FormData();
 
-      // Append DTO as Blob
+      // Append DTO as Binary/Blob (as requested)
       const dtoBlob = new Blob([JSON.stringify(cleanDTO)], {
         type: "application/json",
       });
@@ -417,20 +439,56 @@ const CreateUSSubmission = ({
         formData.append("resume", resumeFile);
       }
 
+      // Append supporting documents if any
+      if (values.documents && values.documents.length > 0) {
+        if (values.documents instanceof FileList) {
+          Array.from(values.documents).forEach((file) => {
+            formData.append("documents", file);
+          });
+        } else if (Array.isArray(values.documents)) {
+          values.documents.forEach((file) => {
+            if (file) {
+              formData.append("documents", file);
+            }
+          });
+        } else if (values.documents instanceof File) {
+          formData.append("documents", values.documents);
+        }
+      }
+
+      // Debug: Log FormData entries
+      console.log("FormData entries:");
+      for (let pair of formData.entries()) {
+        console.log(pair[0], pair[1]);
+      }
+
       console.log("Submitting candidate:", {
         dto: cleanDTO,
         resume: resumeFile?.name,
-        userId: finalUserId,
+        userId: userId,
+        recruiter: {
+          id: userId,
+          name: userName,
+        },
+        endpoint: `https://mymulya.com/api/us/requirements/create-submission/${userId}`,
       });
 
       const response = await axios.post(
-        `https://mymulya.com/api/us/requirements/create-submission/${finalUserId}`,
+        `https://mymulya.com/api/us/requirements/create-submission/${userId}`,
         formData,
         {
           headers: {
             "Content-Type": "multipart/form-data",
           },
           timeout: 30000,
+          onUploadProgress: (progressEvent) => {
+            if (progressEvent.total) {
+              const percentCompleted = Math.round(
+                (progressEvent.loaded * 100) / progressEvent.total
+              );
+              console.log(`Upload progress: ${percentCompleted}%`);
+            }
+          },
         }
       );
 
@@ -446,6 +504,15 @@ const CreateUSSubmission = ({
     } catch (error) {
       console.error("Submission error:", error);
 
+      // Enhanced error logging
+      console.error("Error details:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        headers: error.response?.headers,
+        request: error.request,
+      });
+
       // Enhanced error handling
       if (error.code === "NETWORK_ERROR" || error.message.includes("Network")) {
         showErrorToast("Network error - please check your connection");
@@ -456,18 +523,23 @@ const CreateUSSubmission = ({
         );
       } else if (error.response?.status === 413) {
         showErrorToast(
-          "File too large - please upload a smaller file (max 5MB)"
+          "File too large - please upload a smaller file (max 5MB for resume, 25MB total for documents)"
         );
       } else if (error.response?.status === 415) {
         showErrorToast(
-          "Unsupported file type - please upload PDF, DOC, or DOCX"
+          "Unsupported file type - please upload PDF, DOC, DOCX, JPG, or PNG"
         );
       } else if (error.response?.status === 500) {
         showErrorToast("Server error - please try again later");
       } else if (error.response?.data) {
-        showErrorToast(
-          error.response.data.message || "Submission failed. Please try again."
-        );
+        // Try to extract more detailed error info
+        const errorData = error.response.data;
+        const errorMessage =
+          errorData.message ||
+          errorData.error ||
+          errorData.details ||
+          "Submission failed. Please try again.";
+        showErrorToast(errorMessage);
       } else {
         showErrorToast("Submission failed. Please try again.");
       }

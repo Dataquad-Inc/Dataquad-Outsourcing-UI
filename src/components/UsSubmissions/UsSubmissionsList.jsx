@@ -9,6 +9,7 @@ import { useSelector } from "react-redux";
 import { ConfirmDialog } from "../../ui-lib/ConfirmDialog";
 import { CustomModal } from "../../ui-lib/CustomModal";
 
+
 // Add debounce hook
 const useDebounce = (value, delay) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -335,8 +336,15 @@ const UsSubmissionsList = () => {
     setRefreshKey((prev) => prev + 1);
   };
 
+
+
+  const handleNavigateToSubmissionProfile = (id) => {
+  navigate(`/dashboard/us-submissions/candidate-profile/${id}`);
+};
+
   /** ---------------- Columns ---------------- */
   const columns = getSubmissionsColumns({
+    handleNavigateToSubmissionProfile,
     handleNavigateToSubmission,
     handleDownloadResume,
     handleViewResume,

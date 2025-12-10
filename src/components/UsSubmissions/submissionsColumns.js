@@ -21,6 +21,7 @@ import CustomChip from "../../ui-lib/CustomChip";
 const renderValue = (value) => value || "-";
 
 const getSubmissionsColumns = ({
+  handleNavigateToSubmissionProfile,
   handleEdit,
   handleDelete,
   handleDownloadResume,
@@ -77,15 +78,25 @@ const getSubmissionsColumns = ({
       label: "Submission ID",
       applyFilter: true,
       filterType: "text",
-      render: (v) => (
-        <Typography
-          variant="body2"
-          sx={{ fontWeight: "bold", fontSize: "0.875rem" }}
+      filterOptions: filterOptions.submissionId || [],
+      render: (v, row) => (
+        <Box
+          sx={{
+            cursor: "pointer",
+            textDecoration: "underline",
+            color: "primary.main",
+            "&:hover": {
+              textDecoration: "none",
+            },
+          }}
+          onClick={() => handleNavigateToSubmissionProfile(row.submissionId)}
         >
-          {renderValue(v)}
-        </Typography>
+          <Typography variant="body2" sx={{ fontWeight: "medium" }}>
+            {renderValue(v)}
+          </Typography>
+        </Box>
       ),
-      width: "130px",
+      width: "180px",
     },
     {
       id: "candidateName",
