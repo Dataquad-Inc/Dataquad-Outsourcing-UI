@@ -506,10 +506,20 @@ const RequirementProfile = () => {
                             label="Notice Period"
                             value={`${jobData.noticePeriod} days`}
                           />
-                          <InfoRow
+                          {/* <InfoRow
                             icon={AttachMoney}
                             label="Package"
                             value={`${jobData.salaryPackage} LPA`}
+                          /> */}
+                          <InfoRow
+                            icon={AttachMoney}
+                            label="Bill Rate"
+                            value={`${jobData.billRate}`}
+                          />
+                          <InfoRow
+                            icon={AttachMoney}
+                            label="Pay Rate"
+                            value={`${jobData.payRate}`}
                           />
                           <InfoRow
                             icon={Business}

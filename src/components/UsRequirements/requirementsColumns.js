@@ -24,51 +24,19 @@ const getRequirementsColumns = ({
   userRole,
   filterOptions = {}, // Pass filter options from parent component
 }) => [
-  {
-    id: "actions",
-    label: "Actions",
+   {
+    id: "createdAt",
+    label: "Created At",
     applyFilter: false,
-    render: (_, row) => (
-      <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-        <Tooltip title="Edit">
-          <IconButton size="small" onClick={() => handleEdit(row.jobId)}>
-            <Edit fontSize="small" />
-          </IconButton>
-        </Tooltip>
-        {(userRole==="SUPERADMIN") &&(<Tooltip title="Delete">
-          <IconButton
-            size="small"
-            color="error"
-            onClick={() => handleDelete(row.jobId)}
-          >
-            <Delete fontSize="small" />
-          </IconButton>
-        </Tooltip>)}
-        {(userRole === "RECRUITER" || userRole === "TEAMLEAD") && (
-          <Tooltip title="Submit Candidate">
-            <Button
-              variant="contained"
-              size="small"
-              color="primary"
-              startIcon={<PersonAdd fontSize="small" />}
-              onClick={() => handleSubmitCandidate(row)}
-              sx={{
-                textTransform: "none",
-                minWidth: "auto",
-                px: 1,
-                py: 0.5,
-                fontSize: "0.75rem",
-                whiteSpace: "nowrap",
-              }}
-            >
-              Submit
-            </Button>
-          </Tooltip>
-        )}
-      </Box>
-    ),
-    align: "center",
-    width: "180px", // Adjusted width for compact layout
+    filterType: "dateRange",
+    render: (v) => (v ? formatDateTime(v) : "-"),
+  },
+  {
+    id: "updatedAt",
+    label: "Updated At",
+    applyFilter: false,
+    filterType: "dateRange",
+    render: (v) => (v ? formatDateTime(v) : "-"),
   },
   {
     id: "jobId",
@@ -297,19 +265,51 @@ const getRequirementsColumns = ({
     ],
     render: (v) => (v ? <Chip label={v} size="small" /> : "-"),
   },
-  {
-    id: "createdAt",
-    label: "Created At",
+ {
+    id: "actions",
+    label: "Actions",
     applyFilter: false,
-    filterType: "dateRange",
-    render: (v) => (v ? formatDateTime(v) : "-"),
-  },
-  {
-    id: "updatedAt",
-    label: "Updated At",
-    applyFilter: false,
-    filterType: "dateRange",
-    render: (v) => (v ? formatDateTime(v) : "-"),
+    render: (_, row) => (
+      <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+        <Tooltip title="Edit">
+          <IconButton size="small" onClick={() => handleEdit(row.jobId)}>
+            <Edit fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        {(userRole==="SUPERADMIN") &&(<Tooltip title="Delete">
+          <IconButton
+            size="small"
+            color="error"
+            onClick={() => handleDelete(row.jobId)}
+          >
+            <Delete fontSize="small" />
+          </IconButton>
+        </Tooltip>)}
+        {(userRole === "RECRUITER" || userRole === "TEAMLEAD") && (
+          <Tooltip title="Submit Candidate">
+            <Button
+              variant="contained"
+              size="small"
+              color="primary"
+              startIcon={<PersonAdd fontSize="small" />}
+              onClick={() => handleSubmitCandidate(row)}
+              sx={{
+                textTransform: "none",
+                minWidth: "auto",
+                px: 1,
+                py: 0.5,
+                fontSize: "0.75rem",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Submit
+            </Button>
+          </Tooltip>
+        )}
+      </Box>
+    ),
+    align: "center",
+    width: "180px", // Adjusted width for compact layout
   },
 ];
 
