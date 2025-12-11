@@ -1,4 +1,5 @@
 import { formatDateTime } from "../../utils/dateformate";
+import { ViewMoreCell } from "../../utils/ViewMoreCell";
 
 export const generateCandidatesColumns = () => [
   {
@@ -85,6 +86,16 @@ export const generateCandidatesColumns = () => [
     id: "overallFeedback",
     field: "overallFeedback",
     label: "Overall Feedback",
+    applyFilter: false,
+    render: (v, row) => (
+      <ViewMoreCell
+        value={v}
+        label="Overall Feedback"
+        identifier={row.candidateName}
+        maxLength={50}
+        maxWidth={120}
+      />
+    ),
   },
   {
     id: "recruiterName",
