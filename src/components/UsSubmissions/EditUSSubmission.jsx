@@ -438,32 +438,62 @@ const EditUSSubmission = ({
     }
   };
 
-  const handleDownloadResume = async (submissionId, candidateName) => {
-    try {
-      const response = await fetch(
-        `https://mymulya.com/api/us/requirements/download-resume/${submissionId}`,
-        { method: "GET", headers: { Accept: "application/pdf" } }
-      );
+const MIME_EXTENSION_MAP = {
+  "application/pdf": "pdf",
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/vnd.ms-excel": "xls",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "application/vnd.ms-powerpoint": "ppt",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "text/plain": "txt",
+  "application/zip": "zip",
+};
 
-      if (!response.ok) throw new Error("Failed to download resume");
+const handleDownloadResume = async (submissionId, candidateName) => {
+  try {
+    const response = await fetch(
+      `https://mymulya.com/api/us/requirements/download-resume/${submissionId}`,
+      { method: "GET", headers: { "Content-Type": "application/octet-stream" } }
+    );
 
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+    if (!response.ok) throw new Error("Failed to download resume");
 
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `Resume-${candidateName}-${submissionId}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+    const blob = await response.blob();
 
-      setTimeout(() => window.URL.revokeObjectURL(url), 1000);
-    } catch (error) {
-      console.error("Error downloading resume:", error);
-      showErrorToast("Failed to download resume");
+    const contentDisposition = response.headers.get("content-disposition");
+    let fileName = `Resume-${candidateName}-${submissionId}`;
+
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename="?(.+)"?/);
+      if (match?.[1]) {
+        fileName = match[1];
+      }
+    } else {
+      const contentType = response.headers.get("content-type");
+      if (contentType && MIME_EXTENSION_MAP[contentType]) {
+        fileName += `.${MIME_EXTENSION_MAP[contentType]}`;
+      }
     }
-  };
 
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+
+    document.body.appendChild(link);
+    link.click();
+
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error("Error downloading resume:", error);
+    showErrorToast("Failed to download resume");
+  }
+};
   const handleRemoveResume = () => {
     setExistingResume(null);
     setResumeRemoved(true);

@@ -142,23 +142,23 @@ const ColumnsForInterviews = ({ onEdit, onDelete, userRole = 'all', showActions 
       filterType: 'number',
       render: (value) => value ? `${value} mins` : '-',
     },
-    {
-      id: 'isPlaced',
-      label: 'Placed',
-      applyFilter: true,
-      filterType: 'select',
-      filterOptions: [
-        { value: 'true', label: 'Yes' },
-        { value: 'false', label: 'No' },
-      ],
-      render: (value) => (
-        <Chip
-          label={value ? 'Yes' : 'No'}
-          color={value ? 'success' : 'error'}
-          size="small"
-        />
-      ),
-    },
+    // {
+    //   id: 'isPlaced',
+    //   label: 'Placed',
+    //   applyFilter: true,
+    //   filterType: 'select',
+    //   filterOptions: [
+    //     { value: 'true', label: 'Yes' },
+    //     { value: 'false', label: 'No' },
+    //   ],
+    //   render: (value) => (
+    //     <Chip
+    //       label={value ? 'Yes' : 'No'}
+    //       color={value ? 'success' : 'error'}
+    //       size="small"
+    //     />
+    //   ),
+    // },
     {
       id: 'zoomLink',
       label: 'Zoom Link',

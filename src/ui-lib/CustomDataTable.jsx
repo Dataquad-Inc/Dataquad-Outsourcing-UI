@@ -843,14 +843,14 @@ const CustomDataTable = ({
                         sx={{ display: "flex", alignItems: "center", gap: 1 }}
                       >
                         {col.label}
-                        {col.applyFilter && (
+                        {/* {col.applyFilter && (
                           <FilterListIcon
                             sx={{
                               fontSize: 16,
                               opacity: localFilters[col.id] ? 1 : 0.5,
                             }}
                           />
-                        )}
+                        )} */}
                       </Box>
                     </TableCell>
                   ))}

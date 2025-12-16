@@ -42,6 +42,7 @@ import axios from "axios";
 import { showErrorToast, showSuccessToast } from "../../utils/toastUtils";
 import CustomDataTable from "../../ui-lib/CustomDataTable";
 import { generateCandidatesColumns } from "../UsRequirements/ColumnsForJobId"
+import { useSelector } from "react-redux";
 
 const RequirementProfile = () => {
   const { jobId } = useParams();
@@ -63,6 +64,7 @@ const RequirementProfile = () => {
   const [total, setTotal] = useState(0);
   const [filters, setFilters] = useState({});
   const [filterOptions, setFilterOptions] = useState({});
+  const {role}=useSelector((state)=>state.auth)
 
   // Initialize filters from localStorage
   useEffect(() => {
@@ -189,6 +191,64 @@ const RequirementProfile = () => {
     
     return params;
   };
+
+const MIME_EXTENSION_MAP = {
+  "application/pdf": "pdf",
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/vnd.ms-excel": "xls",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "application/vnd.ms-powerpoint": "ppt",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "text/plain": "txt",
+  "application/zip": "zip",
+};
+
+const handleDownloadResume = async (submissionId, candidateName) => {
+  try {
+    const response = await fetch(
+      `https://mymulya.com/api/us/requirements/download-resume/${submissionId}`,
+      { method: "GET", headers: { "Content-Type": "application/octet-stream" } }
+    );
+
+    if (!response.ok) throw new Error("Failed to download resume");
+
+    const blob = await response.blob();
+
+    const contentDisposition = response.headers.get("content-disposition");
+    let fileName = `Resume-${candidateName}-${submissionId}`;
+
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename="?(.+)"?/);
+      if (match?.[1]) {
+        fileName = match[1];
+      }
+    } else {
+      const contentType = response.headers.get("content-type");
+      if (contentType && MIME_EXTENSION_MAP[contentType]) {
+        fileName += `.${MIME_EXTENSION_MAP[contentType]}`;
+      }
+    }
+
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+
+    document.body.appendChild(link);
+    link.click();
+
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error("Error downloading resume:", error);
+    showErrorToast("Failed to download resume");
+  }
+};
+
 
   const extractFilterOptionsFromData = (data) => {
     const options = {
@@ -469,11 +529,14 @@ const RequirementProfile = () => {
                             <Edit />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Delete Job">
-                          <IconButton sx={{ color: "white" }} onClick={handleDeleteClick}>
-                            <DeleteForeverIcon />
-                          </IconButton>
-                        </Tooltip>
+                        {role == "SUPERADMIN" && (
+                          <Tooltip title="Delete Job">
+                            <IconButton sx={{ color: "white" }} onClick={handleDeleteClick}>
+                              <DeleteForeverIcon />
+                            </IconButton>
+                          </Tooltip>
+                        )
+                        }
                       </Stack>
                     </Stack>
                   </Stack>
@@ -715,7 +778,8 @@ const RequirementProfile = () => {
                             >
                               Edit Job
                             </Button>
-                            <Button
+                            {role === "SUPERADMIN" && (  
+                              <Button
                               variant="outlined"
                               fullWidth
                               color="error"
@@ -723,7 +787,7 @@ const RequirementProfile = () => {
                               onClick={handleDeleteClick}
                             >
                               Delete Job
-                            </Button>
+                            </Button>)}
                           </Stack>
                         </Box>
                       </Box>
@@ -736,7 +800,7 @@ const RequirementProfile = () => {
             {tabIndex === 1 && (
               <CustomDataTable
                 title="Submitted Candidates"
-                columns={generateCandidatesColumns()}
+                columns={generateCandidatesColumns({handleDownloadResume})}
                 rows={submittedCandidates}
                 total={total}
                 page={page}
