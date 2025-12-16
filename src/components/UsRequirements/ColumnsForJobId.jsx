@@ -1,7 +1,33 @@
+
 import { formatDateTime } from "../../utils/dateformate";
 import { ViewMoreCell } from "../../utils/ViewMoreCell";
 
-export const generateCandidatesColumns = () => [
+import { Box, IconButton,Tooltip } from "@mui/material";
+import { Download } from "@mui/icons-material";
+
+
+export const generateCandidatesColumns = ({ handleDownloadResume }) => [
+   {
+      id: "actions",
+      label: "Actions",
+      applyFilter: false,
+      render: (_, row) => (
+        <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+          <Tooltip title="Download Resume">
+            <IconButton
+              size="small"
+              onClick={() =>
+                handleDownloadResume(row.submissionId, row.candidateName)
+              }
+            >
+              <Download fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ),
+      align: "center",
+      width: "150px",
+    },
   {
     id: "submissionId",
     field: "submissionId",
