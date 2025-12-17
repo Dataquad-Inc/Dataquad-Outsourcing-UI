@@ -30,73 +30,6 @@ const getRTRListColumns = ({
   userId,
   filterOptions = {},
 }) => [
-  // ✅ Actions column
-  {
-    id: "actions",
-    label: "Actions",
-    render: (_, row) => {
-      if (loading) {
-        return (
-          <Box sx={{ display: "flex", gap: 1 }}>
-            <Skeleton variant="circular" width={32} height={32} />
-            <Skeleton variant="circular" width={32} height={32} />
-            <Skeleton variant="circular" width={32} height={32} />
-          </Box>
-        );
-      }
-
-      const allowEdit = canEdit(userRole);
-      const allowDelete = canDelete(userRole);
-      const allowSchedule = canScheduleInterview(userRole);
-
-      if (!allowEdit && !allowDelete && !allowSchedule) {
-        return <Box sx={{ minWidth: 80 }}>-</Box>;
-      }
-
-      return (
-        <Box sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
-          {/* ✅ Schedule Interview Button */}
-          {allowSchedule && (
-            <Tooltip title="Schedule Interview">
-              <IconButton
-                size="small"
-                color="primary"
-                onClick={() => handleScheduleInterview(row)}
-              >
-                <CalendarToday fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
-
-          {/* ✅ Edit Button */}
-          {allowEdit && (
-            <Tooltip title="Edit RTR">
-              <IconButton
-                size="small"
-                color="primary"
-                onClick={() => handleEdit(row)}
-              >
-                <Edit fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
-
-          {/* ✅ Delete Button — Only SuperAdmin & TeamLead */}
-          {allowDelete && (
-            <Tooltip title="Delete RTR">
-              <IconButton
-                size="small"
-                color="error"
-                onClick={() => handleDelete(row)}
-              >
-                <Delete fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
-        </Box>
-      );
-    },
-  },
 
   // ✅ RTR columns
   {
@@ -290,6 +223,73 @@ const getRTRListColumns = ({
     applyFilter: true,
     filterOptions: filterOptions.implementationPartner || [],
     render: (v) => renderValue(v, 120, loading),
+  },
+    // ✅ Actions column
+  {
+    id: "actions",
+    label: "Actions",
+    render: (_, row) => {
+      if (loading) {
+        return (
+          <Box sx={{ display: "flex", gap: 1 }}>
+            <Skeleton variant="circular" width={32} height={32} />
+            <Skeleton variant="circular" width={32} height={32} />
+            <Skeleton variant="circular" width={32} height={32} />
+          </Box>
+        );
+      }
+
+      const allowEdit = canEdit(userRole);
+      const allowDelete = canDelete(userRole);
+      const allowSchedule = canScheduleInterview(userRole);
+
+      if (!allowEdit && !allowDelete && !allowSchedule) {
+        return <Box sx={{ minWidth: 80 }}>-</Box>;
+      }
+
+      return (
+        <Box sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
+          {/* ✅ Schedule Interview Button */}
+          {allowSchedule && (
+            <Tooltip title="Schedule Interview">
+              <IconButton
+                size="small"
+                color="primary"
+                onClick={() => handleScheduleInterview(row)}
+              >
+                <CalendarToday fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+
+          {/* ✅ Edit Button */}
+          {allowEdit && (
+            <Tooltip title="Edit RTR">
+              <IconButton
+                size="small"
+                color="primary"
+                onClick={() => handleEdit(row)}
+              >
+                <Edit fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+
+          {/* ✅ Delete Button — Only SuperAdmin & TeamLead */}
+          {allowDelete && (
+            <Tooltip title="Delete RTR">
+              <IconButton
+                size="small"
+                color="error"
+                onClick={() => handleDelete(row)}
+              >
+                <Delete fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
+      );
+    },
   },
 ];
 

@@ -17,6 +17,9 @@ import {
   Phone,
 } from "@mui/icons-material";
 import CustomChip from "../../ui-lib/CustomChip";
+import { ViewMoreCell } from "../../utils/ViewMoreCell";
+import { render } from "@testing-library/react";
+import { AlignJustify } from "lucide-react";
 
 const renderValue = (value) => value || "-";
 
@@ -30,49 +33,6 @@ const getSubmissionsColumns = ({
   filterOptions = {},
 }) => {
   return [
-    {
-      id: "actions",
-      label: "Actions",
-      applyFilter: false,
-      render: (_, row) => (
-        <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-          <Tooltip title="Download Resume">
-            <IconButton
-              size="small"
-              onClick={() =>
-                handleDownloadResume(row.submissionId, row.candidateName)
-              }
-            >
-              <Download fontSize="small" />
-            </IconButton>
-          </Tooltip>
-
-          <Tooltip title="Edit Submission">
-            <IconButton
-              size="small"
-              onClick={() => handleEdit(row.submissionId)}
-            >
-              <Edit fontSize="small" />
-            </IconButton>
-          </Tooltip>
-
-          {/* Delete Only for SUPERADMIN */}
-          {userRole === "SUPERADMIN" && (
-            <Tooltip title="Delete Submission">
-              <IconButton
-                size="small"
-                color="error"
-                onClick={() => handleDelete(row.submissionId)}
-              >
-                <Delete fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
-        </Box>
-      ),
-      align: "center",
-      width: "150px",
-    },
     {
       id: "submissionId",
       label: "Submission ID",
@@ -123,11 +83,13 @@ const getSubmissionsColumns = ({
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Email fontSize="small" color="action" />
           <Typography variant="body2" sx={{ fontSize: "0.875rem" }}>
-            {renderValue(v)}
+            {renderValue(
+              v)}
           </Typography>
         </Box>
       ),
-      width: "200px",
+      width: "160px",
+      align: "center",
     },
     {
       id: "mobileNumber",
@@ -247,7 +209,14 @@ const getSubmissionsColumns = ({
       applyFilter: true,
       filterType: "select",
       filterOptions: filterOptions.qualification || [],
-      render: (v) => renderValue(v),
+      render: (v,row) => (
+        <ViewMoreCell
+          value={v}
+          label="Qualification" 
+          maxLength={10}
+          maxWidth={120}
+        />    
+      ),
       width: "140px",
     },
     {
@@ -311,12 +280,59 @@ const getSubmissionsColumns = ({
       id: "overallFeedback",
       label: "Feedback",
       applyFilter: false,
-      render: (v) => (
-        <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
-          {v && v.length > 50 ? `${v.substring(0, 50)}...` : renderValue(v)}
-        </Typography>
-      ),
+      render: (v, row) => (
+        <ViewMoreCell
+          value={v} 
+          label="Overall Feedback"
+          identifier={row.candidateName}
+          maxLength={50}
+          maxWidth={120}
+        />
+      ),    
       width: "200px",
+    },
+      {
+      id: "actions",
+      label: "Actions",
+      applyFilter: false,
+      render: (_, row) => (
+        <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+          <Tooltip title="Download Resume">
+            <IconButton
+              size="small"
+              onClick={() =>
+                handleDownloadResume(row.submissionId, row.candidateName)
+              }
+            >
+              <Download fontSize="small" />
+            </IconButton>
+          </Tooltip>
+
+          <Tooltip title="Edit Submission">
+            <IconButton
+              size="small"
+              onClick={() => handleEdit(row.submissionId)}
+            >
+              <Edit fontSize="small" />
+            </IconButton>
+          </Tooltip>
+
+          {/* Delete Only for SUPERADMIN */}
+          {userRole === "SUPERADMIN" && (
+            <Tooltip title="Delete Submission">
+              <IconButton
+                size="small"
+                color="error"
+                onClick={() => handleDelete(row.submissionId)}
+              >
+                <Delete fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
+      ),
+      align: "center",
+      width: "150px",
     },
   ];
 };

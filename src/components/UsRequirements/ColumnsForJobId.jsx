@@ -97,6 +97,15 @@ export const generateCandidatesColumns = ({ handleDownloadResume }) => [
     id: "qualification",
     field: "qualification",
     label: "Qualification",
+     render: (v, row) => (
+      <ViewMoreCell
+        value={v}
+        label="Qualification"
+        // identifier={row.qualification}
+        maxLength={50}
+        maxWidth={120}
+      />
+    ),
   },
   {
     id: "employmentType",
