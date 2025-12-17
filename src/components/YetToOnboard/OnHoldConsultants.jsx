@@ -10,7 +10,7 @@ import {
 } from "@mui/material";
 import { useSelector } from "react-redux";
 import CustomDataTable from "../../ui-lib/CustomDataTable";
-import getHotListColumns from "../Hotlist/hotListColumns";
+import getYetToOnboardColumns from "./YetToOnboardColumns";
 import CreateConsultant from "../Hotlist/CreateConsultant";
 import { hotlistAPI } from "../../utils/api";
 import { useNavigate } from "react-router-dom";
@@ -518,17 +518,8 @@ const OnHoldConsultants = React.memo(() => {
   };
 
   /** ---------------- Columns ---------------- */
-  const columns = [
-    ...getHotListColumns({
-      handleNavigate,
-      handleEdit,
-      handleDelete,
-      loading,
-      userRole: role,
-      userId,
-      filterOptions,
-    }),
-    {
+   const columns = [
+      {
       id: "actions",
       width: 200,
       render: (_, row) => (
@@ -554,6 +545,15 @@ const OnHoldConsultants = React.memo(() => {
         </Box>
       ),
     },
+    ...getYetToOnboardColumns({
+      handleNavigate,
+      handleEdit,
+      handleDelete,
+      loading,
+      userRole: role,
+      userId,
+      filterOptions,
+    }),
   ];
 
   /** ---------------- Render ---------------- */

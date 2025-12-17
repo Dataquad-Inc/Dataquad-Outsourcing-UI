@@ -22,6 +22,7 @@ import {
 } from "../../utils/toastUtils";
 import showDeleteConfirm from "../../utils/showDeleteConfirm";
 import { ErrorMessage } from "formik";
+import getYetToOnboardColumns from "./YetToOnboardColumns";
 
 // Debounce hook (for search)
 const useDebounce = (value, delay) => {
@@ -519,16 +520,7 @@ const YetToOnboard = React.memo(() => {
 
   /** ---------------- Columns ---------------- */
   const columns = [
-    ...getHotListColumns({
-      handleNavigate,
-      handleEdit,
-      handleDelete,
-      loading,
-      userRole: role,
-      userId,
-      filterOptions,
-    }),
-    {
+      {
       id: "actions",
       width: 200,
       render: (_, row) => (
@@ -554,6 +546,15 @@ const YetToOnboard = React.memo(() => {
         </Box>
       ),
     },
+    ...getYetToOnboardColumns({
+      handleNavigate,
+      handleEdit,
+      handleDelete,
+      loading,
+      userRole: role,
+      userId,
+      filterOptions,
+    }),
   ];
 
   /** ---------------- Render ---------------- */
