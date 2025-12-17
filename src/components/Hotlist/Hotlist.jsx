@@ -1,8 +1,8 @@
 import React, { useEffect, useCallback, useState } from "react";
-import { Box, useTheme, Button, ToggleButton, ToggleButtonGroup } from "@mui/material";
+import { Box, useTheme, Button, ToggleButton, ToggleButtonGroup, Tooltip } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import CustomDataTable from "../../ui-lib/CustomDataTable";
-import getHotListColumns from "./hotListColumns";
+import getHotListColumns, { getW2HotlistColumns } from "./hotListColumns";
 import CreateConsultant from "./CreateConsultant";
 import {
   showErrorToast,
@@ -11,6 +11,7 @@ import {
 import showDeleteConfirm from "../../utils/showDeleteConfirm";
 import { hotlistAPI } from "../../utils/api";
 import { useSelector } from "react-redux";
+import { AssignmentTurnedIn } from "@mui/icons-material";
 
 const useDebounce = (value, delay) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -228,17 +229,63 @@ const HotList = React.memo(() => {
   }, [navigate]);
 
   /** ---------------- Columns ---------------- */
-  const columns = getHotListColumns({
-    handleNavigate,
-    handleEdit,
-    handleDelete,
-    handleView,
-    handleNavigateRTR,
-    loading,
-    userRole: role,
-    userId: userId,
-    filterOptions,
-  });
+  const columns = [
+    {
+      id:"actions",
+      width:150,
+      render:(_,row)=>(
+              <Tooltip title="Submit RTR">
+            <Button
+              variant="contained"
+              color="success"
+              size="small"
+              startIcon={<AssignmentTurnedIn fontSize="small" />}
+              onClick={() => handleNavigateRTR(row)}
+              sx={{
+                minWidth: "auto",
+                px: 1.5,
+                py: 0.5,
+                fontSize: "0.75rem",
+                textTransform: "none",
+                whiteSpace: "nowrap",
+                height: "32px",
+              }}
+            >
+              Submit RTR
+            </Button>
+          </Tooltip>
+      )
+    },
+     ...getW2HotlistColumns({
+      handleNavigate,
+      handleEdit,
+      handleDelete,
+      handleNavigateRTR,
+      loading,
+      userRole: role,
+      userId,
+      filterOptions,
+    }),
+    //    {
+    //   id: "Yet-To-OnBoard",
+    //   label: "Move Yet-To-OnBoard",
+    //   width: 180,
+    //   render: (_, row) => (
+    //     <Button
+    //       variant="text"
+    //       color="primary"
+    //       disabled={loading}
+    //       onClick={() => handleMoveToYetToOnboard(row)}
+    //       sx={{
+    //         textTransform: "none",
+    //         minWidth: 180,
+    //       }}
+    //     >
+    //       Move Yet-To-OnBoard
+    //     </Button>
+    //   ),
+    // },
+  ];
 
   /** ---------------- Render ---------------- */
   return (
