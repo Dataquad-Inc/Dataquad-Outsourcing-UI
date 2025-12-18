@@ -5,7 +5,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 
 import DynamicFormUltra from "../FormContainer/DynamicFormUltra";
-import { fetchAllEmployeesUs,fetchRecruiters } from "../../redux/usEmployees";
+import { fetchRecruiters, fetchEmployeesUs } from "../../redux/usEmployees";
+import { usClientsAPI } from "../../utils/api";
 import { LoadingSpinner } from "../../ui-lib/LoadingSpinner";
 
 const EditJobRequirement = () => {
@@ -13,37 +14,65 @@ const EditJobRequirement = () => {
   const navigate = useNavigate();
   const { jobId } = useParams(); // Get jobId from URL params
 
+  // Local state for clients
+  const [clients, setClients] = useState([]);
+  const [loadingClients, setLoadingClients] = useState(false);
+  const [clientsError, setClientsError] = useState(null);
+
   // Get employees and current user from Redux
-  const {recruiters=[], employees = [], loadingEmployees } = useSelector(
-    (state) => state.usEmployees
-  );
+  const {
+    recruiters = [],
+    employees = [],
+    loadingEmployees,
+  } = useSelector((state) => state.usEmployees);
   const { userName, userId } = useSelector((state) => state.auth);
 
   const [initialData, setInitialData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // Transform employees for multiselect
- const employeeOptions = recruiters.map((emp) => ({
+  const employeeOptions = recruiters.map((emp) => ({
     label: emp.employeeName,
     value: emp.employeeId,
   }));
 
-  const teamLeadOptions=employees.map((emp)=>({
+  const teamLeadOptions = employees.map((emp) => ({
     label: emp.employeeName,
     value: emp.employeeId,
-  }))
+  }));
+
+  const clientOptions = clients.map((client) => ({
+    label: client.clientName,
+    value: client.clientName,
+  }));
+
+  // Fetch clients
+  const fetchClients = async () => {
+    try {
+      setLoadingClients(true);
+      setClientsError(null);
+      const response = await usClientsAPI.getAllClients();
+      setClients(response.data);
+    } catch (error) {
+      const errorMessage = error.message || "Failed to load clients";
+      setClientsError(errorMessage);
+      showErrorToast(errorMessage);
+    } finally {
+      setLoadingClients(false);
+    }
+  };
 
   useEffect(() => {
     dispatch(fetchRecruiters("RECRUITER"));
-    dispatch(fetchAllEmployeesUs("TEAMLEAD")); // Fetch TeamLeads as well
-  }, []);
+    dispatch(fetchEmployeesUs("TEAMLEAD"));
+    fetchClients();
+  }, [dispatch]);
 
   useEffect(() => {
-    if (employees.length > 0) {
+    if ((recruiters.length > 0 || employees.length > 0) && !loadingClients) {
       fetchRequirementData();
     }
-  }, [jobId, employees]);
-
+  }, [jobId, recruiters, employees, loadingClients]);
 
   // Fetch existing requirement data
   const fetchRequirementData = async () => {
@@ -56,44 +85,33 @@ const EditJobRequirement = () => {
       if (response.data.success && response.data.data) {
         const data = response.data.data;
 
-        // Transform assignedUserIds to match the multiselect format
+        // Process assignedUsers
         let assignedUsersArray = [];
-        if (data.assignedUserIds) {
-          // Split the comma-separated string and convert to numbers if needed
-          const userIds = data.assignedUserIds.split(",").map((id) => {
-            // Handle both string and number IDs
-            const trimmedId = id.toString().trim();
-            // Try to convert to number if it's a numeric string
-            const numericId = !isNaN(trimmedId)
-              ? parseInt(trimmedId)
-              : trimmedId;
-            return numericId;
-          });
-
-          // Filter to only include IDs that exist in employeeOptions
-          assignedUsersArray = userIds.filter((id) =>
-            employeeOptions.some((emp) => emp.value === id)
-          );
-        }
-       let teamLeadUsersArray = [];
-
-        // FIX: Handle teamLeadIds which comes as an array of strings from API
-        if (data.teamsLeadIds && Array.isArray(data.teamsLeadIds)) {
-          // teamsLeadIds is already an array, so map it directly
-          teamLeadUsersArray = data.teamsLeadIds
-            .map((id) => id.toString().trim())
-            .filter((id) =>
-              teamLeadOptions.some((emp) => emp.value === id)
+        if (data.assignedUsers && Array.isArray(data.assignedUsers)) {
+          assignedUsersArray = data.assignedUsers
+            .map((user) => user.userId || user.userId)
+            .filter(
+              (id) => id && employeeOptions.some((emp) => emp.value === id)
             );
         }
 
-      
-        // Alternative approach: if you have assignedUsers array in the response
-        // You can also try using data.assignedUsers if it exists
-        if (data.assignedUsers && Array.isArray(data.assignedUsers)) {
-          assignedUsersArray = data.assignedUsers.map(
-            (user) => user.userId || user.employeeId
-          );
+        // Process teamsLeadIds
+        let teamLeadUsersArray = [];
+        if (data.teamsLeadIds && Array.isArray(data.teamsLeadIds)) {
+          teamLeadUsersArray = data.teamsLeadIds
+            .map((id) => id.toString().trim())
+            .filter(
+              (id) => id && teamLeadOptions.some((emp) => emp.value === id)
+            );
+        }
+
+        // Process visaType - convert comma-separated string to array
+        let visaTypeArray = [];
+        if (data.visaType) {
+          visaTypeArray = data.visaType
+            .split(",")
+            .map((type) => type.trim())
+            .filter((type) => type !== "");
         }
 
         // Transform the API data to match form structure
@@ -102,7 +120,7 @@ const EditJobRequirement = () => {
           clientName: data.clientName || "",
           jobTitle: data.jobTitle || "",
           jobMode: data.jobMode || "",
-          visaType: data.visaType || "",
+          visaType: visaTypeArray, // Now as array for multiselect
           location: data.location || "",
           jobType: data.jobType || "",
           noOfPositions: data.noOfPositions || 1,
@@ -110,19 +128,19 @@ const EditJobRequirement = () => {
           relevantExperience: data.relevantExperience || "",
           qualification: data.qualification || "",
           noticePeriod: data.noticePeriod || "",
+          billRate: data.billRate || "",
+          payRate: data.payRate || "",
           salaryPackage: data.salaryPackage || "",
-          status: data.status || "Open",
-          assignedUsers: assignedUsersArray, // Use the processed array
+          status: data.status || "OPEN",
+          assignedUsers: assignedUsersArray,
           teamsLeadIds: teamLeadUsersArray,
           jobDescription: data.jobDescription || "",
-          // Note: jobDescriptionFile will be handled separately if needed
+          assignedBy: data.assignedByName || userName,
+          remarks: data.remarks || "",
+          jobDescriptionFile: null, // Will handle file separately
         };
 
-        console.log("Form data with assigned users:", formData.assignedUsers);
-        console.log("Form data with team leads:", formData.teamsLeadIds);
-        console.log("Available employee options:", employeeOptions);
-        console.log("Available team lead options:", teamLeadOptions);
-
+        console.log("Form data prepared for edit:", formData);
         setInitialData(formData);
       } else {
         showErrorToast("Failed to load requirement data");
@@ -137,7 +155,7 @@ const EditJobRequirement = () => {
     }
   };
 
-  // Form configuration (same as CreateJobRequirement)
+  // Form configuration (updated to match CreateJobRequirement)
   const formConfig = [
     {
       section: "Job Details",
@@ -153,9 +171,12 @@ const EditJobRequirement = () => {
         {
           name: "clientName",
           label: "Client Name",
-          type: "text",
-          required: true,
+          type: "select",
+          options: clientOptions,
+          helperText: "Select client",
           icon: "BusinessCenter",
+          loading: loadingClients,
+          error: clientsError,
         },
         {
           name: "jobTitle",
@@ -179,8 +200,8 @@ const EditJobRequirement = () => {
         {
           name: "visaType",
           label: "Visa Type",
-          type: "select",
-          required: true,
+          type: "multiselect", // Changed to multiselect
+          required: false,
           options: [
             { value: "H1B", label: "H1B" },
             { value: "OPT", label: "OPT" },
@@ -222,6 +243,14 @@ const EditJobRequirement = () => {
           required: true,
           icon: "Group",
         },
+        {
+          name: "assignedBy",
+          label: "Assigned By",
+          type: "text",
+          disabled: true,
+          helperText: "This field is automatically populated",
+          icon: "Person",
+        },
       ],
     },
     {
@@ -257,11 +286,27 @@ const EditJobRequirement = () => {
           icon: "CalendarToday",
         },
         {
-          name: "salaryPackage",
-          label: "Salary Package",
+          name: "billRate",
+          label: "Bill Rate",
           type: "text",
-          helperText: "Expected salary range or package for this position",
+          helperText:
+            "Amount charged to the client per hour/day for this resource",
           icon: "AttachMoney",
+        },
+        {
+          name: "payRate",
+          label: "Pay Rate",
+          type: "text",
+          helperText: "Amount paid to the employee (CTC or hourly/daily rate)",
+          icon: "AttachMoney",
+        },
+       
+        {
+          name: "remarks",
+          label: "Remarks",
+          type: "textarea",
+          helperText: "Additional notes or comments",
+          icon: "Notes",
         },
       ],
     },
@@ -277,6 +322,7 @@ const EditJobRequirement = () => {
             { value: "OPEN", label: "Open" },
             { value: "CLOSED", label: "Closed" },
             { value: "ON HOLD", label: "On Hold" },
+            { value: "IN PROGRESS", label: "In Progress" },
           ],
           icon: "ToggleOn",
         },
@@ -290,10 +336,10 @@ const EditJobRequirement = () => {
         },
         {
           name: "teamsLeadIds",
-          label: "Assign to TeamLeads",
+          label: "Assign to Teamleads",
           type: "multiselect",
           options: teamLeadOptions,
-          helperText: "Select team lead to assign this requirement to",
+          helperText: "Select team members to assign this requirement to",
           icon: "SupervisorAccount",
         },
       ],
@@ -334,13 +380,16 @@ const EditJobRequirement = () => {
         noticePeriod: values.noticePeriod || "",
         relevantExperience: values.relevantExperience || "",
         qualification: values.qualification || "",
-        salaryPackage: values.salaryPackage || "",
+        salaryPackage: values.salaryPackage || " ",
+        billRate: values.billRate || "",
+        payRate: values.payRate || "",
         noOfPositions: parseInt(values.noOfPositions) || 1,
-        status: values.status || "Open",
-        visaType: values.visaType || "",
-        assignedById: userId, 
-        assignedByName:userName,   
-        assignedUsers : (values.assignedUsers || []).join(","),
+        status: values.status || "OPEN",
+        visaType: (values.visaType || []).join(","), // Convert array to comma-separated string
+        assignedById: userId,
+        assignedByName: userName,
+        remarks: values.remarks || "",
+        assignedUsers: (values.assignedUsers || []).join(","),
         teamsLeadIds: (values.teamsLeadIds || []).join(","),
       };
 
@@ -351,6 +400,7 @@ const EditJobRequirement = () => {
         formData.append(key, apiPayload[key]);
       });
 
+      // Handle job description file
       if (values.jobDescriptionFile) {
         formData.append(
           "jobDescriptionFile",
@@ -358,10 +408,11 @@ const EditJobRequirement = () => {
           values.jobDescriptionFile.name
         );
       } else {
+        // If no new file, send the existing job description text
         formData.append("jobDescription", values.jobDescription?.trim() || "");
       }
 
-      // Use the same endpoint but with PUT method and jobId as parameter
+      // Use PUT method for update
       const response = await axios.put(
         `https://mymulya.com/api/us/requirements/v2/update-requirement/${userId}`,
         formData,
@@ -398,7 +449,6 @@ const EditJobRequirement = () => {
     if (!values.clientName) errors.clientName = "Client name is required";
     if (!values.jobTitle) errors.jobTitle = "Job title is required";
     if (!values.jobMode) errors.jobMode = "Job mode is required";
-    if (!values.visaType) errors.visaType = "Visa type is required";
     if (!values.location) errors.location = "Location is required";
     if (!values.jobType) errors.jobType = "Employment type is required";
     if (!values.noOfPositions)
@@ -406,6 +456,11 @@ const EditJobRequirement = () => {
     if (!values.experienceRequired)
       errors.experienceRequired = "Experience required is required";
     if (!values.status) errors.status = "Status is required";
+
+    // Job description validation (minimum 50 characters)
+    if (!values.jobDescription || values.jobDescription.trim().length < 50) {
+      errors.jobDescription = "Job description must be at least 50 characters";
+    }
 
     return errors;
   };
