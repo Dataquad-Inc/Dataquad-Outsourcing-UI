@@ -368,8 +368,12 @@ const handleDownloadResume = async (submissionId, candidateName) => {
 
 
 
-  const handleNavigateToSubmissionProfile = (id) => {
-  navigate(`/dashboard/us-submissions/candidate-profile/${id}`);
+  const handleNavigateToSubmissionProfile = (submissionId) => {
+  navigate(`/dashboard/us-submissions/candidate-profile/${submissionId}`,{
+    state:{
+      from:`/dashboard/us-submissions`
+    }
+  });
 };
 
   /** ---------------- Columns ---------------- */

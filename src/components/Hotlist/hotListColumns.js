@@ -56,18 +56,18 @@ const getHotListColumns = ({
       applyFilter: true,
       render: (v) => renderValue(v, 120, loading),
     },
-    {
-      id: "status",
-      label: "status",
-      filterType: "select",
-      applyFilter: true,
-      filterOptions: [
-        { label: "Active", value: "Active" },
-        { label: "InActive", value: "InActive" },
-        { label: "Hold", value: "Hold" },
-      ],
-      render: (v) => renderValue(v, 120, loading),
-    },
+    // {
+    //   id: "status",
+    //   label: "status",
+    //   filterType: "select",
+    //   applyFilter: true,
+    //   filterOptions: [
+    //     { label: "Active", value: "Active" },
+    //     { label: "InActive", value: "InActive" },
+    //     { label: "Hold", value: "Hold" },
+    //   ],
+    //   render: (v) => renderValue(v, 120, loading),
+    // },
     {
       id: "technology",
       label: "Technology",
@@ -340,18 +340,18 @@ export const getW2HotlistColumns = ({
       applyFilter: true,
       render: (v) => renderValue(v, 120, loading),
     },
-    {
-      id: "status",
-      label: "status",
-      filterType: "select",
-      applyFilter: true,
-      filterOptions: [
-        { label: "Active", value: "Active" },
-        { label: "InActive", value: "InActive" },
-        { label: "Hold", value: "Hold" },
-      ],
-      render: (v) => renderValue(v, 120, loading),
-    },
+    // {
+    //   id: "status",
+    //   label: "status",
+    //   filterType: "select",
+    //   applyFilter: true,
+    //   filterOptions: [
+    //     { label: "Active", value: "Active" },
+    //     { label: "InActive", value: "InActive" },
+    //     { label: "Hold", value: "Hold" },
+    //   ],
+    //   render: (v) => renderValue(v, 120, loading),
+    // },
     {
       id: "technology",
       label: "Technology",

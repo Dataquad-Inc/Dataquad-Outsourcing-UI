@@ -163,6 +163,7 @@ const EditInterviewFormForUs = ({ interview, onClose, onSave }) => {
                 <MenuItem value="Rescheduled">Rescheduled</MenuItem>
                 <MenuItem value="Selected">Selected</MenuItem>
                 <MenuItem value="Placed">Placed</MenuItem>
+                <MenuItem value="No Show/Not Attended">No Show/Not Attended</MenuItem>
               </Select>
               {formik.touched.interviewStatus && formik.errors.interviewStatus && (
                 <FormHelperText>{formik.errors.interviewStatus}</FormHelperText>

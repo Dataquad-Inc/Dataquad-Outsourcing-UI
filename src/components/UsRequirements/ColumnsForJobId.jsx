@@ -2,36 +2,40 @@
 import { formatDateTime } from "../../utils/dateformate";
 import { ViewMoreCell } from "../../utils/ViewMoreCell";
 
-import { Box, IconButton,Tooltip } from "@mui/material";
+import { Box, Button, IconButton, Tooltip } from "@mui/material";
 import { Download } from "@mui/icons-material";
+import { render } from "@testing-library/react";
 
 
-export const generateCandidatesColumns = ({ handleDownloadResume }) => [
-   {
-      id: "actions",
-      label: "Actions",
-      applyFilter: false,
-      render: (_, row) => (
-        <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-          <Tooltip title="Download Resume">
-            <IconButton
-              size="small"
-              onClick={() =>
-                handleDownloadResume(row.submissionId, row.candidateName)
-              }
-            >
-              <Download fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Box>
-      ),
-      align: "center",
-      width: "150px",
-    },
+export const generateCandidatesColumns = ({ handleDownloadResume, handleNavigateToSubmissionIdProfile }) => [
+  {
+    id: "actions",
+    label: "Actions",
+    applyFilter: false,
+    render: (_, row) => (
+      <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+        <Tooltip title="Download Resume">
+          <IconButton
+            size="small"
+            onClick={() =>
+              handleDownloadResume(row.submissionId, row.candidateName)
+            }
+          >
+            <Download fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </Box>
+    ),
+    align: "center",
+    width: "150px",
+  },
   {
     id: "submissionId",
     field: "submissionId",
     label: "Submission ID",
+    render: (v, row) => (<>
+      <Button onClick={() => handleNavigateToSubmissionIdProfile(row.submissionId)}>{v}</Button>
+    </>)
   },
   {
     id: "candidateName",
@@ -97,7 +101,7 @@ export const generateCandidatesColumns = ({ handleDownloadResume }) => [
     id: "qualification",
     field: "qualification",
     label: "Qualification",
-     render: (v, row) => (
+    render: (v, row) => (
       <ViewMoreCell
         value={v}
         label="Qualification"

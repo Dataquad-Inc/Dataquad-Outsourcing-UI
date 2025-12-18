@@ -24,17 +24,19 @@ import {
   Delete,
   ArrowBack,
 } from "@mui/icons-material";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { showErrorToast } from "../../utils/toastUtils";
+import { useSelector } from "react-redux";
 
 const CandidateProfile = () => {
   const { submissionId } = useParams();
   const navigate = useNavigate();
-
+  const location = useLocation();
   const [candidateData, setCandidateData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [viewingFile, setViewingFile] = useState(null);
+  const { role } = useSelector((state) => state.auth)
 
   useEffect(() => {
     fetchCandidateData();
@@ -56,62 +58,62 @@ const CandidateProfile = () => {
     }
   };
 
- const MIME_EXTENSION_MAP = {
-   "application/pdf": "pdf",
-   "application/msword": "doc",
-   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
-   "application/vnd.ms-excel": "xls",
-   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
-   "application/vnd.ms-powerpoint": "ppt",
-   "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
-   "image/jpeg": "jpg",
-   "image/png": "png",
-   "image/webp": "webp",
-   "text/plain": "txt",
-   "application/zip": "zip",
- };
- 
- const handleDownloadResume = async (submissionId, candidateName) => {
-   try {
-     const response = await fetch(
-       `https://mymulya.com/api/us/requirements/download-resume/${submissionId}`,
-       { method: "GET", headers: { "Content-Type": "application/octet-stream" } }
-     );
- 
-     if (!response.ok) throw new Error("Failed to download resume");
- 
-     const blob = await response.blob();
- 
-     const contentDisposition = response.headers.get("content-disposition");
-     let fileName = `Resume-${candidateName}-${submissionId}`;
- 
-     if (contentDisposition) {
-       const match = contentDisposition.match(/filename="?(.+)"?/);
-       if (match?.[1]) {
-         fileName = match[1];
-       }
-     } else {
-       const contentType = response.headers.get("content-type");
-       if (contentType && MIME_EXTENSION_MAP[contentType]) {
-         fileName += `.${MIME_EXTENSION_MAP[contentType]}`;
-       }
-     }
- 
-     const url = window.URL.createObjectURL(blob);
-     const link = document.createElement("a");
-     link.href = url;
-     link.download = fileName;
- 
-     document.body.appendChild(link);
-     link.click();
- 
-     link.remove();
-     window.URL.revokeObjectURL(url);
-   } catch (error) {
-     console.error("Error downloading resume:", error);
-     showErrorToast("Failed to download resume");
-   }
- };
+  const MIME_EXTENSION_MAP = {
+    "application/pdf": "pdf",
+    "application/msword": "doc",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+    "application/vnd.ms-excel": "xls",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+    "application/vnd.ms-powerpoint": "ppt",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "text/plain": "txt",
+    "application/zip": "zip",
+  };
+
+  const handleDownloadResume = async (submissionId, candidateName) => {
+    try {
+      const response = await fetch(
+        `https://mymulya.com/api/us/requirements/download-resume/${submissionId}`,
+        { method: "GET", headers: { "Content-Type": "application/octet-stream" } }
+      );
+
+      if (!response.ok) throw new Error("Failed to download resume");
+
+      const blob = await response.blob();
+
+      const contentDisposition = response.headers.get("content-disposition");
+      let fileName = `Resume-${candidateName}-${submissionId}`;
+
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?(.+)"?/);
+        if (match?.[1]) {
+          fileName = match[1];
+        }
+      } else {
+        const contentType = response.headers.get("content-type");
+        if (contentType && MIME_EXTENSION_MAP[contentType]) {
+          fileName += `.${MIME_EXTENSION_MAP[contentType]}`;
+        }
+      }
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+
+      document.body.appendChild(link);
+      link.click();
+
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error downloading resume:", error);
+      showErrorToast("Failed to download resume");
+    }
+  };
 
   const handleViewResume = async () => {
     try {
@@ -192,6 +194,28 @@ const CandidateProfile = () => {
     }
   };
 
+  const handleBackClick = () => {
+    if (location.state?.from) {
+      navigate(location.state.from, { state: { tabIndex: 1 } });
+    } else {
+      navigate("/dashboard/us-submissions");
+    }
+  };
+
+  const getBackButtonText = () => {
+    const fromPath = location.state?.from;
+
+    if (fromPath && fromPath.includes('/dashboard/us-requirements')) {
+      return "Back to Candidates";
+    }
+    else if (fromPath && fromPath.includes('/dashboard/us-submissions')) {
+      return "Back to Submissions";
+    }
+    else {
+      return "Back";
+    }
+  };
+
   const handleCloseViewer = () => {
     if (viewingFile) {
       window.URL.revokeObjectURL(viewingFile.url);
@@ -229,10 +253,10 @@ const CandidateProfile = () => {
       <Button
         variant="outlined"
         startIcon={<ArrowBack />}
-        onClick={() => navigate("/dashboard/us-submissions/submissions-list")}
+        onClick={() => handleBackClick()}
         sx={{ mb: 2 }}
       >
-        Back to Submissions
+        {getBackButtonText()}
       </Button>
 
       <Card sx={{ p: 1 }}>

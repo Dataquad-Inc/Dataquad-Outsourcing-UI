@@ -37,7 +37,7 @@ import {
   People,
 } from "@mui/icons-material";
 import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import { showErrorToast, showSuccessToast } from "../../utils/toastUtils";
 import CustomDataTable from "../../ui-lib/CustomDataTable";
@@ -54,7 +54,8 @@ const RequirementProfile = () => {
   const [downloadLoading, setDownloadLoading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [tabIndex, setTabIndex] = useState(0);
+  const location = useLocation();
+  const [tabIndex, setTabIndex] = useState(location.state?.tabIndex ?? 0);
   const [refreshKey, setRefreshKey] = useState(0);
   const [submittedCandidates, setSubmittedCandidates] = useState([]);
   const [candidatesLoading, setCandidatesLoading] = useState(false);
@@ -64,7 +65,7 @@ const RequirementProfile = () => {
   const [total, setTotal] = useState(0);
   const [filters, setFilters] = useState({});
   const [filterOptions, setFilterOptions] = useState({});
-  const {role}=useSelector((state)=>state.auth)
+  const { role } = useSelector((state) => state.auth)
 
   // Initialize filters from localStorage
   useEffect(() => {
@@ -101,7 +102,7 @@ const RequirementProfile = () => {
   const fetchSubmittedCandidates = useCallback(async () => {
     try {
       setCandidatesLoading(true);
-      
+
       const filterParams = buildFilterParams(filters);
       const params = {
         page: page,
@@ -126,7 +127,7 @@ const RequirementProfile = () => {
         // Paginated response structure
         setSubmittedCandidates(responseData.content || []);
         setTotal(responseData.totalElements || 0);
-        
+
         // Extract filter options if not already set
         if (Object.keys(filterOptions).length === 0) {
           extractFilterOptionsFromData(responseData.content || []);
@@ -155,7 +156,7 @@ const RequirementProfile = () => {
 
   const buildFilterParams = (filters) => {
     const params = {};
-    
+
     Object.entries(filters).forEach(([key, filter]) => {
       switch (filter.type) {
         case "text":
@@ -188,66 +189,76 @@ const RequirementProfile = () => {
           break;
       }
     });
-    
+
     return params;
   };
 
-const MIME_EXTENSION_MAP = {
-  "application/pdf": "pdf",
-  "application/msword": "doc",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
-  "application/vnd.ms-excel": "xls",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
-  "application/vnd.ms-powerpoint": "ppt",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-  "text/plain": "txt",
-  "application/zip": "zip",
-};
+  const MIME_EXTENSION_MAP = {
+    "application/pdf": "pdf",
+    "application/msword": "doc",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+    "application/vnd.ms-excel": "xls",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+    "application/vnd.ms-powerpoint": "ppt",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "text/plain": "txt",
+    "application/zip": "zip",
+  };
 
-const handleDownloadResume = async (submissionId, candidateName) => {
-  try {
-    const response = await fetch(
-      `https://mymulya.com/api/us/requirements/download-resume/${submissionId}`,
-      { method: "GET", headers: { "Content-Type": "application/octet-stream" } }
-    );
+  const handleDownloadResume = async (submissionId, candidateName) => {
+    try {
+      const response = await fetch(
+        `https://mymulya.com/api/us/requirements/download-resume/${submissionId}`,
+        { method: "GET", headers: { "Content-Type": "application/octet-stream" } }
+      );
 
-    if (!response.ok) throw new Error("Failed to download resume");
+      if (!response.ok) throw new Error("Failed to download resume");
 
-    const blob = await response.blob();
+      const blob = await response.blob();
 
-    const contentDisposition = response.headers.get("content-disposition");
-    let fileName = `Resume-${candidateName}-${submissionId}`;
+      const contentDisposition = response.headers.get("content-disposition");
+      let fileName = `Resume-${candidateName}-${submissionId}`;
 
-    if (contentDisposition) {
-      const match = contentDisposition.match(/filename="?(.+)"?/);
-      if (match?.[1]) {
-        fileName = match[1];
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?(.+)"?/);
+        if (match?.[1]) {
+          fileName = match[1];
+        }
+      } else {
+        const contentType = response.headers.get("content-type");
+        if (contentType && MIME_EXTENSION_MAP[contentType]) {
+          fileName += `.${MIME_EXTENSION_MAP[contentType]}`;
+        }
       }
-    } else {
-      const contentType = response.headers.get("content-type");
-      if (contentType && MIME_EXTENSION_MAP[contentType]) {
-        fileName += `.${MIME_EXTENSION_MAP[contentType]}`;
-      }
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+
+      document.body.appendChild(link);
+      link.click();
+
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error downloading resume:", error);
+      showErrorToast("Failed to download resume");
     }
+  };
 
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = fileName;
 
-    document.body.appendChild(link);
-    link.click();
-
-    link.remove();
-    window.URL.revokeObjectURL(url);
-  } catch (error) {
-    console.error("Error downloading resume:", error);
-    showErrorToast("Failed to download resume");
+  const handleNavigateToSubmissionIdProfile = (submissionId) => {
+    navigate(`/dashboard/us-requirements/candidate-profile/${submissionId}`, {
+      state: {
+        from: `/dashboard/us-requirements/${jobId}`,
+        tabIndex: 1
+      },
+    });
   }
-};
 
 
   const extractFilterOptionsFromData = (data) => {
@@ -332,7 +343,7 @@ const handleDownloadResume = async (submissionId, candidateName) => {
     }
   };
 
-  const handleBack = () => navigate(-1);
+  const handleBack = () => navigate(`/dashboard/us-requirements`);
   const handleEdit = () => navigate(`/dashboard/us-requirements/edit/${jobId}`);
 
   const handleTabChange = (event, newValue) => {
@@ -370,7 +381,7 @@ const handleDownloadResume = async (submissionId, candidateName) => {
   const handleFiltersChange = (newFilters) => {
     setFilters(newFilters);
     setPage(0);
-    
+
     // Save filters to localStorage
     try {
       localStorage.setItem(`submitted_candidates_filters_${jobId}`, JSON.stringify(newFilters));
@@ -778,16 +789,16 @@ const handleDownloadResume = async (submissionId, candidateName) => {
                             >
                               Edit Job
                             </Button>
-                            {role === "SUPERADMIN" && (  
+                            {role === "SUPERADMIN" && (
                               <Button
-                              variant="outlined"
-                              fullWidth
-                              color="error"
-                              startIcon={<DeleteForeverIcon />}
-                              onClick={handleDeleteClick}
-                            >
-                              Delete Job
-                            </Button>)}
+                                variant="outlined"
+                                fullWidth
+                                color="error"
+                                startIcon={<DeleteForeverIcon />}
+                                onClick={handleDeleteClick}
+                              >
+                                Delete Job
+                              </Button>)}
                           </Stack>
                         </Box>
                       </Box>
@@ -800,7 +811,7 @@ const handleDownloadResume = async (submissionId, candidateName) => {
             {tabIndex === 1 && (
               <CustomDataTable
                 title="Submitted Candidates"
-                columns={generateCandidatesColumns({handleDownloadResume})}
+                columns={generateCandidatesColumns({ handleDownloadResume, handleNavigateToSubmissionIdProfile })}
                 rows={submittedCandidates}
                 total={total}
                 page={page}

@@ -16,17 +16,17 @@ const ColumnsForInterviews = ({ onEdit, onDelete, userRole = 'all', showActions 
   const safeOnDelete = onDelete || (() => console.log('Delete function not provided'));
 
   const baseColumns = [
-    {
-      id: 'interviewId',
-      label: 'Interview ID',
+      {
+      id: 'interviewDateTime',
+      label: 'Interview Date',
       applyFilter: true,
-      filterType: 'text',
+      filterType: 'date',
+      render: (value) => value ? new Date(value).toLocaleDateString() : '-',
     },
     {
-      id: 'rtrId',
-      label: 'RTR ID',
-      applyFilter: true,
-      filterType: 'text',
+      id: 'interviewTime',
+      label: 'Interview Time',
+      render: (_, row) => row.interviewDateTime ? new Date(row.interviewDateTime).toLocaleTimeString() : '-',
     },
     {
       id: 'consultantName',
@@ -118,18 +118,6 @@ const ColumnsForInterviews = ({ onEdit, onDelete, userRole = 'all', showActions 
       ),
     },
     {
-      id: 'interviewDateTime',
-      label: 'Interview Date',
-      applyFilter: true,
-      filterType: 'date',
-      render: (value) => value ? new Date(value).toLocaleDateString() : '-',
-    },
-    {
-      id: 'interviewTime',
-      label: 'Interview Time',
-      render: (_, row) => row.interviewDateTime ? new Date(row.interviewDateTime).toLocaleTimeString() : '-',
-    },
-    {
       id: 'interviewerEmailId',
       label: 'Interviewer Email',
       applyFilter: true,
@@ -178,7 +166,19 @@ const ColumnsForInterviews = ({ onEdit, onDelete, userRole = 'all', showActions 
           Join Meeting
         </Link>
       ) : 'Not Available',
-    }
+    },
+    {
+      id: 'interviewId',
+      label: 'Interview ID',
+      applyFilter: true,
+      filterType: 'text',
+    },
+    {
+      id: 'rtrId',
+      label: 'RTR ID',
+      applyFilter: true,
+      filterType: 'text',
+    },
   ];
 
   // Add actions column only if showActions is true
