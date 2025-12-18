@@ -800,6 +800,10 @@ const routeConfig = [
                     path: "edit/:jobId",
                     element: Loadable(EditJobRequirement),
                   },
+                  {
+                    path:"candidate-profile/:submissionId",
+                    element:Loadable(CandidateProfile)
+                  }
                 ],
               },
             ],

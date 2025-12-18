@@ -155,16 +155,16 @@ const getSubmissionsColumns = ({
       width: "110px",
     },
     {
-      id: "currentCTC",
-      label: "Current CTC ($)",
+      id: "payRate",
+      label: "Pay Rate ($)",
       applyFilter: true,
       filterType: "number",
       render: (v) => (v ? `$${v}` : "-"),
       width: "120px",
     },
     {
-      id: "expectedCTC",
-      label: "Expected CTC ($)",
+      id: "confirmRTR",
+      label: "Confirm RTR",
       applyFilter: true,
       filterType: "number",
       render: (v) => (v ? `$${v}` : "-"),
@@ -209,13 +209,13 @@ const getSubmissionsColumns = ({
       applyFilter: true,
       filterType: "select",
       filterOptions: filterOptions.qualification || [],
-      render: (v,row) => (
+      render: (v, row) => (
         <ViewMoreCell
           value={v}
-          label="Qualification" 
+          label="Qualification"
           maxLength={10}
           maxWidth={120}
-        />    
+        />
       ),
       width: "140px",
     },
@@ -282,16 +282,16 @@ const getSubmissionsColumns = ({
       applyFilter: false,
       render: (v, row) => (
         <ViewMoreCell
-          value={v} 
+          value={v}
           label="Overall Feedback"
           identifier={row.candidateName}
           maxLength={50}
           maxWidth={120}
         />
-      ),    
+      ),
       width: "200px",
     },
-      {
+    {
       id: "actions",
       label: "Actions",
       applyFilter: false,
