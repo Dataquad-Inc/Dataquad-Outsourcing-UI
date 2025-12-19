@@ -71,7 +71,7 @@ export const usNavItems = (role) => [
     text: "Submissions",
     path: "us-submissions/submissions-list", // Fixed path
     icon: <SendIcon />,
-    roles: commonRoles,
+    roles: ["SUPERADMIN", "TEAMLEAD", "ADMIN", "GRANDSALES", "RECRUITER"],
   },
   {
     text: "Clients",

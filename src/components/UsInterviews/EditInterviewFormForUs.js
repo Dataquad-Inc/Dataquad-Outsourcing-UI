@@ -38,7 +38,8 @@ const validationSchema = Yup.object({
   duration: Yup.number()
     .min(0, 'Duration cannot be negative')
     .integer('Duration must be a whole number')
-    .nullable()
+    .nullable(),
+  remarks: Yup.string().nullable()
 });
 
 const EditInterviewFormForUs = ({ interview, onClose, onSave }) => {
@@ -54,7 +55,8 @@ const EditInterviewFormForUs = ({ interview, onClose, onSave }) => {
       interviewDateTime: '',
       interviewerEmailId: '',
       zoomLink: '',
-      duration: 0
+      duration: 0,
+      remarks:''
     },
     validationSchema: validationSchema,
     onSubmit: async (values) => {
@@ -108,7 +110,8 @@ const EditInterviewFormForUs = ({ interview, onClose, onSave }) => {
         interviewDateTime: interviewDate,
         interviewerEmailId: interview.interviewerEmailId || '',
         zoomLink: interview.zoomLink || '',
-        duration: interview.duration || 0
+        duration: interview.duration || 0,
+        remarks: interview.remarks || ''
       });
     }
   }, [interview]);
@@ -253,6 +256,20 @@ const EditInterviewFormForUs = ({ interview, onClose, onSave }) => {
                 inputProps: { min: 0 }
               }}
             />
+
+            <TextField
+            fullWidth
+            multiline
+            rows={3}
+            type='text'
+            name='remarks'
+            label='Remarks'
+            value={formik.values.remarks}
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            error={formik.touched.remarks && Boolean(formik.errors.remarks)}
+            helperText={formik.touched.remarks && formik.errors.remarks}
+          />
           </Box>
         </DialogContent>
 
