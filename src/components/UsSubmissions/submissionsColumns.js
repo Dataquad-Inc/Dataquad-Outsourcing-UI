@@ -1,27 +1,21 @@
 import React from "react";
-import {
-  Box,
-  IconButton,
-  Chip,
-  Typography,
-  Link,
-  Tooltip,
-} from "@mui/material";
-import {
-  Edit,
-  Delete,
-  Visibility,
-  Download,
-  Person,
-  Email,
-  Phone,
-} from "@mui/icons-material";
+import { Box, IconButton, Chip, Typography, Tooltip } from "@mui/material";
+import { Edit, Delete, Download, Person, Email } from "@mui/icons-material";
 import CustomChip from "../../ui-lib/CustomChip";
 import { ViewMoreCell } from "../../utils/ViewMoreCell";
-import { render } from "@testing-library/react";
-import { AlignJustify } from "lucide-react";
 
 const renderValue = (value) => value || "-";
+
+const formatDateTime = (value) => {
+  if (!value) return "-";
+  return new Date(value).toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
 
 const getSubmissionsColumns = ({
   handleNavigateToSubmissionProfile,
@@ -33,6 +27,19 @@ const getSubmissionsColumns = ({
   filterOptions = {},
 }) => {
   return [
+    {
+      id: "createdAt",
+      label: "Created At",
+      applyFilter: true,
+      filterType: "dateRange", // Changed from "date" to "dateRange"
+      render: (v) => (
+        <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
+          {formatDateTime(v)}
+        </Typography>
+      ),
+      width: "240px",
+    },
+
     {
       id: "submissionId",
       label: "Submission ID",
@@ -83,8 +90,7 @@ const getSubmissionsColumns = ({
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Email fontSize="small" color="action" />
           <Typography variant="body2" sx={{ fontSize: "0.875rem" }}>
-            {renderValue(
-              v)}
+            {renderValue(v)}
           </Typography>
         </Box>
       ),
@@ -101,7 +107,7 @@ const getSubmissionsColumns = ({
           variant="body2"
           sx={{
             fontSize: "0.875rem",
-            whiteSpace: "nowrap", // prevents breaking
+            whiteSpace: "nowrap",
           }}
         >
           {value || "N/A"}
@@ -260,22 +266,6 @@ const getSubmissionsColumns = ({
       ),
       width: "100px",
     },
-    // {
-    //   id: "communicationSkillsRating",
-    //   label: "Communication",
-    //   applyFilter: true,
-    //   filterType: "number",
-    //   render: (v) => (v ? `${v}/10` : "-"),
-    //   width: "120px",
-    // },
-    // {
-    //   id: "requiredTechnologiesRating",
-    //   label: "Tech Rating",
-    //   applyFilter: true,
-    //   filterType: "number",
-    //   render: (v) => (v ? `${v}/10` : "-"),
-    //   width: "100px",
-    // },
     {
       id: "overallFeedback",
       label: "Feedback",
@@ -317,7 +307,6 @@ const getSubmissionsColumns = ({
             </IconButton>
           </Tooltip>
 
-          {/* Delete Only for SUPERADMIN */}
           {userRole === "SUPERADMIN" && (
             <Tooltip title="Delete Submission">
               <IconButton
