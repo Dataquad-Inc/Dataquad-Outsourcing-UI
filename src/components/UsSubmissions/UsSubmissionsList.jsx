@@ -9,7 +9,6 @@ import { useSelector } from "react-redux";
 import { ConfirmDialog } from "../../ui-lib/ConfirmDialog";
 import { CustomModal } from "../../ui-lib/CustomModal";
 
-
 // Add debounce hook
 const useDebounce = (value, delay) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -18,6 +17,16 @@ const useDebounce = (value, delay) => {
     return () => clearTimeout(handler);
   }, [value, delay]);
   return debouncedValue;
+};
+
+// Utility function to format date as DD-MM-YYYY
+const formatDateForAPI = (dateString) => {
+  if (!dateString) return null;
+  const date = new Date(dateString);
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+  return `${day}-${month}-${year}`;
 };
 
 const UsSubmissionsList = () => {
@@ -71,22 +80,37 @@ const UsSubmissionsList = () => {
 
         case "date":
           if (filter.value) {
-            params[`${key}`] = new Date(filter.value)
-              .toISOString()
-              .split("T")[0];
+            const formattedDate = formatDateForAPI(filter.value);
+            if (formattedDate) {
+              // For createdAt, use fromDate and toDate
+              if (key === "createdAt") {
+                params["fromDate"] = formattedDate;
+                params["toDate"] = formattedDate;
+              } else {
+                params[`${key}`] = formattedDate;
+              }
+            }
           }
           break;
 
         case "dateRange":
-          if (filter.value?.from) {
-            params[`${key}From`] = new Date(filter.value.from)
-              .toISOString()
-              .split("T")[0];
-          }
-          if (filter.value?.to) {
-            params[`${key}To`] = new Date(filter.value.to)
-              .toISOString()
-              .split("T")[0];
+          if (filter.value?.from || filter.value?.to) {
+            // Special handling for createdAt field
+            const isCreatedAt = key === "createdAt";
+
+            if (filter.value.from) {
+              const formattedFrom = formatDateForAPI(filter.value.from);
+              if (formattedFrom) {
+                params[isCreatedAt ? "fromDate" : `${key}From`] = formattedFrom;
+              }
+            }
+
+            if (filter.value.to) {
+              const formattedTo = formatDateForAPI(filter.value.to);
+              if (formattedTo) {
+                params[isCreatedAt ? "toDate" : `${key}To`] = formattedTo;
+              }
+            }
           }
           break;
 
@@ -114,6 +138,9 @@ const UsSubmissionsList = () => {
         params.keyword = debouncedSearch.trim();
       }
 
+      // Log the params for debugging
+      console.log("API Request Params:", params);
+
       let response;
       if (role === "RECRUITER" || role === "GRANDSALES") {
         response = await axios.get(
@@ -136,13 +163,16 @@ const UsSubmissionsList = () => {
       const data = response.data;
       console.log("API Response:", data);
 
-      // Fixed: Properly handle the paginated API response
+      // Properly handle the paginated API response
       if (data && Array.isArray(data.content)) {
         setSubmissions(data.content);
         setTotal(data.totalElements || 0);
-        
+
         // Extract filter options if not already loaded
-        if (Object.keys(filterOptions).length === 0 && data.content.length > 0) {
+        if (
+          Object.keys(filterOptions).length === 0 &&
+          data.content.length > 0
+        ) {
           extractFilterOptionsFromData(data.content);
         }
       } else {
@@ -214,64 +244,72 @@ const UsSubmissionsList = () => {
   const handleNavigateToSubmission = (row) => {
     navigate(`/dashboard/us-submissions/${row.submissionId}`);
   };
-  
+
   /** ---------------- Download Resume ---------------- */
-const MIME_EXTENSION_MAP = {
-  "application/pdf": "pdf",
-  "application/msword": "doc",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
-  "application/vnd.ms-excel": "xls",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
-  "application/vnd.ms-powerpoint": "ppt",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-  "text/plain": "txt",
-  "application/zip": "zip",
-};
+  const MIME_EXTENSION_MAP = {
+    "application/pdf": "pdf",
+    "application/msword": "doc",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+      "docx",
+    "application/vnd.ms-excel": "xls",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+    "application/vnd.ms-powerpoint": "ppt",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+      "pptx",
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "text/plain": "txt",
+    "application/zip": "zip",
+  };
 
-const handleDownloadResume = async (submissionId, candidateName) => {
-  try {
-    const response = await fetch(
-      `https://mymulya.com/api/us/requirements/download-resume/${submissionId}`,
-      { method: "GET", headers: { "Content-Type": "application/octet-stream" } }
-    );
+  const handleDownloadResume = async (submissionId, candidateName) => {
+    try {
+      const response = await fetch(
+        `https://mymulya.com/api/us/requirements/download-resume/${submissionId}`,
+        {
+          method: "GET",
+          headers: { "Content-Type": "application/octet-stream" },
+        }
+      );
 
-    if (!response.ok) throw new Error("Failed to download resume");
+      if (!response.ok) throw new Error("Failed to download resume");
 
-    const blob = await response.blob();
+      const blob = await response.blob();
 
-    const contentDisposition = response.headers.get("content-disposition");
-    let fileName = `Resume-${candidateName}-${submissionId}`;
+      const contentDisposition = response.headers.get("content-disposition");
+      let fileName = `Resume-${candidateName}-${submissionId}`;
 
-    if (contentDisposition) {
-      const match = contentDisposition.match(/filename="?(.+)"?/);
-      if (match?.[1]) {
-        fileName = match[1];
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?(.+)"?/);
+        if (match?.[1]) {
+          fileName = match[1];
+        }
+      } else {
+        const contentType = response.headers.get("content-type");
+        if (contentType && MIME_EXTENSION_MAP[contentType]) {
+          fileName += `.${MIME_EXTENSION_MAP[contentType]}`;
+        }
       }
-    } else {
-      const contentType = response.headers.get("content-type");
-      if (contentType && MIME_EXTENSION_MAP[contentType]) {
-        fileName += `.${MIME_EXTENSION_MAP[contentType]}`;
-      }
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+
+      document.body.appendChild(link);
+      link.click();
+
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      showSuccessToast("Resume downloaded successfully");
+    } catch (error) {
+      console.error("Error downloading resume:", error);
+      showErrorToast("Failed to download resume");
     }
+  };
 
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = fileName;
-
-    document.body.appendChild(link);
-    link.click();
-
-    link.remove();
-    window.URL.revokeObjectURL(url);
-  } catch (error) {
-    console.error("Error downloading resume:", error);
-    showErrorToast("Failed to download resume");
-  }
-};
   /** ---------------- View Resume ---------------- */
   const handleViewResume = async (submissionId, candidateName) => {
     try {
@@ -366,15 +404,13 @@ const handleDownloadResume = async (submissionId, candidateName) => {
     setRefreshKey((prev) => prev + 1);
   };
 
-
-
   const handleNavigateToSubmissionProfile = (submissionId) => {
-  navigate(`/dashboard/us-submissions/candidate-profile/${submissionId}`,{
-    state:{
-      from:`/dashboard/us-submissions`
-    }
-  });
-};
+    navigate(`/dashboard/us-submissions/candidate-profile/${submissionId}`, {
+      state: {
+        from: `/dashboard/us-submissions`,
+      },
+    });
+  };
 
   /** ---------------- Columns ---------------- */
   const columns = getSubmissionsColumns({
