@@ -9,6 +9,32 @@ import { useSelector } from "react-redux";
 import { ConfirmDialog } from "../../ui-lib/ConfirmDialog";
 import { CustomModal } from "../../ui-lib/CustomModal";
 
+// Add debounce hook for search
+const useDebounce = (value, delay) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
+};
+
+// Utility function to format date as DD-MM-YYYY
+const formatDateForAPI = (dateString) => {
+  if (!dateString) return null;
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return null;
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`;
+  } catch (error) {
+    console.error("Error formatting date:", error);
+    return null;
+  }
+};
+
 const RequirementsList = () => {
   const navigate = useNavigate();
   const [refreshKey, setRefreshKey] = useState(0);
@@ -18,6 +44,7 @@ const RequirementsList = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [keyword, setSearch] = useState("");
+  const debouncedSearch = useDebounce(keyword, 500);
 
   // Initialize filters from localStorage
   const [filters, setFilters] = useState(() => {
@@ -43,7 +70,75 @@ const RequirementsList = () => {
   const [currentDescription, setCurrentDescription] = useState("");
   const [currentJobTitle, setCurrentJobTitle] = useState("");
 
-  // Fetch filter options
+  // Build filter query parameters with date range support
+  const buildFilterParams = useCallback((filters) => {
+    const params = {};
+
+    Object.entries(filters).forEach(([key, filter]) => {
+      switch (filter.type) {
+        case "text":
+        case "select":
+        case "number":
+          if (filter.value) {
+            params[`${key}`] = filter.value;
+          }
+          break;
+
+        case "date":
+          if (filter.value) {
+            const formattedDate = formatDateForAPI(filter.value);
+            if (formattedDate) {
+              // For createdAt/updatedAt, use fromDate and toDate for single date
+              if (key === "createdAt" || key === "updatedAt") {
+                params["fromDate"] = formattedDate;
+                params["toDate"] = formattedDate;
+              } else {
+                params[`${key}`] = formattedDate;
+              }
+            }
+          }
+          break;
+
+        case "dateRange":
+          if (filter.value?.from || filter.value?.to) {
+            // Special handling for createdAt and updatedAt fields
+            const isDateField = key === "createdAt" || key === "updatedAt";
+
+            if (filter.value.from) {
+              const formattedFrom = formatDateForAPI(filter.value.from);
+              if (formattedFrom) {
+                // Use fromDate for both createdAt and updatedAt
+                if (isDateField) {
+                  params["fromDate"] = formattedFrom;
+                } else {
+                  params[`${key}From`] = formattedFrom;
+                }
+              }
+            }
+
+            if (filter.value.to) {
+              const formattedTo = formatDateForAPI(filter.value.to);
+              if (formattedTo) {
+                // Use toDate for both createdAt and updatedAt
+                if (isDateField) {
+                  params["toDate"] = formattedTo;
+                } else {
+                  params[`${key}To`] = formattedTo;
+                }
+              }
+            }
+          }
+          break;
+
+        default:
+          break;
+      }
+    });
+
+    return params;
+  }, []);
+
+  // Fetch filter options (if needed)
   const fetchFilterOptions = useCallback(async () => {
     try {
       const response = await axios.get(
@@ -70,49 +165,7 @@ const RequirementsList = () => {
     }
   }, []);
 
-  // Build filter query parameters
-  const buildFilterParams = useCallback((filters) => {
-    const params = {};
-
-    Object.entries(filters).forEach(([key, filter]) => {
-      switch (filter.type) {
-        case "text":
-        case "select":
-        case "number":
-          if (filter.value) {
-            params[`${key}`] = filter.value;
-          }
-          break;
-
-        case "date":
-          if (filter.value) {
-            params[`${key}`] = new Date(filter.value)
-              .toISOString()
-              .split("T")[0];
-          }
-          break;
-
-        case "dateRange":
-          if (filter.value?.from) {
-            params[`${key}From`] = new Date(filter.value.from)
-              .toISOString()
-              .split("T")[0];
-          }
-          if (filter.value?.to) {
-            params[`${key}To`] = new Date(filter.value.to)
-              .toISOString()
-              .split("T")[0];
-          }
-          break;
-
-        default:
-          break;
-      }
-    });
-
-    return params;
-  }, []);
-
+  // Main fetch data function
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
@@ -124,11 +177,16 @@ const RequirementsList = () => {
         ...filterParams,
       };
 
-      if (keyword.trim()) {
-        params.keyword = keyword.trim();
+      if (debouncedSearch.trim()) {
+        params.keyword = debouncedSearch.trim();
       }
+
+      // Log the params for debugging
+      console.log("API Request Params:", params);
+
       let response;
       if (role === "RECRUITER" || role === "GRANDSALES" || role === "TEAMLEAD" || role === "SUPERADMIN") {
+        // For date range filter, use the API endpoint with fromDate and toDate
         response = await axios.get(
           `https://mymulya.com/api/us/requirements/v2/get-requirements/${userId}`,
           {
@@ -147,11 +205,14 @@ const RequirementsList = () => {
       }
 
       const data = response.data;
-      if ( data.content) {
+      console.log("API Response:", data);
+
+      if (data.content) {
         setRequirements(data.content || []);
         setTotal(data.totalElements || 0);
 
-        if (Object.keys(filterOptions).length === 0) {
+        // Extract filter options from data if filter options not already loaded
+        if (Object.keys(filterOptions).length === 0 && data.content.length > 0) {
           extractFilterOptionsFromData(data.content || []);
         }
       } else {
@@ -172,7 +233,7 @@ const RequirementsList = () => {
   }, [
     page,
     rowsPerPage,
-    keyword,
+    debouncedSearch,
     filters,
     buildFilterParams,
     filterOptions,
@@ -180,6 +241,7 @@ const RequirementsList = () => {
     userId,
   ]);
 
+  // Extract filter options from data
   const extractFilterOptionsFromData = (data) => {
     const options = {
       clientName: [],
@@ -204,21 +266,22 @@ const RequirementsList = () => {
     });
 
     Object.keys(options).forEach((field) => {
-      options[field].sort((a, b) => a.label.localeCompare(b.label));
+      options[field].sort((a, b) => (a.label || "").localeCompare(b.label || ""));
     });
 
     setFilterOptions(options);
   };
 
-  // useEffect(() => {
-  //   fetchFilterOptions();
-  // }, [fetchFilterOptions]);
+  // Initial data and filter options fetch
+  useEffect(() => {
+    fetchFilterOptions();
+  }, [fetchFilterOptions]);
 
   useEffect(() => {
     fetchData();
-  }, [fetchData, refreshKey]);
+  }, [fetchData, refreshKey, debouncedSearch]);
 
-  /** ---------------- Navigate ---------------- */
+  /** ---------------- Navigate to Requirement Profile ---------------- */
   const handleNagivateToReqProfile = (row) => {
     navigate(`/dashboard/us-requirements/${row.jobId}`);
   };
@@ -269,19 +332,19 @@ const RequirementsList = () => {
   };
 
   /** ---------------- Submit Candidate ---------------- */
-const handleSubmitCandidate = (job) => {
-  // Navigate to the correct path according to your routing structure
-  navigate(`/dashboard/us-submissions/create-submission`, { 
-    state: { 
-      job,
-      jobId: job.jobId,
-      userId: userId ,
-      billRate:job.billRate,
-      payRate:job.payRate
-    } 
-  });
-};
+  const handleSubmitCandidate = (job) => {
+    navigate(`/dashboard/us-submissions/create-submission`, { 
+      state: { 
+        job,
+        jobId: job.jobId,
+        userId: userId,
+        billRate: job.billRate,
+        payRate: job.payRate
+      } 
+    });
+  };
 
+  /** ---------------- Confirm Delete ---------------- */
   const handleConfirmDelete = async () => {
     try {
       if (!userId || !deleteJobId) return;
@@ -307,8 +370,36 @@ const handleSubmitCandidate = (job) => {
     setPage(0);
   };
 
+  /** ---------------- Edit Requirement ---------------- */
   const handleEdit = (jobId) => {
     navigate(`/dashboard/us-requirements/edit/${jobId}`);
+  };
+
+  /** ---------------- Search Handlers ---------------- */
+  const handleSearchChange = (e) => {
+    setSearch(e.target.value);
+    setPage(0);
+  };
+
+  const handleSearchClear = () => {
+    setSearch("");
+    setPage(0);
+  };
+
+  /** ---------------- Pagination Handlers ---------------- */
+  const handlePageChange = (e, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleRowsPerPageChange = (e) => {
+    const newRowsPerPage = parseInt(e.target.value, 10);
+    setRowsPerPage(newRowsPerPage);
+    setPage(0);
+  };
+
+  /** ---------------- Refresh Handler ---------------- */
+  const handleRefresh = () => {
+    setRefreshKey((prev) => prev + 1);
   };
 
   /** ---------------- Columns ---------------- */
@@ -337,20 +428,11 @@ const handleSubmitCandidate = (job) => {
         loading={loading}
         filters={filters}
         filterStorageKey="requirements_filters"
-        onPageChange={(e, newPage) => setPage(newPage)}
-        onRowsPerPageChange={(e) => {
-          setRowsPerPage(parseInt(e.target.value, 10));
-          setPage(0);
-        }}
-        onSearchChange={(e) => {
-          setSearch(e.target.value);
-          setPage(0);
-        }}
-        onSearchClear={() => {
-          setSearch("");
-          setPage(0);
-        }}
-        onRefresh={() => setRefreshKey((prev) => prev + 1)}
+        onPageChange={handlePageChange}
+        onRowsPerPageChange={handleRowsPerPageChange}
+        onSearchChange={handleSearchChange}
+        onSearchClear={handleSearchClear}
+        onRefresh={handleRefresh}
         onFiltersChange={handleFiltersChange}
       />
 

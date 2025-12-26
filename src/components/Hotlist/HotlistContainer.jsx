@@ -27,15 +27,20 @@ const HotlistContainer = () => {
       },
 
       {
-        label:"W2 Hotlist",
-        icon:<ListAltIcon />,
-        path:'/dashboard/hotlist/w2',
+        label: "W2 Hotlist",
+        icon: <ListAltIcon />,
+        path: "/dashboard/hotlist/w2",
       },
-      // {
-      //   label:"Full-Time Hotlist",
-      //   icon:<ListAltIcon />, 
-      //   path:'/dashboard/hotlist/full-time',
-      // }
+      {
+        label: "Fulltime Hotlist",
+        icon: <ListAltIcon />,
+        path: "/dashboard/hotlist/fulltime",
+      },
+      {
+        label: "Guest Hotlist",
+        icon: <ListAltIcon />,
+        path: "/dashboard/hotlist/gurest-consultants",
+      },
 
       // {
       //   label: "Add Consultant",
@@ -43,11 +48,8 @@ const HotlistContainer = () => {
       //   path: "/dashboard/hotlist/create",
       // },
     ];
-  }
-  
-   else if (role === "TEAMLEAD"){
-
-     tabs = [
+  } else if (role === "TEAMLEAD") {
+    tabs = [
       {
         label: "Home",
         icon: <Home />,
@@ -73,10 +75,8 @@ const HotlistContainer = () => {
         path: "/dashboard/hotlist/team-consultants",
       });
     }
-
   } else {
     // Tabs for TEAMLEAD, RECRUITER, SALESEXECUTIVE, etc.
-
 
     tabs = [
       {

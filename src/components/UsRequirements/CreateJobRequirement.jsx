@@ -161,6 +161,11 @@ const CreateJobRequirement = ({
             { value: "FullTime", label: "Full Time" },
             { value: "PartTime", label: "Part Time" },
             { value: "Contract", label: "Contract" },
+
+            // ✅ New types
+            { value: "C2C", label: "C2C" },
+            { value: "W2", label: "W2" },
+            { value: "1099", label: "1099" },
           ],
           icon: "BusinessCenter",
         },

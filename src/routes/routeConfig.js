@@ -10,7 +10,6 @@ import EditRtrForm from "../components/RightToRepresent/EditRtrForm";
 import UsInterviewsRouter from "../components/UsInterviews/UsInterviewRouter";
 import { Navigate } from "react-router-dom";
 import { element } from "prop-types";
-import FullTimeHotlist from "../components/Hotlist/FullTimeHotlist";
 
 const Loadable = (Component) => (
   <Suspense
@@ -88,6 +87,7 @@ const RtrContainer = lazy(() =>
 
 //hotlist
 const Hotlist = lazy(() => import("../components/Hotlist/Hotlist"));
+
 const YetToOnboard = lazy(() =>
   import("../components/YetToOnboard/YetToOnboard")
 );
@@ -113,6 +113,13 @@ const CreateConsultant = lazy(() =>
   import("../components/Hotlist/CreateConsultant")
 );
 const MasterHotlist = lazy(() => import("../components/Hotlist/MasterHotlist"));
+const FullTimeHotlist = lazy(() =>
+  import("../components/Hotlist/FullTimeHotlist")
+);
+
+const GuestHouseConsultants = lazy(() =>
+  import("../components/Hotlist/GuestHouseConsultants")
+);
 
 const W2Hotlist = lazy(() => import("../components/Hotlist/W2Hotlist"));
 //yet-to-bonboard
@@ -646,8 +653,13 @@ const routeConfig = [
                     element: Loadable(W2Hotlist),
                   },
                   {
-                    path:'full-time', // /dashboard/hotlist/full-time`
-                    element:Loadable(FullTimeHotlist)
+                    path: "fulltime", // /dashboard/hotlist/full-time`
+                    element: Loadable(FullTimeHotlist),
+                  },
+
+                  {
+                    path: "gurest-consultants", // /dashboard/hotlist/full-time`
+                    element: Loadable(GuestHouseConsultants),
                   },
                   {
                     path: "master/:consultantId", // /dashboard/hotlist/master/:consultantId
@@ -801,9 +813,9 @@ const routeConfig = [
                     element: Loadable(EditJobRequirement),
                   },
                   {
-                    path:"candidate-profile/:submissionId",
-                    element:Loadable(CandidateProfile)
-                  }
+                    path: "candidate-profile/:submissionId",
+                    element: Loadable(CandidateProfile),
+                  },
                 ],
               },
             ],

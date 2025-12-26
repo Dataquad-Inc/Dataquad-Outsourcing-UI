@@ -304,19 +304,19 @@ export const rightToRepresentAPI = {
 
     return apiPost(`/hotlist/schedule-rtrInterview/${userId}`, rtrData);
   },
-  getTodaysRtr:async(params={})=>{
-     return apiGet(`/hotlist/rtr-list-today`,params)
+  getTodaysRtr: async (params = {}) => {
+    return apiGet(`/hotlist/rtr-list-today`, params);
   },
 
-  getTodaysTeamRtr:async(userId,params={})=>{
+  getTodaysTeamRtr: async (userId, params = {}) => {
     if (!userId) throw new Error("User ID is required");
-    return apiGet(`/hotlist/teamRtr-list-today/${userId}`, params)
+    return apiGet(`/hotlist/teamRtr-list-today/${userId}`, params);
   },
 
-  getTodaysSalesRtr:async(userId,params={})=>{
+  getTodaysSalesRtr: async (userId, params = {}) => {
     if (!userId) throw new Error("User ID is required");
-    return apiGet(`/hotlist/salesRtr-list-today/${userId}`, params)
-  }
+    return apiGet(`/hotlist/salesRtr-list-today/${userId}`, params);
+  },
 };
 
 // ========== Hotlist/Consultant Management APIs ==========
@@ -324,6 +324,10 @@ export const hotlistAPI = {
   // Get all consultants with pagination
   getAllConsultants: async (params = {}) => {
     return apiGet("/hotlist/allConsultants", params);
+  },
+
+  getGuestHouseConsultants: async (params = {}) => {
+     return apiGet("/hotlist/all-guest-house-Consultants", params);
   },
 
   // Get consultants by user ID
@@ -422,12 +426,12 @@ export const hotlistAPI = {
   moveToYetToOnboard: async (consultantId) => {
     return apiPatch(`hotlist/moveToYetToOnBoard/${consultantId}`);
   },
-  getW2Hotlist: async(params={})=>{
-    return apiGet(`/hotlist/all-w2-Consultants`, params)
+  getW2Hotlist: async (params = {}) => {
+    return apiGet(`/hotlist/all-w2-Consultants`, params);
   },
-  getFullTimeHotlist:async(params={})=>{
-    return apiGet(`/hotlist/all-fulltime-Consultants`,params)
-  }
+  getFullTimeHotlist: async (params = {}) => {
+    return apiGet(`/hotlist/all-fulltime-Consultants`, params);
+  },
 };
 
 // Interviews API
