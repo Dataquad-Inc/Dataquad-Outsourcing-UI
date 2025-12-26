@@ -233,8 +233,12 @@ const EditJobRequirement = () => {
             { value: "FullTime", label: "Full Time" },
             { value: "PartTime", label: "Part Time" },
             { value: "Contract", label: "Contract" },
+
+            // ✅ New types
+            { value: "C2C", label: "C2C" },
+            { value: "W2", label: "W2" },
+            { value: "1099", label: "1099" },
           ],
-          icon: "BusinessCenter",
         },
         {
           name: "noOfPositions",
@@ -300,7 +304,7 @@ const EditJobRequirement = () => {
           helperText: "Amount paid to the employee (CTC or hourly/daily rate)",
           icon: "AttachMoney",
         },
-       
+
         {
           name: "remarks",
           label: "Remarks",

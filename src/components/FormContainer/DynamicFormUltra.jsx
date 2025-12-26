@@ -331,6 +331,7 @@ const SearchableMultiSelect = ({
     <FormControl fullWidth error={Boolean(error)}>
       <Autocomplete
         multiple
+        disableCloseOnSelect
         options={options}
         value={selectedOptions}
         onChange={(event, newValue) => {
@@ -407,7 +408,6 @@ const SearchableMultiSelect = ({
     </FormControl>
   );
 };
-
 
 // ICON MAP
 const iconMap = {
@@ -497,24 +497,24 @@ const DynamicFormUltra = ({
     generatedInitialValues[key] = initialValues[key];
   });
 
- allFields.forEach((field) => {
-  if (initialValues[field.name] !== undefined) {
-    generatedInitialValues[field.name] = field.multiple
-      ? [...initialValues[field.name]]
-      : initialValues[field.name];
-  } else {
-    if (field.type === "multiselect") {
-      generatedInitialValues[field.name] = [];
-    } else if (field.type === "file") {
-      generatedInitialValues[field.name] = field.multiple ? [] : null;
-    } else if (field.type === "checkbox") {
-      generatedInitialValues[field.name] = field.defaultChecked || false;
-    } else if (field.type === "checkbox-group" || field.type === "radio") {
-      generatedInitialValues[field.name] = "";
+  allFields.forEach((field) => {
+    if (initialValues[field.name] !== undefined) {
+      generatedInitialValues[field.name] = field.multiple
+        ? [...initialValues[field.name]]
+        : initialValues[field.name];
     } else {
-      generatedInitialValues[field.name] = field.multiple ? [""] : "";
+      if (field.type === "multiselect") {
+        generatedInitialValues[field.name] = [];
+      } else if (field.type === "file") {
+        generatedInitialValues[field.name] = field.multiple ? [] : null;
+      } else if (field.type === "checkbox") {
+        generatedInitialValues[field.name] = field.defaultChecked || false;
+      } else if (field.type === "checkbox-group" || field.type === "radio") {
+        generatedInitialValues[field.name] = "";
+      } else {
+        generatedInitialValues[field.name] = field.multiple ? [""] : "";
+      }
     }
-  }
 
     // Initialize country code for phone fields
     if (field.type === "phone") {
@@ -527,29 +527,30 @@ const DynamicFormUltra = ({
     }
 
     // Validation schema setup
-    if (field.required && field.type !== "file") { // Add this condition
-    if (field.type === "multiselect") {
-      validationSchema[field.name] = Yup.array()
-        .min(1, "At least one option must be selected")
-        .required("Required");
-    } else if (field.type === "checkbox") {
-      validationSchema[field.name] = Yup.boolean()
-        .oneOf([true], "This field must be checked")
-        .required("Required");
-    } else if (field.type === "checkbox-group") {
-      validationSchema[field.name] = Yup.array()
-        .min(1, "At least one option must be selected")
-        .required("Required");
-    } else if (field.type === "radio") {
-      validationSchema[field.name] = Yup.string().required(
-        "Please select an option"
-      );
-    } else {
-      validationSchema[field.name] = field.multiple
-        ? Yup.array().of(Yup.string().required("Required"))
-        : Yup.string().required("Required");
+    if (field.required && field.type !== "file") {
+      // Add this condition
+      if (field.type === "multiselect") {
+        validationSchema[field.name] = Yup.array()
+          .min(1, "At least one option must be selected")
+          .required("Required");
+      } else if (field.type === "checkbox") {
+        validationSchema[field.name] = Yup.boolean()
+          .oneOf([true], "This field must be checked")
+          .required("Required");
+      } else if (field.type === "checkbox-group") {
+        validationSchema[field.name] = Yup.array()
+          .min(1, "At least one option must be selected")
+          .required("Required");
+      } else if (field.type === "radio") {
+        validationSchema[field.name] = Yup.string().required(
+          "Please select an option"
+        );
+      } else {
+        validationSchema[field.name] = field.multiple
+          ? Yup.array().of(Yup.string().required("Required"))
+          : Yup.string().required("Required");
+      }
     }
-  }
 
     // Add email validation
     if (field.type === "email") {
@@ -936,7 +937,7 @@ const DynamicFormUltra = ({
                 ? "email"
                 : field.type === "number"
                 ? "number"
-                : "text"  
+                : "text"
             }
             value={value}
             onChange={formik.handleChange}
@@ -1041,7 +1042,7 @@ const DynamicFormUltra = ({
             />
           );
         }
-        
+
         // Regular select for fields with fewer options
         return (
           <TextField

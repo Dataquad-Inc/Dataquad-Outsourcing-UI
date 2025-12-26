@@ -138,7 +138,8 @@ const RtrForm = () => {
           label: "Vendor LinkedIn Profile",
           type: "link",
           icon: "LinkedIn",
-          helperText: "Optional — paste LinkedIn profile URL",
+          required: true,
+          helperText: "paste LinkedIn profile URL",
         },
         {
           name: "implementationPartner",
