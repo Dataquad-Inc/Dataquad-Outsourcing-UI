@@ -259,7 +259,7 @@ const getHotListColumns = ({
       return (
         <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
           {/* View */}
-          <Tooltip title="View Candidate">
+          {/* <Tooltip title="View Candidate">
             <IconButton
               size="small"
               color="info"
@@ -267,7 +267,7 @@ const getHotListColumns = ({
             >
               <Visibility fontSize="small" />
             </IconButton>
-          </Tooltip>
+          </Tooltip> */}
 
           {/* Edit */}
           {canEdit && (
