@@ -18,31 +18,25 @@ import {
   Tooltip,
   CircularProgress,
   CardHeader,
-  Badge,
 } from "@mui/material";
 import {
   Group as GroupIcon,
   UploadFile as UploadFileIcon,
-  EventAvailable as EventAvailableIcon,
-  Diversity3 as Diversity3Icon,
-  Assignment as AssignmentIcon,
   CalendarMonth as CalendarMonthIcon,
   TrendingUp as TrendingUpIcon,
   ChevronRight as ChevronRightIcon,
   PersonAdd as PersonAddIcon,
   Business as BusinessIcon,
   Description as DescriptionIcon,
-  Assessment as AssessmentIcon,
   Refresh as RefreshIcon,
   People as PeopleIcon,
-  Work as WorkIcon,
-  AssignmentTurnedIn as AssignmentTurnedInIcon,
-  EmojiEvents as EmojiEventsIcon,
   CheckCircle as CheckCircleIcon,
   Person as PersonIcon,
   ContentPaste as ContentPasteIcon,
+  Assignment as AssignmentIcon,
+  AssignmentTurnedIn as AssignmentTurnedInIcon,
+  Diversity3 as Diversity3Icon,
 } from "@mui/icons-material";
-
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 
@@ -54,12 +48,11 @@ const AdroitHome = () => {
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [retryCount, setRetryCount] = useState(0);
 
   // Get user data from Redux
   const { role, userId, entity } = useSelector((state) => state.auth);
-  const userRole = role?.toUpperCase() || "USER";
-  const userEntity = entity || "US"; // Default to US if not specified
+  const userRole = role || "SUPERADMIN";
+  const userEntity = entity || "US";
 
   // Role configurations
   const roleConfig = {
@@ -131,19 +124,7 @@ const AdroitHome = () => {
   // Current role configuration
   const currentRoleConfig = roleConfig[userRole] || roleConfig.EMPLOYEE;
 
-  // Dummy data for fallback (matching API structure)
-  const fallbackData = {
-    totalHotlistExceptFullTime: "177",
-    w2HotlistCount: "1",
-    rtrMonthlyCount: "524",
-    currentMonthInterview: "93",
-    currentMonthRequirements: "59",
-    currentMonthSubmissions: "50",
-    totalPlacementsCurrentMonth: null,
-    totalPlacementsOverall: null,
-  };
-
-  // US Quick Actions - Updated with correct US routes
+  // US Quick Actions
   const quickActions = [
     {
       title: "Add New Consultant",
@@ -254,50 +235,31 @@ const AdroitHome = () => {
     setError(null);
 
     try {
-      // For all roles that should see dashboard data
-      if (
-        [
-          "SUPERADMIN",
-          "ADMIN",
-          "TEAMLEAD",
-          "RECRUITER",
-          "SALESEXECUTIVE",
-          "GRANDSALES",
-          "EMPLOYEE",
-        ].includes(userRole)
-      ) {
-        try {
-          // Real API call
-          const response = await fetch(
-            "https://mymulya.com/api/us/requirements/dashboard/get-all"
-          );
+      const response = await fetch(
+        "https://mymulya.com/api/us/requirements/dashboard/get-all"
+      );
 
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-          }
+      const responseText = await response.text();
 
-          const data = await response.json();
-
-          if (data.success === false) {
-            throw new Error(data.message || "Failed to fetch dashboard data");
-          }
-
-          setDashboardData(data);
-        } catch (apiError) {
-          console.warn("API fetch failed, using fallback data:", apiError);
-          setError(`API Error: ${apiError.message}. Using cached data.`);
-          setDashboardData(fallbackData);
-        }
-      } else {
-        // For other roles, use fallback data
-        setDashboardData(fallbackData);
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error("Failed to parse JSON:", responseText);
+        throw new Error(
+          `Invalid JSON response: ${responseText.substring(0, 100)}...`
+        );
       }
 
-      // Trigger animations
+      console.log("Dashboard data received:", data);
+      setDashboardData(data);
+
+      // Trigger card animations after data is loaded
       setTimeout(() => {
         setCardsVisible(true);
         const values = {};
-        getCardData().forEach((card) => {
+        const cards = getCardDataFromAPI(data);
+        cards.forEach((card) => {
           values[card.id] = card.value;
         });
         setAnimatedValues(values);
@@ -305,22 +267,19 @@ const AdroitHome = () => {
     } catch (err) {
       console.error("Error fetching dashboard data:", err);
       setError(err.message || "Failed to load dashboard data");
-      setDashboardData(fallbackData);
     } finally {
       setLoading(false);
     }
   };
 
+  // Initial load on component mount
   useEffect(() => {
     fetchDashboardData();
-  }, [userRole, retryCount]);
+  }, []);
 
-  const getCardData = () => {
-    if (!dashboardData) return [];
+  const getCardDataFromAPI = (data) => {
+    if (!data) return [];
 
-    const data = dashboardData;
-
-    // Base cards for all roles based on API structure
     const baseCards = [
       {
         id: "totalHotlistExceptFullTime",
@@ -428,7 +387,6 @@ const AdroitHome = () => {
       },
     ];
 
-    // Add placements cards if data is available
     if (
       data.totalPlacementsCurrentMonth !== null ||
       data.totalPlacementsOverall !== null
@@ -481,119 +439,13 @@ const AdroitHome = () => {
       );
     }
 
-    // Role-specific cards (for when API doesn't provide this data)
-    const roleSpecificCards = [];
-
-    // For RECRUITER - Personal metrics
-    if (userRole === "RECRUITER") {
-      roleSpecificCards.push(
-        {
-          id: "mySubmissions",
-          title: "My Submissions",
-          value: Math.floor(Math.random() * 20) + 5, // Mock data
-          icon: UploadFileIcon,
-          color: theme.palette.success.main,
-          bgColor: alpha(theme.palette.success.main, 0.1),
-          change: "+22%",
-          changeType: "positive",
-          description: "Your US submissions this month",
-          roles: ["RECRUITER"],
-          suffix: "",
-          navigateTo: "/dashboard/us-submissions/submissions-list?my=true",
-        },
-        {
-          id: "myInterviews",
-          title: "My Interviews",
-          value: Math.floor(Math.random() * 15) + 3, // Mock data
-          icon: CalendarMonthIcon,
-          color: theme.palette.info.main,
-          bgColor: alpha(theme.palette.info.main, 0.1),
-          change: "+18%",
-          changeType: "positive",
-          description: "Your US interviews scheduled",
-          roles: ["RECRUITER"],
-          suffix: "",
-          navigateTo: "/dashboard/us-interviews?my=true",
-        }
-      );
-    }
-
-    // For TEAMLEAD - Team metrics
-    if (userRole === "TEAMLEAD") {
-      roleSpecificCards.push(
-        {
-          id: "teamSubmissions",
-          title: "Team Submissions",
-          value: Math.floor(parseInt(data.currentMonthSubmissions) * 0.7) || 35,
-          icon: UploadFileIcon,
-          color: theme.palette.success.main,
-          bgColor: alpha(theme.palette.success.main, 0.1),
-          change: "+28%",
-          changeType: "positive",
-          description: "Team US submissions this month",
-          roles: ["TEAMLEAD"],
-          suffix: "",
-          navigateTo: "/dashboard/us-submissions/submissions-list?team=true",
-        },
-        {
-          id: "teamPerformance",
-          title: "Team Performance",
-          value: 85,
-          icon: TrendingUpIcon,
-          color: theme.palette.warning.main,
-          bgColor: alpha(theme.palette.warning.main, 0.1),
-          change: "+5%",
-          changeType: "positive",
-          description: "Team performance score",
-          roles: ["TEAMLEAD"],
-          suffix: "%",
-          navigateTo: "/dashboard/team-metrics",
-        }
-      );
-    }
-
-    // For SALESEXECUTIVE
-    if (userRole === "SALESEXECUTIVE") {
-      roleSpecificCards.push(
-        {
-          id: "clientMeetings",
-          title: "Client Meetings",
-          value: Math.floor(Math.random() * 20) + 8,
-          icon: PeopleIcon,
-          color: theme.palette.primary.main,
-          bgColor: alpha(theme.palette.primary.main, 0.1),
-          change: "+35%",
-          changeType: "positive",
-          description: "Client meetings this month",
-          roles: ["SALESEXECUTIVE"],
-          suffix: "",
-          navigateTo: "/dashboard/us-clients",
-        },
-        {
-          id: "requirementConversion",
-          title: "Requirement Conversion",
-          value: 42,
-          icon: TrendingUpIcon,
-          color: theme.palette.success.main,
-          bgColor: alpha(theme.palette.success.main, 0.1),
-          change: "+12%",
-          changeType: "positive",
-          description: "Requirement to submission rate",
-          roles: ["SALESEXECUTIVE"],
-          suffix: "%",
-          navigateTo: "/dashboard/us-requirements",
-        }
-      );
-    }
-
-    // Filter cards based on role
-    const allCards = [...baseCards, ...roleSpecificCards];
-    return allCards
+    // Filter cards based on role and limit to 6
+    return baseCards
       .filter((card) => !card.roles || card.roles.includes(userRole))
-      .slice(0, 6); // Limit to 6 cards for better layout
+      .slice(0, 6);
   };
 
-  const cardData = getCardData();
+  const cardData = dashboardData ? getCardDataFromAPI(dashboardData) : [];
 
   const AnimatedNumber = ({ value, id, suffix = "" }) => {
     const [displayValue, setDisplayValue] = useState(0);
@@ -635,10 +487,6 @@ const AdroitHome = () => {
     navigate(path);
   };
 
-  const handleRetry = () => {
-    setRetryCount((prev) => prev + 1);
-  };
-
   const handleRefresh = () => {
     fetchDashboardData();
   };
@@ -651,28 +499,9 @@ const AdroitHome = () => {
     );
   };
 
-  const getTrendPercentage = (cardId) => {
-    const trends = {
-      totalHotlistExceptFullTime: 5,
-      w2HotlistCount: 2,
-      rtrMonthlyCount: 12,
-      currentMonthInterview: 15,
-      currentMonthRequirements: 8,
-      currentMonthSubmissions: 10,
-      mySubmissions: 22,
-      myInterviews: 18,
-      teamSubmissions: 28,
-      teamPerformance: 5,
-      clientMeetings: 35,
-      requirementConversion: 12,
-    };
-    return trends[cardId] || 8;
-  };
-
   const renderStatsCard = (card, index) => {
     const IconComponent = card.icon;
-    const trendPercentage = getTrendPercentage(card.id);
-    const isPositive = trendPercentage > 0;
+    const isPositive = card.changeType === "positive";
 
     return (
       <Grid item xs={12} sm={6} md={4} lg={4} key={card.id}>
@@ -727,43 +556,25 @@ const AdroitHome = () => {
               sx={{ mb: 2 }}
             >
               <Tooltip title={card.description} arrow>
-                <Badge
-                  color="primary"
-                  variant="dot"
-                  invisible={
-                    !card.id.includes("my") && !card.id.includes("team")
-                  }
-                  anchorOrigin={{
-                    vertical: "top",
-                    horizontal: "left",
+                <Avatar
+                  sx={{
+                    bgcolor: card.bgColor,
+                    color: card.color,
+                    width: 48,
+                    height: 48,
+                    transition: "transform 0.3s ease",
+                    "&:hover": {
+                      transform: "scale(1.1)",
+                    },
                   }}
                 >
-                  <Avatar
-                    sx={{
-                      bgcolor: card.bgColor,
-                      color: card.color,
-                      width: 48,
-                      height: 48,
-                      transition: "transform 0.3s ease",
-                      "&:hover": {
-                        transform: "scale(1.1)",
-                      },
-                    }}
-                  >
-                    <IconComponent />
-                  </Avatar>
-                </Badge>
+                  <IconComponent />
+                </Avatar>
               </Tooltip>
               <Chip
-                label={`${isPositive ? "+" : ""}${trendPercentage}%`}
+                label={card.change}
                 size="small"
-                icon={
-                  isPositive ? (
-                    <TrendingUpIcon />
-                  ) : (
-                    <TrendingUpIcon sx={{ transform: "rotate(180deg)" }} />
-                  )
-                }
+                icon={<TrendingUpIcon />}
                 sx={{
                   backgroundColor: isPositive
                     ? alpha(theme.palette.success.main, 0.1)
@@ -822,7 +633,7 @@ const AdroitHome = () => {
     );
   };
 
-  if (loading && !dashboardData) {
+  if (loading) {
     return (
       <Box
         sx={{
@@ -842,9 +653,7 @@ const AdroitHome = () => {
         <Typography variant="h6" color="text.secondary">
           Loading dashboard data...
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          Role: {currentRoleConfig.name} • Entity: {userEntity}
-        </Typography>
+
         <LinearProgress
           sx={{
             width: "300px",
@@ -885,27 +694,7 @@ const AdroitHome = () => {
               <Typography variant="h4" fontWeight="bold">
                 US Dashboard Overview
               </Typography>
-              <Chip
-                label={`${currentRoleConfig.name} • ${userEntity}`}
-                sx={{
-                  backgroundColor: alpha(currentRoleConfig.color, 0.1),
-                  color: currentRoleConfig.color,
-                  fontWeight: "bold",
-                  border: `1px solid ${alpha(currentRoleConfig.color, 0.3)}`,
-                }}
-                size="small"
-              />
             </Stack>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              {userRole === "RECRUITER"
-                ? "Track your US recruitment metrics"
-                : userRole === "SALESEXECUTIVE"
-                ? "Monitor US sales and client activities"
-                : userRole === "TEAMLEAD"
-                ? "US Team performance overview"
-                : "Complete US business overview"}
-              • User ID: {userId || "N/A"}
-            </Typography>
           </Box>
           <Stack direction="row" spacing={2}>
             <Tooltip title="Refresh Dashboard">
@@ -926,9 +715,24 @@ const AdroitHome = () => {
         </Stack>
       </Box>
 
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        {cardData.map((card, index) => renderStatsCard(card, index))}
+        {dashboardData && cardData.length > 0 ? (
+          cardData.map((card, index) => renderStatsCard(card, index))
+        ) : (
+          <Grid item xs={12}>
+            <Alert severity="info">
+              No dashboard data available. Please check your connection or
+              permissions.
+            </Alert>
+          </Grid>
+        )}
       </Grid>
 
       {/* Quick Actions */}
@@ -952,9 +756,11 @@ const AdroitHome = () => {
                     sx: { color: currentRoleConfig.color },
                   }}
                   action={
-                    <Typography variant="caption" color="text.secondary">
-                      {dashboardData && `Live US Data`}
-                    </Typography>
+                    dashboardData && (
+                      <Typography variant="caption" color="text.secondary">
+                        Live US Data
+                      </Typography>
+                    )
                   }
                 />
                 <Stack spacing={1}>
@@ -1016,9 +822,9 @@ const AdroitHome = () => {
           <Alert severity="info" sx={{ mt: 3 }} icon={<PeopleIcon />}>
             <Typography variant="body2">
               <strong>US Recruiter Focus:</strong> You have access to{" "}
-              {dashboardData?.totalHotlistExceptFullTime || "177"} consultants
-              in the US hotlist. Focus on increasing your submission to
-              interview conversion rate.
+              {dashboardData?.totalHotlistExceptFullTime || "0"} consultants in
+              the US hotlist. Focus on increasing your submission to interview
+              conversion rate.
             </Typography>
           </Alert>
         </Fade>
@@ -1029,7 +835,7 @@ const AdroitHome = () => {
           <Alert severity="info" sx={{ mt: 3 }} icon={<BusinessIcon />}>
             <Typography variant="body2">
               <strong>US Sales Focus:</strong> There are{" "}
-              {dashboardData?.currentMonthRequirements || "59"} active
+              {dashboardData?.currentMonthRequirements || "0"} active
               requirements this month. Focus on converting requirements to
               submissions and building client relationships.
             </Typography>
@@ -1042,7 +848,7 @@ const AdroitHome = () => {
           <Alert severity="info" sx={{ mt: 3 }} icon={<PeopleIcon />}>
             <Typography variant="body2">
               <strong>US Team Lead Focus:</strong> Your team has made{" "}
-              {dashboardData?.currentMonthSubmissions || "50"} submissions this
+              {dashboardData?.currentMonthSubmissions || "0"} submissions this
               month. Monitor team performance and provide guidance where needed.
             </Typography>
           </Alert>
@@ -1053,8 +859,9 @@ const AdroitHome = () => {
       <Fade in timeout={1000}>
         <Box sx={{ mt: 4, textAlign: "center" }}>
           <Typography variant="caption" color="text.secondary">
-            Data fetched from US API • Role: {currentRoleConfig.name} • Entity:{" "}
-            {userEntity} • Last refresh: {new Date().toLocaleTimeString()}
+            {dashboardData ? "Data fetched from US API" : "Waiting for data"} •
+            Role: {currentRoleConfig.name} • Entity: {userEntity} • Last
+            refresh: {new Date().toLocaleTimeString()}
           </Typography>
         </Box>
       </Fade>
