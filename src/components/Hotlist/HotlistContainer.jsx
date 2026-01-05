@@ -12,7 +12,7 @@ const HotlistContainer = () => {
 
   let tabs = [];
 
-  if (role === "SUPERADMIN" || role === "ADMIN" || role === "GRANDSALES") {
+  if (role === "SUPERADMIN" || role === "ADMIN") {
     // Tabs for SUPERADMIN
     tabs = [
       {
@@ -48,7 +48,7 @@ const HotlistContainer = () => {
       //   path: "/dashboard/hotlist/create",
       // },
     ];
-  } else if (role === "TEAMLEAD") {
+  } else if (role === "TEAMLEAD" || role === "GRANDSALES") {
     tabs = [
       {
         label: "Home",

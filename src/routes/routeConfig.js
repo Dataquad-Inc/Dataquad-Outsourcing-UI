@@ -84,6 +84,10 @@ const RtrList = lazy(() => import("../components/RightToRepresent/RtrList"));
 const RtrContainer = lazy(() =>
   import("../components/RightToRepresent/RtrContainer")
 );
+const CreateRTRForm = lazy(() =>
+  import("../components/RightToRepresent/CreateRTR")
+);
+const CreateRTR = lazy(() => import("../components/RightToRepresent/CreateRTR"));
 
 //hotlist
 const Hotlist = lazy(() => import("../components/Hotlist/Hotlist"));
@@ -693,6 +697,10 @@ const routeConfig = [
                     path: "rtr-list",
                     element: Loadable(RtrList),
                   },
+                  {
+                    path: "create-direct-rtr",
+                    element: Loadable(CreateRTR),
+                  }
                 ],
               },
             ],
@@ -732,6 +740,10 @@ const routeConfig = [
                     path: "rtr-list", // /dashboard/rtr/rtr-list
                     element: Loadable(RtrList),
                   },
+                  {
+                    path: "create-direct-rtr", // /dashboard/rtr/create-direct-rtr
+                    element: Loadable(CreateRTRForm),
+                  }
                 ],
               },
             ],
