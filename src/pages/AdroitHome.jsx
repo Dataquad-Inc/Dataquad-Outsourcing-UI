@@ -3,216 +3,863 @@ import {
   Box,
   Grid,
   Card,
-  CardContent,
   Typography,
   Avatar,
   Stack,
   useTheme,
-  Paper,
-  Button,
   Chip,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  ListItemSecondary,
-  Fade,
   Grow,
+  Fade,
+  Button,
   alpha,
+  LinearProgress,
+  Alert,
+  IconButton,
+  Tooltip,
+  CircularProgress,
+  CardHeader,
+  Badge,
 } from "@mui/material";
 import {
   Group as GroupIcon,
-  Business as BusinessIcon,
   UploadFile as UploadFileIcon,
   EventAvailable as EventAvailableIcon,
-  CheckCircle as CheckCircleIcon,
-  PersonSearch as PersonSearchIcon,
   Diversity3 as Diversity3Icon,
-  TrendingUp as TrendingUpIcon,
-  Schedule as ScheduleIcon,
   Assignment as AssignmentIcon,
-  EmojiEvents as EmojiEventsIcon,
+  CalendarMonth as CalendarMonthIcon,
+  TrendingUp as TrendingUpIcon,
   ChevronRight as ChevronRightIcon,
-  Add as AddIcon,
-  RateReview as RateReviewIcon,
+  PersonAdd as PersonAddIcon,
+  Business as BusinessIcon,
+  Description as DescriptionIcon,
+  Assessment as AssessmentIcon,
+  Refresh as RefreshIcon,
+  People as PeopleIcon,
+  Work as WorkIcon,
+  AssignmentTurnedIn as AssignmentTurnedInIcon,
+  EmojiEvents as EmojiEventsIcon,
+  CheckCircle as CheckCircleIcon,
+  Person as PersonIcon,
+  ContentPaste as ContentPasteIcon,
 } from "@mui/icons-material";
+
+import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 
 const AdroitHome = () => {
   const theme = useTheme();
+  const navigate = useNavigate();
   const [animatedValues, setAnimatedValues] = useState({});
   const [cardsVisible, setCardsVisible] = useState(false);
+  const [dashboardData, setDashboardData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
 
-  const cardData = [
-    {
-      id: "candidates",
-      title: "Total Candidates",
-      value: 1204,
-      icon: GroupIcon,
-      color: theme.palette.primary.main,
-      bgColor: alpha(theme.palette.primary.main, 0.1),
-      change: "+12%",
-      changeType: "positive",
-    },
-    {
-      id: "submissions",
-      title: "Active Submissions",
-      value: 853,
-      icon: UploadFileIcon,
-      color: theme.palette.secondary.main,
-      bgColor: alpha(theme.palette.secondary.main, 0.1),
-      change: "+8%",
-      changeType: "positive",
-    },
-    {
-      id: "interviews",
-      title: "Interviews Scheduled",
-      value: 125,
-      icon: EventAvailableIcon,
-      color: theme.palette.success.main,
-      bgColor: alpha(theme.palette.success.main, 0.1),
-      change: "+15%",
-      changeType: "positive",
-    },
-    {
-      id: "offers",
-      title: "Offers Released",
-      value: 57,
-      icon: CheckCircleIcon,
-      color: theme.palette.success.dark,
-      bgColor: alpha(theme.palette.success.dark, 0.1),
-      change: "+22%",
-      changeType: "positive",
-    },
-    {
-      id: "requirements",
-      title: "Client Requirements",
-      value: 42,
-      icon: BusinessIcon,
-      color: theme.palette.warning.main,
-      bgColor: alpha(theme.palette.warning.main, 0.1),
-      change: "+5%",
-      changeType: "positive",
-    },
-    {
-      id: "bench",
-      title: "Bench Candidates",
-      value: 18,
-      icon: Diversity3Icon,
+  // Get user data from Redux
+  const { role, userId, entity } = useSelector((state) => state.auth);
+  const userRole = role?.toUpperCase() || "USER";
+  const userEntity = entity || "US"; // Default to US if not specified
+
+  // Role configurations
+  const roleConfig = {
+    SUPERADMIN: {
+      name: "Super Admin",
       color: theme.palette.error.main,
-      bgColor: alpha(theme.palette.error.main, 0.1),
-      change: "-3%",
-      changeType: "negative",
+      permissions: ["all"],
+      dashboardView: "full",
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
     },
-    {
-      id: "screenings",
-      title: "Screenings Pending",
-      value: 37,
-      icon: PersonSearchIcon,
+    ADMIN: {
+      name: "Admin",
+      color: theme.palette.warning.main,
+      permissions: ["view", "create", "edit", "reports"],
+      dashboardView: "full",
+      canCreate: true,
+      canEdit: true,
+      canDelete: false,
+    },
+    TEAMLEAD: {
+      name: "Team Lead",
       color: theme.palette.info.main,
-      bgColor: alpha(theme.palette.info.main, 0.1),
-      change: "+7%",
-      changeType: "positive",
+      permissions: ["view", "create", "edit", "team_reports"],
+      dashboardView: "team",
+      canCreate: true,
+      canEdit: true,
+      canDelete: false,
     },
-    {
-      id: "placements",
-      title: "Successful Placements",
-      value: 89,
-      icon: EmojiEventsIcon,
-      color: "#ff9800",
-      bgColor: alpha("#ff9800", 0.1),
-      change: "+18%",
-      changeType: "positive",
-    },
-  ];
-
-  const quickActions = [
-    { title: "Post New Job", icon: AddIcon, color: theme.palette.primary.main },
-    {
-      title: "Schedule Interview",
-      icon: ScheduleIcon,
+    RECRUITER: {
+      name: "Recruiter",
       color: theme.palette.success.main,
+      permissions: ["view", "create", "manage_candidates"],
+      dashboardView: "personal",
+      canCreate: true,
+      canEdit: false,
+      canDelete: false,
     },
-    {
-      title: "Review Applications",
-      icon: RateReviewIcon,
+    SALESEXECUTIVE: {
+      name: "Sales Executive",
       color: theme.palette.secondary.main,
+      permissions: ["view", "create", "manage_clients"],
+      dashboardView: "sales",
+      canCreate: true,
+      canEdit: false,
+      canDelete: false,
+    },
+    GRANDSALES: {
+      name: "Grand Sales",
+      color: theme.palette.primary.main,
+      permissions: ["view", "create", "manage_clients", "reports"],
+      dashboardView: "full",
+      canCreate: true,
+      canEdit: true,
+      canDelete: false,
+    },
+    EMPLOYEE: {
+      name: "Employee",
+      color: theme.palette.grey[600],
+      permissions: ["view"],
+      dashboardView: "limited",
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    },
+  };
+
+  // Current role configuration
+  const currentRoleConfig = roleConfig[userRole] || roleConfig.EMPLOYEE;
+
+  // Dummy data for fallback (matching API structure)
+  const fallbackData = {
+    totalHotlistExceptFullTime: "177",
+    w2HotlistCount: "1",
+    rtrMonthlyCount: "524",
+    currentMonthInterview: "93",
+    currentMonthRequirements: "59",
+    currentMonthSubmissions: "50",
+    totalPlacementsCurrentMonth: null,
+    totalPlacementsOverall: null,
+  };
+
+  // US Quick Actions - Updated with correct US routes
+  const quickActions = [
+    {
+      title: "Add New Consultant",
+      icon: PersonAddIcon,
+      color: theme.palette.primary.main,
+      path: "/dashboard/hotlist/create",
+      description: "Add a new consultant to the US hotlist",
+      roles: ["SUPERADMIN", "ADMIN", "TEAMLEAD", "RECRUITER", "GRANDSALES"],
+      entity: "US",
     },
     {
-      title: "Send Offers",
-      icon: CheckCircleIcon,
+      title: "Create Requirement",
+      icon: AssignmentIcon,
+      color: theme.palette.success.main,
+      path: "/dashboard/us-requirements/create-requirement",
+      description: "Create a new US requirement",
+      roles: [
+        "SUPERADMIN",
+        "ADMIN",
+        "TEAMLEAD",
+        "SALESEXECUTIVE",
+        "GRANDSALES",
+      ],
+      entity: "US",
+    },
+    {
+      title: "Add Client",
+      icon: BusinessIcon,
+      color: theme.palette.info.main,
+      path: "/dashboard/us-clients/us-create",
+      description: "Add a new US client",
+      roles: ["SUPERADMIN", "ADMIN", "SALESEXECUTIVE", "GRANDSALES"],
+      entity: "US",
+    },
+    {
+      title: "Create Submission",
+      icon: UploadFileIcon,
+      color: theme.palette.warning.main,
+      path: "/dashboard/us-submissions/create-submission",
+      description: "Create a new US submission",
+      roles: ["SUPERADMIN", "ADMIN", "TEAMLEAD", "RECRUITER", "GRANDSALES"],
+      entity: "US",
+    },
+    {
+      title: "View Hotlist",
+      icon: PeopleIcon,
+      color: theme.palette.secondary.main,
+      path: "/dashboard/hotlist/consultants",
+      description: "View US consultants hotlist",
+      roles: [
+        "SUPERADMIN",
+        "ADMIN",
+        "TEAMLEAD",
+        "RECRUITER",
+        "SALESEXECUTIVE",
+        "GRANDSALES",
+        "EMPLOYEE",
+      ],
+      entity: "US",
+    },
+    {
+      title: "RTR Form",
+      icon: ContentPasteIcon,
+      color: theme.palette.error.main,
+      path: "/dashboard/rtr/rtr-form",
+      description: "Create Right to Represent form",
+      roles: ["SUPERADMIN", "ADMIN", "TEAMLEAD", "RECRUITER", "GRANDSALES"],
+      entity: "US",
+    },
+    {
+      title: "View Requirements",
+      icon: AssignmentIcon,
       color: theme.palette.success.dark,
+      path: "/dashboard/us-requirements",
+      description: "View US requirements list",
+      roles: [
+        "SUPERADMIN",
+        "ADMIN",
+        "TEAMLEAD",
+        "RECRUITER",
+        "SALESEXECUTIVE",
+        "GRANDSALES",
+        "EMPLOYEE",
+      ],
+      entity: "US",
+    },
+    {
+      title: "View Submissions",
+      icon: DescriptionIcon,
+      color: theme.palette.info.dark,
+      path: "/dashboard/us-submissions/submissions-list",
+      description: "View US submissions list",
+      roles: [
+        "SUPERADMIN",
+        "ADMIN",
+        "TEAMLEAD",
+        "RECRUITER",
+        "SALESEXECUTIVE",
+        "GRANDSALES",
+        "EMPLOYEE",
+      ],
+      entity: "US",
     },
   ];
 
-  const recentActivities = [
-    {
-      action: "New application received",
-      candidate: "Sarah Johnson",
-      position: "Senior Developer",
-      time: "2 minutes ago",
-      type: "application",
-      color: theme.palette.primary.main,
-    },
-    {
-      action: "Interview scheduled",
-      candidate: "Michael Chen",
-      position: "Product Manager",
-      time: "1 hour ago",
-      type: "interview",
-      color: theme.palette.success.main,
-    },
-    {
-      action: "Offer accepted",
-      candidate: "Emma Davis",
-      position: "UX Designer",
-      time: "3 hours ago",
-      type: "offer",
-      color: theme.palette.success.dark,
-    },
-    {
-      action: "Screening completed",
-      candidate: "Robert Wilson",
-      position: "Data Analyst",
-      time: "5 hours ago",
-      type: "screening",
-      color: theme.palette.info.main,
-    },
-  ];
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // For all roles that should see dashboard data
+      if (
+        [
+          "SUPERADMIN",
+          "ADMIN",
+          "TEAMLEAD",
+          "RECRUITER",
+          "SALESEXECUTIVE",
+          "GRANDSALES",
+          "EMPLOYEE",
+        ].includes(userRole)
+      ) {
+        try {
+          // Real API call
+          const response = await fetch(
+            "https://mymulya.com/api/us/requirements/dashboard/get-all"
+          );
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+
+          const data = await response.json();
+
+          if (data.success === false) {
+            throw new Error(data.message || "Failed to fetch dashboard data");
+          }
+
+          setDashboardData(data);
+        } catch (apiError) {
+          console.warn("API fetch failed, using fallback data:", apiError);
+          setError(`API Error: ${apiError.message}. Using cached data.`);
+          setDashboardData(fallbackData);
+        }
+      } else {
+        // For other roles, use fallback data
+        setDashboardData(fallbackData);
+      }
+
+      // Trigger animations
+      setTimeout(() => {
+        setCardsVisible(true);
+        const values = {};
+        getCardData().forEach((card) => {
+          values[card.id] = card.value;
+        });
+        setAnimatedValues(values);
+      }, 100);
+    } catch (err) {
+      console.error("Error fetching dashboard data:", err);
+      setError(err.message || "Failed to load dashboard data");
+      setDashboardData(fallbackData);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    setCardsVisible(true);
-    const timer = setTimeout(() => {
-      const values = {};
-      cardData.forEach((card) => {
-        values[card.id] = card.value;
-      });
-      setAnimatedValues(values);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, []);
+    fetchDashboardData();
+  }, [userRole, retryCount]);
 
-  const AnimatedNumber = ({ value, id }) => {
+  const getCardData = () => {
+    if (!dashboardData) return [];
+
+    const data = dashboardData;
+
+    // Base cards for all roles based on API structure
+    const baseCards = [
+      {
+        id: "totalHotlistExceptFullTime",
+        title: "Total Hotlist (Excl. Full Time)",
+        value: parseInt(data.totalHotlistExceptFullTime) || 0,
+        icon: GroupIcon,
+        color: theme.palette.primary.main,
+        bgColor: alpha(theme.palette.primary.main, 0.1),
+        change: "+5%",
+        changeType: "positive",
+        description: "Total consultants available for US projects",
+        roles: [
+          "SUPERADMIN",
+          "ADMIN",
+          "TEAMLEAD",
+          "RECRUITER",
+          "SALESEXECUTIVE",
+          "GRANDSALES",
+        ],
+        suffix: "",
+        navigateTo: "/dashboard/hotlist/consultants",
+      },
+      {
+        id: "w2HotlistCount",
+        title: "W2 Hotlist Count",
+        value: parseInt(data.w2HotlistCount) || 0,
+        icon: PersonIcon,
+        color: theme.palette.info.main,
+        bgColor: alpha(theme.palette.info.main, 0.1),
+        change: "+2%",
+        changeType: "positive",
+        description: "W2 employees available in US",
+        roles: ["SUPERADMIN", "ADMIN", "TEAMLEAD", "RECRUITER", "GRANDSALES"],
+        suffix: "",
+        navigateTo: "/dashboard/hotlist/w2",
+      },
+      {
+        id: "rtrMonthlyCount",
+        title: "RTR Monthly Count",
+        value: parseInt(data.rtrMonthlyCount) || 0,
+        icon: Diversity3Icon,
+        color: theme.palette.secondary.main,
+        bgColor: alpha(theme.palette.secondary.main, 0.1),
+        change: "+12%",
+        changeType: "positive",
+        description: "Ready to recruit this month in US",
+        roles: ["SUPERADMIN", "ADMIN", "TEAMLEAD", "RECRUITER", "GRANDSALES"],
+        suffix: "",
+        navigateTo: "/dashboard/rtr/rtr-list",
+      },
+      {
+        id: "currentMonthInterview",
+        title: "Current Month Interviews",
+        value: parseInt(data.currentMonthInterview) || 0,
+        icon: CalendarMonthIcon,
+        color: theme.palette.success.main,
+        bgColor: alpha(theme.palette.success.main, 0.1),
+        change: "+15%",
+        changeType: "positive",
+        description: "Interviews scheduled this month in US",
+        roles: [
+          "SUPERADMIN",
+          "ADMIN",
+          "TEAMLEAD",
+          "RECRUITER",
+          "SALESEXECUTIVE",
+          "GRANDSALES",
+        ],
+        suffix: "",
+        navigateTo: "/dashboard/us-interviews",
+      },
+      {
+        id: "currentMonthRequirements",
+        title: "Current Month Requirements",
+        value: parseInt(data.currentMonthRequirements) || 0,
+        icon: AssignmentIcon,
+        color: theme.palette.warning.main,
+        bgColor: alpha(theme.palette.warning.main, 0.1),
+        change: "+8%",
+        changeType: "positive",
+        description: "New requirements this month in US",
+        roles: [
+          "SUPERADMIN",
+          "ADMIN",
+          "TEAMLEAD",
+          "SALESEXECUTIVE",
+          "GRANDSALES",
+        ],
+        suffix: "",
+        navigateTo: "/dashboard/us-requirements",
+      },
+      {
+        id: "currentMonthSubmissions",
+        title: "Current Month Submissions",
+        value: parseInt(data.currentMonthSubmissions) || 0,
+        icon: UploadFileIcon,
+        color: theme.palette.error.main,
+        bgColor: alpha(theme.palette.error.main, 0.1),
+        change: "+10%",
+        changeType: "positive",
+        description: "Submissions made this month in US",
+        roles: ["SUPERADMIN", "ADMIN", "TEAMLEAD", "RECRUITER", "GRANDSALES"],
+        suffix: "",
+        navigateTo: "/dashboard/us-submissions/submissions-list",
+      },
+    ];
+
+    // Add placements cards if data is available
+    if (
+      data.totalPlacementsCurrentMonth !== null ||
+      data.totalPlacementsOverall !== null
+    ) {
+      baseCards.push(
+        {
+          id: "totalPlacementsCurrentMonth",
+          title: "This Month Placements",
+          value: parseInt(data.totalPlacementsCurrentMonth) || 0,
+          icon: CheckCircleIcon,
+          color: theme.palette.success.dark,
+          bgColor: alpha(theme.palette.success.dark, 0.1),
+          change: "+25%",
+          changeType: "positive",
+          description: "Placements made this month in US",
+          roles: [
+            "SUPERADMIN",
+            "ADMIN",
+            "TEAMLEAD",
+            "RECRUITER",
+            "SALESEXECUTIVE",
+            "GRANDSALES",
+          ],
+          suffix: "",
+          navigateTo:
+            "/dashboard/us-submissions/submissions-list?status=Placed",
+        },
+        {
+          id: "totalPlacementsOverall",
+          title: "Total Placements",
+          value: parseInt(data.totalPlacementsOverall) || 0,
+          icon: AssignmentTurnedInIcon,
+          color: theme.palette.success.main,
+          bgColor: alpha(theme.palette.success.main, 0.1),
+          change: "+18%",
+          changeType: "positive",
+          description: "All-time US placements",
+          roles: [
+            "SUPERADMIN",
+            "ADMIN",
+            "TEAMLEAD",
+            "RECRUITER",
+            "SALESEXECUTIVE",
+            "GRANDSALES",
+          ],
+          suffix: "",
+          navigateTo:
+            "/dashboard/us-submissions/submissions-list?status=Placed",
+        }
+      );
+    }
+
+    // Role-specific cards (for when API doesn't provide this data)
+    const roleSpecificCards = [];
+
+    // For RECRUITER - Personal metrics
+    if (userRole === "RECRUITER") {
+      roleSpecificCards.push(
+        {
+          id: "mySubmissions",
+          title: "My Submissions",
+          value: Math.floor(Math.random() * 20) + 5, // Mock data
+          icon: UploadFileIcon,
+          color: theme.palette.success.main,
+          bgColor: alpha(theme.palette.success.main, 0.1),
+          change: "+22%",
+          changeType: "positive",
+          description: "Your US submissions this month",
+          roles: ["RECRUITER"],
+          suffix: "",
+          navigateTo: "/dashboard/us-submissions/submissions-list?my=true",
+        },
+        {
+          id: "myInterviews",
+          title: "My Interviews",
+          value: Math.floor(Math.random() * 15) + 3, // Mock data
+          icon: CalendarMonthIcon,
+          color: theme.palette.info.main,
+          bgColor: alpha(theme.palette.info.main, 0.1),
+          change: "+18%",
+          changeType: "positive",
+          description: "Your US interviews scheduled",
+          roles: ["RECRUITER"],
+          suffix: "",
+          navigateTo: "/dashboard/us-interviews?my=true",
+        }
+      );
+    }
+
+    // For TEAMLEAD - Team metrics
+    if (userRole === "TEAMLEAD") {
+      roleSpecificCards.push(
+        {
+          id: "teamSubmissions",
+          title: "Team Submissions",
+          value: Math.floor(parseInt(data.currentMonthSubmissions) * 0.7) || 35,
+          icon: UploadFileIcon,
+          color: theme.palette.success.main,
+          bgColor: alpha(theme.palette.success.main, 0.1),
+          change: "+28%",
+          changeType: "positive",
+          description: "Team US submissions this month",
+          roles: ["TEAMLEAD"],
+          suffix: "",
+          navigateTo: "/dashboard/us-submissions/submissions-list?team=true",
+        },
+        {
+          id: "teamPerformance",
+          title: "Team Performance",
+          value: 85,
+          icon: TrendingUpIcon,
+          color: theme.palette.warning.main,
+          bgColor: alpha(theme.palette.warning.main, 0.1),
+          change: "+5%",
+          changeType: "positive",
+          description: "Team performance score",
+          roles: ["TEAMLEAD"],
+          suffix: "%",
+          navigateTo: "/dashboard/team-metrics",
+        }
+      );
+    }
+
+    // For SALESEXECUTIVE
+    if (userRole === "SALESEXECUTIVE") {
+      roleSpecificCards.push(
+        {
+          id: "clientMeetings",
+          title: "Client Meetings",
+          value: Math.floor(Math.random() * 20) + 8,
+          icon: PeopleIcon,
+          color: theme.palette.primary.main,
+          bgColor: alpha(theme.palette.primary.main, 0.1),
+          change: "+35%",
+          changeType: "positive",
+          description: "Client meetings this month",
+          roles: ["SALESEXECUTIVE"],
+          suffix: "",
+          navigateTo: "/dashboard/us-clients",
+        },
+        {
+          id: "requirementConversion",
+          title: "Requirement Conversion",
+          value: 42,
+          icon: TrendingUpIcon,
+          color: theme.palette.success.main,
+          bgColor: alpha(theme.palette.success.main, 0.1),
+          change: "+12%",
+          changeType: "positive",
+          description: "Requirement to submission rate",
+          roles: ["SALESEXECUTIVE"],
+          suffix: "%",
+          navigateTo: "/dashboard/us-requirements",
+        }
+      );
+    }
+
+    // Filter cards based on role
+    const allCards = [...baseCards, ...roleSpecificCards];
+    return allCards
+      .filter((card) => !card.roles || card.roles.includes(userRole))
+      .slice(0, 6); // Limit to 6 cards for better layout
+  };
+
+  const cardData = getCardData();
+
+  const AnimatedNumber = ({ value, id, suffix = "" }) => {
     const [displayValue, setDisplayValue] = useState(0);
 
     useEffect(() => {
-      if (animatedValues[id]) {
-        const increment = animatedValues[id] / 40;
+      if (animatedValues[id] !== undefined) {
+        const targetValue = animatedValues[id];
+        const duration = 1000;
+        const steps = 60;
+        const increment = targetValue / steps;
         let current = 0;
-        const timer = setInterval(() => {
+        let step = 0;
+
+        const animate = () => {
           current += increment;
-          if (current >= animatedValues[id]) {
-            setDisplayValue(animatedValues[id]);
-            clearInterval(timer);
+          step++;
+
+          if (step >= steps) {
+            setDisplayValue(targetValue);
           } else {
             setDisplayValue(Math.floor(current));
+            requestAnimationFrame(animate);
           }
-        }, 40);
-        return () => clearInterval(timer);
+        };
+
+        requestAnimationFrame(animate);
       }
     }, [animatedValues, id]);
 
-    return <span>{displayValue.toLocaleString()}</span>;
+    return (
+      <span>
+        {displayValue.toLocaleString()}
+        {suffix}
+      </span>
+    );
   };
+
+  const handleQuickAction = (path) => {
+    navigate(path);
+  };
+
+  const handleRetry = () => {
+    setRetryCount((prev) => prev + 1);
+  };
+
+  const handleRefresh = () => {
+    fetchDashboardData();
+  };
+
+  const getFilteredQuickActions = () => {
+    return quickActions.filter(
+      (action) =>
+        action.roles.includes(userRole) &&
+        (!action.entity || action.entity === userEntity)
+    );
+  };
+
+  const getTrendPercentage = (cardId) => {
+    const trends = {
+      totalHotlistExceptFullTime: 5,
+      w2HotlistCount: 2,
+      rtrMonthlyCount: 12,
+      currentMonthInterview: 15,
+      currentMonthRequirements: 8,
+      currentMonthSubmissions: 10,
+      mySubmissions: 22,
+      myInterviews: 18,
+      teamSubmissions: 28,
+      teamPerformance: 5,
+      clientMeetings: 35,
+      requirementConversion: 12,
+    };
+    return trends[cardId] || 8;
+  };
+
+  const renderStatsCard = (card, index) => {
+    const IconComponent = card.icon;
+    const trendPercentage = getTrendPercentage(card.id);
+    const isPositive = trendPercentage > 0;
+
+    return (
+      <Grid item xs={12} sm={6} md={4} lg={4} key={card.id}>
+        <Grow in={cardsVisible} timeout={400 + index * 100}>
+          <Card
+            elevation={0}
+            sx={{
+              p: 3,
+              borderRadius: 3,
+              border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+              backgroundColor: theme.palette.background.paper,
+              transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+              position: "relative",
+              overflow: "hidden",
+              height: "100%",
+              display: "flex",
+              flexDirection: "column",
+              cursor: "pointer",
+              "&:hover": {
+                transform: "translateY(-4px)",
+                boxShadow: `0 12px 24px ${alpha(card.color, 0.15)}`,
+                borderColor: alpha(card.color, 0.3),
+              },
+              "&::before": {
+                content: '""',
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                height: "4px",
+                background: `linear-gradient(90deg, ${card.color}, ${alpha(
+                  card.color,
+                  0.7
+                )})`,
+                opacity: 0,
+                transition: "opacity 0.3s ease",
+              },
+              "&:hover::before": {
+                opacity: 1,
+              },
+            }}
+            onClick={() => {
+              if (card.navigateTo) {
+                navigate(card.navigateTo);
+              }
+            }}
+          >
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              alignItems="flex-start"
+              sx={{ mb: 2 }}
+            >
+              <Tooltip title={card.description} arrow>
+                <Badge
+                  color="primary"
+                  variant="dot"
+                  invisible={
+                    !card.id.includes("my") && !card.id.includes("team")
+                  }
+                  anchorOrigin={{
+                    vertical: "top",
+                    horizontal: "left",
+                  }}
+                >
+                  <Avatar
+                    sx={{
+                      bgcolor: card.bgColor,
+                      color: card.color,
+                      width: 48,
+                      height: 48,
+                      transition: "transform 0.3s ease",
+                      "&:hover": {
+                        transform: "scale(1.1)",
+                      },
+                    }}
+                  >
+                    <IconComponent />
+                  </Avatar>
+                </Badge>
+              </Tooltip>
+              <Chip
+                label={`${isPositive ? "+" : ""}${trendPercentage}%`}
+                size="small"
+                icon={
+                  isPositive ? (
+                    <TrendingUpIcon />
+                  ) : (
+                    <TrendingUpIcon sx={{ transform: "rotate(180deg)" }} />
+                  )
+                }
+                sx={{
+                  backgroundColor: isPositive
+                    ? alpha(theme.palette.success.main, 0.1)
+                    : alpha(theme.palette.error.main, 0.1),
+                  color: isPositive
+                    ? theme.palette.success.main
+                    : theme.palette.error.main,
+                  fontWeight: "bold",
+                  fontSize: "0.75rem",
+                }}
+              />
+            </Stack>
+
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              gutterBottom
+              sx={{ mb: 1 }}
+            >
+              {card.title}
+            </Typography>
+
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              alignItems="center"
+              sx={{ mt: "auto" }}
+            >
+              <Typography
+                variant="h4"
+                fontWeight="bold"
+                color="text.primary"
+                sx={{ fontFamily: "'Roboto Mono', monospace" }}
+              >
+                <AnimatedNumber
+                  value={card.value}
+                  id={card.id}
+                  suffix={card.suffix || ""}
+                />
+              </Typography>
+              <ChevronRightIcon
+                sx={{
+                  color: "text.secondary",
+                  opacity: 0.5,
+                  transition: "transform 0.3s ease",
+                  ".MuiCard-root:hover &": {
+                    transform: "translateX(4px)",
+                    opacity: 1,
+                  },
+                }}
+              />
+            </Stack>
+          </Card>
+        </Grow>
+      </Grid>
+    );
+  };
+
+  if (loading && !dashboardData) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "100vh",
+          p: 4,
+        }}
+      >
+        <CircularProgress
+          size={60}
+          thickness={4}
+          sx={{ mb: 3, color: currentRoleConfig.color }}
+        />
+        <Typography variant="h6" color="text.secondary">
+          Loading dashboard data...
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          Role: {currentRoleConfig.name} • Entity: {userEntity}
+        </Typography>
+        <LinearProgress
+          sx={{
+            width: "300px",
+            mt: 2,
+            borderRadius: 5,
+            height: 6,
+            backgroundColor: alpha(currentRoleConfig.color, 0.1),
+            "& .MuiLinearProgress-bar": {
+              backgroundColor: currentRoleConfig.color,
+            },
+          }}
+        />
+      </Box>
+    );
+  }
 
   return (
     <Box
@@ -221,315 +868,196 @@ const AdroitHome = () => {
         backgroundColor: theme.palette.background.default,
         minHeight: "100vh",
         background: `linear-gradient(135deg, ${alpha(
-          theme.palette.primary.main,
+          currentRoleConfig.color,
           0.02
         )} 0%, ${alpha(theme.palette.secondary.main, 0.02)} 100%)`,
       }}
     >
-      {/* Header */}
-      <Fade in timeout={600}>
-        <Box sx={{ mb: 4 }}>
-          <Stack
-            direction="row"
-            justifyContent="space-between"
-            alignItems="flex-start"
-          >
-            <Box>
-              <Typography
-                variant="h3"
-                fontWeight="bold"
+      {/* Header with Role Badge */}
+      <Box sx={{ mb: 4 }}>
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+        >
+          <Box>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Typography variant="h4" fontWeight="bold">
+                US Dashboard Overview
+              </Typography>
+              <Chip
+                label={`${currentRoleConfig.name} • ${userEntity}`}
                 sx={{
-                  mb: 1,
-                  background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
+                  backgroundColor: alpha(currentRoleConfig.color, 0.1),
+                  color: currentRoleConfig.color,
+                  fontWeight: "bold",
+                  border: `1px solid ${alpha(currentRoleConfig.color, 0.3)}`,
+                }}
+                size="small"
+              />
+            </Stack>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              {userRole === "RECRUITER"
+                ? "Track your US recruitment metrics"
+                : userRole === "SALESEXECUTIVE"
+                ? "Monitor US sales and client activities"
+                : userRole === "TEAMLEAD"
+                ? "US Team performance overview"
+                : "Complete US business overview"}
+              • User ID: {userId || "N/A"}
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={2}>
+            <Tooltip title="Refresh Dashboard">
+              <IconButton
+                onClick={handleRefresh}
+                disabled={loading}
+                sx={{
+                  backgroundColor: alpha(currentRoleConfig.color, 0.1),
+                  "&:hover": {
+                    backgroundColor: alpha(currentRoleConfig.color, 0.2),
+                  },
                 }}
               >
-                Recruiting Portal
-              </Typography>
-              <Typography variant="h6" color="text.secondary">
-                Welcome back! Here's your recruitment overview
-              </Typography>
-            </Box>
-            <Paper
-              elevation={0}
-              sx={{
-                p: 2,
-                backgroundColor: alpha(theme.palette.success.main, 0.1),
-                border: `1px solid ${alpha(theme.palette.success.main, 0.2)}`,
-                borderRadius: 2,
-              }}
-            >
-              <Stack direction="row" alignItems="center" spacing={2}>
-                <Avatar
-                  sx={{
-                    bgcolor: theme.palette.success.main,
-                    width: 40,
-                    height: 40,
-                  }}
-                >
-                  <TrendingUpIcon />
-                </Avatar>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Overall Performance
-                  </Typography>
-                  <Typography
-                    variant="h5"
-                    fontWeight="bold"
-                    color="success.main"
-                  >
-                    +14.2%
-                  </Typography>
-                </Box>
-              </Stack>
-            </Paper>
+                <RefreshIcon sx={{ color: currentRoleConfig.color }} />
+              </IconButton>
+            </Tooltip>
           </Stack>
-        </Box>
-      </Fade>
+        </Stack>
+      </Box>
 
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        {cardData.map((card, index) => {
-          const IconComponent = card.icon;
-          return (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={card.id}>
-              <Grow in={cardsVisible} timeout={400 + index * 100}>
-                <Card
-                  elevation={0}
-                  sx={{
-                    p: 3,
-                    borderRadius: 3,
-                    border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                    backgroundColor: theme.palette.background.paper,
-                    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                    position: "relative",
-                    overflow: "hidden",
-                    "&:hover": {
-                      transform: "translateY(-4px)",
-                      boxShadow: `0 12px 24px ${alpha(card.color, 0.15)}`,
-                      borderColor: alpha(card.color, 0.3),
-                    },
-                    "&::before": {
-                      content: '""',
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      height: "4px",
-                      background: `linear-gradient(90deg, ${
-                        card.color
-                      }, ${alpha(card.color, 0.7)})`,
-                      opacity: 0,
-                      transition: "opacity 0.3s ease",
-                    },
-                    "&:hover::before": {
-                      opacity: 1,
-                    },
-                  }}
-                >
-                  <Stack
-                    direction="row"
-                    justifyContent="space-between"
-                    alignItems="flex-start"
-                    sx={{ mb: 2 }}
-                  >
-                    <Avatar
-                      sx={{
-                        bgcolor: card.bgColor,
-                        color: card.color,
-                        width: 48,
-                        height: 48,
-                        transition: "transform 0.3s ease",
-                      }}
-                    >
-                      <IconComponent />
-                    </Avatar>
-                    <Chip
-                      label={card.change}
-                      size="small"
-                      sx={{
-                        backgroundColor:
-                          card.changeType === "positive"
-                            ? alpha(theme.palette.success.main, 0.1)
-                            : alpha(theme.palette.error.main, 0.1),
-                        color:
-                          card.changeType === "positive"
-                            ? theme.palette.success.main
-                            : theme.palette.error.main,
-                        fontWeight: "bold",
-                      }}
-                    />
-                  </Stack>
-
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    gutterBottom
-                  >
-                    {card.title}
-                  </Typography>
-
-                  <Stack
-                    direction="row"
-                    justifyContent="space-between"
-                    alignItems="center"
-                  >
-                    <Typography
-                      variant="h4"
-                      fontWeight="bold"
-                      color="text.primary"
-                    >
-                      <AnimatedNumber value={card.value} id={card.id} />
-                    </Typography>
-                    <ChevronRightIcon
-                      sx={{ color: "text.secondary", opacity: 0.5 }}
-                    />
-                  </Stack>
-                </Card>
-              </Grow>
-            </Grid>
-          );
-        })}
+        {cardData.map((card, index) => renderStatsCard(card, index))}
       </Grid>
 
-      {/* Quick Actions and Recent Activity */}
-      <Grid container spacing={3}>
-        {/* Quick Actions */}
-        <Grid item xs={12} lg={4}>
-          <Fade in timeout={800}>
-            <Card
-              elevation={0}
-              sx={{
-                p: 3,
-                borderRadius: 3,
-                border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                height: "fit-content",
-              }}
-            >
-              <Typography variant="h6" fontWeight="bold" gutterBottom>
-                Quick Actions
-              </Typography>
-              <Stack spacing={1}>
-                {quickActions.map((action, index) => {
-                  const IconComponent = action.icon;
-                  return (
-                    <Button
-                      key={index}
-                      fullWidth
-                      variant="text"
-                      startIcon={
-                        <Avatar
-                          sx={{
-                            bgcolor: alpha(action.color, 0.1),
-                            color: action.color,
-                            width: 32,
-                            height: 32,
-                          }}
-                        >
-                          <IconComponent fontSize="small" />
-                        </Avatar>
-                      }
-                      endIcon={<ChevronRightIcon />}
-                      sx={{
-                        justifyContent: "flex-start",
-                        textAlign: "left",
-                        p: 2,
-                        borderRadius: 2,
-                        textTransform: "none",
-                        "&:hover": {
-                          backgroundColor: alpha(action.color, 0.04),
-                        },
-                      }}
-                    >
-                      <Typography
-                        variant="body2"
-                        fontWeight="medium"
-                        sx={{ flexGrow: 1, ml: 2 }}
-                      >
-                        {action.title}
-                      </Typography>
-                    </Button>
-                  );
-                })}
-              </Stack>
-            </Card>
-          </Fade>
-        </Grid>
-
-        {/* Recent Activity */}
-        <Grid item xs={12} lg={8}>
-          <Fade in timeout={1000}>
-            <Card
-              elevation={0}
-              sx={{
-                p: 3,
-                borderRadius: 3,
-                border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-              }}
-            >
-              <Typography variant="h6" fontWeight="bold" gutterBottom>
-                Recent Activity
-              </Typography>
-              <List sx={{ p: 0 }}>
-                {recentActivities.map((activity, index) => (
-                  <ListItem
-                    key={index}
-                    sx={{
-                      borderRadius: 2,
-                      mb: 1,
-                      transition: "background-color 0.2s ease",
-                      "&:hover": {
-                        backgroundColor: alpha(activity.color, 0.04),
-                      },
-                    }}
-                  >
-                    <ListItemIcon>
-                      <Avatar
+      {/* Quick Actions */}
+      {getFilteredQuickActions().length > 0 && (
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <Fade in timeout={800}>
+              <Card
+                elevation={0}
+                sx={{
+                  p: 3,
+                  borderRadius: 3,
+                  border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                  backgroundColor: theme.palette.background.paper,
+                }}
+              >
+                <CardHeader
+                  title="US Quick Actions"
+                  subheader={`Frequently used actions for ${currentRoleConfig.name}`}
+                  titleTypographyProps={{
+                    sx: { color: currentRoleConfig.color },
+                  }}
+                  action={
+                    <Typography variant="caption" color="text.secondary">
+                      {dashboardData && `Live US Data`}
+                    </Typography>
+                  }
+                />
+                <Stack spacing={1}>
+                  {getFilteredQuickActions().map((action, index) => {
+                    const IconComponent = action.icon;
+                    return (
+                      <Button
+                        key={index}
+                        fullWidth
+                        variant="text"
+                        onClick={() => handleQuickAction(action.path)}
+                        startIcon={
+                          <Avatar
+                            sx={{
+                              bgcolor: alpha(action.color, 0.1),
+                              color: action.color,
+                              width: 36,
+                              height: 36,
+                            }}
+                          >
+                            <IconComponent fontSize="small" />
+                          </Avatar>
+                        }
+                        endIcon={<ChevronRightIcon />}
                         sx={{
-                          bgcolor: alpha(activity.color, 0.1),
-                          color: activity.color,
-                          width: 40,
-                          height: 40,
+                          justifyContent: "flex-start",
+                          textAlign: "left",
+                          p: 2,
+                          borderRadius: 2,
+                          textTransform: "none",
+                          transition: "all 0.2s ease",
+                          "&:hover": {
+                            backgroundColor: alpha(action.color, 0.08),
+                            transform: "translateX(4px)",
+                          },
                         }}
                       >
-                        {activity.type === "application" && (
-                          <UploadFileIcon fontSize="small" />
-                        )}
-                        {activity.type === "interview" && (
-                          <EventAvailableIcon fontSize="small" />
-                        )}
-                        {activity.type === "offer" && (
-                          <CheckCircleIcon fontSize="small" />
-                        )}
-                        {activity.type === "screening" && (
-                          <PersonSearchIcon fontSize="small" />
-                        )}
-                      </Avatar>
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={
-                        <Typography variant="body2" fontWeight="medium">
-                          {activity.action}
-                        </Typography>
-                      }
-                      secondary={
-                        <Typography variant="caption" color="text.secondary">
-                          {activity.candidate} • {activity.position}
-                        </Typography>
-                      }
-                    />
-                    <Typography variant="caption" color="text.secondary">
-                      {activity.time}
-                    </Typography>
-                  </ListItem>
-                ))}
-              </List>
-            </Card>
-          </Fade>
+                        <Box sx={{ flexGrow: 1, ml: 2 }}>
+                          <Typography variant="body2" fontWeight="medium">
+                            {action.title}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {action.description}
+                          </Typography>
+                        </Box>
+                      </Button>
+                    );
+                  })}
+                </Stack>
+              </Card>
+            </Fade>
+          </Grid>
         </Grid>
-      </Grid>
+      )}
+
+      {/* Role-specific information */}
+      {userRole === "RECRUITER" && (
+        <Fade in timeout={1000}>
+          <Alert severity="info" sx={{ mt: 3 }} icon={<PeopleIcon />}>
+            <Typography variant="body2">
+              <strong>US Recruiter Focus:</strong> You have access to{" "}
+              {dashboardData?.totalHotlistExceptFullTime || "177"} consultants
+              in the US hotlist. Focus on increasing your submission to
+              interview conversion rate.
+            </Typography>
+          </Alert>
+        </Fade>
+      )}
+
+      {userRole === "SALESEXECUTIVE" && (
+        <Fade in timeout={1000}>
+          <Alert severity="info" sx={{ mt: 3 }} icon={<BusinessIcon />}>
+            <Typography variant="body2">
+              <strong>US Sales Focus:</strong> There are{" "}
+              {dashboardData?.currentMonthRequirements || "59"} active
+              requirements this month. Focus on converting requirements to
+              submissions and building client relationships.
+            </Typography>
+          </Alert>
+        </Fade>
+      )}
+
+      {userRole === "TEAMLEAD" && (
+        <Fade in timeout={1000}>
+          <Alert severity="info" sx={{ mt: 3 }} icon={<PeopleIcon />}>
+            <Typography variant="body2">
+              <strong>US Team Lead Focus:</strong> Your team has made{" "}
+              {dashboardData?.currentMonthSubmissions || "50"} submissions this
+              month. Monitor team performance and provide guidance where needed.
+            </Typography>
+          </Alert>
+        </Fade>
+      )}
+
+      {/* Footer Status */}
+      <Fade in timeout={1000}>
+        <Box sx={{ mt: 4, textAlign: "center" }}>
+          <Typography variant="caption" color="text.secondary">
+            Data fetched from US API • Role: {currentRoleConfig.name} • Entity:{" "}
+            {userEntity} • Last refresh: {new Date().toLocaleTimeString()}
+          </Typography>
+        </Box>
+      </Fade>
     </Box>
   );
 };
