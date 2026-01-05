@@ -257,13 +257,19 @@ export const usClientsAPI = {
 // ======= RTR FORM SUBMISSION  API ===========
 
 export const rightToRepresentAPI = {
-  submitRTR: async (userId, rtrData) => {
-    if (!userId) throw new Error("User ID is required");
-    if (!rtrData) throw new Error("RTR data is required");
 
+   submitRTR: async(userId,rtrData)=>{
+    if (!userId) throw new Error("User ID is required");
+    if (!rtrData) throw new Error("RTR data is required");  
     return apiPost(`/hotlist/create-rtr/${userId}`, rtrData);
   },
+  
+  createtRTR: async (userId,formDataToSend,boolean) => {
+    if (!userId) throw new Error("User ID is required");
+    if (!formDataToSend) throw new Error("Form data is required");
 
+    return apiPost(`/hotlist/create-direct-rtr/${userId}?isAssignAll=${boolean}`,formDataToSend);
+  },
   getAllRTR: async (params = {}) => {
     return apiGet("/hotlist/rtr-list", params);
   },

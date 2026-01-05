@@ -384,7 +384,7 @@ const getRequirementsColumns = ({
             </IconButton>
           </Tooltip>
         )}
-        {(userRole === "RECRUITER" || userRole === "TEAMLEAD") && (
+        {(userRole === "RECRUITER" || userRole === "TEAMLEAD" || userRole === "GRANDSALES") && (
           <Tooltip title="Submit Candidate">
             <Button
               variant="contained"

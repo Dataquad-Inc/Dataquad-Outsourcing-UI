@@ -134,6 +134,7 @@ const getHotListUserSections = (
           label: "LinkedIn URL",
           type: "link",
           icon: "LinkedIn",
+          required:true,
         },
       ],
     },
