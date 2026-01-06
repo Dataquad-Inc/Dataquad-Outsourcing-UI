@@ -51,7 +51,7 @@ export default function TeamForm() {
         const categorized = {
           superAdmins: users.filter((u) => u.roles === "SUPERADMIN"),
           teamLeads: [
-            ...users.filter((u) => u.roles === "TEAMLEAD"),
+            ...users.filter((u) => u.roles === "TEAMLEAD" || u.roles === "BDM"),
             customTeamLead,
           ],
           employees: users.filter((u) => u.roles === "EMPLOYEE"),
