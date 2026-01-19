@@ -102,6 +102,7 @@ const ColumnsForInterviews = ({ onEdit, onDelete, userRole = 'all', showActions 
         { value: 'Completed', label: 'Completed' },
         { value: 'Cancelled', label: 'Cancelled' },
         { value: 'Rescheduled', label: 'Rescheduled' },
+        { value: 'Rejected', label: 'Rejected' },
       ],
       render: (value) => (
         <Chip
@@ -109,8 +110,8 @@ const ColumnsForInterviews = ({ onEdit, onDelete, userRole = 'all', showActions 
           color={
             value === 'Completed' ? 'success' :
               value === 'Scheduled' ? 'primary' :
-                value === 'Cancelled' ? 'error' :
-                  value === 'Rescheduled' ? 'warning' : 'default'
+                value === ('Cancelled' || 'Rejected') ? 'error' :
+                  value === 'Rescheduled' ? 'warning' : 'default'                  
           }
           variant="outlined"
           size="small"

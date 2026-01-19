@@ -152,10 +152,10 @@ const EditInterviewFormForUs = ({ interview, onClose, onSave }) => {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {/* Interview Status */}
             <FormControl fullWidth error={formik.touched.interviewStatus && Boolean(formik.errors.interviewStatus)}>
-              <InputLabel>Interview Status</InputLabel>
+              <InputLabel>Interview Status</InputLabel>              
               <Select
                 name="interviewStatus"
-                value={formik.values.interviewStatus}
+                value={formik.values.interviewStatus.toUpperCase().charAt(0) + formik.values.interviewStatus.toLowerCase().slice(1)}
                 onChange={formik.handleChange}
                 onBlur={formik.handleBlur}
                 label="Interview Status"
@@ -166,6 +166,7 @@ const EditInterviewFormForUs = ({ interview, onClose, onSave }) => {
                 <MenuItem value="Rescheduled">Rescheduled</MenuItem>
                 <MenuItem value="Selected">Selected</MenuItem>
                 <MenuItem value="Placed">Placed</MenuItem>
+                <MenuItem value="Rejected">Rejected</MenuItem>
                 <MenuItem value="No Show/Not Attended">No Show/Not Attended</MenuItem>
               </Select>
               {formik.touched.interviewStatus && formik.errors.interviewStatus && (
