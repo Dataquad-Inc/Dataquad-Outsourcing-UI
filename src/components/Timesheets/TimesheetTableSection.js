@@ -59,7 +59,7 @@ const TimesheetTableSection = ({
   currentMonthWeeks,
   handleRejectTimesheet,
   selectedMonthRange,
-  projectDetails, 
+  projectDetails,
   fetchMonthlyTimesheetData,
   // Add new prop for submit loading state
   submitLoading = false
@@ -404,8 +404,9 @@ const TimesheetTableSection = ({
         )
       )}
 
-      {/* Notes and Actions Section - Always render notes field for all roles, but conditionally show actions */}
-      <Box sx={{ mt: 4, p: 3, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+      {isCreateMode || isAddingNewTimesheet || role === "EXTERNALEMPLOYEE" && (
+        <>
+        <Box sx={{ mt: 4, p: 3 ,border: '1px solid', borderColor: 'divider' }}>
         <Typography variant="h6" gutterBottom>
           Notes & Additional Information
         </Typography>
@@ -425,6 +426,13 @@ const TimesheetTableSection = ({
           disabled={currentTimesheet?.status === "PENDING_APPROVAL" || currentTimesheet?.status === "APPROVED"}
           sx={{ mb: 3, width: '100%' }}
         />
+        </Box>
+      </> 
+    )}
+
+
+      {/* Notes and Actions Section - Always render notes field for all roles, but conditionally show actions */}
+      <Box sx={{ mt: 4, p: 3 }}>
 
         {/* Progress and Actions */}
         {/* Only show action buttons for non-ACCOUNTS/INVOICE roles */}
@@ -448,7 +456,7 @@ const TimesheetTableSection = ({
                   startIcon={<Edit />}
                   // onClick={handleEditTimesheet}
                   // onClick={saveTimesheet}
-                   onClick={() => saveTimesheet(false, true)}
+                  onClick={() => saveTimesheet(false, true)}
                   disabled={loading || adminActionLoading}
                   sx={{ minWidth: 120 }}
                 >
@@ -564,7 +572,7 @@ const TimesheetTableSection = ({
                   variant="outlined"
                   color="primary"
                   startIcon={<Edit />}
-                   onClick={saveTimesheet}
+                  onClick={saveTimesheet}
                   //  onClick={() => saveTimesheet(true)}
                   disabled={loading || adminActionLoading}
                   sx={{ minWidth: 120 }}
