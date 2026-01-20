@@ -737,6 +737,7 @@ const fetchOrCreateTimesheet = async () => {
             monthStart: monthStartStr,
             monthEnd: monthEndStr
           }));
+          ToastService.info('Fetching timesheets for the selected month range');
         } else {
           resultAction = await dispatch(fetchTimesheetsByUserId(employeeId));
         }
@@ -748,6 +749,7 @@ const fetchOrCreateTimesheet = async () => {
             (response?.data || []);
 
           console.log('🔍 Existing timesheets found:', timesheetData.length);
+          ToastService.info(`Found ${timesheetData.length} existing timesheets for the employee`);
 
           const timesheetsArray = Array.isArray(timesheetData) ? timesheetData : [];
           
@@ -813,7 +815,7 @@ const fetchOrCreateTimesheet = async () => {
               setAttachments([]);
             }
 
-            ToastService.info('Existing timesheet found for this week and project');
+            ToastService.success('Existing timesheet found for this week and project');
           } else {
             console.log(" No existing timesheet found, creating new empty timesheet");
             const emptyTimesheet = getEmptyTimesheet(selectedProject);
@@ -897,6 +899,7 @@ const fetchOrCreateTimesheet = async () => {
 
         setMonthlyTimesheetData(monthlyData);
         setMonthlyViewMode(true);
+        ToastService.info('Monthly timesheet data loaded');
       } else {
         const errorMessage = extractErrorMessage(resultAction.payload);
         throw new Error(errorMessage);
@@ -943,6 +946,7 @@ const fetchOrCreateTimesheet = async () => {
         (response?.data || []);
 
       console.log('📦 Weekly timesheet data received:', timesheetData.length, 'timesheets');
+      ToastService.success(`Fetched timesheets successfully`);
       
       const totalWorkingHours = response?.data?.totalWorkingHours || 0;
       setMonthlyTotalWorkingHoursForEmployee(totalWorkingHours);
@@ -988,6 +992,7 @@ const fetchOrCreateTimesheet = async () => {
       if (existingTimesheet) {
         console.log("✅ Existing timesheet found:", existingTimesheet.timesheetId);
         console.log("📅 Transforming with calendar month:", calendarValue.toISOString());
+        ToastService.info('Existing timesheet loaded for the selected week and project');
         
         // CRITICAL FIX: Always pass current calendarValue to transform function
         const transformed = transformTimesheet(existingTimesheet, calendarValue);
@@ -1380,6 +1385,7 @@ const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
 
       console.log('Processed monthly data with correct date range:', monthlyData);
       setMonthlyTimesheetData(monthlyData);
+      ToastService.success('Monthly timesheet data loaded successfully');
 
     } else {
       console.error('API call failed:', resultAction.payload);
@@ -1453,7 +1459,7 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
   if (currentMonthEntries.length === 0) {
     console.log('No entries for current month:', {
       weekStart: apiTimesheet.weekStartDate,
-      weekEnd: apiTimesheet.weekEndDate,
+      weekEnd: apiTimesheet.weekEndDate, 
       currentMonth: currentMonth + 1,
       currentMonthEntriesCount: currentMonthEntries.length
     });
@@ -2060,7 +2066,7 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
           const response = resultAction.payload;
 
           if (response?.success) {
-            ToastService.success("Timesheet updated and resubmitted for approval");
+            ToastService.success("Timesheet updated successfully");
             setIsEditMode(false);
             setHasUnsavedChanges(false);
 

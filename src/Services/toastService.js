@@ -1,7 +1,39 @@
+// ToastService.js
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-// Default configuration options
+// Track recent toasts to prevent duplicates
+const recentToasts = new Map();
+const DUPLICATE_THRESHOLD = 1000; // milliseconds
+
+/**
+ * Check if a toast with the same message was shown recently
+ */
+const isDuplicate = (message, type) => {
+  const key = `${type}-${message}`;
+  const lastShown = recentToasts.get(key);
+  const now = Date.now();
+  
+  if (lastShown && (now - lastShown) < DUPLICATE_THRESHOLD) {
+    return true;
+  }
+  
+  recentToasts.set(key, now);
+  
+  // Clean up old entries
+  if (recentToasts.size > 50) {
+    const entriesToDelete = [];
+    recentToasts.forEach((timestamp, key) => {
+      if (now - timestamp > DUPLICATE_THRESHOLD) {
+        entriesToDelete.push(key);
+      }
+    });
+    entriesToDelete.forEach(key => recentToasts.delete(key));
+  }
+  
+  return false;
+};
+
 const defaultOptions = {
   position: "top-right",
   autoClose: 3000,
@@ -11,71 +43,44 @@ const defaultOptions = {
   draggable: true,
 };
 
-/**
- * Toast Service - A reusable toast notification utility
- */
 const ToastService = {
-  /**
-   * Success toast notification
-   * @param {string} message - The message to display
-   * @param {object} options - Override default toast options
-   */
   success: (message, options = {}) => {
-    toast.success(message, { ...defaultOptions, ...options });
+    if (!isDuplicate(message, 'success')) {
+      toast.success(message, { ...defaultOptions, ...options });
+    }
   },
 
-  /**
-   * Error toast notification
-   * @param {string} message - The message to display
-   * @param {object} options - Override default toast options
-   */
   error: (message, options = {}) => {
-    toast.error(message, { 
-      ...defaultOptions, 
-      ...options,
-      autoClose: options.autoClose || 5000 // Errors show longer by default
-    });
+    if (!isDuplicate(message, 'error')) {
+      toast.error(message, { 
+        ...defaultOptions, 
+        ...options,
+        autoClose: options.autoClose || 5000
+      });
+    }
   },
 
-  /**
-   * Info toast notification
-   * @param {string} message - The message to display
-   * @param {object} options - Override default toast options
-   */
   info: (message, options = {}) => {
-    toast.info(message, { ...defaultOptions, ...options });
+    if (!isDuplicate(message, 'info')) {
+      toast.info(message, { ...defaultOptions, ...options });
+    }
   },
 
-  /**
-   * Warning toast notification
-   * @param {string} message - The message to display
-   * @param {object} options - Override default toast options
-   */
   warning: (message, options = {}) => {
-    toast.warning(message, { ...defaultOptions, ...options });
+    if (!isDuplicate(message, 'warning')) {
+      toast.warning(message, { ...defaultOptions, ...options });
+    }
   },
 
-  /**
-   * Show a loading toast that can be updated later
-   * @param {string} message - The loading message
-   * @param {object} options - Override default toast options
-   * @returns {string} The toast ID to use for updating
-   */
   loading: (message = "Loading...", options = {}) => {
+    // Loading toasts should always show (for update pattern)
     return toast.loading(message, { 
       ...defaultOptions, 
       ...options,
-      autoClose: false // Loading toasts don't auto-close
+      autoClose: false
     });
   },
 
-  /**
-   * Update an existing toast (useful for loading -> success/error flows)
-   * @param {string} toastId - The ID of the toast to update
-   * @param {string} message - The new message
-   * @param {string} type - The new toast type ('success', 'error', etc.)
-   * @param {object} options - Override default toast options
-   */
   update: (toastId, message, type = 'success', options = {}) => {
     toast.update(toastId, {
       render: message,
@@ -87,26 +92,14 @@ const ToastService = {
     });
   },
 
-  /**
-   * Dismiss a specific toast
-   * @param {string} toastId - The ID of the toast to dismiss
-   */
   dismiss: (toastId) => {
     toast.dismiss(toastId);
   },
 
-  /**
-   * Dismiss all toasts
-   */
   dismissAll: () => {
     toast.dismiss();
   },
 
-  /**
-   * Show a toast with a custom component
-   * @param {React.ReactNode} component - Custom React component to display
-   * @param {object} options - Override default toast options
-   */
   custom: (component, options = {}) => {
     toast(component, { ...defaultOptions, ...options });
   }
