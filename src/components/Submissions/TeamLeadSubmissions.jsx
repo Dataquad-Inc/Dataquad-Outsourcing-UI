@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useSelector } from "react-redux";
 import BaseSubmission from "./BaseSubmission";
 import { showToast } from "../../utils/ToastNotification";
@@ -7,102 +7,197 @@ const TeamLeadSubmissions = () => {
   const [selfData, setSelfData] = useState([]);
   const [teamData, setTeamData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tabValue, setTabValue] = useState(0);
-  const [isTeamData, setIsTeamData] = useState(false);
-  const [pagination, setPagination] = useState({
+
+  // 🔑 Single source of truth
+  const [tabValue, setTabValue] = useState(0); // 0 = self, 1 = team
+  const isTeamData = tabValue === 1;
+
+  const [filters, setFilters] = useState({});
+  const [globalSearch, setGlobalSearch] = useState("");
+
+  const [selfPagination, setSelfPagination] = useState({
+    totalElements: 0,
+    totalPages: 0,
     currentPage: 0,
-    pageSize: 5,
-    totalSelfPages: 0,
-    totalTeamPages: 0,
-    totalSelfSubmissions: 0,
-    totalTeamSubmissions: 0
+    pageSize: 10,
+  });
+
+  const [teamPagination, setTeamPagination] = useState({
+    totalElements: 0,
+    totalPages: 0,
+    currentPage: 0,
+    pageSize: 10,
   });
 
   const { userId, role } = useSelector((state) => state.auth);
 
-  const fetchData = useCallback(async (page = 0, size = 5) => {
-    try {
-      setLoading(true);
+  const controllerRef = useRef(null);
 
-      const response = await fetch(
-        `https://mymulya.com/candidate/submissions/teamlead/${userId}?page=${page}&size=${size}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json"
-            // Authorization: `Bearer ${token}` // add if needed
-          }
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
+  // ================= FETCH =================
+  const fetchData = useCallback(
+    async (
+      page = 0,
+      size = 10,
+      searchValue = "",
+      filterParams = {},
+      isTeam = false,
+    ) => {
+      if (controllerRef.current) {
+        controllerRef.current.abort();
       }
 
-      const data = await response.json();
+      controllerRef.current = new AbortController();
 
-      console.log("Fetched data:", data);
+      try {
+        setLoading(true);
 
-      setSelfData(data.selfSubmissions || []);
-      setTeamData(data.teamSubmissions || []);
+        const params = new URLSearchParams({
+          page,
+          size,
+        });
 
-      setPagination({
-        currentPage: data.currentPage || 0,
-        pageSize: data.pageSize || 5,
-        totalSelfPages: data.totalSelfPages || 0,
-        totalTeamPages: data.totalTeamPages || 0,
-        totalSelfSubmissions: data.totalSelfSubmissions || 0,
-        totalTeamSubmissions: data.totalTeamSubmissions || 0
-      });
-    } catch (error) {
-      console.error("Error fetching submissions:", error);
-      showToast("Failed to load submissions", "error");
-      setSelfData([]);
-      setTeamData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [userId]);
+        if (isTeam) params.append("team", "true");
 
-  const refreshData = useCallback(() => {
-    fetchData(pagination.currentPage, pagination.pageSize);
-  }, [fetchData, pagination.currentPage, pagination.pageSize]);
+        if (searchValue?.trim()) {
+          params.append("globalSearch", searchValue.trim());
+        }
 
-  const handlePageChange = useCallback((newPage) => {
-    fetchData(newPage, pagination.pageSize);
-  }, [fetchData, pagination.pageSize]);
+        Object.entries(filterParams).forEach(([k, v]) => {
+          if (v) params.append(k, v);
+        });
 
+        const response = await fetch(
+          `https://mymulya.com/candidate/submissions/teamlead/${userId}?${params}`,
+          { signal: controllerRef.current.signal },
+        );
+
+        if (!response.ok) throw new Error("Failed to fetch data");
+
+        const result = await response.json();
+
+        // ===== TEAM =====
+        if (isTeam) {
+          const teamSubmissions = result.teamSubmissions || [];
+          setTeamData(teamSubmissions);
+          setTeamPagination({
+            totalElements:
+              result.totalTeamSubmissions ||
+              result.totalElements ||
+              teamSubmissions.length,
+            totalPages: result.totalTeamPages || result.totalPages || 1,
+            currentPage: result.currentPage ?? page,
+            pageSize: result.pageSize || size,
+          });
+
+          return teamSubmissions;
+        }
+
+        // ===== SELF =====
+        const selfSubmissions = result.selfSubmissions || [];
+        setSelfData(selfSubmissions);
+        setSelfPagination({
+          totalElements:
+            result.totalSelfSubmissions ||
+            result.totalElements ||
+            selfSubmissions.length,
+          totalPages: result.totalSelfPages || result.totalPages || 1,
+          currentPage: result.currentPage ?? page,
+          pageSize: result.pageSize || size,
+        });
+
+        return selfSubmissions;
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          showToast(err.message || "Network error", "error");
+        }
+        return [];
+      } finally {
+        setLoading(false);
+        controllerRef.current = null;
+      }
+    },
+    [userId],
+  );
+
+  // ================= INITIAL LOAD =================
   useEffect(() => {
-    fetchData();
+    fetchData(0, 10, "", {}, false);
+    return () => controllerRef.current?.abort();
   }, [fetchData]);
 
-  const currentData = isTeamData ? teamData : selfData;
-  const totalPages = isTeamData ? pagination.totalTeamPages : pagination.totalSelfPages;
-  const totalItems = isTeamData
-    ? pagination.totalTeamSubmissions
-    : pagination.totalSelfSubmissions;
+  // ================= TAB CHANGE (WITH FALLBACK) =================
+  const handleTabChange = useCallback(
+    async (event, newValue) => {
+      setTabValue(newValue);
+
+      // TEAM TAB CLICKED
+      if (newValue === 1) {
+        const teamResult = await fetchData(
+          0,
+          10,
+          globalSearch,
+          filters,
+          true,
+        );
+
+        // 🔥 AUTO FALLBACK
+        if (teamResult.length === 0 && selfData.length > 0) {
+          showToast(
+            "No team submissions found. Showing self submissions.",
+            "info",
+          );
+          setTabValue(0);
+        }
+      }
+
+      // SELF TAB CLICKED
+      if (newValue === 0 && selfData.length === 0) {
+        fetchData(0, 10, globalSearch, filters, false);
+      }
+    },
+    [fetchData, globalSearch, filters, selfData.length],
+  );
+
+  // ================= HANDLERS =================
+  const handlePageChange = (page, size) => {
+    fetchData(page, size, globalSearch, filters, isTeamData);
+  };
+
+  const handleRowsPerPageChange = (size) => {
+    fetchData(0, size, globalSearch, filters, isTeamData);
+  };
+
+  const handleFilterChange = (newFilters, page, size) => {
+    setFilters(newFilters);
+    fetchData(page, size, globalSearch, newFilters, isTeamData);
+  };
+
+  const handleSearchChange = (search, page, size) => {
+    setGlobalSearch(search);
+    fetchData(page, size, search, filters, isTeamData);
+  };
+
+  const handleRefresh = () => {
+    const p = isTeamData ? teamPagination : selfPagination;
+    fetchData(p.currentPage, p.pageSize, globalSearch, filters, isTeamData);
+  };
 
   return (
     <BaseSubmission
-      data={currentData}
+      data={isTeamData ? teamData : selfData}
       loading={loading}
-      setLoading={setLoading}
-      componentName="TeamLeadSubmissions"
       title={isTeamData ? "Team Submissions" : "My Submissions"}
-      refreshData={refreshData}
-      enableTeamLeadTabs={true}
-      isTeamData={isTeamData}
-      setIsTeamData={setIsTeamData}
+      refreshData={handleRefresh}
+      enableTeamLeadTabs
       tabValue={tabValue}
-      setTabValue={setTabValue}
+      setTabValue={handleTabChange}
+      pagination={isTeamData ? teamPagination : selfPagination}
+      onPageChange={handlePageChange}
+      onRowsPerPageChange={handleRowsPerPageChange}
+      onFilterChange={handleFilterChange}
+      onSearchChange={handleSearchChange}
       role={role}
-      pagination={{
-        currentPage: pagination.currentPage,
-        totalPages: totalPages,
-        totalItems: totalItems,
-        pageSize: pagination.pageSize,
-        onPageChange: handlePageChange
-      }}
+      enableServerSideFiltering
     />
   );
 };

@@ -6,17 +6,12 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TableSortLabel,
   Paper,
   TextField,
   Box,
   Typography,
   Toolbar,
   TablePagination,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   IconButton,
   InputAdornment,
   Chip,
@@ -28,8 +23,8 @@ import {
   Menu,
   CircularProgress,
   Collapse,
-  useTheme,
   alpha,
+  MenuItem,
 } from "@mui/material";
 import {
   Search,
@@ -41,8 +36,6 @@ import {
   DarkMode,
   LightMode,
   CloudDownload,
-  ExpandMore,
-  ExpandLess,
   Send,
 } from "@mui/icons-material";
 import * as XLSX from "xlsx";
@@ -130,15 +123,13 @@ const DataTablePaginated = ({
   onRequestOtpVerification,
   isFinancialVerified,
   userFilteredDataCount,
-  serverSideSearchDelay = 500,
-  enableSearchDebounce = true,
   enableLocalFiltering = false,
   onExportData,
   onRowsPerPageChange,
   enableServerSideFiltering = false,
+  // New prop for external search value
+  searchValue = "",
 }) => {
-  const theme = useTheme();
-
   const processedColumns = useMemo(() => {
     return initialColumns.map((column) => ({
       ...column,
@@ -158,7 +149,8 @@ const DataTablePaginated = ({
   const [orderBy, setOrderBy] = useState(
     defaultSortColumn || columns[0]?.key || uniqueId,
   );
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchInput, setSearchInput] = useState(searchValue || "");
+  const [searchQuery, setSearchQuery] = useState(searchValue || "");
   const [filters, setFilters] = useState({});
   const [showFilters, setShowFilters] = useState(false);
   const [selectedRows, setSelectedRows] = useState([]);
@@ -167,8 +159,6 @@ const DataTablePaginated = ({
   const [darkMode, setDarkMode] = useState(false);
   const [densePadding, setDensePadding] = useState(false);
   const [expandedRow, setExpandedRow] = useState(null);
-  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
-  const [debouncedSearch, setDebouncedSearch] = useState("");
 
   const tableHeight = customTableHeight || "100%";
   const tableWidth = customTableWidth || "100%";
@@ -187,6 +177,14 @@ const DataTablePaginated = ({
     ...customStyles,
   };
 
+  // Sync search input with external searchValue prop
+  useEffect(() => {
+    if (searchValue !== undefined) {
+      setSearchInput(searchValue);
+      setSearchQuery(searchValue);
+    }
+  }, [searchValue]);
+
   useEffect(() => {
     setData(initialData);
     if (!serverSide || enableLocalFiltering) {
@@ -197,30 +195,6 @@ const DataTablePaginated = ({
   useEffect(() => {
     setColumns(processedColumns);
   }, [processedColumns]);
-
-  useEffect(() => {
-    if (!serverSide || !enableSearchDebounce) return;
-
-    const handler = setTimeout(() => {
-      setDebouncedSearch(searchQuery);
-    }, serverSideSearchDelay);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [searchQuery, serverSide, enableSearchDebounce, serverSideSearchDelay]);
-
-  useEffect(() => {
-    if (serverSide && onSearchChange && debouncedSearch !== undefined) {
-      onSearchChange(
-        debouncedSearch,
-        externalPage || 0,
-        externalRowsPerPage || defaultRowsPerPage,
-        orderBy,
-        order,
-      );
-    }
-  }, [debouncedSearch, serverSide, onSearchChange]);
 
   const handleChangePage = (event, newPage) => {
     console.log(
@@ -282,28 +256,53 @@ const DataTablePaginated = ({
     return 0;
   };
 
-  const handleSearch = (event) => {
-    const query = event.target.value;
-    setSearchQuery(query);
+  const handleSearchInputChange = (event) => {
+    const value = event.target.value;
+    setSearchInput(value);
+    
+    // For real-time search (without debounce)
+    if (serverSide && onSearchChange && !enableLocalFiltering) {
+      // Call search immediately for server-side
+      setSearchQuery(value);
+      onSearchChange(
+        value,
+        0, // Reset to first page when searching
+        externalRowsPerPage || defaultRowsPerPage,
+        orderBy,
+        order,
+      );
+    }
+  };
 
-    if (!serverSide || !enableSearchDebounce) {
-      if (serverSide && onSearchChange) {
-        onSearchChange(
-          query,
-          externalPage || 0,
-          externalRowsPerPage || defaultRowsPerPage,
-          orderBy,
-          order,
-        );
-      }
+  const handleSearchClick = () => {
+    const trimmedSearch = searchInput.trim();
+    setSearchQuery(trimmedSearch);
+
+    if (serverSide && onSearchChange) {
+      onSearchChange(
+        trimmedSearch,
+        0, // Reset to first page when searching
+        externalRowsPerPage || defaultRowsPerPage,
+        orderBy,
+        order,
+      );
+    }
+  };
+
+  const handleSearchKeyPress = (event) => {
+    if (event.key === "Enter") {
+      handleSearchClick();
     }
   };
 
   const clearSearch = () => {
-    setSearchQuery("");
+    const emptyValue = "";
+    setSearchInput(emptyValue);
+    setSearchQuery(emptyValue);
+    
     if (serverSide && onSearchChange) {
       onSearchChange(
-        "",
+        emptyValue,
         externalPage || 0,
         externalRowsPerPage || defaultRowsPerPage,
         orderBy,
@@ -320,7 +319,6 @@ const DataTablePaginated = ({
 
     setFilters(newFilters);
 
-    // For server-side filtering, call the onFilterChange callback
     if ((serverSide || enableServerSideFiltering) && onFilterChange) {
       onFilterChange(
         newFilters,
@@ -349,10 +347,6 @@ const DataTablePaginated = ({
 
   const toggleFilters = () => {
     setShowFilters(!showFilters);
-  };
-
-  const toggleAdvancedFilters = () => {
-    setAdvancedFiltersOpen(!advancedFiltersOpen);
   };
 
   const handleSelectAllClick = (event) => {
@@ -456,7 +450,9 @@ const DataTablePaginated = ({
   };
 
   const resetAllSettings = () => {
-    setSearchQuery("");
+    const emptyValue = "";
+    setSearchQuery(emptyValue);
+    setSearchInput(emptyValue);
     setFilters({});
     setSelectedRows([]);
     setColumns(processedColumns);
@@ -465,11 +461,21 @@ const DataTablePaginated = ({
     setDarkMode(false);
     setDensePadding(false);
     setShowFilters(false);
-    setAdvancedFiltersOpen(false);
     handleOptionsMenuClose();
 
     if (serverSide && onPageChange) {
       onPageChange(0, defaultRowsPerPage);
+    }
+    
+    // Call external reset if needed
+    if (serverSide && onSearchChange) {
+      onSearchChange(
+        emptyValue,
+        0,
+        externalRowsPerPage || defaultRowsPerPage,
+        orderBy,
+        order,
+      );
     }
   };
 
@@ -531,21 +537,6 @@ const DataTablePaginated = ({
     enableLocalFiltering,
   ]);
 
-  const getColumnFilterOptions = (columnKey) => {
-    const column = columns.find((col) => col.key === columnKey);
-
-    if (column.options && column.options.length > 0) {
-      return column.options;
-    }
-
-    const dataSource = serverSide ? data : filteredData;
-    const uniqueValues = [
-      ...new Set(dataSource.map((row) => row[columnKey])),
-    ].filter((val) => val !== null && val !== undefined);
-
-    return uniqueValues.sort();
-  };
-
   const displayData = useMemo(() => {
     if (serverSide) {
       return data;
@@ -570,8 +561,8 @@ const DataTablePaginated = ({
 
   const visibleColumns = columns.filter((column) => column.visible !== false);
 
-  // Determine if filters should be shown
-  const shouldShowFilters = !serverSide || enableLocalFiltering || enableServerSideFiltering;
+  const shouldShowFilters =
+    !serverSide || enableLocalFiltering || enableServerSideFiltering;
 
   return (
     <Box sx={{ width: tableWidth }}>
@@ -604,7 +595,6 @@ const DataTablePaginated = ({
             component="div"
           >
             {title}{" "}
-           
             {selectedRows.length > 0 && (
               <Chip
                 label={`${selectedRows.length} selected`}
@@ -626,8 +616,9 @@ const DataTablePaginated = ({
             <TextField
               variant="outlined"
               size="small"
-              value={searchQuery}
-              onChange={handleSearch}
+              value={searchInput}
+              onChange={handleSearchInputChange}
+              onKeyPress={handleSearchKeyPress}
               sx={{
                 width: { xs: "100%", sm: 200 },
                 "& .MuiOutlinedInput-root": {
@@ -652,17 +643,21 @@ const DataTablePaginated = ({
                     />
                   </InputAdornment>
                 ),
-                endAdornment: searchQuery && (
+                endAdornment: (
                   <InputAdornment position="end">
-                    <IconButton
-                      aria-label="clear search"
-                      onClick={clearSearch}
-                      edge="end"
-                      size="small"
-                      sx={{ color: alpha(tableStyles.paper.color, 0.7) }}
-                    >
-                      <Clear fontSize="small" />
-                    </IconButton>
+                    {searchInput && (
+                      <IconButton
+                        aria-label="clear search"
+                        onClick={clearSearch}
+                        edge="end"
+                        size="small"
+                        sx={{
+                          color: alpha(tableStyles.paper.color, 0.7),
+                        }}
+                      >
+                        <Clear fontSize="small" />
+                      </IconButton>
+                    )}
                   </InputAdornment>
                 ),
               }}
@@ -858,156 +853,6 @@ const DataTablePaginated = ({
           </Box>
         </Toolbar>
 
-        {/* Filters Section */}
-        {shouldShowFilters && showFilters && (
-          <Collapse in={showFilters}>
-            <Box
-              sx={{
-                p: 2,
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 2,
-                borderBottom: 1,
-                borderColor: "divider",
-                backgroundColor: darkMode
-                  ? alpha(primaryColor, 0.05)
-                  : alpha(primaryColor, 0.03),
-              }}
-            >
-              {columns
-                .filter((col) => col.filterable && col.visible !== false)
-                .slice(0, advancedFiltersOpen ? columns.length : 3)
-                .map((column) => (
-                  <FormControl
-                    key={column.key}
-                    size="small"
-                    variant="outlined"
-                    sx={{
-                      minWidth: 150,
-                      "& .MuiInputLabel-outlined": {
-                        color: alpha(tableStyles.paper.color, 0.7),
-                        "&.Mui-focused": {
-                          color: primaryColor,
-                        },
-                      },
-                      "& .MuiOutlinedInput-root": {
-                        color: tableStyles.paper.color,
-                        "& fieldset": {
-                          borderColor: alpha(tableStyles.paper.color, 0.5),
-                        },
-                        "&:hover fieldset": {
-                          borderColor: alpha(tableStyles.paper.color, 0.7),
-                        },
-                        "&.Mui-focused fieldset": {
-                          borderColor: primaryColor,
-                        },
-                      },
-                    }}
-                  >
-                    {column.type === "select" ? (
-                      <>
-                        <InputLabel id={`filter-${column.key}-label`}>
-                          {column.label}
-                        </InputLabel>
-                        <Select
-                          labelId={`filter-${column.key}-label`}
-                          id={`filter-${column.key}`}
-                          value={filters[column.key] || ""}
-                          label={column.label}
-                          onChange={(e) =>
-                            handleFilterChange(column.key, e.target.value)
-                          }
-                          MenuProps={{
-                            PaperProps: {
-                              sx: {
-                                maxHeight: 300,
-                                backgroundColor: darkMode ? "#444" : "#fff",
-                                color: darkMode ? "#fff" : "#333",
-                              },
-                            },
-                          }}
-                        >
-                          <MenuItem value="">
-                            <em>None</em>
-                          </MenuItem>
-                          {getColumnFilterOptions(column.key).map((option) => (
-                            <MenuItem
-                              key={option}
-                              value={option}
-                              sx={{
-                                backgroundColor: darkMode ? "#444" : "#fff",
-                                color: darkMode ? "#fff" : "#333",
-                                "&:hover": {
-                                  backgroundColor: darkMode
-                                    ? "#555"
-                                    : "#f5f5f5",
-                                },
-                              }}
-                            >
-                              {option}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </>
-                    ) : (
-                      <TextField
-                        id={column.key}
-                        label={column.label}
-                        type={column.type}
-                        value={filters[column.key] || ""}
-                        onChange={(e) =>
-                          handleFilterChange(column.key, e.target.value)
-                        }
-                        size="small"
-                        variant="outlined"
-                        placeholder={`Filter by ${column.label}...`}
-                      />
-                    )}
-                  </FormControl>
-                ))}
-
-              <Box sx={{ display: "flex", alignItems: "center", ml: "auto" }}>
-                <Button
-                  size="small"
-                  onClick={clearAllFilters}
-                  startIcon={<Clear />}
-                  variant="outlined"
-                  sx={{
-                    ml: 1,
-                    borderColor: alpha(tableStyles.paper.color, 0.5),
-                    color: tableStyles.paper.color,
-                    "&:hover": {
-                      borderColor: alpha(tableStyles.paper.color, 0.7),
-                      backgroundColor: alpha(tableStyles.paper.color, 0.05),
-                    },
-                  }}
-                >
-                  Clear
-                </Button>
-
-                {columns.filter(
-                  (col) => col.filterable && col.visible !== false,
-                ).length > 3 && (
-                  <Button
-                    size="small"
-                    onClick={toggleAdvancedFilters}
-                                        endIcon={
-                      advancedFiltersOpen ? <ExpandLess /> : <ExpandMore />
-                    }
-                    sx={{
-                      ml: 1,
-                      color: tableStyles.paper.color,
-                    }}
-                  >
-                    {advancedFiltersOpen ? "Less" : "More"}
-                  </Button>
-                )}
-              </Box>
-            </Box>
-          </Collapse>
-        )}
-
-        {/* Main Table */}
         <TableContainer
           sx={{
             height: tableHeight,
@@ -1076,7 +921,6 @@ const DataTablePaginated = ({
                 {visibleColumns.map((column) => (
                   <TableCell
                     key={column.key}
-                    sortDirection={orderBy === column.key ? order : false}
                     align={column.align || "left"}
                     style={{
                       minWidth: column.width,
@@ -1089,32 +933,9 @@ const DataTablePaginated = ({
                     sx={{
                       color: tableStyles.headerText,
                       whiteSpace: "nowrap",
-                      "& .MuiTableSortLabel-root": {
-                        color: `${tableStyles.headerText} !important`,
-                        "&:hover": {
-                          color: "rgba(255, 255, 255, 0.7) !important",
-                        },
-                        "&.Mui-active": {
-                          color: `${tableStyles.headerText} !important`,
-                        },
-                      },
-                      "& .MuiTableSortLabel-icon": {
-                        color: "rgba(255, 255, 255, 0.7) !important",
-                      },
                     }}
                   >
-                    {column.sortable ? (
-                      <TableSortLabel
-                        active={orderBy === column.key}
-                        direction={orderBy === column.key ? order : "asc"}
-                        onClick={() => handleSort(column.key)}
-                        disabled={serverSide && !onSortChange}
-                      >
-                        {column.label}
-                      </TableSortLabel>
-                    ) : (
-                      column.label
-                    )}
+                    {column.label}
                   </TableCell>
                 ))}
               </TableRow>
@@ -1195,7 +1016,7 @@ const DataTablePaginated = ({
                             {column.render
                               ? column.render(row)
                               : row[column.key] !== null &&
-                                row[column.key] !== undefined
+                                  row[column.key] !== undefined
                                 ? row[column.key]
                                 : "-"}
                           </TableCell>

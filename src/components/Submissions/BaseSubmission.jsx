@@ -37,9 +37,6 @@ import { showToast } from "../../utils/ToastNotification";
 import { useNavigate } from "react-router-dom";
 import { generateSubmissionColumns } from "./submissionColumns";
 
-const topOffset = 68;
-const bottomOffset = 5;
-
 const BaseSubmission = ({
   data,
   loading,
@@ -74,10 +71,6 @@ const BaseSubmission = ({
   const [remarks, setRemarks] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState({});
-  const [sortConfig, setSortConfig] = useState({
-    orderBy: "submissionId",
-    order: "desc",
-  });
 
   const { isFilteredDataRequested } = useSelector((state) => state.bench);
   const { filteredSubmissionsForRecruiter } = useSelector(
@@ -332,10 +325,9 @@ const BaseSubmission = ({
 
   const handleSortChangeCallback = useCallback(
     (orderBy, order, page, rowsPerPage) => {
-      setSortConfig({ orderBy, order });
-      onSortChange?.(orderBy, order, page, rowsPerPage);
+      // Sorting disabled
     },
-    [onSortChange],
+    [],
   );
 
   const handleFilterChangeCallback = useCallback(
@@ -530,6 +522,8 @@ const BaseSubmission = ({
         onSearchChange={handleSearchChangeCallback}
         enableLocalFiltering={false}
         enableServerSideFiltering={enableServerSideFiltering}
+        // Pass the search value to persist it
+        searchValue={searchQuery}
       />
 
       <Dialog
@@ -583,17 +577,9 @@ const BaseSubmission = ({
         anchor="right"
         PaperProps={{
           sx: {
-            position: "fixed",
-            top: `${topOffset}px`,
-            bottom: `${bottomOffset}px`,
-            height: `calc(100vh - ${topOffset + bottomOffset}px)`,
-            borderTopLeftRadius: 8,
-            borderBottomLeftRadius: 8,
             width: { xs: "100%", sm: "80%", md: "70%", lg: "60%" },
           },
         }}
-        keepMounted={false}
-        disablePortal={false}
       >
         <Box sx={{ height: "100%", overflow: "auto" }}>
           {openDrawer && (
@@ -615,17 +601,9 @@ const BaseSubmission = ({
         onClose={closeScheduleDrawer}
         PaperProps={{
           sx: {
-            position: "fixed",
-            top: `${topOffset}px`,
-            bottom: `${bottomOffset}px`,
-            height: `calc(100vh - ${topOffset + bottomOffset}px)`,
             width: { xs: "100%", sm: "80%", md: "70%", lg: "60%" },
-            borderTopLeftRadius: 8,
-            borderBottomLeftRadius: 8,
           },
         }}
-        keepMounted={false}
-        disablePortal={false}
       >
         <Box sx={{ height: "100%", overflow: "auto" }}>
           {scheduleDrawerOpen && scheduleData && (

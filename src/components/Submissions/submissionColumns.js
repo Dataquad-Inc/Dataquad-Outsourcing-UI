@@ -186,41 +186,41 @@ export const generateSubmissionColumns = (handlers = {}, role = "EMPLOYEE", load
         </Box>
       ),
     },
-    {
-      key: "status",
-      label: "Status",
-      type: "text",
-       sortable: false,
-      filterable: false,
-      width: 180,
-      align: "center",
-      render: (row) => {
-        const getStatusColor = (status) => {
-          switch (status) {
-            case "PROCESSED FOR INTERVIEW":
-              return "success";
-            case "MOVED TO INTERVIEW":
-              return "primary";
-            case "SCREEN REJECT":
-            case "CLIENT REJECT":
-              return "error";
-            case "DUPLICATE":
-              return "warning";
-            default:
-              return "default";
-          }
-        };
+    // {
+    //   key: "status",
+    //   label: "Status",
+    //   type: "text",
+    //    sortable: false,
+    //   filterable: false,
+    //   width: 180,
+    //   align: "center",
+    //   render: (row) => {
+    //     const getStatusColor = (status) => {
+    //       switch (status) {
+    //         case "PROCESSED FOR INTERVIEW":
+    //           return "success";
+    //         case "MOVED TO INTERVIEW":
+    //           return "primary";
+    //         case "SCREEN REJECT":
+    //         case "CLIENT REJECT":
+    //           return "error";
+    //         case "DUPLICATE":
+    //           return "warning";
+    //         default:
+    //           return "default";
+    //       }
+    //     };
 
-        return (
-          <Chip
-            label={row.status}
-            variant="outlined"
-            size="small"
-            color={getStatusColor(row.status)}
-          />
-        );
-      },
-    },
+    //     return (
+    //       <Chip
+    //         label={row.status}
+    //         variant="outlined"
+    //         size="small"
+    //         color={getStatusColor(row.status)}
+    //       />
+    //     );
+    //   },
+    // },
     {
       key: "moveToBench",
       label: "Move to Bench",
