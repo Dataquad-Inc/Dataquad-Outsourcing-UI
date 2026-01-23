@@ -39,14 +39,14 @@ const IndexPage = lazy(() => import("../pages/IndexPage"));
 const AdroitHome = lazy(() => import("../pages/AdroitHome"));
 const LoginPage = lazy(() => import("../pages/LoginPage"));
 const Submission = lazy(() => import("../components/Submissions/Submission"));
-const AllSubmissions = lazy(() =>
-  import("../components/Submissions/AllSubmissions")
+const AllSubmissions = lazy(
+  () => import("../components/Submissions/AllSubmissions"),
 );
 
 //----------IND Team Creation--------------
 const IndTeamList = lazy(() => import("../components/Users/IndTeamList"));
-const IndTeamContainer = lazy(() =>
-  import("../components/Users/IndTeamContainer")
+const IndTeamContainer = lazy(
+  () => import("../components/Users/IndTeamContainer"),
 );
 const CreateTeamInd = lazy(() => import("../components/Users/CreateTeamInd"));
 //----------------------------------------
@@ -54,156 +54,158 @@ const IndTeamCreate = lazy(() => import("../components/Users/IndTeamCreate"));
 
 //---------------------------------------
 const Assigned = lazy(() => import("../components/Assigned/Assigned"));
-const Requirements = lazy(() =>
-  import("../components/Requirements/Requirements")
+const Requirements = lazy(
+  () => import("../components/Requirements/Requirements"),
 );
-const PostRequirement = lazy(() =>
-  import("../components/Requirements/PostRequirement/PostRequirement")
+const PostRequirement = lazy(
+  () => import("../components/Requirements/PostRequirement/PostRequirement"),
 );
-const AllInterviews = lazy(() =>
-  import("../components/Interviews/AllInterviews")
+const AllInterviews = lazy(
+  () => import("../components/Interviews/AllInterviews"),
 );
 const UsersList = lazy(() => import("../components/Users/UsersList"));
 const ClientList = lazy(() => import("../components/Clients/ClientList"));
 const OnBoardClient = lazy(() => import("../components/Clients/OnBoardClient"));
-const PlacementsList = lazy(() =>
-  import("../components/Placements/PlacementList")
+const PlacementsList = lazy(
+  () => import("../components/Placements/PlacementList"),
 );
 const BenchList = lazy(() => import("../components/Bench/BenchList"));
-const TeamMetrices = lazy(() =>
-  import("../components/TeamMetrics/TeamMetrices")
+const TeamMetrices = lazy(
+  () => import("../components/TeamMetrics/TeamMetrices"),
 );
 const BdmStatus = lazy(() => import("../components/TeamMetrics/BdmStatus"));
-const EmployeeStatus = lazy(() =>
-  import("../components/TeamMetrics/EmployeeStatus")
+const EmployeeStatus = lazy(
+  () => import("../components/TeamMetrics/EmployeeStatus"),
 );
 
 //RTR imports
 const RtrForm = lazy(() => import("../components/RightToRepresent/RtrForm"));
 const RtrList = lazy(() => import("../components/RightToRepresent/RtrList"));
-const RtrContainer = lazy(() =>
-  import("../components/RightToRepresent/RtrContainer")
+const RtrContainer = lazy(
+  () => import("../components/RightToRepresent/RtrContainer"),
 );
-const CreateRTRForm = lazy(() =>
-  import("../components/RightToRepresent/CreateRTR")
+const CreateRTRForm = lazy(
+  () => import("../components/RightToRepresent/CreateRTR"),
 );
-const CreateRTR = lazy(() => import("../components/RightToRepresent/CreateRTR"));
+const CreateRTR = lazy(
+  () => import("../components/RightToRepresent/CreateRTR"),
+);
 
 //hotlist
 const Hotlist = lazy(() => import("../components/Hotlist/Hotlist"));
 
-const YetToOnboard = lazy(() =>
-  import("../components/YetToOnboard/YetToOnboard")
+const YetToOnboard = lazy(
+  () => import("../components/YetToOnboard/YetToOnboard"),
 );
 const UsEmployees = lazy(() => import("../components/UsEmployees/UsEmployees"));
 const EditTeam = lazy(() => import("../components/UsEmployees/EditTeam"));
 const CreateTeam = lazy(() => import("../components/UsEmployees/CreateTeam"));
 const Teamlist = lazy(() => import("../components/UsEmployees/Teamlist"));
-const OnBoardNewEmployee = lazy(() =>
-  import("../components/UsEmployees/OnBoradNewEmployee")
+const OnBoardNewEmployee = lazy(
+  () => import("../components/UsEmployees/OnBoradNewEmployee"),
 );
 
-const ConsultantProfile = lazy(() =>
-  import("../components/Hotlist/ConsultantProfile")
+const ConsultantProfile = lazy(
+  () => import("../components/Hotlist/ConsultantProfile"),
 );
 
-const TeamConsultantsHotlist = lazy(() =>
-  import("../components/Hotlist/TeamConsultantsHotlist")
+const TeamConsultantsHotlist = lazy(
+  () => import("../components/Hotlist/TeamConsultantsHotlist"),
 );
-const HotlistContainer = lazy(() =>
-  import("../components/Hotlist/HotlistContainer")
+const HotlistContainer = lazy(
+  () => import("../components/Hotlist/HotlistContainer"),
 );
-const CreateConsultant = lazy(() =>
-  import("../components/Hotlist/CreateConsultant")
+const CreateConsultant = lazy(
+  () => import("../components/Hotlist/CreateConsultant"),
 );
 const MasterHotlist = lazy(() => import("../components/Hotlist/MasterHotlist"));
-const FullTimeHotlist = lazy(() =>
-  import("../components/Hotlist/FullTimeHotlist")
+const FullTimeHotlist = lazy(
+  () => import("../components/Hotlist/FullTimeHotlist"),
 );
 
-const GuestHouseConsultants = lazy(() =>
-  import("../components/Hotlist/GuestHouseConsultants")
+const GuestHouseConsultants = lazy(
+  () => import("../components/Hotlist/GuestHouseConsultants"),
 );
 
 const W2Hotlist = lazy(() => import("../components/Hotlist/W2Hotlist"));
 //yet-to-bonboard
-const YetToOnBoardContainer = lazy(() =>
-  import("../components/YetToOnboard/YetToOnBoardContainer")
+const YetToOnBoardContainer = lazy(
+  () => import("../components/YetToOnboard/YetToOnBoardContainer"),
 );
-const OnHoldConsultants = lazy(() =>
-  import("../components/YetToOnboard/OnHoldConsultants")
+const OnHoldConsultants = lazy(
+  () => import("../components/YetToOnboard/OnHoldConsultants"),
 );
 //US Requirements
-const RequirementsContainer = lazy(() =>
-  import("../components/UsRequirements/RequirementsContainer")
+const RequirementsContainer = lazy(
+  () => import("../components/UsRequirements/RequirementsContainer"),
 );
-const RequirementsList = lazy(() =>
-  import("../components/UsRequirements/RequirementsList")
+const RequirementsList = lazy(
+  () => import("../components/UsRequirements/RequirementsList"),
 );
-const CreateJobRequirement = lazy(() =>
-  import("../components/UsRequirements/CreateJobRequirement")
+const CreateJobRequirement = lazy(
+  () => import("../components/UsRequirements/CreateJobRequirement"),
 );
-const RequirementProfile = lazy(() =>
-  import("../components/UsRequirements/RequirementProfile")
+const RequirementProfile = lazy(
+  () => import("../components/UsRequirements/RequirementProfile"),
 );
 
-const EditJobRequirement = lazy(() =>
-  import("../components/UsRequirements/EditJobRequirement")
+const EditJobRequirement = lazy(
+  () => import("../components/UsRequirements/EditJobRequirement"),
 );
 
 //US Clients
-const ClientsContainer = lazy(() =>
-  import("../components/UsClients/ClientsContainer")
+const ClientsContainer = lazy(
+  () => import("../components/UsClients/ClientsContainer"),
 );
 const UsClientsList = lazy(() => import("../components/UsClients/UsClients"));
-const UsOnboardClients = lazy(() =>
-  import("../components/UsClients/OnBoardingClients")
+const UsOnboardClients = lazy(
+  () => import("../components/UsClients/OnBoardingClients"),
 );
 
 //US Submissions - Add these imports
-const UsSubmissionsContainer = lazy(() =>
-  import("../components/UsSubmissions/UsSubmissionsContainer")
+const UsSubmissionsContainer = lazy(
+  () => import("../components/UsSubmissions/UsSubmissionsContainer"),
 );
-const UsSubmissionsList = lazy(() =>
-  import("../components/UsSubmissions/UsSubmissionsList")
-);
-
-const CreateUsSubmission = lazy(() =>
-  import("../components/UsSubmissions/CreateUsSubmission")
+const UsSubmissionsList = lazy(
+  () => import("../components/UsSubmissions/UsSubmissionsList"),
 );
 
-const CandidateProfile = lazy(() =>
-  import("../components/UsSubmissions/CandidateProfile")
+const CreateUsSubmission = lazy(
+  () => import("../components/UsSubmissions/CreateUsSubmission"),
 );
 
-const EditUSSubmission = lazy(() =>
-  import("../components/UsSubmissions/EditUSSubmission")
+const CandidateProfile = lazy(
+  () => import("../components/UsSubmissions/CandidateProfile"),
+);
+
+const EditUSSubmission = lazy(
+  () => import("../components/UsSubmissions/EditUSSubmission"),
 );
 
 //Us Interviews
-const UsAllInterviews = lazy(() =>
-  import("../components/UsInterviews/AllInterviews")
+const UsAllInterviews = lazy(
+  () => import("../components/UsInterviews/AllInterviews"),
 );
-const InterviewsContainer = lazy(() =>
-  import("../components/UsInterviews/UsInterviewsContainer")
+const InterviewsContainer = lazy(
+  () => import("../components/UsInterviews/UsInterviewsContainer"),
 );
 
 //Timesheets
 const Timesheets = lazy(() => import("../components/Timesheets/TimeSheets"));
-const TimesheetsForAdmin = lazy(() =>
-  import("../components/Timesheets/TimeSheetsForAdmin")
+const TimesheetsForAdmin = lazy(
+  () => import("../components/Timesheets/TimeSheetsForAdmin"),
 );
-const EmployeeTimesheetDetail = lazy(() =>
-  import("../components/Timesheets/EmployeeTimesheetDetail")
+const EmployeeTimesheetDetail = lazy(
+  () => import("../components/Timesheets/EmployeeTimesheetDetail"),
 );
 
 const Unauthorized = lazy(() => import("../pages/Unauthorized"));
-const DeniedAccessCard = lazy(() =>
-  import("../pages/NotFound/DeniedAccessCard")
+const DeniedAccessCard = lazy(
+  () => import("../pages/NotFound/DeniedAccessCard"),
 );
 const NotFound = lazy(() => import("../pages/NotFound/NotFound"));
-const InProgressData = lazy(() =>
-  import("../components/InProgress/InProgress")
+const InProgressData = lazy(
+  () => import("../components/InProgress/InProgress"),
 );
 
 const routeConfig = [
@@ -314,7 +316,7 @@ const routeConfig = [
                 allowedEntities={["IN"]}
               />
             ),
-            children: [{ index: true, element: Loadable(Submission) }],
+            children: [{ index: true, element: Loadable(AllSubmissions) }],
           },
 
           // SUBMISSIONS ALL (no entity restriction)
@@ -322,10 +324,18 @@ const routeConfig = [
             path: "submissions-all",
             element: (
               <ProtectedRoute
-                allowedRoles={["ADMIN", "SUPERADMIN", "COORDINATOR"]}
+                allowedRoles={[
+                  "ADMIN",
+                  "SUPERADMIN",
+                  "COORDINATOR",
+                  "ADMIN",
+                  "EMPLOYEE",
+                  "BDM",
+                  "TEAMLEAD",
+                ]}
               />
             ),
-            children: [{ index: true, element: Loadable(AllSubmissions) }],
+            children: [{ index: true, element: Loadable(Submission) }],
           },
 
           // REQUIREMENTS (IN)
@@ -700,7 +710,7 @@ const routeConfig = [
                   {
                     path: "create-direct-rtr",
                     element: Loadable(CreateRTR),
-                  }
+                  },
                 ],
               },
             ],
@@ -743,7 +753,7 @@ const routeConfig = [
                   {
                     path: "create-direct-rtr", // /dashboard/rtr/create-direct-rtr
                     element: Loadable(CreateRTRForm),
-                  }
+                  },
                 ],
               },
             ],
