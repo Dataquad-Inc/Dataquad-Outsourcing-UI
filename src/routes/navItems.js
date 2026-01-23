@@ -79,11 +79,25 @@ export const inNavItems = [
       "COORDINATOR",
     ],
   },
+  // {
+  //   text: "Submissions",
+  //   path: "submissions",
+  //   icon: <SendIcon />,
+  //   roles: [
+  //     "ADMIN",
+  //     "EMPLOYEE",
+  //     "BDM",
+  //     "TEAMLEAD",
+  //     "SUPERADMIN",
+  //     "COORDINATOR",
+  //   ],
+  // },
   {
     text: "Submissions",
-    path: "submissions",
+    path: "submissions-all",
     icon: <SendIcon />,
     roles: [
+      "SUPERADMIN",
       "ADMIN",
       "EMPLOYEE",
       "BDM",
