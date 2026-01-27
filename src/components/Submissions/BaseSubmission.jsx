@@ -92,15 +92,9 @@ const BaseSubmission = ({
     (event, newValue) => {
       if (!isMountedRef.current) return;
 
-      setTabValue(newValue);
-      const selected = event.target.id;
-      if (selected === "team") {
-        setIsTeamData(true);
-        return;
-      }
-      setIsTeamData(false);
+      setTabValue(event, newValue);
     },
-    [setTabValue, setIsTeamData],
+    [setTabValue],
   );
 
   const handleJobIdClick = useCallback(
@@ -487,8 +481,8 @@ const BaseSubmission = ({
             variant="scrollable"
             scrollButtons="auto"
           >
-            <Tab id="self" label="Self Submissions" />
-            <Tab id="team" label="Team Submissions" />
+            <Tab label="Team Submissions" />
+            <Tab label="Self Submissions" />
           </Tabs>
         </Paper>
       )}
@@ -522,7 +516,6 @@ const BaseSubmission = ({
         onSearchChange={handleSearchChangeCallback}
         enableLocalFiltering={false}
         enableServerSideFiltering={enableServerSideFiltering}
-        // Pass the search value to persist it
         searchValue={searchQuery}
       />
 

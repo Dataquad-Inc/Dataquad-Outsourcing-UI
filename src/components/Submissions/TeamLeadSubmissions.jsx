@@ -7,10 +7,11 @@ const TeamLeadSubmissions = () => {
   const [selfData, setSelfData] = useState([]);
   const [teamData, setTeamData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
-  // 🔑 Single source of truth
-  const [tabValue, setTabValue] = useState(0); // 0 = self, 1 = team
-  const isTeamData = tabValue === 1;
+  // 🔑 Start with team tab (0) - tabs are now: 0 = team, 1 = self
+  const [tabValue, setTabValue] = useState(0); // 0 = team (default), 1 = self
+  const isTeamData = tabValue === 0;
 
   const [filters, setFilters] = useState({});
   const [globalSearch, setGlobalSearch] = useState("");
@@ -89,7 +90,13 @@ const TeamLeadSubmissions = () => {
             pageSize: result.pageSize || size,
           });
 
-          return teamSubmissions;
+          return {
+            data: teamSubmissions,
+            totalElements:
+              result.totalTeamSubmissions ||
+              result.totalElements ||
+              teamSubmissions.length,
+          };
         }
 
         // ===== SELF =====
@@ -105,12 +112,18 @@ const TeamLeadSubmissions = () => {
           pageSize: result.pageSize || size,
         });
 
-        return selfSubmissions;
+        return {
+          data: selfSubmissions,
+          totalElements:
+            result.totalSelfSubmissions ||
+            result.totalElements ||
+            selfSubmissions.length,
+        };
       } catch (err) {
         if (err.name !== "AbortError") {
           showToast(err.message || "Network error", "error");
         }
-        return [];
+        return { data: [], totalElements: 0 };
       } finally {
         setLoading(false);
         controllerRef.current = null;
@@ -119,43 +132,60 @@ const TeamLeadSubmissions = () => {
     [userId],
   );
 
-  // ================= INITIAL LOAD =================
+  // ================= INITIAL LOAD (TEAM FIRST) =================
   useEffect(() => {
-    fetchData(0, 10, "", {}, false);
+    const initializeData = async () => {
+      try {
+        // First, try to load team data
+        const teamResult = await fetchData(0, 10, "", {}, true);
+
+        // If team has no data, also load self data
+        if (teamResult.totalElements === 0) {
+          await fetchData(0, 10, "", {}, false);
+        }
+
+        setInitialLoadComplete(true);
+      } catch (error) {
+        console.error("Error initializing data:", error);
+        setInitialLoadComplete(true);
+      }
+    };
+
+    initializeData();
+
     return () => controllerRef.current?.abort();
   }, [fetchData]);
 
-  // ================= TAB CHANGE (WITH FALLBACK) =================
+  // ================= DETERMINE TAB VISIBILITY =================
+  const hasTeamData = teamPagination.totalElements > 0;
+  const hasSelfData = selfPagination.totalElements > 0;
+
+  // Show tabs only if there's team data
+  const shouldShowTabs = hasTeamData;
+
+  // If no team data and initial load is complete, switch to self view
+  useEffect(() => {
+    if (initialLoadComplete && !hasTeamData && tabValue === 0) {
+      setTabValue(1); // Switch to self tab
+    }
+  }, [initialLoadComplete, hasTeamData, tabValue]);
+
+  // ================= TAB CHANGE =================
   const handleTabChange = useCallback(
     async (event, newValue) => {
       setTabValue(newValue);
 
-      // TEAM TAB CLICKED
-      if (newValue === 1) {
-        const teamResult = await fetchData(
-          0,
-          10,
-          globalSearch,
-          filters,
-          true,
-        );
-
-        // 🔥 AUTO FALLBACK
-        if (teamResult.length === 0 && selfData.length > 0) {
-          showToast(
-            "No team submissions found. Showing self submissions.",
-            "info",
-          );
-          setTabValue(0);
-        }
+      // TEAM TAB CLICKED (index 0)
+      if (newValue === 0 && teamData.length === 0) {
+        await fetchData(0, 10, globalSearch, filters, true);
       }
 
-      // SELF TAB CLICKED
-      if (newValue === 0 && selfData.length === 0) {
-        fetchData(0, 10, globalSearch, filters, false);
+      // SELF TAB CLICKED (index 1)
+      if (newValue === 1 && selfData.length === 0) {
+        await fetchData(0, 10, globalSearch, filters, false);
       }
     },
-    [fetchData, globalSearch, filters, selfData.length],
+    [fetchData, globalSearch, filters, teamData.length, selfData.length],
   );
 
   // ================= HANDLERS =================
@@ -188,7 +218,7 @@ const TeamLeadSubmissions = () => {
       loading={loading}
       title={isTeamData ? "Team Submissions" : "My Submissions"}
       refreshData={handleRefresh}
-      enableTeamLeadTabs
+      enableTeamLeadTabs={shouldShowTabs}
       tabValue={tabValue}
       setTabValue={handleTabChange}
       pagination={isTeamData ? teamPagination : selfPagination}
