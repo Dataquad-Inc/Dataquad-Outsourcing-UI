@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Stack, IconButton, Tooltip, MenuItem, TextField } from "@mui/material";
 import ClearIcon from "@mui/icons-material/Clear";
 import dayjs from "dayjs";
@@ -23,8 +23,8 @@ import {
 import { filterUsersByDateRange } from "../../redux/employeesSlice";
 import {
   filterSubmissionsByDateRange,
-  filterSubmissionssByRecruiter,
-  filterSubmissionsByTeamlead,
+  filterSubmissionsByRecruiter,
+  filterSubmissionsByTeamLead,
 } from "../../redux/submissionSlice";
 import { filterClientsByDateRange } from "../../redux/clientsSlice";
 import { filterPlacementByDateRange } from "../../redux/placementSlice";
@@ -43,12 +43,12 @@ const componentToActionMap = {
   Requirement: filterRequirementsByDateRange,
   Interviews: filterInterviewsByDateRange,
   Users: filterUsersByDateRange,
-  Submissions: filterSubmissionsByDateRange,
-  SubmissionsForTeamLead: filterSubmissionsByTeamlead,
+  AdminSubmissions: filterSubmissionsByDateRange,
+  SubmissionsForTeamLead: filterSubmissionsByTeamLead,
   AssignedList: filterRequirementsByRecruiter,
-  RecruiterSubmission: filterSubmissionssByRecruiter,
+  RecruiterSubmission: filterSubmissionsByRecruiter,
   InterviewsForRecruiter: filterInterviewsByRecruiter,
-  InterviewsForCoordinator:filterInterviewsByCoordinator,
+  InterviewsForCoordinator: filterInterviewsByCoordinator,
   dashboard: filterDashBoardCountByDateRange,
   InterviewsForTeamLead: filterInterviewsByTeamLead,
   Clients: filterClientsByDateRange,
@@ -78,7 +78,6 @@ const DateRangeFilter = ({
   const currentMonth = dayjs().month() + 1;
   const currentDay = dayjs().date();
 
-  // Generate years from 1900 to current year + 2 (like date of birth selector)
   const startYear = 2020;
   const endYear = currentYear + 0;
   const yearOptions = [
@@ -129,7 +128,7 @@ const DateRangeFilter = ({
 
   const dayOptions = getDayOptions();
 
-  // Calculate start and end dates - handles full year when only year is selected
+  // Calculate start and end dates
   let startDate = null;
   let endDate = null;
 
@@ -138,20 +137,17 @@ const DateRangeFilter = ({
       startDate = dayjs(`${currentYear}-01-01`);
       endDate = dayjs();
     } else if (selectedMonth && selectedDay) {
-      // Specific day selected
       const dateStr = `${selectedYear}-${selectedMonth
         .toString()
         .padStart(2, "0")}-${selectedDay.toString().padStart(2, "0")}`;
       startDate = dayjs(dateStr).startOf("day");
       endDate = dayjs(dateStr).endOf("day");
     } else if (selectedMonth) {
-      // Only month selected, filter entire month
       startDate = dayjs(
-        `${selectedYear}-${selectedMonth.toString().padStart(2, "0")}-01`
+        `${selectedYear}-${selectedMonth.toString().padStart(2, "0")}-01`,
       );
       endDate = startDate.endOf("month");
     } else {
-      // Only year selected - fetch entire year
       startDate = dayjs(`${selectedYear}-01-01`).startOf("year");
       endDate = dayjs(`${selectedYear}-12-31`).endOf("year");
     }
@@ -164,25 +160,27 @@ const DateRangeFilter = ({
       newSearchParams.set("year", "All");
       newSearchParams.delete("month");
       newSearchParams.delete("day");
-
-      const start = dayjs(`${currentYear}-01-01`);
-      const end = dayjs();
-      newSearchParams.set("startDate", start.format("YYYY-MM-DD"));
-      newSearchParams.set("endDate", end.format("YYYY-MM-DD"));
+      newSearchParams.set(
+        "startDate",
+        dayjs(`${currentYear}-01-01`).format("YYYY-MM-DD"),
+      );
+      newSearchParams.set("endDate", dayjs().format("YYYY-MM-DD"));
     } else if (year && month && day) {
-      // Specific day selected
       newSearchParams.set("year", year);
       newSearchParams.set("month", month);
       newSearchParams.set("day", day);
       const dateStr = `${year}-${month.toString().padStart(2, "0")}-${day
         .toString()
         .padStart(2, "0")}`;
-      const start = dayjs(dateStr).startOf("day");
-      const end = dayjs(dateStr).endOf("day");
-      newSearchParams.set("startDate", start.format("YYYY-MM-DD"));
-      newSearchParams.set("endDate", end.format("YYYY-MM-DD"));
+      newSearchParams.set(
+        "startDate",
+        dayjs(dateStr).startOf("day").format("YYYY-MM-DD"),
+      );
+      newSearchParams.set(
+        "endDate",
+        dayjs(dateStr).endOf("day").format("YYYY-MM-DD"),
+      );
     } else if (year && month) {
-      // Only month selected
       newSearchParams.set("year", year);
       newSearchParams.set("month", month);
       newSearchParams.delete("day");
@@ -190,14 +188,17 @@ const DateRangeFilter = ({
       newSearchParams.set("startDate", start.format("YYYY-MM-DD"));
       newSearchParams.set("endDate", start.endOf("month").format("YYYY-MM-DD"));
     } else if (year) {
-      // Only year selected - set full year range
       newSearchParams.set("year", year);
       newSearchParams.delete("month");
       newSearchParams.delete("day");
-      const start = dayjs(`${year}-01-01`).startOf("year");
-      const end = dayjs(`${year}-12-31`).endOf("year");
-      newSearchParams.set("startDate", start.format("YYYY-MM-DD"));
-      newSearchParams.set("endDate", end.format("YYYY-MM-DD"));
+      newSearchParams.set(
+        "startDate",
+        dayjs(`${year}-01-01`).startOf("year").format("YYYY-MM-DD"),
+      );
+      newSearchParams.set(
+        "endDate",
+        dayjs(`${year}-12-31`).endOf("year").format("YYYY-MM-DD"),
+      );
     } else {
       newSearchParams.delete("year");
       newSearchParams.delete("month");
@@ -211,8 +212,6 @@ const DateRangeFilter = ({
 
   const handleYearChange = (event) => {
     const year = event.target.value;
-
-    // Reset state before changing year
     setSelectedMonth(null);
     setSelectedDay(null);
     setSelectedYear(year);
@@ -220,15 +219,12 @@ const DateRangeFilter = ({
     if (year === "All") {
       updateUrlParams("All", null, null);
     } else {
-      // When year changes, update URL with just the year (will fetch full year)
       updateUrlParams(year, null, null);
     }
   };
 
   const handleMonthChange = (event) => {
     const month = event.target.value;
-
-    // Reset day when month changes
     setSelectedDay(null);
     setSelectedMonth(month);
     updateUrlParams(selectedYear, month, null);
@@ -241,12 +237,9 @@ const DateRangeFilter = ({
   };
 
   const handleClearFilter = () => {
-    // Reset all selections
-    setSelectedYear(null);
-    setSelectedMonth(null);
-    setSelectedDay(null);
+    console.log("Clearing filter...");
 
-    // Clear URL params
+    // Clear URL params first
     const newSearchParams = new URLSearchParams(searchParams);
     newSearchParams.delete("year");
     newSearchParams.delete("month");
@@ -255,77 +248,100 @@ const DateRangeFilter = ({
     newSearchParams.delete("endDate");
     setSearchParams(newSearchParams, { replace: true });
 
-    dispatch(setFilteredDataRequested(false));
-
-    const clearAction = componentToClearActionsMap[component];
-    if (clearAction) dispatch(clearAction());
-
-    if (onClearFilter) onClearFilter();
-    if (component === "InterviewsForRecruiter")
-      dispatch(clearRecruiterFilter());
-
-    // Pass null to indicate no filter
+    // Call onDateChange FIRST with null values
     if (onDateChange) {
+      console.log("Calling onDateChange with null, null");
       onDateChange(null, null);
+    }
+
+    // Call onClearFilter if provided
+    if (onClearFilter) {
+      onClearFilter();
+    }
+
+    // Reset local state AFTER calling callbacks
+    setSelectedYear(null);
+    setSelectedMonth(null);
+    setSelectedDay(null);
+
+    // Legacy behavior for components without onDateChange
+    if (!onDateChange) {
+      dispatch(setFilteredDataRequested(false));
+      const clearAction = componentToClearActionsMap[component];
+      if (clearAction) dispatch(clearAction());
+
+      if (component === "InterviewsForRecruiter") {
+        dispatch(clearRecruiterFilter());
+      }
     }
   };
 
- useEffect(() => {
-  if (startDate && endDate) {
-    const formattedStart = startDate.format("YYYY-MM-DD");
-    const formattedEnd = endDate.format("YYYY-MM-DD");
+  // Effect to handle date changes
+  useEffect(() => {
+    // Skip if nothing is selected
+    if (!selectedYear && !selectedMonth && !selectedDay) {
+      console.log("No date selected, skipping effect");
+      return;
+    }
 
-    dispatch(setFilteredDataRequested(true));
+    if (startDate && endDate) {
+      const formattedStart = startDate.format("YYYY-MM-DD");
+      const formattedEnd = endDate.format("YYYY-MM-DD");
+      console.log("Date selected:", formattedStart, "to", formattedEnd);
 
-    const actionCreator = componentToActionMap[component];
-    if (actionCreator) {
-      const payload = { startDate: formattedStart, endDate: formattedEnd };
-      
-      // For team lead view, add the teamLeadId
-      if (component === "InterviewsForTeamLead" && teamLeadId) {
-        payload.teamLeadId = teamLeadId;
+      // New pattern with onDateChange callback
+      if (onDateChange) {
+        console.log("Calling onDateChange with dates");
+        onDateChange(formattedStart, formattedEnd);
       }
-      
-      dispatch(actionCreator(payload))
-        .then(() => {
-          if (onDateChange) {
-            onDateChange(formattedStart, formattedEnd);
-          }
-        })
-        .catch((error) => {
-          ToastService.error(`Error applying date filter: ${error.message}`);
-        });
-    }
-  } else if (!selectedYear && !selectedMonth && !selectedDay) {
-    dispatch(setFilteredDataRequested(false));
-    if (onDateChange) {
-      onDateChange(null, null);
-    }
-  }
-}, [
-  selectedYear,
-  selectedMonth,
-  selectedDay,
-  component,
-  dispatch,
-  onDateChange,
-  teamLeadId, // Add this dependency
-]);
+      // Legacy pattern without onDateChange
+      else {
+        console.log("Using legacy dispatch");
+        dispatch(setFilteredDataRequested(true));
+        const actionCreator = componentToActionMap[component];
 
-  // Sync with URL
+        if (actionCreator) {
+          const payload = {
+            startDate: formattedStart,
+            endDate: formattedEnd,
+          };
+
+          if (component === "InterviewsForTeamLead" && teamLeadId) {
+            payload.teamLeadId = teamLeadId;
+          }
+
+          dispatch(actionCreator(payload)).catch((error) => {
+            ToastService.error(`Error applying date filter: ${error.message}`);
+          });
+        }
+      }
+    }
+  }, [
+    selectedYear,
+    selectedMonth,
+    selectedDay,
+    component,
+    dispatch,
+    onDateChange,
+    teamLeadId,
+  ]);
+
+  // Sync with URL on mount
   useEffect(() => {
     const urlYear = searchParams.get("year");
     const urlMonth = searchParams.get("month");
     const urlDay = searchParams.get("day");
+
+    console.log("URL params on mount:", { urlYear, urlMonth, urlDay });
 
     if (urlYear) {
       setSelectedYear(urlYear === "All" ? "All" : parseInt(urlYear));
       setSelectedMonth(urlMonth ? parseInt(urlMonth) : null);
       setSelectedDay(urlDay ? parseInt(urlDay) : null);
     }
-  }, [searchParams]);
+  }, []); // Empty dependency array - only run on mount
 
-  // Validate and reset day if it's invalid for the current month/year
+  // Validate day selection
   useEffect(() => {
     if (
       selectedYear !== "All" &&
@@ -335,6 +351,7 @@ const DateRangeFilter = ({
     ) {
       const maxDays = dayjs(`${selectedYear}-${selectedMonth}`).daysInMonth();
       if (selectedDay > maxDays) {
+        console.log("Invalid day, resetting...");
         setSelectedDay(null);
         updateUrlParams(selectedYear, selectedMonth, null);
       }
@@ -358,9 +375,7 @@ const DateRangeFilter = ({
         SelectProps={{
           MenuProps: {
             PaperProps: {
-              sx: {
-                maxHeight: 300, // Increased height to accommodate more years
-              },
+              sx: { maxHeight: 300 },
             },
           },
         }}
@@ -402,9 +417,7 @@ const DateRangeFilter = ({
           SelectProps={{
             MenuProps: {
               PaperProps: {
-                sx: {
-                  maxHeight: 200,
-                },
+                sx: { maxHeight: 200 },
               },
             },
           }}

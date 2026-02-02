@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import axios from "axios";
 import { showToast } from "../../utils/ToastNotification";
 import BaseSubmission from "./BaseSubmission";
+import { filterSubmissionsByDateRange, setFilteredFlag } from "../../redux/submissionSlice";
+import { setFilteredDataRequested } from "../../redux/benchSlice";
 
 const AdminSubmissions = () => {
   const [data, setData] = useState([]);
@@ -15,13 +17,22 @@ const AdminSubmissions = () => {
   });
   const [filters, setFilters] = useState({});
   const [globalSearch, setGlobalSearch] = useState("");
+  const [dateRange, setDateRange] = useState({
+    startDate: null,
+    endDate: null
+  });
 
   const { role } = useSelector((state) => state.auth);
+  const { filteredSubmissionsList, filteredSubmissionsPagination, isFiltered } = useSelector((state) => state.submission);
+  const { isFilteredDataRequested } = useSelector((state) => state.bench);
+  
+  const dispatch = useDispatch();
   const hasFetchedRef = useRef(false);
   const controllerRef = useRef(null);
 
+  // Fetch data function
   const fetchData = useCallback(
-    async (page = 0, size = 10, searchValue = "", filterParams = {}) => {
+    async (page = 0, size = 10, searchValue = "", filterParams = {}, dateRangeParams = null) => {
       if (controllerRef.current) {
         controllerRef.current.abort();
       }
@@ -39,6 +50,12 @@ const AdminSubmissions = () => {
         // ✅ Global Search
         if (searchValue && searchValue.trim() !== "") {
           params.globalSearch = searchValue.trim();
+        }
+
+        // ✅ Date Range Filter
+        if (dateRangeParams?.startDate && dateRangeParams?.endDate) {
+          params.startDate = dateRangeParams.startDate;
+          params.endDate = dateRangeParams.endDate;
         }
 
         // ✅ Filters (exact match filters only)
@@ -107,6 +124,33 @@ const AdminSubmissions = () => {
     [],
   );
 
+  // Handle date range changes
+  const handleDateRangeChange = useCallback((startDate, endDate) => {
+    if (startDate && endDate) {
+      setDateRange({ startDate, endDate });
+      dispatch(setFilteredDataRequested(true));
+      dispatch(setFilteredFlag(true));
+      
+      // Dispatch the filter action
+      dispatch(filterSubmissionsByDateRange({
+        startDate,
+        endDate,
+        page: 0,
+        size: pagination.pageSize,
+        globalSearch,
+        ...filters
+      }));
+    } else {
+      // Clear date range filter
+      setDateRange({ startDate: null, endDate: null });
+      dispatch(setFilteredDataRequested(false));
+      dispatch(setFilteredFlag(false));
+      
+      // Fetch without date filter
+      fetchData(0, pagination.pageSize, globalSearch, filters);
+    }
+  }, [dispatch, fetchData, pagination.pageSize, globalSearch, filters]);
+
   useEffect(() => {
     if (!hasFetchedRef.current) {
       fetchData();
@@ -119,58 +163,131 @@ const AdminSubmissions = () => {
     };
   }, [fetchData]);
 
-  // Pagination
+  // Handle when filtered data is available from Redux
+  useEffect(() => {
+    if (isFiltered && filteredSubmissionsList && filteredSubmissionsList.length > 0) {
+      setData(filteredSubmissionsList);
+      if (filteredSubmissionsPagination) {
+        setPagination(filteredSubmissionsPagination);
+      }
+    } else if (!isFiltered && filteredSubmissionsList && filteredSubmissionsList.length === 0) {
+      // If no filtered data, fetch fresh data
+      fetchData();
+    }
+  }, [isFiltered, filteredSubmissionsList, filteredSubmissionsPagination, fetchData]);
+
+  // Pagination handlers
   const handlePageChange = useCallback(
     (newPage, newSize) => {
-      fetchData(newPage, newSize, globalSearch, filters);
+      if (dateRange.startDate && dateRange.endDate) {
+        // Use filtered data with pagination
+        dispatch(filterSubmissionsByDateRange({
+          startDate: dateRange.startDate,
+          endDate: dateRange.endDate,
+          page: newPage,
+          size: newSize,
+          globalSearch,
+          ...filters
+        }));
+      } else {
+        fetchData(newPage, newSize, globalSearch, filters);
+      }
     },
-    [fetchData, globalSearch, filters],
+    [fetchData, dateRange, globalSearch, filters, dispatch],
   );
 
   const handleRowsPerPageChange = useCallback(
     (newSize) => {
-      fetchData(0, newSize, globalSearch, filters);
+      if (dateRange.startDate && dateRange.endDate) {
+        dispatch(filterSubmissionsByDateRange({
+          startDate: dateRange.startDate,
+          endDate: dateRange.endDate,
+          page: 0,
+          size: newSize,
+          globalSearch,
+          ...filters
+        }));
+      } else {
+        fetchData(0, newSize, globalSearch, filters);
+      }
     },
-    [fetchData, globalSearch, filters],
+    [fetchData, dateRange, globalSearch, filters, dispatch],
   );
 
-  // Sorting - COMPLETELY REMOVED
+  // Sorting handler
   const handleSortChange = useCallback(() => {
     // No sorting functionality
   }, []);
 
-  // Filters
+  // Filters handler
   const handleFilterChange = useCallback(
     (newFilters, page, rowsPerPage) => {
       setFilters(newFilters);
-      fetchData(page, rowsPerPage, globalSearch, newFilters);
+      
+      if (dateRange.startDate && dateRange.endDate) {
+        dispatch(filterSubmissionsByDateRange({
+          startDate: dateRange.startDate,
+          endDate: dateRange.endDate,
+          page: page || 0,
+          size: rowsPerPage || pagination.pageSize,
+          globalSearch,
+          ...newFilters
+        }));
+      } else {
+        fetchData(page || 0, rowsPerPage || pagination.pageSize, globalSearch, newFilters);
+      }
     },
-    [fetchData, globalSearch],
+    [fetchData, dateRange, globalSearch, pagination.pageSize, dispatch],
   );
 
   // ✅ Global Search handler
   const handleSearchChange = useCallback(
     (searchValue, page, rowsPerPage) => {
       setGlobalSearch(searchValue);
-      fetchData(page, rowsPerPage, searchValue, filters);
+      
+      if (dateRange.startDate && dateRange.endDate) {
+        dispatch(filterSubmissionsByDateRange({
+          startDate: dateRange.startDate,
+          endDate: dateRange.endDate,
+          page: page || 0,
+          size: rowsPerPage || pagination.pageSize,
+          globalSearch: searchValue,
+          ...filters
+        }));
+      } else {
+        fetchData(page || 0, rowsPerPage || pagination.pageSize, searchValue, filters);
+      }
     },
-    [fetchData, filters],
+    [fetchData, dateRange, filters, pagination.pageSize, dispatch],
   );
 
-  // Refresh
+  // Refresh handler
   const handleRefresh = useCallback(() => {
-    fetchData(
-      pagination.currentPage,
-      pagination.pageSize,
-      globalSearch,
-      filters,
-    );
+    if (dateRange.startDate && dateRange.endDate) {
+      dispatch(filterSubmissionsByDateRange({
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+        page: pagination.currentPage,
+        size: pagination.pageSize,
+        globalSearch,
+        ...filters
+      }));
+    } else {
+      fetchData(
+        pagination.currentPage,
+        pagination.pageSize,
+        globalSearch,
+        filters,
+      );
+    }
   }, [
     fetchData,
     pagination.currentPage,
     pagination.pageSize,
     globalSearch,
     filters,
+    dateRange,
+    dispatch,
   ]);
 
   return (
@@ -187,7 +304,9 @@ const AdminSubmissions = () => {
       onFilterChange={handleFilterChange}
       onSearchChange={handleSearchChange}
       role={role}
-      enableServerSideFiltering
+      enableServerSideFiltering={true}
+      onDateRangeChange={handleDateRangeChange}
+      isFiltered={isFiltered}
     />
   );
 };

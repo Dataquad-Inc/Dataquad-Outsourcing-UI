@@ -57,6 +57,10 @@ const BaseSubmission = ({
   onFilterChange,
   onSearchChange,
   enableServerSideFiltering = false,
+  role,
+  // NEW PROPS for date range integration
+  onDateRangeChange = () => {},
+  isFiltered = false,
 }) => {
   const [openDrawer, setOpenDrawer] = useState(false);
   const [candidateData, setCandidateData] = useState(null);
@@ -73,10 +77,10 @@ const BaseSubmission = ({
   const [filters, setFilters] = useState({});
 
   const { isFilteredDataRequested } = useSelector((state) => state.bench);
-  const { filteredSubmissionsForRecruiter } = useSelector(
+  const { filteredSubmissionsList, filteredSubmissionsForRecruiter } = useSelector(
     (state) => state.submission,
   );
-  const { userId, role } = useSelector((state) => state.auth);
+  const { userId } = useSelector((state) => state.auth);
   const navigate = useNavigate();
 
   const isMountedRef = useRef(true);
@@ -386,12 +390,22 @@ const BaseSubmission = ({
     if (customData.length > 0) {
       return customData;
     }
+    
+    // Show filtered data from Redux when filtered
+    if (isFiltered && filteredSubmissionsList && filteredSubmissionsList.length > 0) {
+      return filteredSubmissionsList;
+    }
+    
+    // Legacy check for recruiter filtered data
     if (isFilteredDataRequested && role !== "TEAMLEAD") {
       return filteredSubmissionsForRecruiter;
     }
+    
     return data || [];
   }, [
     customData,
+    isFiltered,
+    filteredSubmissionsList,
     isFilteredDataRequested,
     role,
     filteredSubmissionsForRecruiter,
@@ -400,8 +414,15 @@ const BaseSubmission = ({
 
   const displayTitle = useMemo(() => {
     const total = pagination?.totalElements;
-    return total ? `${title} (${total} total)` : title;
-  }, [title, pagination?.totalElements]);
+    const baseTitle = title;
+    
+    if (isFiltered && total) {
+      return `${baseTitle} (Filtered: ${total} total)`;
+    } else if (total) {
+      return `${baseTitle} (${total} total)`;
+    }
+    return baseTitle;
+  }, [title, pagination?.totalElements, isFiltered]);
 
   // Memoized Skeleton loading component
   const LoadingSkeleton = useMemo(
@@ -470,7 +491,10 @@ const BaseSubmission = ({
         <Typography variant="h6" color="primary">
           {displayTitle}
         </Typography>
-        <DateRangeFilter component={componentName} />
+        <DateRangeFilter 
+          component={componentName} 
+          onDateChange={onDateRangeChange}
+        />
       </Stack>
 
       {enableTeamLeadTabs && (
