@@ -224,32 +224,46 @@ const PlacementsList = () => {
     }
   };
 
-  const handleRegisterUser = async (id) => {
-    setIsLoading(true);
-    try {
-      const response = await httpService.post(`/candidate/${id}/create-user`);
+ const handleRegisterUser = async (id) => {
+  setIsLoading(true);
 
-      if (response.status === 200) {
-        ToastService.success("Link has been sent to email.");
+  try {
+    // ✅ Show loading toast ONLY when loading starts
+    ToastService.loading("Sending Link...", {
+      toastId: "sendLink",
+      autoClose: false,
+    });
 
-        // ✅ Update the table so icon disables
-        setUsers((prevUsers) =>
-          prevUsers.map((user) =>
-            user.id === id ? { ...user, isRegistered: true } : user
-          )
-        );
-      } else {
-        ToastService.error(response.data?.message || "Failed to send Link.");
-      }
-    } catch (error) {
-      ToastService.error(
-        error.response?.data?.message ||
-        "Failed to send Link. Please try again."
+    const response = await httpService.post(`/candidate/${id}/create-user`);
+
+    if (response.status === 200) {
+      setUsers((prevUsers) =>
+        prevUsers.map((user) =>
+          user.id === id ? { ...user, isRegistered: true } : user
+        )
       );
-    } finally {
-      setIsLoading(false);
+
+      // ✅ Stop loading toast BEFORE showing success
+      ToastService.dismiss("sendLink");
+
+      ToastService.success("Link has been sent to email.", {
+        autoClose: 4000,
+      });
     }
-  };
+  } catch (error) {
+    // ✅ Stop loading toast BEFORE showing error
+    ToastService.dismiss("sendLink");
+
+    ToastService.error(
+      error?.response?.data?.message ||
+      "Failed to send Link. Please try again.",
+      { autoClose: 4000 }
+    );
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   const getColor = (status) => {
     switch (status) {
