@@ -132,10 +132,16 @@ const ConsultantProfile = () => {
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
-    return new Date(dateString).toLocaleDateString("en-US", {
+
+    const [year, month, day] = dateString.split("-");
+
+    const date = new Date(Date.UTC(year, month - 1, day));
+
+    return date.toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
       day: "numeric",
+      timeZone: "UTC",
     });
   };
 
@@ -280,8 +286,8 @@ const ConsultantProfile = () => {
                             consultant.status === "available"
                               ? "success.main"
                               : consultant.status === "busy"
-                              ? "warning.main"
-                              : "info.main",
+                                ? "warning.main"
+                                : "info.main",
                           border: "2px solid white",
                         }}
                       />
@@ -502,11 +508,10 @@ const ConsultantProfile = () => {
                         }
                       />
                       <Chip
-                        label={`Relocation: ${
-                          consultant.relocation === "Yes"
+                        label={`Relocation: ${consultant.relocation === "Yes"
                             ? "Available"
                             : "Not Available"
-                        }`}
+                          }`}
                         size="small"
                         color={
                           consultant.relocation === "Yes"

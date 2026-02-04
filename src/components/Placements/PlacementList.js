@@ -57,7 +57,7 @@ const PlacementsList = () => {
   const [placementToDelete, setPlacementToDelete] = useState(null);
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Filter states
   const [activeFilter, setActiveFilter] = useState("all"); // "all", "active", "inactive", "fulltime"
   const [filteredPlacements, setFilteredPlacements] = useState([]);
@@ -224,45 +224,45 @@ const PlacementsList = () => {
     }
   };
 
- const handleRegisterUser = async (id) => {
-  setIsLoading(true);
+  const handleRegisterUser = async (id) => {
+    setIsLoading(true);
 
-  try {
-    // ✅ Show loading toast ONLY when loading starts
-    ToastService.loading("Sending Link...", {
-      toastId: "sendLink",
-      autoClose: false,
-    });
+    try {
+      // ✅ Show loading toast ONLY when loading starts
+      ToastService.loading("Sending Link...", {
+        toastId: "sendLink",
+        autoClose: false,
+      });
 
-    const response = await httpService.post(`/candidate/${id}/create-user`);
+      const response = await httpService.post(`/candidate/${id}/create-user`);
 
-    if (response.status === 200) {
-      setUsers((prevUsers) =>
-        prevUsers.map((user) =>
-          user.id === id ? { ...user, isRegistered: true } : user
-        )
-      );
+      if (response.status === 200) {
+        setUsers((prevUsers) =>
+          prevUsers.map((user) =>
+            user.id === id ? { ...user, isRegistered: true } : user
+          )
+        );
 
-      // ✅ Stop loading toast BEFORE showing success
+        // ✅ Stop loading toast BEFORE showing success
+        ToastService.dismiss("sendLink");
+
+        ToastService.success("Link has been sent to email.", {
+          autoClose: 4000,
+        });
+      }
+    } catch (error) {
+      // ✅ Stop loading toast BEFORE showing error
       ToastService.dismiss("sendLink");
 
-      ToastService.success("Link has been sent to email.", {
-        autoClose: 4000,
-      });
+      ToastService.error(
+        error?.response?.data?.message ||
+        "Failed to send Link. Please try again.",
+        { autoClose: 4000 }
+      );
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    // ✅ Stop loading toast BEFORE showing error
-    ToastService.dismiss("sendLink");
-
-    ToastService.error(
-      error?.response?.data?.message ||
-      "Failed to send Link. Please try again.",
-      { autoClose: 4000 }
-    );
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
 
   const getColor = (status) => {
@@ -602,7 +602,7 @@ const PlacementsList = () => {
             <FilterList fontSize="small" sx={{ mr: 0.5, verticalAlign: "middle" }} />
             Filter by:
           </Typography>
-          
+
           <ButtonGroup variant="outlined" size="small">
             <Button
               variant={getFilterButtonColor("all")}
@@ -611,7 +611,7 @@ const PlacementsList = () => {
             >
               All ({getFilterCount("all")})
             </Button>
-            
+
             <Button
               variant={getFilterButtonColor("active")}
               color="success"
@@ -620,7 +620,7 @@ const PlacementsList = () => {
             >
               Active ({getFilterCount("active")})
             </Button>
-            
+
             <Button
               variant={getFilterButtonColor("inactive")}
               color="warning"
@@ -629,7 +629,7 @@ const PlacementsList = () => {
             >
               Inactive ({getFilterCount("inactive")})
             </Button>
-            
+
             <Button
               variant={getFilterButtonColor("fulltime")}
               color="info"
@@ -660,13 +660,13 @@ const PlacementsList = () => {
             color="text.secondary"
             sx={{ mt: 1, fontStyle: "italic" }}
           >
-            {activeFilter === "active" && 
+            {activeFilter === "active" &&
               "Showing active placements (excludes full-time employment)"
             }
-            {activeFilter === "inactive" && 
+            {activeFilter === "inactive" &&
               "Showing inactive placements (excludes full-time employment)"
             }
-            {activeFilter === "fulltime" && 
+            {activeFilter === "fulltime" &&
               "Showing all full-time placements (active and inactive)"
             }
           </Typography>
@@ -691,7 +691,7 @@ const PlacementsList = () => {
               No Records Found
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {activeFilter === "all" 
+              {activeFilter === "all"
                 ? "No placement records found."
                 : `No ${activeFilter === "fulltime" ? "full-time" : activeFilter} placement records found.`
               }
