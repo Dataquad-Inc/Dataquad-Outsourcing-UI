@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import DataTablePaginated from "../muiComponents/DataTablePaginated";
 import {
   Box,
@@ -38,7 +38,15 @@ import httpService from "../../Services/httpService";
 import LoadingSkeleton from "../muiComponents/LoadingSkeleton";
 import DateRangeFilter from "../muiComponents/DateRangeFilter";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchAllRequirementsBDM, fetchRequirementsBdmSelf } from "../../redux/requirementSlice";
+import {
+  fetchAllRequirementsBDM,
+  fetchRequirementsBdmSelf,
+  filterRequirementsByDateRange,
+  setFilteredRequirementPage,
+  setFilteredRequirementSize,
+  setFilteredRequirementFilters,
+  resetFilteredRequirements
+} from "../../redux/requirementSlice";
 import { Send } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -66,7 +74,7 @@ const Requirements = () => {
   });
   const [expandedRowId, setExpandedRowId] = useState(null);
 
-  // Pagination state
+  // Pagination state for regular data
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
@@ -75,22 +83,38 @@ const Requirements = () => {
   const [order, setOrder] = useState("desc");
   const [filters, setFilters] = useState({});
 
-  const { filteredRequirementList } = useSelector((state) => state.requirement);
-  const { isFilteredDataRequested } = useSelector((state) => state.bench);
+  // Get state from Redux
+  const {
+    filteredRequirementList,
+    filteredRequirementPagination,
+    filteredRequirementFilters,
+    isFilteredDataRequested,
+    requirementsAllBDM,
+    requirementsSelfBDM,
+    loading: reduxLoading
+  } = useSelector((state) => state.requirement);
+
   const { role, userId } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
 
-  const { requirementsAllBDM, requirementsSelfBDM } = useSelector((state) => state.requirement);
   const [tabValue, setTabValue] = useState(0);
   const [isAllData, setIsAllData] = useState(false);
 
   const refreshData = () => {
     setRefreshTrigger((prev) => prev + 1);
+    // Reset filtered data when refreshing
+    dispatch(resetFilteredRequirements());
     ToastService.info("Refreshing requirements data...");
   };
 
   // Fetch data with pagination
   const fetchData = useCallback(async () => {
+    // Don't fetch if we're viewing filtered data
+    if (isFilteredDataRequested) {
+      setLoading(false);
+      return;
+    }
+
     // For BDM role, don't fetch from API (uses Redux)
     if (role === "BDM") {
       setLoading(false);
@@ -105,7 +129,7 @@ const Requirements = () => {
       if (role === "SUPERADMIN") {
         // Build query parameters using your API format
         const queryParams = new URLSearchParams({
-          page: page.toString(), // Your API expects 0-indexed page
+          page: page.toString(),
           size: rowsPerPage.toString(),
         });
 
@@ -114,13 +138,6 @@ const Requirements = () => {
           queryParams.append("search", searchQuery);
         }
 
-        // Add sort if provided (check if your API supports sorting)
-        // if (orderBy && order) {
-        //   // Your API might use different parameter names for sorting
-        //   queryParams.append("sortBy", orderBy);
-        //   queryParams.append("sortDirection", order);
-        // }
-
         // Add filters if any
         Object.keys(filters).forEach(key => {
           if (filters[key] && filters[key] !== "") {
@@ -128,10 +145,9 @@ const Requirements = () => {
           }
         });
 
-        endpoint = `http://localhost:8111/requirements/getAssignments?${queryParams.toString()}`;
+        endpoint = `/requirements/getAssignments?${queryParams.toString()}`;
         console.log("Fetching from endpoint:", endpoint);
-        response = await axios.get(endpoint);
-        console.log("Search query:", searchQuery);
+        response = await httpService.get(endpoint);
       } else if (role === "TEAMLEAD") {
         endpoint = `/requirements/teamleadrequirements/${userId}`;
         response = await httpService.get(endpoint);
@@ -157,8 +173,7 @@ const Requirements = () => {
           requirements = response.data;
           total = response.data.length;
 
-          // IMPORTANT: Apply client-side pagination as fallback
-          // Only if the API doesn't support server-side pagination
+          // Apply client-side pagination
           const startIndex = page * rowsPerPage;
           const endIndex = startIndex + rowsPerPage;
           requirements = requirements.slice(startIndex, endIndex);
@@ -178,7 +193,7 @@ const Requirements = () => {
           total = 0;
         }
 
-        // Sort by priority status (client-side sorting as fallback)
+        // Sort by priority status
         const priorityStatuses = ["Submitted", "On Hold", "In Progress"];
         const sortedData = requirements.sort((a, b) => {
           const aPriority = priorityStatuses.includes(a.status) ? 0 : 1;
@@ -211,7 +226,7 @@ const Requirements = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, searchQuery, orderBy, order, filters, role, userId, refreshTrigger]);
+  }, [page, rowsPerPage, searchQuery, orderBy, order, filters, role, userId, refreshTrigger, isFilteredDataRequested]);
 
   useEffect(() => {
     fetchData();
@@ -225,39 +240,60 @@ const Requirements = () => {
     }
   }, [role, dispatch, refreshTrigger]);
 
-  // Handle page change from DataTablePaginated
+  // Handle page change for regular data
   const handlePageChange = (newPage, newRowsPerPage) => {
     console.log(`Page changed to: ${newPage}, Rows per page: ${newRowsPerPage}`);
     setPage(newPage);
+    if (newRowsPerPage !== rowsPerPage) {
+      setRowsPerPage(newRowsPerPage);
+      setPage(0);
+    }
   };
 
-  // Handle rows per page change from DataTablePaginated
+  // Handle rows per page change for regular data
   const handleRowsPerPageChange = (newRowsPerPage) => {
     console.log(`Rows per page changed to: ${newRowsPerPage}`);
     setRowsPerPage(newRowsPerPage);
-    setPage(0); // Reset to first page
+    setPage(0);
   };
 
-  // Handle sort change from DataTablePaginated
-  const handleSortChange = (property, direction) => {
-    console.log(`Sort changed: ${property}, ${direction}`);
-    setOrderBy(property);
-    setOrder(direction);
-    setPage(0); // Reset to first page when sorting
+  // Handle pagination for filtered data
+  const handleFilteredPageChange = (newPage, newRowsPerPage) => {
+    console.log(`Filtered data - Page: ${newPage}, Size: ${newRowsPerPage}`);
+
+    // Update pagination state
+    dispatch(setFilteredRequirementPage(newPage));
+    if (newRowsPerPage !== filteredRequirementPagination.pageSize) {
+      dispatch(setFilteredRequirementSize(newRowsPerPage));
+    }
+
+    // Fetch filtered data with new pagination
+    dispatch(filterRequirementsByDateRange({
+      ...filteredRequirementFilters,
+      page: newPage,
+      size: newRowsPerPage || filteredRequirementPagination.pageSize
+    }));
   };
 
-  // Handle search change from DataTablePaginated
-  const handleSearchChange = (searchTerm) => {
-    console.log(`Search changed: ${searchTerm}`);
-    setSearchQuery(searchTerm);
-    setPage(0); // Reset to first page when searching
+  // Handle DateRangeFilter apply
+  const handleDateFilterApply = (startDate, endDate) => {
+    // Reset to first page when applying new filter
+    const filterParams = {
+      startDate,
+      endDate,
+      page: 0,
+      size: filteredRequirementPagination.pageSize || 10
+    };
+
+    dispatch(setFilteredRequirementFilters(filterParams));
+    dispatch(filterRequirementsByDateRange(filterParams));
   };
 
-  // Handle filter change from DataTablePaginated
-  const handleFilterChange = (filterParams) => {
-    console.log(`Filters changed:`, filterParams);
-    setFilters(filterParams);
-    setPage(0); // Reset to first page when filtering
+  // Handle DateRangeFilter reset
+  const handleDateFilterReset = () => {
+    dispatch(resetFilteredRequirements());
+    // Refetch regular data
+    fetchData();
   };
 
   // Handle tab change
@@ -270,15 +306,6 @@ const Requirements = () => {
     }
     setIsAllData(false);
   };
-
-  // Update columns when loading state or data changes
-  useEffect(() => {
-    setColumns(generateColumns(loading));
-  }, [loading]);
-
-  // Rest of your component functions...
-  // [Include all your existing helper functions like handleJobIdClick, handleOpenDescriptionDialog, etc.]
-  // Make sure to keep all your existing functions from the original code
 
   const handleJobIdClick = (jobId) => {
     console.log("Job ID clicked:", jobId);
@@ -346,7 +373,16 @@ const Requirements = () => {
           "success"
         );
         // Refresh data after deletion
-        fetchData();
+        if (isFilteredDataRequested) {
+          // Refetch filtered data
+          dispatch(filterRequirementsByDateRange({
+            ...filteredRequirementFilters,
+            page: filteredRequirementPagination.currentPage,
+            size: filteredRequirementPagination.pageSize
+          }));
+        } else {
+          fetchData();
+        }
       } else {
         ToastService.update(
           deleteToastId,
@@ -400,7 +436,7 @@ const Requirements = () => {
 
   // Use the LoadingSkeleton component for job description loading state
   const renderJobDescription = (row) => {
-    if (loading) {
+    if (reduxLoading) {
       return <LoadingSkeleton rows={2} height={60} spacing={1} />;
     }
 
@@ -649,7 +685,8 @@ const Requirements = () => {
     );
   };
 
-  const generateColumns = (isLoading) => {
+  const generateColumns = useMemo(() => {
+    const isLoading = reduxLoading;
     const skeletonProps = {
       rows: 1,
       height: 24,
@@ -939,32 +976,77 @@ const Requirements = () => {
           ),
       },
     ];
+  }, [reduxLoading]);
+
+  useEffect(() => {
+    setColumns(generateColumns);
+  }, [generateColumns]);
+
+  // Prepare data for display
+  const processedData = useMemo(() => {
+    let sourceData = [];
+
+    if (isFilteredDataRequested) {
+      sourceData = Array.isArray(filteredRequirementList) ? filteredRequirementList : [];
+    } else if (role === "BDM") {
+      sourceData = isAllData ?
+        (Array.isArray(requirementsAllBDM) ? requirementsAllBDM : []) :
+        (Array.isArray(requirementsSelfBDM) ? requirementsSelfBDM : []);
+    } else {
+      sourceData = Array.isArray(data) ? data : [];
+    }
+
+    return sourceData.map((row) => ({
+      ...row,
+      expandContent: renderExpandedContent,
+      expanded: row.jobId === expandedRowId,
+    }));
+  }, [isFilteredDataRequested, filteredRequirementList, role, isAllData, requirementsAllBDM, requirementsSelfBDM, data, expandedRowId]);
+
+  // Determine display values for DataTablePaginated
+  const displayData = processedData;
+  const displayTotalCount = isFilteredDataRequested
+    ? (filteredRequirementPagination?.totalElements || processedData.length)
+    : role === "BDM"
+      ? processedData.length
+      : totalCount;
+
+  const displayPage = isFilteredDataRequested
+    ? (filteredRequirementPagination?.currentPage || 0)
+    : role === "BDM"
+      ? 0
+      : page;
+
+  const displayRowsPerPage = isFilteredDataRequested
+    ? (filteredRequirementPagination?.pageSize || 10)
+    : role === "BDM"
+      ? 10
+      : rowsPerPage;
+
+  // Determine if we should use server-side pagination
+  const enableServerSidePagination = role !== "BDM";
+
+  // Handle sort change
+  const handleSortChange = (property, direction) => {
+    console.log(`Sort changed: ${property}, ${direction}`);
+    setOrderBy(property);
+    setOrder(direction);
+    setPage(0);
   };
 
-  const processedData = data.map((row) => ({
-    ...row,
-    expandContent: () => renderExpandedContent(row),
-    expanded: row.jobId === expandedRowId,
-  }));
+  // Handle search change
+  const handleSearchChange = (searchTerm) => {
+    console.log(`Search changed: ${searchTerm}`);
+    setSearchQuery(searchTerm);
+    setPage(0);
+  };
 
-  // For BDM role, use different data sources
-  let displayData = processedData;
-  let displayTotalCount = totalCount;
-  let displayPage = page;
-  let displayRowsPerPage = rowsPerPage;
-
-  if (role === "BDM") {
-    displayData = isFilteredDataRequested ? filteredRequirementList :
-      isAllData ? requirementsAllBDM : requirementsSelfBDM;
-
-    // For BDM, we're not using server-side pagination, so calculate counts locally
-    displayTotalCount = displayData ? displayData.length : 0;
-    displayPage = 0;
-    displayRowsPerPage = 10;
-  }
-
-  // Check if server-side pagination should be enabled
-  const enableServerSidePagination = role !== "BDM";
+  // Handle filter change
+  const handleFilterChange = (filterParams) => {
+    console.log(`Filters changed:`, filterParams);
+    setFilters(filterParams);
+    setPage(0);
+  };
 
   return (
     <>
@@ -994,7 +1076,15 @@ const Requirements = () => {
           spacing={2}
           sx={{ ml: "auto" }}
         >
-          <DateRangeFilter component="Requirement" />
+          {/* Pass callback functions to DateRangeFilter */}
+          <DateRangeFilter
+            component="Requirement"
+            onApplyFilter={handleDateFilterApply}
+            onResetFilter={handleDateFilterReset}
+            isFiltered={isFilteredDataRequested}
+            paginationInfo={isFilteredDataRequested ? filteredRequirementPagination : null}
+          />
+
           <Button
             variant="contained"
             color="primary"
@@ -1018,16 +1108,16 @@ const Requirements = () => {
         </Paper>
       )}
 
-      {loading && data.length === 0 ? (
+      {(reduxLoading || loading) && displayData.length === 0 ? (
         <Box sx={{ p: 3 }}>
           <LoadingSkeleton rows={5} height={60} spacing={2} />
         </Box>
       ) : (
         <DataTablePaginated
-          data={displayData || []}
+          data={displayData}
           columns={columns}
           title=""
-          loading={loading}
+          loading={reduxLoading || loading}
           enableSelection={false}
           defaultSortColumn="requirementAddedTimeStamp"
           defaultSortDirection="desc"
@@ -1043,17 +1133,17 @@ const Requirements = () => {
           uniqueId="jobId"
           onRowClick={(row) => handleViewDetails(row.jobId)}
 
-          // Server-side pagination props (only for non-BDM roles)
-          serverSide={enableServerSidePagination}
+          // Server-side pagination props
+          serverSide={enableServerSidePagination || isFilteredDataRequested}
           totalCount={displayTotalCount}
           page={displayPage}
           rowsPerPage={displayRowsPerPage}
-          onPageChange={enableServerSidePagination ? handlePageChange : undefined}
-          onRowsPerPageChange={enableServerSidePagination ? handleRowsPerPageChange : undefined}
-          onSortChange={enableServerSidePagination ? handleSortChange : undefined}
-          onSearchChange={enableServerSidePagination ? handleSearchChange : undefined}
-          onFilterChange={enableServerSidePagination ? handleFilterChange : undefined}
-          enableServerSideFiltering={enableServerSidePagination}
+          onPageChange={isFilteredDataRequested ? handleFilteredPageChange : handlePageChange}
+          onRowsPerPageChange={isFilteredDataRequested ? handleFilteredPageChange : handleRowsPerPageChange}
+          onSortChange={enableServerSidePagination && !isFilteredDataRequested ? handleSortChange : undefined}
+          onSearchChange={enableServerSidePagination && !isFilteredDataRequested ? handleSearchChange : undefined}
+          onFilterChange={enableServerSidePagination && !isFilteredDataRequested ? handleFilterChange : undefined}
+          enableServerSideFiltering={enableServerSidePagination && !isFilteredDataRequested}
           searchValue={searchQuery}
         />
       )}
