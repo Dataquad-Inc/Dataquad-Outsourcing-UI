@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
-import DataTablePaginated from "../muiComponents/DataTablePaginated";
+import React, { useState, useEffect } from "react";
+import DataTable from "../muiComponents/DataTabel";
 import {
   Box,
   Typography,
@@ -15,6 +15,7 @@ import {
   DialogActions,
   Drawer,
   DialogContentText,
+  Badge,
   Paper,
   Tabs,
   Tab,
@@ -27,29 +28,24 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as VisibilityIcon,
+  Cancel,
 } from "@mui/icons-material";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import ToastService from "../../Services/toastService";
 import ReusableExpandedContent from "../muiComponents/ReusableExpandedContent";
+import ComponentTitle from "../../utils/ComponentTitle";
 import PostRequirement from "./PostRequirement/PostRequirement";
 import EditRequirement from "./EditRequirement";
-import httpService from "../../Services/httpService";
-import LoadingSkeleton from "../muiComponents/LoadingSkeleton";
+import httpService from "../../Services/httpService"; // Import httpService
+import LoadingSkeleton from "../muiComponents/LoadingSkeleton"; // Import LoadingSkeleton
+import { DateRangeIcon } from "@mui/x-date-pickers";
 import DateRangeFilter from "../muiComponents/DateRangeFilter";
 import { useDispatch, useSelector } from "react-redux";
-import {
-  fetchAllRequirementsBDM,
-  fetchRequirementsBdmSelf,
-  filterRequirementsByDateRange,
-  setFilteredRequirementPage,
-  setFilteredRequirementSize,
-  setFilteredRequirementFilters,
-  resetFilteredRequirements
-} from "../../redux/requirementSlice";
+import { fetchAllRequirementsBDM, fetchRequirementsBdmSelf, setFilteredReqDataRequested } from "../../redux/requirementSlice";
 import { Send } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+
 
 const Requirements = () => {
   const [data, setData] = useState([]);
@@ -60,8 +56,7 @@ const Requirements = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
   const [editFormData, setEditFormData] = useState(null);
-  const navigate = useNavigate();
-
+  const navigate = useNavigate()
   const [descriptionDialog, setDescriptionDialog] = useState({
     open: false,
     content: "",
@@ -74,229 +69,88 @@ const Requirements = () => {
   });
   const [expandedRowId, setExpandedRowId] = useState(null);
 
-  // Pagination state for regular data
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [totalCount, setTotalCount] = useState(0);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [orderBy, setOrderBy] = useState("requirementAddedTimeStamp");
-  const [order, setOrder] = useState("desc");
-  const [filters, setFilters] = useState({});
-
-  // Get state from Redux
-  const {
-    filteredRequirementList,
-    filteredRequirementPagination,
-    filteredRequirementFilters,
-    isFilteredDataRequested,
-    requirementsAllBDM,
-    requirementsSelfBDM,
-    loading: reduxLoading
-  } = useSelector((state) => state.requirement);
-
+  const { filteredRequirementList } = useSelector((state) => state.requirement);
+  const { isFilteredDataRequested } = useSelector((state) => state.bench);
   const { role, userId } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
+  const [dialogOpen, setDialogOpen] = useState(false);
 
+  const { requirementsAllBDM, requirementsSelfBDM } = useSelector((state) => state.requirement)
   const [tabValue, setTabValue] = useState(0);
-  const [isAllData, setIsAllData] = useState(false);
+  const [isAllData, setIsAllData] = useState(false)
 
   const refreshData = () => {
     setRefreshTrigger((prev) => prev + 1);
-    // Reset filtered data when refreshing
-    dispatch(resetFilteredRequirements());
     ToastService.info("Refreshing requirements data...");
   };
 
-  // Fetch data with pagination
-  const fetchData = useCallback(async () => {
-    // Don't fetch if we're viewing filtered data
-    if (isFilteredDataRequested) {
-      setLoading(false);
-      return;
-    }
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        let response;
 
-    // For BDM role, don't fetch from API (uses Redux)
-    if (role === "BDM") {
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      let response;
-      let endpoint = "";
-
-      if (role === "SUPERADMIN") {
-        // Build query parameters using your API format
-        const queryParams = new URLSearchParams({
-          page: page.toString(),
-          size: rowsPerPage.toString(),
-        });
-
-        // Add search if provided
-        if (searchQuery && searchQuery.trim() !== "") {
-          queryParams.append("search", searchQuery);
+        if (role === "SUPERADMIN") {
+          response = await httpService.get("/requirements/getAssignments");
+        } else if (role === "TEAMLEAD") {
+          response = await httpService.get(`/requirements/teamleadrequirements/${userId}`);
+        }
+        else if (role === "COORDINATOR") {
+          response = await httpService.get(`/requirements/coordinatorRequirements/${userId}`)
+        }
+        else if (role === "BDM") {
+          dispatch(fetchAllRequirementsBDM());
+          dispatch(fetchRequirementsBdmSelf());
+          ToastService.success("Data Fetched Successfully!")
+        }
+        else {
+          setData([]);
+          setError(new Error("Unauthorized role for this action"));
+          ToastService.error("Unauthorized role for fetching requirements",
+            "error")
+          return;
         }
 
-        // Add filters if any
-        Object.keys(filters).forEach(key => {
-          if (filters[key] && filters[key] !== "") {
-            queryParams.append(key, filters[key]);
-          }
-        });
+        if (Array.isArray(response.data) && role != "BDM") {
+          const priorityStatuses = ["Submitted", "On Hold", "In Progress"];
 
-        endpoint = `/requirements/getAssignments?${queryParams.toString()}`;
-        console.log("Fetching from endpoint:", endpoint);
-        response = await httpService.get(endpoint);
-      } else if (role === "TEAMLEAD") {
-        endpoint = `/requirements/teamleadrequirements/${userId}`;
-        response = await httpService.get(endpoint);
-      } else if (role === "COORDINATOR") {
-        endpoint = `/requirements/coordinatorRequirements/${userId}`;
-        response = await httpService.get(endpoint);
-      } else {
-        setData([]);
-        setError(new Error("Unauthorized role for this action"));
-        ToastService.error("Unauthorized role for fetching requirements", "error");
-        return;
-      }
+          const sortedData = response.data.sort((a, b) => {
+            const aPriority = priorityStatuses.includes(a.status) ? 0 : 1;
+            const bPriority = priorityStatuses.includes(b.status) ? 0 : 1;
 
-      console.log("API Response:", response.data);
+            if (aPriority !== bPriority) {
+              return aPriority - bPriority;
+            }
 
-      if (response.data) {
-        let requirements = [];
-        let total = 0;
+            return (
+              new Date(b.requirementAddedTimeStamp) -
+              new Date(a.requirementAddedTimeStamp)
+            );
+          });
 
-        // Check response structure based on your API
-        if (Array.isArray(response.data)) {
-          // If API returns direct array
-          requirements = response.data;
-          total = response.data.length;
-
-          // Apply client-side pagination
-          const startIndex = page * rowsPerPage;
-          const endIndex = startIndex + rowsPerPage;
-          requirements = requirements.slice(startIndex, endIndex);
-        } else if (response.data.content) {
-          // Spring Boot Pageable response format
-          requirements = response.data.content || [];
-          total = response.data.totalElements || 0;
-        } else if (response.data.data) {
-          // Custom response format { data: [], total: number }
-          requirements = response.data.data || [];
-          total = response.data.total || 0;
-        } else if (response.data.requirements) {
-          requirements = response.data.requirements || [];
-          total = response.data.total || 0;
+          setData(sortedData);
+          ToastService.success("Requirements data loaded successfully")
         } else {
-          requirements = [];
-          total = 0;
+          setData([]);
+          const msg =
+            response.data?.message || "Data fetched was not an array.";
+          setError(new Error(msg));
+          ToastService.error(msg)
         }
-
-        // Sort by priority status
-        const priorityStatuses = ["Submitted", "On Hold", "In Progress"];
-        const sortedData = requirements.sort((a, b) => {
-          const aPriority = priorityStatuses.includes(a.status) ? 0 : 1;
-          const bPriority = priorityStatuses.includes(b.status) ? 0 : 1;
-
-          if (aPriority !== bPriority) {
-            return aPriority - bPriority;
-          }
-
-          return new Date(b.requirementAddedTimeStamp) - new Date(a.requirementAddedTimeStamp);
-        });
-
-        setData(sortedData);
-        setTotalCount(total);
-
-        if (requirements.length > 0) {
-          ToastService.success(`Page ${page + 1}: Showing ${requirements.length} requirements`);
-        }
-      } else {
+      } catch (err) {
+        setError(err);
         setData([]);
-        setTotalCount(0);
-        ToastService.info("No requirements found");
+        console.warn(err);
+        ToastService.error(err)
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      setError(err);
-      setData([]);
-      setTotalCount(0);
-      console.error("Error fetching data:", err);
-      ToastService.error(err.message || "Error loading requirements");
-    } finally {
-      setLoading(false);
-    }
-  }, [page, rowsPerPage, searchQuery, orderBy, order, filters, role, userId, refreshTrigger, isFilteredDataRequested]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  // For BDM role, fetch data from Redux
-  useEffect(() => {
-    if (role === "BDM") {
-      dispatch(fetchAllRequirementsBDM());
-      dispatch(fetchRequirementsBdmSelf());
-    }
-  }, [role, dispatch, refreshTrigger]);
-
-  // Handle page change for regular data
-  const handlePageChange = (newPage, newRowsPerPage) => {
-    console.log(`Page changed to: ${newPage}, Rows per page: ${newRowsPerPage}`);
-    setPage(newPage);
-    if (newRowsPerPage !== rowsPerPage) {
-      setRowsPerPage(newRowsPerPage);
-      setPage(0);
-    }
-  };
-
-  // Handle rows per page change for regular data
-  const handleRowsPerPageChange = (newRowsPerPage) => {
-    console.log(`Rows per page changed to: ${newRowsPerPage}`);
-    setRowsPerPage(newRowsPerPage);
-    setPage(0);
-  };
-
-  // Handle pagination for filtered data
-  const handleFilteredPageChange = (newPage, newRowsPerPage) => {
-    console.log(`Filtered data - Page: ${newPage}, Size: ${newRowsPerPage}`);
-
-    // Update pagination state
-    dispatch(setFilteredRequirementPage(newPage));
-    if (newRowsPerPage !== filteredRequirementPagination.pageSize) {
-      dispatch(setFilteredRequirementSize(newRowsPerPage));
-    }
-
-    // Fetch filtered data with new pagination
-    dispatch(filterRequirementsByDateRange({
-      ...filteredRequirementFilters,
-      page: newPage,
-      size: newRowsPerPage || filteredRequirementPagination.pageSize
-    }));
-  };
-
-  // Handle DateRangeFilter apply
-  const handleDateFilterApply = (startDate, endDate) => {
-    // Reset to first page when applying new filter
-    const filterParams = {
-      startDate,
-      endDate,
-      page: 0,
-      size: filteredRequirementPagination.pageSize || 10
     };
 
-    dispatch(setFilteredRequirementFilters(filterParams));
-    dispatch(filterRequirementsByDateRange(filterParams));
-  };
-
-  // Handle DateRangeFilter reset
-  const handleDateFilterReset = () => {
-    dispatch(resetFilteredRequirements());
-    // Refetch regular data
     fetchData();
-  };
+  }, [refreshTrigger, role, userId]);
 
-  // Handle tab change
+
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
     const selected = event.target.id;
@@ -304,8 +158,13 @@ const Requirements = () => {
       setIsAllData(true);
       return;
     }
-    setIsAllData(false);
+    setIsAllData(false)
   };
+
+  // Update columns when loading state or data changes
+  useEffect(() => {
+    setColumns(generateColumns(loading));
+  }, [loading]);
 
   const handleJobIdClick = (jobId) => {
     console.log("Job ID clicked:", jobId);
@@ -362,6 +221,7 @@ const Requirements = () => {
 
     try {
       setLoading(true);
+      // Using httpService instead of axios directly
       const response = await httpService.delete(
         `/requirements/deleteRequirement/${deleteDialog.jobId}`
       );
@@ -372,21 +232,11 @@ const Requirements = () => {
           `Requirement "${deleteDialog.jobTitle}" deleted successfully`,
           "success"
         );
-        // Refresh data after deletion
-        if (isFilteredDataRequested) {
-          // Refetch filtered data
-          dispatch(filterRequirementsByDateRange({
-            ...filteredRequirementFilters,
-            page: filteredRequirementPagination.currentPage,
-            size: filteredRequirementPagination.pageSize
-          }));
-        } else {
-          fetchData();
-        }
       } else {
         ToastService.update(
           deleteToastId,
-          `Failed to delete requirement: ${response.data.message || "Unknown error"}`,
+          `Failed to delete requirement: ${response.data.message || "Unknown error"
+          }`,
           "error"
         );
       }
@@ -399,6 +249,7 @@ const Requirements = () => {
       );
     } finally {
       setDeleteDialog({ open: false, jobId: null, jobTitle: "" });
+      refreshData();
       setLoading(false);
     }
   };
@@ -436,7 +287,7 @@ const Requirements = () => {
 
   // Use the LoadingSkeleton component for job description loading state
   const renderJobDescription = (row) => {
-    if (reduxLoading) {
+    if (loading) {
       return <LoadingSkeleton rows={2} height={60} spacing={1} />;
     }
 
@@ -685,8 +536,7 @@ const Requirements = () => {
     );
   };
 
-  const generateColumns = useMemo(() => {
-    const isLoading = reduxLoading;
+  const generateColumns = (isLoading) => {
     const skeletonProps = {
       rows: 1,
       height: 24,
@@ -697,7 +547,6 @@ const Requirements = () => {
       {
         key: "jobId",
         label: "Job ID",
-        sortable: true,
         render: (row) =>
           isLoading ? (
             <LoadingSkeleton {...skeletonProps} width={80} />
@@ -719,7 +568,6 @@ const Requirements = () => {
       {
         key: "requirementAddedTimeStamp",
         label: "Posted Date",
-        sortable: true,
         render: (row) =>
           isLoading ? (
             <LoadingSkeleton {...skeletonProps} width={100} />
@@ -736,9 +584,8 @@ const Requirements = () => {
           ),
       },
       {
-        key: "updatedAt",
-        label: "Updated Date",
-        sortable: true,
+          key:"updatedAt",
+           label: "Updated Date",
         render: (row) =>
           isLoading ? (
             <LoadingSkeleton {...skeletonProps} width={100} />
@@ -757,7 +604,6 @@ const Requirements = () => {
       {
         key: "jobTitle",
         label: "Job Title",
-        sortable: true,
         render: (row) =>
           isLoading ? (
             <LoadingSkeleton {...skeletonProps} width={120} />
@@ -768,7 +614,6 @@ const Requirements = () => {
       {
         key: "clientName",
         label: "Client Name",
-        sortable: true,
         render: (row) =>
           isLoading ? (
             <LoadingSkeleton {...skeletonProps} width={100} />
@@ -779,7 +624,6 @@ const Requirements = () => {
       {
         key: "assignedBy",
         label: "Assigned By",
-        sortable: true,
         render: (row) =>
           isLoading ? (
             <LoadingSkeleton {...skeletonProps} width={100} />
@@ -794,7 +638,6 @@ const Requirements = () => {
       {
         key: "recruiterName",
         label: "Recruiter(s)",
-        sortable: false,
         render: (row) =>
           isLoading ? (
             <LoadingSkeleton {...skeletonProps} width={100} />
@@ -806,10 +649,10 @@ const Requirements = () => {
             "Invalid Data"
           ),
       },
+
       {
         key: "numberOfSubmissions",
         label: "Submissions",
-        sortable: true,
         render: (row) =>
           isLoading ? (
             <LoadingSkeleton {...skeletonProps} width={100} />
@@ -830,7 +673,6 @@ const Requirements = () => {
       {
         key: "numberOfInterviews",
         label: "Interviews",
-        sortable: true,
         render: (row) =>
           isLoading ? (
             <LoadingSkeleton {...skeletonProps} width={100} />
@@ -851,7 +693,6 @@ const Requirements = () => {
       {
         key: "jobDescription",
         label: "Job Description",
-        sortable: false,
         render: (row) =>
           isLoading ? (
             <LoadingSkeleton {...skeletonProps} width={120} />
@@ -901,8 +742,6 @@ const Requirements = () => {
       {
         key: "status",
         label: "Status",
-        sortable: true,
-        filterable: true,
         render: (row) =>
           isLoading ? (
             <LoadingSkeleton {...skeletonProps} width={80} />
@@ -913,7 +752,6 @@ const Requirements = () => {
       {
         key: "salaryPackage",
         label: "Package",
-        sortable: true,
         render: (row) =>
           isLoading ? (
             <LoadingSkeleton {...skeletonProps} width={80} />
@@ -924,7 +762,6 @@ const Requirements = () => {
       {
         key: "age",
         label: "Age Of Requirement",
-        sortable: true,
         render: (row) =>
           isLoading ? (
             <LoadingSkeleton {...skeletonProps} width={80} />
@@ -935,7 +772,6 @@ const Requirements = () => {
       {
         key: "actions",
         label: "Actions",
-        sortable: false,
         render: (row) =>
           isLoading ? (
             <Stack direction="row" spacing={1}>
@@ -976,76 +812,41 @@ const Requirements = () => {
           ),
       },
     ];
-  }, [reduxLoading]);
-
-  useEffect(() => {
-    setColumns(generateColumns);
-  }, [generateColumns]);
-
-  // Prepare data for display
-  const processedData = useMemo(() => {
-    let sourceData = [];
-
-    if (isFilteredDataRequested) {
-      sourceData = Array.isArray(filteredRequirementList) ? filteredRequirementList : [];
-    } else if (role === "BDM") {
-      sourceData = isAllData ?
-        (Array.isArray(requirementsAllBDM) ? requirementsAllBDM : []) :
-        (Array.isArray(requirementsSelfBDM) ? requirementsSelfBDM : []);
-    } else {
-      sourceData = Array.isArray(data) ? data : [];
-    }
-
-    return sourceData.map((row) => ({
-      ...row,
-      expandContent: renderExpandedContent,
-      expanded: row.jobId === expandedRowId,
-    }));
-  }, [isFilteredDataRequested, filteredRequirementList, role, isAllData, requirementsAllBDM, requirementsSelfBDM, data, expandedRowId]);
-
-  // Determine display values for DataTablePaginated
-  const displayData = processedData;
-  const displayTotalCount = isFilteredDataRequested
-    ? (filteredRequirementPagination?.totalElements || processedData.length)
-    : role === "BDM"
-      ? processedData.length
-      : totalCount;
-
-  const displayPage = isFilteredDataRequested
-    ? (filteredRequirementPagination?.currentPage || 0)
-    : role === "BDM"
-      ? 0
-      : page;
-
-  const displayRowsPerPage = isFilteredDataRequested
-    ? (filteredRequirementPagination?.pageSize || 10)
-    : role === "BDM"
-      ? 10
-      : rowsPerPage;
-
-  // Determine if we should use server-side pagination
-  const enableServerSidePagination = role !== "BDM";
-
-  // Handle sort change
-  const handleSortChange = (property, direction) => {
-    console.log(`Sort changed: ${property}, ${direction}`);
-    setOrderBy(property);
-    setOrder(direction);
-    setPage(0);
   };
 
-  // Handle search change
-  const handleSearchChange = (searchTerm) => {
-    console.log(`Search changed: ${searchTerm}`);
-    setSearchQuery(searchTerm);
-    setPage(0);
+ 
+
+  const processedData = data.map((row) => ({
+    ...row,
+    expandContent: renderExpandedContent,
+    expanded: row.jobId === expandedRowId,
+  }));
+
+  console.log("Processed data",processedData)
+   
+  // if (error) {
+  //   return (
+  //     <Box sx={{ p: 3, textAlign: "center" }}>
+  //       <Typography color="error">Error: {error.message}</Typography>
+  //       <Button
+  //         variant="outlined"
+  //         onClick={refreshData}
+  //         startIcon={<Refresh />}
+  //         sx={{ mt: 2 }}
+  //       >
+  //         Retry
+  //       </Button>
+  //     </Box>
+  //   );
+  // }
+
+  const handleCalenderDialog = () => {
+    setDialogOpen(!dialogOpen);
   };
 
-  // Handle filter change
-  const handleFilterChange = (filterParams) => {
-    console.log(`Filters changed:`, filterParams);
-    setFilters(filterParams);
-    setPage(0);
+  const handleDisableFilter = () => {
+    dispatch(setFilteredReqDataRequested(false));
+    setDialogOpen(false);
   };
 
   return (
@@ -1076,15 +877,7 @@ const Requirements = () => {
           spacing={2}
           sx={{ ml: "auto" }}
         >
-          {/* Pass callback functions to DateRangeFilter */}
-          <DateRangeFilter
-            component="Requirement"
-            onApplyFilter={handleDateFilterApply}
-            onResetFilter={handleDateFilterReset}
-            isFiltered={isFilteredDataRequested}
-            paginationInfo={isFilteredDataRequested ? filteredRequirementPagination : null}
-          />
-
+          <DateRangeFilter component="Requirement" />
           <Button
             variant="contained"
             color="primary"
@@ -1099,25 +892,27 @@ const Requirements = () => {
         </Stack>
       </Stack>
 
-      {role === "BDM" && (
-        <Paper sx={{ mb: 3 }}>
-          <Tabs value={tabValue} onChange={handleTabChange} variant="scrollable" scrollButtons="auto">
-            <Tab id="self" label="Self Requirements" />
-            <Tab id="all" label="All Requirements" />
-          </Tabs>
-        </Paper>
-      )}
+      {role === "BDM" &&
+            <Paper sx={{ mb: 3 }}>
+              <Tabs value={tabValue} onChange={handleTabChange} variant="scrollable" scrollButtons="auto">
+                <Tab id="self" label="Self Requirements" />
+                <Tab id="all" label="All Requirements" />
+              </Tabs>
+            </Paper>
+        }
 
-      {(reduxLoading || loading) && displayData.length === 0 ? (
+      {loading && data.length === 0 ? (
         <Box sx={{ p: 3 }}>
           <LoadingSkeleton rows={5} height={60} spacing={2} />
         </Box>
       ) : (
-        <DataTablePaginated
-          data={displayData}
+        <DataTable
+        data={isFilteredDataRequested ? filteredRequirementList :
+          role === "BDM" ? isAllData ? requirementsAllBDM : requirementsSelfBDM :
+          processedData || []}
           columns={columns}
           title=""
-          loading={reduxLoading || loading}
+          loading={loading}
           enableSelection={false}
           defaultSortColumn="requirementAddedTimeStamp"
           defaultSortDirection="desc"
@@ -1132,19 +927,6 @@ const Requirements = () => {
           }}
           uniqueId="jobId"
           onRowClick={(row) => handleViewDetails(row.jobId)}
-
-          // Server-side pagination props
-          serverSide={enableServerSidePagination || isFilteredDataRequested}
-          totalCount={displayTotalCount}
-          page={displayPage}
-          rowsPerPage={displayRowsPerPage}
-          onPageChange={isFilteredDataRequested ? handleFilteredPageChange : handlePageChange}
-          onRowsPerPageChange={isFilteredDataRequested ? handleFilteredPageChange : handleRowsPerPageChange}
-          onSortChange={enableServerSidePagination && !isFilteredDataRequested ? handleSortChange : undefined}
-          onSearchChange={enableServerSidePagination && !isFilteredDataRequested ? handleSearchChange : undefined}
-          onFilterChange={enableServerSidePagination && !isFilteredDataRequested ? handleFilterChange : undefined}
-          enableServerSideFiltering={enableServerSidePagination && !isFilteredDataRequested}
-          searchValue={searchQuery}
         />
       )}
 
