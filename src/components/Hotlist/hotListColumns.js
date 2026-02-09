@@ -17,7 +17,6 @@ const formatDate = (date) => {
     year: "numeric",
     month: "short",
     day: "2-digit",
-    timeZone: "UTC"
   });
 };
 
