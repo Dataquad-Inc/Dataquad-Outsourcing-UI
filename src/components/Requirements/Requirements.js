@@ -82,7 +82,6 @@ const Requirements = () => {
   const [orderBy, setOrderBy] = useState("requirementAddedTimeStamp");
   const [order, setOrder] = useState("desc");
   const [filters, setFilters] = useState({});
-  const [filteredSearchQuery, setFilteredSearchQuery] = useState("");
 
   // Get state from Redux
   const {
@@ -103,21 +102,12 @@ const Requirements = () => {
 
   const refreshData = () => {
     setRefreshTrigger((prev) => prev + 1);
-
-    // If we're viewing filtered data, reset it
-    if (isFilteredDataRequested) {
-      dispatch(resetFilteredRequirements());
-      setFilteredSearchQuery("");
-    }
-
-    // Reset regular data states
-    setSearchQuery("");
-    setPage(0);
-
+    // Reset filtered data when refreshing
+    dispatch(resetFilteredRequirements());
     ToastService.info("Refreshing requirements data...");
   };
 
-
+  // Fetch data with pagination
   const fetchData = useCallback(async () => {
     // Don't fetch if we're viewing filtered data
     if (isFilteredDataRequested) {
@@ -137,15 +127,18 @@ const Requirements = () => {
       let endpoint = "";
 
       if (role === "SUPERADMIN") {
+        // Build query parameters using your API format
         const queryParams = new URLSearchParams({
           page: page.toString(),
           size: rowsPerPage.toString(),
         });
 
+        // Add search if provided
         if (searchQuery && searchQuery.trim() !== "") {
           queryParams.append("search", searchQuery);
         }
 
+        // Add filters if any
         Object.keys(filters).forEach(key => {
           if (filters[key] && filters[key] !== "") {
             queryParams.append(key, filters[key]);
@@ -174,17 +167,22 @@ const Requirements = () => {
         let requirements = [];
         let total = 0;
 
+        // Check response structure based on your API
         if (Array.isArray(response.data)) {
+          // If API returns direct array
           requirements = response.data;
           total = response.data.length;
 
+          // Apply client-side pagination
           const startIndex = page * rowsPerPage;
           const endIndex = startIndex + rowsPerPage;
           requirements = requirements.slice(startIndex, endIndex);
         } else if (response.data.content) {
+          // Spring Boot Pageable response format
           requirements = response.data.content || [];
           total = response.data.totalElements || 0;
         } else if (response.data.data) {
+          // Custom response format { data: [], total: number }
           requirements = response.data.data || [];
           total = response.data.total || 0;
         } else if (response.data.requirements) {
@@ -195,6 +193,7 @@ const Requirements = () => {
           total = 0;
         }
 
+        // Sort by priority status
         const priorityStatuses = ["Submitted", "On Hold", "In Progress"];
         const sortedData = requirements.sort((a, b) => {
           const aPriority = priorityStatuses.includes(a.status) ? 0 : 1;
@@ -211,7 +210,7 @@ const Requirements = () => {
         setTotalCount(total);
 
         if (requirements.length > 0) {
-          ToastService.success(`Showing ${requirements.length} requirements`);
+          ToastService.success(`Page ${page + 1}: Showing ${requirements.length} requirements`);
         }
       } else {
         setData([]);
@@ -230,11 +229,8 @@ const Requirements = () => {
   }, [page, rowsPerPage, searchQuery, orderBy, order, filters, role, userId, refreshTrigger, isFilteredDataRequested]);
 
   useEffect(() => {
-    // When filter is reset, fetch regular data
-    if (!isFilteredDataRequested && role !== "BDM") {
-      fetchData();
-    }
-  }, [isFilteredDataRequested, fetchData, role]);
+    fetchData();
+  }, [fetchData]);
 
   // For BDM role, fetch data from Redux
   useEffect(() => {
@@ -243,12 +239,6 @@ const Requirements = () => {
       dispatch(fetchRequirementsBdmSelf());
     }
   }, [role, dispatch, refreshTrigger]);
-
-  useEffect(() => {
-    if (!isFilteredDataRequested) {
-      setFilteredSearchQuery("");
-    }
-  }, [isFilteredDataRequested]);
 
   // Handle page change for regular data
   const handlePageChange = (newPage, newRowsPerPage) => {
@@ -267,85 +257,43 @@ const Requirements = () => {
     setPage(0);
   };
 
+  // Handle pagination for filtered data
   const handleFilteredPageChange = (newPage, newRowsPerPage) => {
-    console.log(`handleFilteredPageChange called - Page: ${newPage}, Size: ${newRowsPerPage}`);
-    console.log('Current filters:', filteredRequirementFilters);
-    console.log('Current search:', filteredSearchQuery);
+    console.log(`Filtered data - Page: ${newPage}, Size: ${newRowsPerPage}`);
 
-    // Determine the size to use
-    const sizeToUse = newRowsPerPage !== undefined && newRowsPerPage !== null
-      ? newRowsPerPage
-      : filteredRequirementPagination.pageSize;
-
-    // Build the filter parameters
-    const filterParams = {
-      startDate: filteredRequirementFilters.startDate,
-      endDate: filteredRequirementFilters.endDate,
-      search: filteredSearchQuery || "", // Current search query
-      page: newPage,
-      size: sizeToUse
-    };
-
-    console.log('Dispatching with params:', filterParams);
-
-    // Update Redux state
+    // Update pagination state
     dispatch(setFilteredRequirementPage(newPage));
-    if (sizeToUse !== filteredRequirementPagination.pageSize) {
-      dispatch(setFilteredRequirementSize(sizeToUse));
+    if (newRowsPerPage !== filteredRequirementPagination.pageSize) {
+      dispatch(setFilteredRequirementSize(newRowsPerPage));
     }
 
     // Fetch filtered data with new pagination
-    dispatch(filterRequirementsByDateRange(filterParams));
+    dispatch(filterRequirementsByDateRange({
+      ...filteredRequirementFilters,
+      page: newPage,
+      size: newRowsPerPage || filteredRequirementPagination.pageSize
+    }));
   };
 
+  // Handle DateRangeFilter apply
   const handleDateFilterApply = (startDate, endDate) => {
-    console.log('=== handleDateFilterApply called ===');
-    console.log('startDate:', startDate, 'endDate:', endDate);
-
-    // IMPORTANT: When user clears the filter, DateRangeFilter calls this with (null, null)
-    if (startDate === null && endDate === null) {
-      console.log('Dates are null - clearing filter');
-      handleDateFilterReset();
-      return;
-    }
-
-    // Reset search when applying new date filter
-    setFilteredSearchQuery("");
-    setSearchQuery("");
-
-    // Apply the filter with dates
+    // Reset to first page when applying new filter
     const filterParams = {
       startDate,
       endDate,
       page: 0,
-      size: 10,
-      search: ""
+      size: filteredRequirementPagination.pageSize || 10
     };
 
-    console.log('Applying filter with params:', filterParams);
-
-    dispatch(setFilteredRequirementFilters({ startDate, endDate, search: "" }));
-    dispatch(setFilteredRequirementPage(0));
-    dispatch(setFilteredRequirementSize(10));
+    dispatch(setFilteredRequirementFilters(filterParams));
     dispatch(filterRequirementsByDateRange(filterParams));
   };
 
-
+  // Handle DateRangeFilter reset
   const handleDateFilterReset = () => {
-    console.log('Resetting date filter');
-
-    // Clear the filtered search query
-    setFilteredSearchQuery("");
-
-    // Reset filtered requirements in Redux
     dispatch(resetFilteredRequirements());
-
-    // Reset page state for regular data
-    setPage(0);
-    setSearchQuery("");
-
-    // Force refetch of regular data
-    setRefreshTrigger((prev) => prev + 1);
+    // Refetch regular data
+    fetchData();
   };
 
   // Handle tab change
@@ -1086,38 +1034,12 @@ const Requirements = () => {
     setPage(0);
   };
 
+  // Handle search change
   const handleSearchChange = (searchTerm) => {
-    console.log(`Search changed: ${searchTerm}, isFiltered: ${isFilteredDataRequested}`);
-
-    if (isFilteredDataRequested) {
-      // For filtered data, update the search query and refetch with search
-      setFilteredSearchQuery(searchTerm);
-
-      // Build filter params with current filters + new search
-      const filterParams = {
-        startDate: filteredRequirementFilters.startDate,
-        endDate: filteredRequirementFilters.endDate,
-        search: searchTerm,
-        page: 0, // Reset to first page when searching
-        size: filteredRequirementPagination.pageSize
-      };
-
-      // Update filters in Redux
-      dispatch(setFilteredRequirementFilters({
-        ...filteredRequirementFilters,
-        search: searchTerm
-      }));
-      dispatch(setFilteredRequirementPage(0));
-
-      // Fetch filtered data with search term
-      dispatch(filterRequirementsByDateRange(filterParams));
-    } else {
-      // For regular data
-      setSearchQuery(searchTerm);
-      setPage(0);
-    }
+    console.log(`Search changed: ${searchTerm}`);
+    setSearchQuery(searchTerm);
+    setPage(0);
   };
-
 
   // Handle filter change
   const handleFilterChange = (filterParams) => {
@@ -1158,7 +1080,7 @@ const Requirements = () => {
           <DateRangeFilter
             component="Requirement"
             onApplyFilter={handleDateFilterApply}
-            onClearFilter={handleDateFilterReset}
+            onResetFilter={handleDateFilterReset}
             isFiltered={isFilteredDataRequested}
             paginationInfo={isFilteredDataRequested ? filteredRequirementPagination : null}
           />
@@ -1210,20 +1132,20 @@ const Requirements = () => {
           }}
           uniqueId="jobId"
           onRowClick={(row) => handleViewDetails(row.jobId)}
+
           // Server-side pagination props
-          serverSide={enableServerSidePagination || !isFilteredDataRequested}
+          serverSide={enableServerSidePagination || isFilteredDataRequested}
           totalCount={displayTotalCount}
           page={displayPage}
           rowsPerPage={displayRowsPerPage}
           onPageChange={isFilteredDataRequested ? handleFilteredPageChange : handlePageChange}
+          onRowsPerPageChange={isFilteredDataRequested ? handleFilteredPageChange : handleRowsPerPageChange}
           onSortChange={enableServerSidePagination && !isFilteredDataRequested ? handleSortChange : undefined}
-          // Search functionality
-          onSearchChange={handleSearchChange}
-          searchValue={isFilteredDataRequested ? filteredSearchQuery : searchQuery}
+          onSearchChange={enableServerSidePagination && !isFilteredDataRequested ? handleSearchChange : undefined}
           onFilterChange={enableServerSidePagination && !isFilteredDataRequested ? handleFilterChange : undefined}
           enableServerSideFiltering={enableServerSidePagination && !isFilteredDataRequested}
+          searchValue={searchQuery}
         />
-
       )}
 
       {/* Job Description Dialog */}
