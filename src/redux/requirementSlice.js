@@ -30,12 +30,11 @@ export const fetchRequirementsBdmSelf = createAsyncThunk(
   }
 )
 
+// Filter requirements by date range with pagination support
 export const filterRequirementsByDateRange = createAsyncThunk(
   'requirements/filterByDateRange',
-  async ({ startDate, endDate, page = 0, size = 10, search = "", ...filters }, { rejectWithValue }) => {
+  async ({ startDate, endDate, page = 0, size = 10, globalSearch = "", ...filters }, { rejectWithValue }) => {
     try {
-      console.log('filterRequirementsByDateRange called with:', { startDate, endDate, page, size, search });
-
       // Build query parameters with pagination
       const params = new URLSearchParams({
         startDate,
@@ -44,9 +43,9 @@ export const filterRequirementsByDateRange = createAsyncThunk(
         size: size.toString(),
       });
 
-      // Add search parameter
-      if (search && search.trim() !== "") {
-        params.append("search", search.trim());
+      // Add global search if provided
+      if (globalSearch && globalSearch.trim() !== "") {
+        params.append("globalSearch", globalSearch.trim());
       }
 
       // Add other filters
@@ -56,9 +55,7 @@ export const filterRequirementsByDateRange = createAsyncThunk(
         }
       });
 
-      console.log('API call URL:', `/requirements/filterByDate?${params.toString()}`);
       const response = await httpService.get(`/requirements/filterByDate?${params.toString()}`);
-      console.log('API Response:', response.data);
 
       // Return both data and pagination info
       return {
@@ -69,15 +66,16 @@ export const filterRequirementsByDateRange = createAsyncThunk(
           currentPage: page,
           pageSize: size,
         },
-        filterParams: { startDate, endDate, search }
+        filterParams: { startDate, endDate }
       };
     } catch (error) {
-      console.error('filterRequirementsByDateRange error:', error);
+      console.log(error);
       return rejectWithValue(error);
     }
   }
 )
 
+// Filter requirements for employee - keep without pagination for now
 export const filterRequirementsByRecruiter = createAsyncThunk(
   'recruiter/requirements/filterByDateRange',
   async ({ startDate, endDate }, { getState, rejectWithValue }) => {
@@ -131,6 +129,7 @@ const requirementSlice = createSlice({
   initialState: {
     loading: false,
     filteredRequirementList: [],
+    // Pagination state for filtered data
     filteredRequirementPagination: {
       totalElements: 0,
       totalPages: 0,
@@ -142,20 +141,22 @@ const requirementSlice = createSlice({
     filteredRequirementFilters: {
       startDate: null,
       endDate: null,
-      search: "",
+      globalSearch: "",
+      otherFilters: {}
     },
     assignedJobs: [],
     filterAssignedRequirements: [],
     filteredTeamLeadRequirements: [],
     requirementsAllBDM: [],
     requirementsSelfBDM: [],
-    isFilteredDataRequested: false,
+    isFilteredReqRequested: false,
     error: null
   },
   reducers: {
     setFilteredReqDataRequested: (state, action) => {
       state.isFilteredDataRequested = action.payload;
     },
+    // Add pagination actions
     setFilteredRequirementPage: (state, action) => {
       state.filteredRequirementPagination.currentPage = action.payload;
     },
@@ -181,13 +182,15 @@ const requirementSlice = createSlice({
       state.filteredRequirementFilters = {
         startDate: null,
         endDate: null,
-        search: "",
+        globalSearch: "",
+        otherFilters: {}
       };
       state.isFilteredDataRequested = false;
     }
-  },
-  extraReducers: (builder) => {
+
+  }, extraReducers: (builder) => {
     builder
+
       .addCase(fetchAllRequirementsBDM.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -199,6 +202,7 @@ const requirementSlice = createSlice({
       .addCase(fetchAllRequirementsBDM.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+
       })
 
       .addCase(fetchRequirementsBdmSelf.pending, (state) => {
@@ -212,8 +216,10 @@ const requirementSlice = createSlice({
       .addCase(fetchRequirementsBdmSelf.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+
       })
 
+      // Filter Requirement List By date Range (with pagination)
       .addCase(filterRequirementsByDateRange.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -222,49 +228,66 @@ const requirementSlice = createSlice({
         state.loading = false;
         state.isFilteredDataRequested = true;
 
-        console.log('filterRequirementsByDateRange fulfilled:', action.payload);
-
         // Extract data from response based on API structure
         let data = [];
-
         if (action.payload.data) {
+          // Handle different API response structures
           if (Array.isArray(action.payload.data)) {
-            // Direct array response
             data = action.payload.data;
-            // Use pagination from action.payload.pagination
-            state.filteredRequirementPagination = {
-              totalElements: action.payload.pagination.totalElements || data.length,
-              totalPages: action.payload.pagination.totalPages || Math.ceil(data.length / action.payload.pagination.pageSize),
-              currentPage: action.payload.pagination.currentPage || 0,
-              pageSize: action.payload.pagination.pageSize || 10,
-              hasNext: action.payload.pagination.currentPage < (action.payload.pagination.totalPages - 1),
-              hasPrevious: action.payload.pagination.currentPage > 0
-            };
           } else if (action.payload.data.content) {
             // Spring Boot paginated response
             data = action.payload.data.content || [];
             state.filteredRequirementPagination = {
               totalElements: action.payload.data.totalElements || 0,
               totalPages: action.payload.data.totalPages || 0,
-              currentPage: action.payload.data.pageable?.pageNumber || action.payload.pagination.currentPage,
-              pageSize: action.payload.data.pageable?.pageSize || action.payload.pagination.pageSize,
+              currentPage: action.payload.data.pageable?.pageNumber || 0,
+              pageSize: action.payload.data.pageable?.pageSize || 10,
               hasNext: !action.payload.data.last,
               hasPrevious: !action.payload.data.first
             };
           } else if (action.payload.data.data) {
-            // Custom paginated response format { data: { data: [], total: number } }
+            // Custom paginated response format
             data = action.payload.data.data || [];
             state.filteredRequirementPagination = {
               totalElements: action.payload.data.total || data.length,
               totalPages: action.payload.data.totalPages ||
-                Math.ceil((action.payload.data.total || data.length) / action.payload.pagination.pageSize),
+                Math.ceil((action.payload.data.total || data.length) /
+                  (action.payload.pagination.pageSize || 10)),
               currentPage: action.payload.pagination.currentPage || 0,
               pageSize: action.payload.pagination.pageSize || 10,
-              hasNext: action.payload.data.hasNext ||
-                (action.payload.pagination.currentPage < (action.payload.data.totalPages - 1)),
-              hasPrevious: action.payload.data.hasPrevious || (action.payload.pagination.currentPage > 0)
+              hasNext: action.payload.data.hasNext || false,
+              hasPrevious: action.payload.data.hasPrevious || false
             };
+          } else {
+            // Assume response is the data array itself
+            data = action.payload.data || [];
           }
+        }
+
+        // If pagination info was provided separately in action.payload.pagination
+        if (action.payload.pagination && !action.payload.data?.content) {
+          state.filteredRequirementPagination = {
+            totalElements: action.payload.pagination.totalElements || data.length,
+            totalPages: action.payload.pagination.totalPages ||
+              Math.ceil(data.length / (action.payload.pagination.pageSize || 10)),
+            currentPage: action.payload.pagination.currentPage || 0,
+            pageSize: action.payload.pagination.pageSize || 10,
+            hasNext: action.payload.pagination.totalPages ?
+              (action.payload.pagination.currentPage < action.payload.pagination.totalPages - 1) : false,
+            hasPrevious: action.payload.pagination.currentPage > 0
+          };
+        }
+
+        // Fallback if no pagination info was extracted
+        if (!state.filteredRequirementPagination.totalElements && data.length > 0) {
+          state.filteredRequirementPagination = {
+            totalElements: data.length,
+            totalPages: Math.ceil(data.length / state.filteredRequirementPagination.pageSize),
+            currentPage: 0,
+            pageSize: state.filteredRequirementPagination.pageSize,
+            hasNext: false,
+            hasPrevious: false
+          };
         }
 
         // Update filters in state
@@ -276,17 +299,15 @@ const requirementSlice = createSlice({
         }
 
         state.filteredRequirementList = data;
-        console.log('Updated state:', {
-          data: data.length,
-          pagination: state.filteredRequirementPagination
-        });
       })
       .addCase(filterRequirementsByDateRange.rejected, (state, action) => {
         state.loading = false;
         state.isFilteredDataRequested = false;
         state.error = action.payload?.message || 'Filtering failed';
+
       })
 
+      // Filter Recruiter requirements (keep as is - no pagination)
       .addCase(filterRequirementsByRecruiter.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -297,9 +318,11 @@ const requirementSlice = createSlice({
       })
       .addCase(filterRequirementsByRecruiter.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload?.message;
+        state.error = action.payload.message;
+
       })
 
+      //jobDetails tracking 
       .addCase(getRequirementDetailsByJobId.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -312,6 +335,7 @@ const requirementSlice = createSlice({
         state.loading = false;
         state.error = action.payload?.message || 'Something went wrong';
       })
+
 
       .addCase(fetchAssignedJobs.pending, (state) => {
         state.loading = true;
@@ -326,6 +350,7 @@ const requirementSlice = createSlice({
         state.error = action.payload?.message || 'Failed to load assigned jobs';
         state.assignedJobs = [];
       })
+
   }
 })
 
