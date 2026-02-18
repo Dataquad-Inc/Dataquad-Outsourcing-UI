@@ -133,7 +133,9 @@ const ConsultantProfile = () => {
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
 
-    const [year, month, day] = dateString.split("-");
+    // Extract just the date part (YYYY-MM-DD)
+    const datePart = dateString.split("T")[0];
+    const [year, month, day] = datePart.split("-");
 
     const date = new Date(Date.UTC(year, month - 1, day));
 
@@ -509,8 +511,8 @@ const ConsultantProfile = () => {
                       />
                       <Chip
                         label={`Relocation: ${consultant.relocation === "Yes"
-                            ? "Available"
-                            : "Not Available"
+                          ? "Available"
+                          : "Not Available"
                           }`}
                         size="small"
                         color={
