@@ -18,6 +18,8 @@ import {
   DialogActions,
   Grid,
   Stack,
+  ToggleButtonGroup,
+  ToggleButton,
 } from "@mui/material";
 import { 
   Refresh, 
@@ -34,6 +36,13 @@ import {
   deleteEmployee,
   resetUpdateStatus,
   resetDeleteStatus,
+  activeInternalUsers,
+  inactiveInternalUsers,
+  activeExternalUsers,
+  inactiveExternalUsers,
+  setUserType,
+  setUserStatus,
+  resetFilteredUsers,
 } from "../../redux/employeesSlice";
 import { showToast } from "../../utils/ToastNotification";
 import ToastNotification from "../../utils/ToastNotification";
@@ -320,9 +329,11 @@ const UsersList = () => {
   const [openAddDrawer, setOpenAddDrawer] = useState(false);
   const [openViewDialog, setOpenViewDialog] = useState(false);
   const [userToView, setUserToView] = useState(null);
+  const [userType, setUserTypeLocal] = useState('internal'); // 'internal' or 'external'
+  const [userStatus, setUserStatusLocal] = useState('active'); // 'active' or 'inactive'
 
   const { isFilteredDataRequested } = useSelector((state) => state.bench);
-  const { filteredUsers } = useSelector((state) => state.employee);
+  const { filteredUsers, loading } = useSelector((state) => state.employee);
 
   const dispatch = useDispatch();
   const {
@@ -333,11 +344,18 @@ const UsersList = () => {
     updateError,
     deleteStatus,
     deleteError,
+    internalActive,
+    internalInactive,
+    externalActive,
+    externalInactive,
   } = useSelector((state) => state.employee);
 
   useEffect(() => {
     dispatch(fetchEmployees());
+    dispatch(activeInternalUsers()); // Default load active internal users
   }, [refreshTrigger, dispatch]);
+
+  console.log("Active Internal Users:", internalActive);
 
   useEffect(() => {
     if (employeesList) {
@@ -349,6 +367,19 @@ const UsersList = () => {
       setColumns(generateColumns(employeesList));
     }
   }, [employeesList]);
+
+  // Load data based on user type and status
+  useEffect(() => {
+    if (userType === 'internal' && userStatus === 'active') {
+      dispatch(activeInternalUsers());
+    } else if (userType === 'internal' && userStatus === 'inactive') {
+      dispatch(inactiveInternalUsers());
+    } else if (userType === 'external' && userStatus === 'active') {
+      dispatch(activeExternalUsers());
+    } else if (userType === 'external' && userStatus === 'inactive') {
+      dispatch(inactiveExternalUsers());
+    }
+  }, [userType, userStatus, dispatch]);
 
   // Auto-close drawer after successful update
   useEffect(() => {
@@ -461,6 +492,20 @@ const UsersList = () => {
       );
     } finally {
       actions.setSubmitting(false);
+    }
+  };
+
+  const handleUserTypeChange = (event, newUserType) => {
+    if (newUserType !== null) {
+      setUserTypeLocal(newUserType);
+      dispatch(setUserType(newUserType));
+    }
+  };
+
+  const handleUserStatusChange = (event, newUserStatus) => {
+    if (newUserStatus !== null) {
+      setUserStatusLocal(newUserStatus);
+      dispatch(setUserStatus(newUserStatus));
     }
   };
 
@@ -608,7 +653,28 @@ const UsersList = () => {
     ];
   };
 
-  if (fetchStatus === "loading" && !users.length) {
+  // Determine which data to display
+  const getDisplayData = () => {
+    if (isFilteredDataRequested && filteredUsers.length > 0) {
+      return filteredUsers;
+    }
+    
+    if (userType === 'internal' && userStatus === 'active') {
+      return internalActive || [];
+    } else if (userType === 'internal' && userStatus === 'inactive') {
+      return internalInactive || [];
+    } else if (userType === 'external' && userStatus === 'active') {
+      return externalActive || [];
+    } else if (userType === 'external' && userStatus === 'inactive') {
+      return externalInactive || [];
+    }
+    
+    return users || [];
+  };
+
+  const displayData = getDisplayData();
+
+  if (fetchStatus === "loading" && !users.length && !loading) {
     return (
       <Box
         sx={{
@@ -651,36 +717,98 @@ const UsersList = () => {
   return (
     <>
       <Stack direction="row" alignItems="center" spacing={2}
-              sx={{
-                flexWrap: 'wrap',
-                mb: 3,
-                justifyContent: 'space-between',
-                p: 2,
-                backgroundColor: '#f9f9f9',
-                borderRadius: 2,
-                boxShadow: 1,
-              }}>
-      
-              <Typography variant='h6' color='primary'>Users Management</Typography>
-              <Stack direction="row" alignItems="center" spacing={2} sx={{ ml: 'auto' }}>
-                <DateRangeFilter component="Users"/>
-                <Button 
-                  variant="contained" 
-                  color="primary" 
-                  onClick={handleAddUser}
-                  startIcon={<PersonAdd />}
-                  sx={buttonStyles}
-                >
-                  Add User
-                </Button>
-              </Stack>
-            </Stack>
+        sx={{
+          flexWrap: 'wrap',
+          mb: 3,
+          justifyContent: 'space-between',
+          p: 2,
+          backgroundColor: '#f9f9f9',
+          borderRadius: 2,
+          boxShadow: 1,
+        }}
+      >
+        <Typography variant='h6' color='primary'>Users Management</Typography>
+        <Stack direction="row" alignItems="center" spacing={2} sx={{ ml: 'auto' }}>
+          <DateRangeFilter component="Users"/>
+          <Button 
+            variant="contained" 
+            color="primary" 
+            onClick={handleAddUser}
+            startIcon={<PersonAdd />}
+            sx={buttonStyles}
+          >
+            Add User
+          </Button>
+        </Stack>
+      </Stack>
+
+      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center', gap: 2 }}>
+        <ToggleButtonGroup
+          color="primary"
+          value={userType}
+          exclusive
+          onChange={handleUserTypeChange}
+          aria-label="user type"
+          sx={{
+            "& .MuiToggleButton-root": {
+              px: 4,
+              py: 1,
+              borderRadius: 1,
+              border: "1px solid rgba(25, 118, 210, 0.5)",
+              fontWeight: 600,
+              "&.Mui-selected": {
+                backgroundColor: "#1976d2",
+                color: "white",
+                "&:hover": {
+                  backgroundColor: "#1565c0",
+                },
+              },
+              "&:hover": {
+                backgroundColor: "rgba(25, 118, 210, 0.08)",
+              },
+            },
+          }}
+        >
+          <ToggleButton value="internal">INTERNAL</ToggleButton>
+          <ToggleButton value="external">EXTERNAL</ToggleButton>
+        </ToggleButtonGroup>
+
+        <ToggleButtonGroup
+          color="primary"
+          value={userStatus}
+          exclusive
+          onChange={handleUserStatusChange}
+          aria-label="user status"
+          sx={{
+            "& .MuiToggleButton-root": {
+              px: 4,
+              py: 1,
+              borderRadius: 1,
+              border: "1px solid rgba(25, 118, 210, 0.5)",
+              fontWeight: 600,
+              "&.Mui-selected": {
+                backgroundColor: userStatus === 'active' ? "#4caf50" : "#f44336",
+                color: "white",
+                "&:hover": {
+                  backgroundColor: userStatus === 'active' ? "#45a049" : "#d32f2f",
+                },
+              },
+              "&:hover": {
+                backgroundColor: "rgba(25, 118, 210, 0.08)",
+              },
+            },
+          }}
+        >
+          <ToggleButton value="active">ACTIVE</ToggleButton>
+          <ToggleButton value="inactive">INACTIVE</ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
 
       <DataTable
-        data={isFilteredDataRequested ? filteredUsers : users || []}
+        data={displayData || []}
         columns={columns}
         title=""
-        loading={fetchStatus === "loading"}
+        loading={fetchStatus === "loading" || loading}
         enableSelection={false}
         defaultSortColumn="userName"
         defaultSortDirection="asc"
@@ -693,7 +821,7 @@ const UsersList = () => {
           rowHover: "#e0f2f1",
           selectedRow: "#b2dfdb",
         }}
-        uniqueId="employeeId" // Specify that employeeId should be used as the unique identifier
+        uniqueId="employeeId"
       />
 
       {/* User Details Dialog */}
@@ -782,9 +910,6 @@ const UsersList = () => {
         </AppBar>
 
         <Box sx={{ p: 3, overflowY: "auto" }}>
-          {/* We're using Registration component now which needs to properly handle 
-          closing this drawer on success - make sure it calls `setOpenAddDrawer(false)` 
-          on successful registration */}
           <Registration onRegistrationSuccess={() => setOpenAddDrawer(false)} />
         </Box>
       </Drawer>
