@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import DataTable from '../muiComponents/DataTabel';
 import {
@@ -38,8 +38,9 @@ import {
   getCurrentUserRole,
   clearPrepopulatedEmployeeData
 } from './navigationHelpers';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import httpService from '../../Services/httpService';
+import { inactiveExternalUsers, activeExternalUsers } from '../../redux/employeesSlice';
 
 // Main TimeSheetsForAdmin Component
 const TimeSheetsForAdmin = () => {
@@ -71,9 +72,6 @@ const TimesheetList = () => {
   const [totalTimesheetData, setTotalTimesheetData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  // const [selectedMonth, setSelectedMonth] = useState(dayjs().month());
-  // const [selectedYear, setSelectedYear] = useState(dayjs().year());
-  // Around line 56-58, modify the state initialization
   const [selectedMonth, setSelectedMonth] = useState(() => {
     // Check if there's a saved month in sessionStorage
     const savedMonth = sessionStorage.getItem('timesheetsAdmin_selectedMonth');
@@ -89,6 +87,16 @@ const TimesheetList = () => {
   const navigate = useNavigate();
 
   const { role } = useSelector((state) => state.auth);
+  const { externalActive } = useSelector((state) => state.employee);
+
+  const dispatch = useDispatch();
+
+  // Fetch active external users
+  useEffect(() => {
+    dispatch(activeExternalUsers());
+  }, []);
+
+  console.log("Active external users:", externalActive);
 
   // Check if we should restore month/year from navigation state
   useEffect(() => {
@@ -104,7 +112,6 @@ const TimesheetList = () => {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
-
 
   // Persist selected month and year to sessionStorage whenever they change
   useEffect(() => {
@@ -143,10 +150,42 @@ const TimesheetList = () => {
     }
   };
 
-  //  Fetch data whenever month/year changes
+  // Fetch data whenever month/year changes
   useEffect(() => {
     fetchTimesheetData(monthStart, monthEnd);
   }, [selectedMonth, selectedYear]);
+
+  // Filter timesheet data to only include active external users
+  const filteredTimesheetData = useMemo(() => {
+    if (!externalActive || externalActive.length === 0) {
+      console.log('No active external users data available');
+      return [];
+    }
+
+    // Create a Set of active employee names for faster lookup
+    const activeEmployeeNames = new Set(
+      externalActive
+        .filter(emp => emp.status === 'ACTIVE') // Filter by ACTIVE status
+        .map(emp => emp.userName?.toLowerCase().trim()) // Normalize names for comparison
+    );
+
+    console.log('Active employee names:', Array.from(activeEmployeeNames));
+
+    // Filter timesheet data to only include employees whose names are in the active set
+    const filtered = totalTimesheetData.filter(row => {
+      const employeeName = row.employeeName?.toLowerCase().trim();
+      const isActive = activeEmployeeNames.has(employeeName);
+      
+      if (!isActive) {
+        console.log(`Filtering out inactive employee: ${row.employeeName}`);
+      }
+      
+      return isActive;
+    });
+
+    console.log(`Filtered from ${totalTimesheetData.length} to ${filtered.length} active employees`);
+    return filtered;
+  }, [totalTimesheetData, externalActive]);
 
   const handleMonthChange = (event) => {
     const newMonth = event.target.value;
@@ -185,6 +224,7 @@ const TimesheetList = () => {
       ToastService.error('Failed to navigate to employee details');
     }
   };
+
   const Month = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
   // ✅ Generate years dynamically (last 5 → next 1)
@@ -359,7 +399,6 @@ const TimesheetList = () => {
       label: 'Total Days (Month)',
       render: row => (
         <Chip
-
           label={`${row?.totalMonthWorkingDays} days`}
           size="small"
           variant="outlined"
@@ -378,7 +417,6 @@ const TimesheetList = () => {
       label: 'Weekend Days (Month)',
       render: row => (
         <Chip
-
           label={`${row?.weekendDays} days`}
           size="small"
           variant="outlined"
@@ -410,7 +448,6 @@ const TimesheetList = () => {
       ),
       width: 140
     },
-
     {
       key: 'totalWorkingDays',
       label: 'Worked Days',
@@ -512,11 +549,16 @@ const TimesheetList = () => {
           <Typography variant="h4" component="h1" sx={{ fontWeight: 700, color: 'primary.dark' }}>
             Timesheet Management
           </Typography>
+          {externalActive && (
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 0.5 }}>
+              Showing {filteredTimesheetData.length} active employees out of {totalTimesheetData.length} total
+            </Typography>
+          )}
         </Box>
       </Box>
 
       {/* Controls Section */}
-      <Card elevation={2} sx={{ mb: 3, borderRadius: 3, }}>
+      <Card elevation={2} sx={{ mb: 3, borderRadius: 3 }}>
         <CardContent sx={{ pb: 2 }}>
           <Grid container spacing={2} alignItems="center" justifyContent="space-between">
             <Grid item>
@@ -565,7 +607,6 @@ const TimesheetList = () => {
                 </FormControl>
               </Box>
             </Grid>
-
 
             <Grid item>
               {(role === 'SUPERADMIN' || role === 'ADMIN') && (
@@ -627,6 +668,16 @@ const TimesheetList = () => {
         </Fade>
       )}
 
+      {/* Warning when no active users found */}
+      {!loading && totalTimesheetData.length > 0 && filteredTimesheetData.length === 0 && (
+        <Alert
+          severity="warning"
+          sx={{ mb: 3, borderRadius: 2 }}
+        >
+          No active employees found for the selected month. The timesheet data may contain only inactive employees.
+        </Alert>
+      )}
+
       {/* Data Table Section */}
       <Card
         elevation={3}
@@ -641,7 +692,7 @@ const TimesheetList = () => {
           <Box sx={{ overflow: 'auto' }}>
             <DataTable
               title="Timesheets"
-              data={totalTimesheetData}
+              data={filteredTimesheetData} // Use filtered data instead of totalTimesheetData
               columns={columns}
               enableSelection={false}
               refreshData={() => { fetchTimesheetData(monthStart, monthEnd) }}
