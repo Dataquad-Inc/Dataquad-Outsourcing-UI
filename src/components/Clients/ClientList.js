@@ -8,7 +8,6 @@ import {
   Chip,
   IconButton,
   Tooltip,
-  Link,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -21,14 +20,7 @@ import {
   ToggleButton,
   ToggleButtonGroup,
 } from "@mui/material";
-import {
-  Refresh,
-  CloudDownload,
-  Close,
-  Edit,
-  Delete,
-  Feedback,
-} from "@mui/icons-material";
+import { CloudDownload, Close, Edit, Delete } from "@mui/icons-material";
 import { useDispatch, useSelector } from "react-redux";
 import {
   fetchAllClients,
@@ -37,17 +29,29 @@ import {
   deleteClient,
   createClient,
   resetStatus,
+  fetchClientsByBdm,
 } from "../../redux/clientsSlice";
 import { showToast } from "../../utils/ToastNotification";
 import ToastNotification from "../../utils/ToastNotification";
-import ComponentTitle from "../../utils/ComponentTitle";
 import OnBoardClient from "./OnBoardClient";
 import DateRangeFilter from "../muiComponents/DateRangeFilter";
-import { id } from "date-fns/locale";
 import InternalFeedbackCell from "../Interviews/FeedBack";
+
+// ─── Helper: safely read userId from various auth slice shapes ────────────────
+const selectUserId = (state) =>
+  state.auth?.userId ??
+  state.auth?.user?.userId ??
+  state.auth?.user?.id ??
+  null;
+
+const selectRole = (state) =>
+  state.auth?.role ??
+  state.auth?.user?.role ??
+  null;
 
 const ClientList = () => {
   const dispatch = useDispatch();
+
   const {
     list: clients,
     loading,
@@ -57,6 +61,11 @@ const ClientList = () => {
     deleteStatus,
     createStatus,
   } = useSelector((state) => state.clients);
+
+  // ✅ Robust selectors that handle multiple auth slice shapes
+  const userId = useSelector(selectUserId);
+  const role = useSelector(selectRole);
+
   const [selectedClient, setSelectedClient] = useState(null);
   const [openDocsDialog, setOpenDocsDialog] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -65,18 +74,36 @@ const ClientList = () => {
   const [clientToDelete, setClientToDelete] = useState(null);
   const [levelFilter, setLevelFilter] = useState("ALL");
 
+  // ─── Initial fetch based on role ─────────────────────────────────────────────
+  // ✅ Guard: don't dispatch BDM fetch if userId isn't resolved yet
   useEffect(() => {
-    dispatch(fetchAllClients());
-  }, [dispatch]);
+    if (!role) return; // wait until auth is hydrated
 
+
+
+
+    if (role === "BDM") {
+      if (!userId) {
+        showToast("User ID not found", "error");
+        return;
+      }
+      dispatch(fetchClientsByBdm(userId));
+    } else {
+      dispatch(fetchAllClients());
+    }
+  }, [dispatch, role, userId]);
+
+  // ─── Reset download status after completion ───────────────────────────────────
   useEffect(() => {
-    if (downloadStatus === "succeeded") {
-      dispatch(resetStatus());
-    } else if (downloadStatus === "failed" && error) {
+    if (
+      downloadStatus === "succeeded" ||
+      (downloadStatus === "failed" && error)
+    ) {
       dispatch(resetStatus());
     }
   }, [downloadStatus, error, dispatch]);
 
+  // ─── Reset mutation statuses and close drawers after CRUD ────────────────────
   useEffect(() => {
     if (
       updateStatus === "succeeded" ||
@@ -97,6 +124,7 @@ const ClientList = () => {
     }
   }, [updateStatus, createStatus, deleteStatus, error, dispatch]);
 
+  // ─── Handlers ────────────────────────────────────────────────────────────────
   const handleDownloadDocs = (clientId) => {
     dispatch(downloadClientDocs(clientId))
       .unwrap()
@@ -111,8 +139,8 @@ const ClientList = () => {
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
       })
-      .catch((rejectedValue) => {
-        // Error is handled in the slice
+      .catch(() => {
+        // Error already handled in slice via showToast
       });
   };
 
@@ -120,42 +148,26 @@ const ClientList = () => {
     if (newFilter !== null) setLevelFilter(newFilter);
   };
 
-  const handleClientsByStatus = (clients) => {
-    if (!clients) return [];
-    if (levelFilter === "ALL") return clients;
-
-    return clients.filter((client) => {
-      if (levelFilter === "ACTIVE") return client.status === "ACTIVE";
-      if (levelFilter === "INACTIVE") return client.status !== "ACTIVE";
-      return false;
-    });
+  const handleClientsByStatus = (clientList) => {
+    if (!clientList) return [];
+    if (levelFilter === "ALL") return clientList;
+    if (levelFilter === "ACTIVE")
+      return clientList.filter((c) => c.status === "ACTIVE");
+    if (levelFilter === "INACTIVE")
+      return clientList.filter((c) => c.status !== "ACTIVE");
+    return clientList;
   };
 
   const renderStatus = (status) => {
-    let color = "default";
     const statusLower = status?.toLowerCase();
-
-    switch (statusLower) {
-      case "active":
-        color = "success";
-        break;
-      case "inactive":
-        color = "error";
-        break;
-      default:
-        color = "default";
-    }
-
+    let color = "default";
+    if (statusLower === "active") color = "success";
+    if (statusLower === "inactive") color = "error";
     return <Chip label={status || "Unknown"} size="small" color={color} />;
   };
 
-  const handleViewDocs = (client) => {
-    setSelectedClient(client);
-    setOpenDocsDialog(true);
-  };
-
   const handleEditClick = (clientId) => {
-    const clientToEdit = clients.find((client) => client.id === clientId);
+    const clientToEdit = clients.find((c) => c.id === clientId);
     if (clientToEdit) {
       setCurrentClient(clientToEdit);
       setDrawerOpen(true);
@@ -172,7 +184,7 @@ const ClientList = () => {
   const handleClientSubmit = (formData, isEdit) => {
     if (isEdit && currentClient) {
       dispatch(
-        updateClient({ clientId: currentClient.id, updatedData: formData })
+        updateClient({ clientId: currentClient.id, updatedData: formData }),
       );
     } else {
       dispatch(createClient(formData));
@@ -180,7 +192,7 @@ const ClientList = () => {
   };
 
   const handleDeleteClick = (clientId) => {
-    const client = clients.find((client) => client.id === clientId);
+    const client = clients.find((c) => c.id === clientId);
     if (client) {
       setClientToDelete(client);
       setDeleteDialogOpen(true);
@@ -188,9 +200,7 @@ const ClientList = () => {
   };
 
   const handleDeleteConfirm = () => {
-    if (clientToDelete) {
-      dispatch(deleteClient(clientToDelete.id));
-    }
+    if (clientToDelete) dispatch(deleteClient(clientToDelete.id));
   };
 
   const handleDeleteCancel = () => {
@@ -203,240 +213,221 @@ const ClientList = () => {
     setSelectedClient(null);
   };
 
+  // ✅ Refresh respects role — same guard applied
   const fetchClients = useCallback(() => {
-    dispatch(fetchAllClients());
-  }, [dispatch]);
+    if (!role) return;
 
+    if (role === "BDM") {
+      if (!userId) {
+        showToast("User ID not found. Cannot refresh BDM clients.", "error");
+        return;
+      }
+      dispatch(fetchClientsByBdm(userId));
+    } else {
+      dispatch(fetchAllClients());
+    }
+  }, [dispatch, role, userId]);
+
+  // ─── Columns ──────────────────────────────────────────────────────────────────
   const generateColumns = useCallback(
-    (data) => {
-      if (!data || data.length === 0) return [];
-
-      return [
-        {
-          key: "id",
-          label: "Client ID",
-          align: "center",
-          render: (row) =>
-            loading ? (
-              <Skeleton variant="text" width={80} height={24} />
-            ) : (
-              row.id
-            ),
-        },
-        {
-          key: "clientName",
-          label: "Client Name",
-          align: "center",
-          render: (row) =>
-            loading ? (
-              <Skeleton variant="text" width={120} height={24} />
-            ) : (
-              row.clientName || "N/A"
-            ),
-        },
-        {
-          key: "onBoardedBy",
-          label: "BDM",
-          align: "center",
-          render: (row) =>
-            loading ? (
-              <Skeleton variant="text" width={100} height={24} />
-            ) : (
-              row.onBoardedBy || "N/A"
-            ),
-        },
-        {
-          key: "clientSpocName",
-          label: "Contact Person",
-          align: "center",
-          render: (row) =>
-            loading ? (
-              <Skeleton variant="text" width={150} height={24} />
-            ) : row.clientSpocName && Array.isArray(row.clientSpocName) ? (
-              row.clientSpocName.filter(Boolean).join(", ") || "N/A"
-            ) : (
-              "N/A"
-            ),
-        },
-        {
-          key: "positionType",
-          label: "Position Type",
-          align: "center",
-          render: (row) =>
-            loading ? (
-              <Skeleton variant="rectangular" width={100} height={32} />
-            ) : (
-              <Chip
-                label={row.positionType || "Not specified"}
-                color={row.positionType ? "primary" : "default"}
-                variant="outlined"
-                size="small"
-              />
-            ),
-        },
-        {
-          key: "netPayment",
-          label: "Net Payment",
-          align: "center",
-          render: (row) =>
-            loading ? (
-              <Skeleton variant="text" width={80} height={24} />
-            ) : row.currency ? (
-              `${row.currency} ${row.netPayment}`
-            ) : (
-              row.netPayment || "N/A"
-            ),
-        },
-        {
-          key: "supportingCustomers",
-          label: "Supporting Customers",
-          align: "center",
-          render: (row) =>
-            loading ? (
-              <Skeleton variant="text" width={150} height={24} />
-            ) : row.supportingCustomers &&
-              Array.isArray(row.supportingCustomers) ? (
-              <Tooltip
-                title={row.supportingCustomers.filter(Boolean).join(", ")}
-                arrow
-              >
-                <Typography variant="body2" noWrap>
-                  {row.supportingCustomers.filter(Boolean).join(", ") || "None"}
-                </Typography>
+    () => [
+      {
+        key: "id",
+        label: "Client ID",
+        align: "center",
+        render: (row) =>
+          loading ? <Skeleton variant="text" width={80} height={24} /> : row.id,
+      },
+      {
+        key: "clientName",
+        label: "Client Name",
+        align: "center",
+        render: (row) =>
+          loading ? (
+            <Skeleton variant="text" width={120} height={24} />
+          ) : (
+            row.clientName || "N/A"
+          ),
+      },
+      {
+        key: "onBoardedBy",
+        label: "BDM",
+        align: "center",
+        render: (row) =>
+          loading ? (
+            <Skeleton variant="text" width={100} height={24} />
+          ) : (
+            row.onBoardedBy || "N/A"
+          ),
+      },
+      {
+        key: "clientSpocName",
+        label: "Contact Person",
+        align: "center",
+        render: (row) =>
+          loading ? (
+            <Skeleton variant="text" width={150} height={24} />
+          ) : Array.isArray(row.clientSpocName) ? (
+            row.clientSpocName.filter(Boolean).join(", ") || "N/A"
+          ) : (
+            "N/A"
+          ),
+      },
+      {
+        key: "positionType",
+        label: "Position Type",
+        align: "center",
+        render: (row) =>
+          loading ? (
+            <Skeleton variant="rectangular" width={100} height={32} />
+          ) : (
+            <Chip
+              label={row.positionType || "Not specified"}
+              color={row.positionType ? "primary" : "default"}
+              variant="outlined"
+              size="small"
+            />
+          ),
+      },
+      {
+        key: "netPayment",
+        label: "Net Payment",
+        align: "center",
+        render: (row) =>
+          loading ? (
+            <Skeleton variant="text" width={80} height={24} />
+          ) : row.currency ? (
+            `${row.currency} ${row.netPayment}`
+          ) : (
+            row.netPayment || "N/A"
+          ),
+      },
+      {
+        key: "supportingCustomers",
+        label: "Supporting Customers",
+        align: "center",
+        render: (row) =>
+          loading ? (
+            <Skeleton variant="text" width={150} height={24} />
+          ) : Array.isArray(row.supportingCustomers) ? (
+            <Tooltip
+              title={row.supportingCustomers.filter(Boolean).join(", ")}
+              arrow
+            >
+              <Typography variant="body2" noWrap>
+                {row.supportingCustomers.filter(Boolean).join(", ") || "None"}
+              </Typography>
+            </Tooltip>
+          ) : (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              fontStyle="italic"
+            >
+              None
+            </Typography>
+          ),
+      },
+      {
+        key: "status",
+        label: "Status",
+        align: "center",
+        render: (row) =>
+          loading ? (
+            <Skeleton variant="rectangular" width={100} height={32} />
+          ) : (
+            renderStatus(row.status)
+          ),
+      },
+      {
+        key: "feedBack",
+        label: "FeedBack",
+        align: "center",
+        render: (row) =>
+          loading ? (
+            <Skeleton variant="rectangular" width={100} height={32} />
+          ) : (
+            <InternalFeedbackCell value={row.feedBack} />
+          ),
+      },
+      {
+        key: "numberOfRequirements",
+        label: "Requirements",
+        align: "center",
+        render: (row) =>
+          loading ? (
+            <Skeleton variant="rectangular" width={100} height={32} />
+          ) : row.numberOfRequirements ? (
+            <Chip
+              label={row.numberOfRequirements}
+              color="primary"
+              variant="outlined"
+              size="small"
+            />
+          ) : (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              fontStyle="italic"
+            >
+              -
+            </Typography>
+          ),
+      },
+      {
+        key: "actions",
+        label: "Actions",
+        render: (row) =>
+          loading ? (
+            <Box display="flex" gap={1}>
+              <Skeleton variant="circular" width={32} height={32} />
+              <Skeleton variant="circular" width={32} height={32} />
+              <Skeleton variant="circular" width={32} height={32} />
+            </Box>
+          ) : (
+            <Box display="flex" gap={1}>
+              <Tooltip title="Edit Client">
+                <IconButton
+                  size="small"
+                  color="primary"
+                  onClick={() => handleEditClick(row.id)}
+                >
+                  <Edit />
+                </IconButton>
               </Tooltip>
-            ) : (
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                fontStyle="italic"
-              >
-                None
-              </Typography>
-            ),
-        },
-        {
-          key: "status",
-          label: "Status",
-          align: "center",
-          
-          render: (row) =>
-            loading ? (
-              <Skeleton variant="rectangular" width={100} height={32} />
-            ) : (
-              renderStatus(row.status)
-            ),
-        },
-        {
-          key: "feedBack",
-          label: "FeedBack",
-          align: "center",
-          render: (row) =>
-            loading ? (
-              <Skeleton variant="rectangular" width={100} height={32} />
-            ) : (
-              <InternalFeedbackCell value={row.feedBack} />
-            ),
-        },
-        {
-          key: "numberOfRequirements",
-          label: "Requirements",
-          align: "center",
-          render: (row) => {
-            if (loading) {
-              return <Skeleton variant="rectangular" width={100} height={32} />;
-            }
-
-            return row.numberOfRequirements ? (
-              <Chip
-                label={row.numberOfRequirements}
-                color="primary"
-                variant="outlined"
-                size="small"
-              />
-            ) : (
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                fontStyle="italic"
-              >
-                -
-              </Typography>
-            );
-          },
-        },
-        {
-          key: "actions",
-          label: "Actions",
-          render: (row) =>
-            loading ? (
-              <Box display="flex" gap={1}>
-                <Skeleton variant="circular" width={32} height={32} />
-                <Skeleton variant="circular" width={32} height={32} />
-                <Skeleton variant="circular" width={32} height={32} />
-              </Box>
-            ) : (
-              <Box display="flex" gap={1}>
-                <Tooltip title="Edit Client">
-                  <IconButton
-                    size="small"
-                    color="primary"
-                    onClick={() => handleEditClick(row.id)}
-                  >
-                    <Edit />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Download Documents">
-                  <IconButton
-                    size="small"
-                    color="secondary"
-                    onClick={() => handleDownloadDocs(row.id)}
-                  >
-                    <CloudDownload />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Delete Client">
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={() => handleDeleteClick(row.id)}
-                  >
-                    <Delete />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-            ),
-        },
-      ];
-    },
-    [loading]
+              <Tooltip title="Download Documents">
+                <IconButton
+                  size="small"
+                  color="secondary"
+                  onClick={() => handleDownloadDocs(row.id)}
+                >
+                  <CloudDownload />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Delete Client">
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={() => handleDeleteClick(row.id)}
+                >
+                  <Delete />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          ),
+      },
+    ],
+    [loading],
   );
 
-  const columns = useMemo(
-    () => generateColumns(clients),
-    [clients, generateColumns]
-  );
+  const columns = useMemo(() => generateColumns(), [generateColumns]);
 
+  // ─── Render ───────────────────────────────────────────────────────────────────
   return (
     <>
       <ToastNotification />
 
-      {/* <ComponentTitle title="Client Management">
-        <Button
-          variant="outlined"
-          startIcon={<Refresh />}
-          onClick={fetchClients}
-          disabled={loading}
-        >
-          Refresh
-        </Button>
-        <Button 
-          variant="contained"
-          color="primary"
-          onClick={() => setDrawerOpen(true)}
-        >
-          Add New Client
-        </Button>
-      </ComponentTitle> */}
+      {/* Header */}
       <Stack
         direction="row"
         alignItems="center"
@@ -478,6 +469,7 @@ const ClientList = () => {
         </Alert>
       )}
 
+      {/* Status filter */}
       <Box sx={{ mb: 2, display: "flex", justifyContent: "start" }}>
         <ToggleButtonGroup
           value={levelFilter}
@@ -486,7 +478,6 @@ const ClientList = () => {
           aria-label="client status filter"
           sx={{
             flexWrap: "wrap",
-            justifyContent: "center",
             gap: 1,
             "& .MuiToggleButton-root": {
               px: 2,
@@ -496,40 +487,31 @@ const ClientList = () => {
               "&.Mui-selected": {
                 backgroundColor: "#1976d2",
                 color: "white",
-                "&:hover": {
-                  backgroundColor: "#1565c0",
-                },
+                "&:hover": { backgroundColor: "#1565c0" },
               },
-              "&:hover": {
-                backgroundColor: "rgba(25, 118, 210, 0.08)",
-              },
+              "&:hover": { backgroundColor: "rgba(25, 118, 210, 0.08)" },
             },
           }}
         >
-          {/* <ToggleButton value="ALL" aria-label="all clients" >
-              ALL
-            </ToggleButton>
-          */}
-
           <ToggleButton value="ACTIVE" aria-label="active clients">
             ACTIVE
           </ToggleButton>
-
           <ToggleButton value="INACTIVE" aria-label="inactive clients">
             INACTIVE
           </ToggleButton>
         </ToggleButtonGroup>
       </Box>
 
+      {/* Data Table */}
       <DataTable
         data={handleClientsByStatus(clients)}
         columns={columns}
         title={
-          levelFilter === "ALL"
-            ? "Clients"
-            : levelFilter === "ACTIVE"
-            ? "Active"
-            : "InActive"
+          levelFilter === "ACTIVE"
+            ? "Active Clients"
+            : levelFilter === "INACTIVE"
+              ? "Inactive Clients"
+              : "Clients"
         }
         loading={loading}
         enableSelection={false}
@@ -542,7 +524,7 @@ const ClientList = () => {
         uniqueId="id"
       />
 
-      {/* Client Form Drawer */}
+      {/* Add / Edit Drawer */}
       <Drawer
         anchor="right"
         open={drawerOpen}
@@ -588,7 +570,7 @@ const ClientList = () => {
         <DialogContent>
           <DialogContentText>
             {clientToDelete
-              ? `Are you sure you want to delete the client "${clientToDelete.clientName}"? This action cannot be undone.`
+              ? `Are you sure you want to delete "${clientToDelete.clientName}"? This action cannot be undone.`
               : "Are you sure you want to delete this client? This action cannot be undone."}
           </DialogContentText>
         </DialogContent>
@@ -631,8 +613,7 @@ const ClientList = () => {
           </IconButton>
         </DialogTitle>
         <DialogContent dividers>
-          {selectedClient?.supportingDocuments &&
-          selectedClient.supportingDocuments.length > 0 ? (
+          {selectedClient?.supportingDocuments?.length > 0 ? (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
               {selectedClient.supportingDocuments.map((doc, index) => (
                 <Chip
