@@ -79,9 +79,12 @@ const ClientList = () => {
   useEffect(() => {
     if (!role) return; // wait until auth is hydrated
 
+
+
+
     if (role === "BDM") {
       if (!userId) {
-        showToast("User ID not found. Cannot load BDM clients.", "error");
+        showToast("User ID not found", "error");
         return;
       }
       dispatch(fetchClientsByBdm(userId));
