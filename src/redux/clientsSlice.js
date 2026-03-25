@@ -3,19 +3,17 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import httpService from "../Services/httpService";
 import { showToast } from "../utils/ToastNotification";
 
-// Async thunks for API calls
+// ─── Async Thunks ─────────────────────────────────────────────────────────────
+
 export const fetchAllClients = createAsyncThunk(
   "clients/fetchAll",
   async (_, { rejectWithValue }) => {
     try {
       const response = await httpService.get("/requirements/bdm/getAll");
-
       const clientsArray = response.data?.data;
-
       if (!Array.isArray(clientsArray)) {
         throw new Error("Expected 'data' to be an array of clients");
       }
-
       return clientsArray;
     } catch (error) {
       const errorMessage =
@@ -27,22 +25,18 @@ export const fetchAllClients = createAsyncThunk(
   },
 );
 
-// ✅ Fetch clients by BDM userId — path param, no query string needed
+// Fetch clients by BDM userId — path param
 export const fetchClientsByBdm = createAsyncThunk(
   "clients/fetchByBdm",
   async (userId, { rejectWithValue }) => {
     try {
-      // userId is a path variable: /requirements/bdm/getClients/{userId}
       const response = await httpService.get(
         `/requirements/bdm/getClients/${userId}`,
       );
-
       const clientsArray = response.data?.data;
-
       if (!Array.isArray(clientsArray)) {
         throw new Error("Expected 'data' to be an array of clients");
       }
-
       return clientsArray;
     } catch (error) {
       const errorMessage =
@@ -54,17 +48,37 @@ export const fetchClientsByBdm = createAsyncThunk(
   },
 );
 
+// ✅ Overall clients — SUPERADMIN only
+export const fetchOverallClients = createAsyncThunk(
+  "clients/fetchOverall",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await httpService.get(
+        "/requirements/bdm/overall-clients",
+      );
+      const data = response.data?.data;
+      if (!Array.isArray(data)) {
+        throw new Error("Expected 'data' to be an array of clients");
+      }
+      return data;
+    } catch (error) {
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to fetch overall clients";
+      return rejectWithValue(errorMessage);
+    }
+  },
+);
+
 export const downloadClientDocs = createAsyncThunk(
   "clients/downloadDocs",
   async (clientId, { rejectWithValue }) => {
     try {
       const response = await httpService.get(
         `/requirements/bdm/${clientId}/downloadAll`,
-        {
-          responseType: "arraybuffer",
-        },
+        { responseType: "arraybuffer" },
       );
-
       return { data: response.data, clientId };
     } catch (error) {
       const errorMessage =
@@ -84,11 +98,9 @@ export const updateClient = createAsyncThunk(
         `/requirements/bdm/${clientId}`,
         updatedData,
       );
-
       if (!response.data.success) {
         throw new Error(response.data.message || "Failed to update client");
       }
-
       return { clientId, updatedData };
     } catch (error) {
       const errorMessage =
@@ -107,11 +119,9 @@ export const deleteClient = createAsyncThunk(
       const response = await httpService.delete(
         `/requirements/bdm/delete/${id}`,
       );
-
       if (!response.data.success) {
         throw new Error(response.data.message || "Failed to delete client");
       }
-
       return id;
     } catch (error) {
       const errorMessage =
@@ -130,17 +140,11 @@ export const createClient = createAsyncThunk(
       const response = await httpService.post(
         "/requirements/bdm/addClient",
         formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        },
+        { headers: { "Content-Type": "multipart/form-data" } },
       );
-
       if (!response.data.success) {
         throw new Error(response.data.message || "Failed to create client");
       }
-
       return response.data.data;
     } catch (error) {
       const errorMessage =
@@ -158,14 +162,12 @@ export const filterClientsByDateRange = createAsyncThunk(
     try {
       const response = await httpService.get(
         "/requirements/bdm/getAll/filterByDate",
-        { params: { startDate, endDate } }, // ✅ correct axios params usage
+        { params: { startDate, endDate } },
       );
       const clientsListDateRange = response.data?.data || [];
-
       if (!Array.isArray(clientsListDateRange)) {
         throw new Error("Expected 'data' to be an array of clients");
       }
-
       return clientsListDateRange;
     } catch (error) {
       const errorMessage =
@@ -177,12 +179,15 @@ export const filterClientsByDateRange = createAsyncThunk(
   },
 );
 
-// Create the client slice
+// ─── Slice ────────────────────────────────────────────────────────────────────
+
 const clientSlice = createSlice({
   name: "clients",
   initialState: {
     list: [],
+    overallList: [],          // ← overall clients (SUPERADMIN only)
     loading: false,
+    overallStatus: "idle",    // ← "idle" | "loading" | "succeeded" | "failed"
     error: null,
     downloadStatus: "idle",
     updateStatus: "idle",
@@ -197,12 +202,13 @@ const clientSlice = createSlice({
       state.deleteStatus = "idle";
       state.createStatus = "idle";
       state.fetchByBdmStatus = "idle";
+      state.overallStatus = "idle";
       state.error = null;
     },
   },
   extraReducers: (builder) => {
     builder
-      // Fetch all clients
+      // ── Fetch all clients ──────────────────────────────────────────────────
       .addCase(fetchAllClients.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -217,7 +223,7 @@ const clientSlice = createSlice({
         showToast(action.payload, "error");
       })
 
-      // Fetch clients by BDM userId
+      // ── Fetch clients by BDM ───────────────────────────────────────────────
       .addCase(fetchClientsByBdm.pending, (state) => {
         state.loading = true;
         state.fetchByBdmStatus = "loading";
@@ -235,7 +241,22 @@ const clientSlice = createSlice({
         showToast(action.payload, "error");
       })
 
-      // Download client documents
+      // ── Fetch overall clients (SUPERADMIN) ─────────────────────────────────
+      .addCase(fetchOverallClients.pending, (state) => {
+        state.overallStatus = "loading";
+        state.error = null;
+      })
+      .addCase(fetchOverallClients.fulfilled, (state, action) => {
+        state.overallStatus = "succeeded";
+        state.overallList = action.payload;
+      })
+      .addCase(fetchOverallClients.rejected, (state, action) => {
+        state.overallStatus = "failed";
+        state.error = action.payload;
+        showToast(action.payload, "error");
+      })
+
+      // ── Download docs ──────────────────────────────────────────────────────
       .addCase(downloadClientDocs.pending, (state) => {
         state.downloadStatus = "loading";
       })
@@ -249,7 +270,7 @@ const clientSlice = createSlice({
         showToast(`Download failed: ${action.payload}`, "error");
       })
 
-      // Update client
+      // ── Update client ──────────────────────────────────────────────────────
       .addCase(updateClient.pending, (state) => {
         state.updateStatus = "loading";
       })
@@ -267,7 +288,7 @@ const clientSlice = createSlice({
         showToast(action.payload, "error");
       })
 
-      // Delete client
+      // ── Delete client ──────────────────────────────────────────────────────
       .addCase(deleteClient.pending, (state) => {
         state.deleteStatus = "loading";
       })
@@ -284,7 +305,7 @@ const clientSlice = createSlice({
         showToast(action.payload, "error");
       })
 
-      // Create client
+      // ── Create client ──────────────────────────────────────────────────────
       .addCase(createClient.pending, (state) => {
         state.createStatus = "loading";
       })
@@ -299,7 +320,7 @@ const clientSlice = createSlice({
         showToast(action.payload, "error");
       })
 
-      // Date range filter
+      // ── Date range filter ──────────────────────────────────────────────────
       .addCase(filterClientsByDateRange.pending, (state) => {
         state.loading = true;
         state.error = null;

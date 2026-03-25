@@ -30,6 +30,7 @@ import {
   createClient,
   resetStatus,
   fetchClientsByBdm,
+  fetchOverallClients, // ← new
 } from "../../redux/clientsSlice";
 import { showToast } from "../../utils/ToastNotification";
 import ToastNotification from "../../utils/ToastNotification";
@@ -37,7 +38,7 @@ import OnBoardClient from "./OnBoardClient";
 import DateRangeFilter from "../muiComponents/DateRangeFilter";
 import InternalFeedbackCell from "../Interviews/FeedBack";
 
-// ─── Helper: safely read userId from various auth slice shapes ────────────────
+// ─── Helper selectors ─────────────────────────────────────────────────────────
 const selectUserId = (state) =>
   state.auth?.userId ??
   state.auth?.user?.userId ??
@@ -45,16 +46,16 @@ const selectUserId = (state) =>
   null;
 
 const selectRole = (state) =>
-  state.auth?.role ??
-  state.auth?.user?.role ??
-  null;
+  state.auth?.role ?? state.auth?.user?.role ?? null;
 
 const ClientList = () => {
   const dispatch = useDispatch();
 
   const {
     list: clients,
+    overallList, // ← new
     loading,
+    overallStatus, // ← new
     error,
     downloadStatus,
     updateStatus,
@@ -62,9 +63,10 @@ const ClientList = () => {
     createStatus,
   } = useSelector((state) => state.clients);
 
-  // ✅ Robust selectors that handle multiple auth slice shapes
   const userId = useSelector(selectUserId);
   const role = useSelector(selectRole);
+
+  const isSuperAdmin = role === "SUPERADMIN";
 
   const [selectedClient, setSelectedClient] = useState(null);
   const [openDocsDialog, setOpenDocsDialog] = useState(false);
@@ -74,14 +76,9 @@ const ClientList = () => {
   const [clientToDelete, setClientToDelete] = useState(null);
   const [levelFilter, setLevelFilter] = useState("ALL");
 
-  // ─── Initial fetch based on role ─────────────────────────────────────────────
-  // ✅ Guard: don't dispatch BDM fetch if userId isn't resolved yet
+  // ─── Initial fetch ──────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!role) return; // wait until auth is hydrated
-
-
-
-
+    if (!role) return;
     if (role === "BDM") {
       if (!userId) {
         showToast("User ID not found", "error");
@@ -93,7 +90,14 @@ const ClientList = () => {
     }
   }, [dispatch, role, userId]);
 
-  // ─── Reset download status after completion ───────────────────────────────────
+  // ─── Fetch overall clients when OVERALL tab selected (SUPERADMIN only) ──────
+  useEffect(() => {
+    if (levelFilter === "OVERALL" && isSuperAdmin) {
+      dispatch(fetchOverallClients());
+    }
+  }, [levelFilter, isSuperAdmin, dispatch]);
+
+  // ─── Reset download status ──────────────────────────────────────────────────
   useEffect(() => {
     if (
       downloadStatus === "succeeded" ||
@@ -103,7 +107,7 @@ const ClientList = () => {
     }
   }, [downloadStatus, error, dispatch]);
 
-  // ─── Reset mutation statuses and close drawers after CRUD ────────────────────
+  // ─── Reset mutation statuses ────────────────────────────────────────────────
   useEffect(() => {
     if (
       updateStatus === "succeeded" ||
@@ -124,7 +128,7 @@ const ClientList = () => {
     }
   }, [updateStatus, createStatus, deleteStatus, error, dispatch]);
 
-  // ─── Handlers ────────────────────────────────────────────────────────────────
+  // ─── Handlers ───────────────────────────────────────────────────────────────
   const handleDownloadDocs = (clientId) => {
     dispatch(downloadClientDocs(clientId))
       .unwrap()
@@ -139,9 +143,7 @@ const ClientList = () => {
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
       })
-      .catch(() => {
-        // Error already handled in slice via showToast
-      });
+      .catch(() => {});
   };
 
   const handleStatusFilterChange = (event, newFilter) => {
@@ -213,10 +215,8 @@ const ClientList = () => {
     setSelectedClient(null);
   };
 
-  // ✅ Refresh respects role — same guard applied
   const fetchClients = useCallback(() => {
     if (!role) return;
-
     if (role === "BDM") {
       if (!userId) {
         showToast("User ID not found. Cannot refresh BDM clients.", "error");
@@ -228,7 +228,12 @@ const ClientList = () => {
     }
   }, [dispatch, role, userId]);
 
-  // ─── Columns ──────────────────────────────────────────────────────────────────
+  // Refresh callback for OVERALL tab
+  const fetchOverall = useCallback(() => {
+    if (isSuperAdmin) dispatch(fetchOverallClients());
+  }, [dispatch, isSuperAdmin]);
+
+  // ─── Full columns (ACTIVE / INACTIVE / ALL views) ───────────────────────────
   const generateColumns = useCallback(
     () => [
       {
@@ -420,9 +425,190 @@ const ClientList = () => {
     [loading],
   );
 
-  const columns = useMemo(() => generateColumns(), [generateColumns]);
+  // ─── Overall columns (SUPERADMIN slim view) ─────────────────────────────────
+  // Field names match the /overall-clients API response:
+  // clientId, clientName, bdmName, clientWebsiteUrl, clientLinkedInUrl, clientAddress, location
+  const generateOverallColumns = useCallback(
+    () => [
+      {
+        key: "clientId",
+        label: "Client ID",
+        align: "center",
+        render: (row) =>
+          overallStatus === "loading" ? (
+            <Skeleton variant="text" width={80} height={24} />
+          ) : (
+            row.clientId
+          ),
+      },
+      {
+        key: "clientName",
+        label: "Client Name",
+        align: "center",
+        render: (row) =>
+          overallStatus === "loading" ? (
+            <Skeleton variant="text" width={120} height={24} />
+          ) : (
+            row.clientName || "N/A"
+          ),
+      },
+      {
+        key: "bdmName",
+        label: "BDM Name",
+        align: "center",
+        render: (row) =>
+          overallStatus === "loading" ? (
+            <Skeleton variant="text" width={100} height={24} />
+          ) : (
+            row.bdmName || "N/A"
+          ),
+      },
+      
+      {
+        key: "clientWebsiteUrl",
+        label: "Website",
+        align: "center",
+        render: (row) =>
+          overallStatus === "loading" ? (
+            <Skeleton variant="text" width={140} height={24} />
+          ) : row.clientWebsiteUrl ? (
+            <Tooltip title={row.clientWebsiteUrl} arrow>
+              <Typography
+                variant="body2"
+                component="a"
+                href={row.clientWebsiteUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{
+                  color: "primary.main",
+                  textDecoration: "none",
+                  maxWidth: 160,
+                  display: "inline-block",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  "&:hover": { textDecoration: "underline" },
+                }}
+              >
+                {row.clientWebsiteUrl}
+              </Typography>
+            </Tooltip>
+          ) : (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              fontStyle="italic"
+            >
+              N/A
+            </Typography>
+          ),
+      },
+      {
+        key: "clientLinkedInUrl",
+        label: "LinkedIn",
+        align: "center",
+        render: (row) =>
+          overallStatus === "loading" ? (
+            <Skeleton variant="text" width={140} height={24} />
+          ) : row.clientLinkedInUrl ? (
+            <Tooltip title={row.clientLinkedInUrl} arrow>
+              <Typography
+                variant="body2"
+                component="a"
+                href={row.clientLinkedInUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{
+                  color: "#0077b5",
+                  textDecoration: "none",
+                  maxWidth: 160,
+                  display: "inline-block",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  "&:hover": { textDecoration: "underline" },
+                }}
+              >
+                {row.clientLinkedInUrl}
+              </Typography>
+            </Tooltip>
+          ) : (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              fontStyle="italic"
+            >
+              N/A
+            </Typography>
+          ),
+      },
+      {
+        key: "location",
+        label: "Location",
+        align: "center",
+        render: (row) =>
+          overallStatus === "loading" ? (
+            <Skeleton variant="text" width={100} height={24} />
+          ) : (
+            row.location || "N/A"
+          ),
+      },
+      {
+        key: "clientAddress",
+        label: "Address",
+        align: "center",
+        render: (row) =>
+          overallStatus === "loading" ? (
+            <Skeleton variant="text" width={160} height={24} />
+          ) : row.clientAddress ? (
+            <Tooltip title={row.clientAddress} arrow>
+              <Typography
+                variant="body2"
+                noWrap
+                sx={{ maxWidth: 180, display: "inline-block" }}
+              >
+                {row.clientAddress}
+              </Typography>
+            </Tooltip>
+          ) : (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              fontStyle="italic"
+            >
+              N/A
+            </Typography>
+          ),
+      },
+      
+    ],
+    [overallStatus],
+  );
 
-  // ─── Render ───────────────────────────────────────────────────────────────────
+  const columns = useMemo(() => generateColumns(), [generateColumns]);
+  const overallColumns = useMemo(
+    () => generateOverallColumns(),
+    [generateOverallColumns],
+  );
+
+  // Pick columns and data based on active tab
+  const isOverallTab = levelFilter === "OVERALL";
+  const activeColumns = isOverallTab ? overallColumns : columns;
+  const tableData = isOverallTab ? overallList : handleClientsByStatus(clients);
+  const tableUniqueId = isOverallTab ? "clientId" : "id";
+  const isTableLoading = isOverallTab ? overallStatus === "loading" : loading;
+
+  // ─── Derive table title ──────────────────────────────────────────────────────
+  const tableTitle =
+    levelFilter === "ACTIVE"
+      ? "Active Clients"
+      : levelFilter === "INACTIVE"
+        ? "Inactive Clients"
+        : levelFilter === "OVERALL"
+          ? "Overall Clients"
+          : "Clients";
+
+  // ─── Render ──────────────────────────────────────────────────────────────────
   return (
     <>
       <ToastNotification />
@@ -499,29 +685,30 @@ const ClientList = () => {
           <ToggleButton value="INACTIVE" aria-label="inactive clients">
             INACTIVE
           </ToggleButton>
+
+          {/* OVERALL tab is only visible to SUPERADMIN */}
+          {isSuperAdmin && (
+            <ToggleButton value="OVERALL" aria-label="overall clients">
+              OVERALL CLIENTS
+            </ToggleButton>
+          )}
         </ToggleButtonGroup>
       </Box>
 
       {/* Data Table */}
       <DataTable
-        data={handleClientsByStatus(clients)}
-        columns={columns}
-        title={
-          levelFilter === "ACTIVE"
-            ? "Active Clients"
-            : levelFilter === "INACTIVE"
-              ? "Inactive Clients"
-              : "Clients"
-        }
-        loading={loading}
+        data={tableData}
+        columns={activeColumns}
+        title={tableTitle}
+        loading={isTableLoading}
         enableSelection={false}
-        defaultSortColumn="clientName"
+        defaultSortColumn={isOverallTab ? "clientName" : "clientName"}
         defaultSortDirection="asc"
         defaultRowsPerPage={10}
-        refreshData={fetchClients}
+        refreshData={isOverallTab ? fetchOverall : fetchClients}
         primaryColor="#1976d2"
         secondaryColor="#f5f5f5"
-        uniqueId="id"
+        uniqueId={tableUniqueId}
       />
 
       {/* Add / Edit Drawer */}
