@@ -47,7 +47,50 @@ import {
   Assignment,
 } from "@mui/icons-material";
 import { useSelector, useDispatch } from "react-redux";
-import { fetchEmployees } from "../../redux/employeesSlice"; // Adjust path as needed
+import { fetchEmployees } from "../../redux/employeesSlice";
+
+// ─── Indian States + UT list ──────────────────────────────────────────────────
+const INDIAN_STATES = [
+  "Andhra Pradesh",
+  "Arunachal Pradesh",
+  "Assam",
+  "Bihar",
+  "Chhattisgarh",
+  "Goa",
+  "Gujarat",
+  "Haryana",
+  "Himachal Pradesh",
+  "Jharkhand",
+  "Karnataka",
+  "Kerala",
+  "Madhya Pradesh",
+  "Maharashtra",
+  "Manipur",
+  "Meghalaya",
+  "Mizoram",
+  "Nagaland",
+  "Odisha",
+  "Punjab",
+  "Rajasthan",
+  "Sikkim",
+  "Tamil Nadu",
+  "Telangana",
+  "Tripura",
+  "Uttar Pradesh",
+  "Uttarakhand",
+  "West Bengal",
+  // Union Territories
+  "Andaman and Nicobar Islands",
+  "Chandigarh",
+  "Dadra and Nagar Haveli and Daman and Diu",
+  "Delhi",
+  "Jammu and Kashmir",
+  "Ladakh",
+  "Lakshadweep",
+  "Puducherry",
+  // Special
+  "Others",
+];
 
 // Create a custom theme
 const theme = createTheme({
@@ -105,6 +148,20 @@ const ClientForm = ({
     initialData?.onBoardedBy || userName
   );
 
+  // ── Location: track whether "Others" is selected ──────────────────────────
+  const [locationSelection, setLocationSelection] = useState(() => {
+    if (!initialData?.location) return "";
+    return INDIAN_STATES.includes(initialData.location)
+      ? initialData.location
+      : "Others";
+  });
+  const [customLocation, setCustomLocation] = useState(() => {
+    if (!initialData?.location) return "";
+    return INDIAN_STATES.includes(initialData.location)
+      ? ""
+      : initialData.location;
+  });
+
   const { employeesList: employees = [], fetchStatus } = useSelector(
     (state) => state.employee || {}
   );
@@ -115,7 +172,6 @@ const ClientForm = ({
   );
 
   useEffect(() => {
-    // Fetch employees when component mounts
     dispatch(fetchEmployees());
   }, [dispatch]);
 
@@ -124,19 +180,28 @@ const ClientForm = ({
       setCurrency(initialData.currency || "INR");
       setOnBoardedBy(initialData.onBoardedBy || "");
 
-      // Initialize files if editing and supportingDocuments are available
       if (
         isEdit &&
         initialData.supportingDocuments &&
         Array.isArray(initialData.supportingDocuments)
       ) {
-        // For editing, we just store the names since we can't recover the actual file objects
         setFiles(
           initialData.supportingDocuments.map((docName) => ({
             name: docName,
-            isExisting: true, // Flag to identify existing files
+            isExisting: true,
           }))
         );
+      }
+
+      // Sync location state when initialData changes
+      if (initialData.location) {
+        if (INDIAN_STATES.includes(initialData.location)) {
+          setLocationSelection(initialData.location);
+          setCustomLocation("");
+        } else {
+          setLocationSelection("Others");
+          setCustomLocation(initialData.location);
+        }
       }
     }
   }, [initialData, isEdit]);
@@ -179,7 +244,6 @@ const ClientForm = ({
               }))
             : [{ value: "", label: "No BDMs Available" }],
         },
-
         {
           name: "clientWebsiteUrl",
           label: "Client Website URL",
@@ -204,6 +268,7 @@ const ClientForm = ({
           grid: { xs: 12, md: 8 },
           icon: <LocationOn color="primary" />,
         },
+        // ── location field is rendered separately below ──
       ],
     },
     {
@@ -269,23 +334,14 @@ const ClientForm = ({
     },
   ];
 
-  const feedBack=[
+  const feedBack = [
     {
-      name:"feedBack",
-      label:"FeedBack",
-      type:"textarea",
-      grid: { xs: 12 }
-    }
-  ]
-
-  const toastConfig = {
-    position: "top-right",
-    autoClose: 3000,
-    hideProgressBar: false,
-    closeOnClick: true,
-    pauseOnHover: true,
-    draggable: true,
-  };
+      name: "feedBack",
+      label: "FeedBack",
+      type: "textarea",
+      grid: { xs: 12 },
+    },
+  ];
 
   const validationSchema = Yup.object().shape({
     clientName: Yup.string()
@@ -294,6 +350,7 @@ const ClientForm = ({
     clientAddress: Yup.string()
       .nullable()
       .max(250, "Client address must be at most 100 characters"),
+    location: Yup.string().nullable(),
     positionType: Yup.string().nullable(),
     assignedTo: Yup.string().nullable(),
     paymentType: Yup.string().nullable(),
@@ -339,15 +396,15 @@ const ClientForm = ({
     supportingDocuments: Yup.array().of(Yup.string().nullable()).nullable(),
     onBoardedBy: Yup.string().nullable(),
     feedBack: Yup.string()
-  .nullable()
-  .max(1000, "Feedback must be at most 1000 characters")
-  .transform((value) => (value === "" ? null : value)),
+      .nullable()
+      .max(1000, "Feedback must be at most 1000 characters")
+      .transform((value) => (value === "" ? null : value)),
   });
 
-  // Set default initial values
   const defaultInitialValues = {
     clientName: "",
     clientAddress: "",
+    location: "",
     positionType: "",
     assignedTo: "",
     netPayment: "",
@@ -362,13 +419,11 @@ const ClientForm = ({
     clientSpocLinkedin: [""],
     supportingDocuments: [],
     currency: "INR",
-    feedBack:""
+    feedBack: "",
   };
 
-  // Merge with initialData if available
   const formInitialValues = initialData || defaultInitialValues;
 
-  // Ensure arrays are properly initialized
   if (
     !Array.isArray(formInitialValues.clientSpocName) ||
     formInitialValues.clientSpocName.length === 0
@@ -404,7 +459,6 @@ const ClientForm = ({
       return;
     }
 
-    // Check total file size (max 10MB)
     const currentSize = files.reduce(
       (sum, file) => sum + (file.isExisting ? 0 : file.size),
       0
@@ -437,39 +491,35 @@ const ClientForm = ({
     setIsSubmitting(true);
 
     try {
-      // Create a FormData object for file upload
       const formData = new FormData();
 
-      // Prepare the client data
       const clientData = {
         ...values,
         currency,
         onBoardedBy: onBoardedByName,
       };
 
-      // Add existing supporting document filenames if we're editing
       if (isEdit) {
         clientData.supportingDocuments = files
           .filter((file) => file.isExisting)
           .map((file) => file.name);
       }
 
-      // Append the JSON object as a string
       formData.append("dto", JSON.stringify(clientData));
 
-      // Append new files only (not the existing ones which we only have names for)
       files
         .filter((file) => !file.isExisting)
         .forEach((file) => {
           formData.append("supportingDocuments", file);
         });
 
-      // Pass to parent component for submission
       await onSubmit(formData, isEdit);
 
       if (!isEdit) {
         resetForm();
         setFiles([]);
+        setLocationSelection("");
+        setCustomLocation("");
       }
     } catch (error) {
       console.error("Form submission error:", error);
@@ -575,6 +625,84 @@ const ClientForm = ({
     );
   };
 
+  // ── Location field renderer ────────────────────────────────────────────────
+  const renderLocationField = (values, errors, touched, setFieldValue) => (
+    <React.Fragment>
+      {/* State dropdown */}
+      <Grid item xs={12} sm={6} md={4}>
+        <FormControl fullWidth>
+          <InputLabel id="location-label">Location (State)</InputLabel>
+          <Select
+            labelId="location-label"
+            id="location-select"
+            value={locationSelection}
+            label="Location (State)"
+            onChange={(e) => {
+              const selected = e.target.value;
+              setLocationSelection(selected);
+
+              if (selected !== "Others") {
+                setCustomLocation("");
+                setFieldValue("location", selected);
+              } else {
+                // Clear the formik value until user types custom
+                setFieldValue("location", "");
+              }
+            }}
+            startAdornment={
+              <InputAdornment position="start">
+                <LocationOn color="primary" />
+              </InputAdornment>
+            }
+            MenuProps={{
+              PaperProps: {
+                style: { maxHeight: 300 },
+              },
+            }}
+          >
+            <MenuItem value="" disabled>
+              Select State / UT
+            </MenuItem>
+            {INDIAN_STATES.map((state) => (
+              <MenuItem key={state} value={state}>
+                {state}
+              </MenuItem>
+            ))}
+          </Select>
+          {touched.location && errors.location && (
+            <Typography variant="caption" color="error">
+              {errors.location}
+            </Typography>
+          )}
+        </FormControl>
+      </Grid>
+
+      {/* Custom location input — shown only when "Others" is selected */}
+      {locationSelection === "Others" && (
+        <Grid item xs={12} sm={6} md={4}>
+          <TextField
+            fullWidth
+            label="Custom Location"
+            placeholder="Enter your location"
+            value={customLocation}
+            onChange={(e) => {
+              setCustomLocation(e.target.value);
+              setFieldValue("location", e.target.value);
+            }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <LocationOn color="secondary" />
+                </InputAdornment>
+              ),
+            }}
+            helperText="Please specify your location"
+          />
+        </Grid>
+      )}
+    </React.Fragment>
+  );
+
   return (
     <ThemeProvider theme={theme}>
       <Box sx={{ p: 2 }}>
@@ -612,6 +740,7 @@ const ClientForm = ({
                       </Typography>
                       <Divider sx={{ mb: 3 }} />
                     </Grid>
+
                     {section.fields.map((field) =>
                       renderFormField(
                         field,
@@ -621,9 +750,14 @@ const ClientForm = ({
                         setFieldValue
                       )
                     )}
+
+                    {/* Inject location dropdown after Basic Information section */}
+                    {section.section === "Basic Information" &&
+                      renderLocationField(values, errors, touched, setFieldValue)}
                   </React.Fragment>
                 ))}
 
+                {/* Supporting Customers */}
                 <Grid item xs={12}>
                   <Typography
                     variant="h6"
@@ -662,9 +796,7 @@ const ClientForm = ({
                                           <TextField
                                             {...field}
                                             fullWidth
-                                            placeholder={`Customer ${
-                                              index + 1
-                                            }`}
+                                            placeholder={`Customer ${index + 1}`}
                                             error={
                                               meta.touched &&
                                               Boolean(meta.error)
@@ -723,6 +855,7 @@ const ClientForm = ({
                   </FieldArray>
                 </Grid>
 
+                {/* Contact Information */}
                 <Grid item xs={12}>
                   <Typography
                     variant="h6"
@@ -813,6 +946,7 @@ const ClientForm = ({
                   ))}
                 </Grid>
 
+                {/* Supporting Documents */}
                 <Grid item xs={12}>
                   <Typography
                     variant="h6"
@@ -829,8 +963,6 @@ const ClientForm = ({
                   </Typography>
                   <Divider sx={{ mb: 3 }} />
                 </Grid>
-
-    
 
                 <Grid item xs={12}>
                   <Paper
@@ -886,49 +1018,50 @@ const ClientForm = ({
                     </Box>
                   </Paper>
                 </Grid>
-                 
 
-                 {isEdit && (
-                <React.Fragment>
-               <Grid item xs={12}>
-              <Typography
-               variant="h6"
-               color="primary"
-               sx={{
-                  mt: 1,
-                  mb: 1,
-                  fontWeight: 500,
-                  display: "flex",
-                  alignItems: "center",
-                  }}
-                  >
-               <Assignment sx={{ mr: 1 }} /> Feedback
-           </Typography>
-        <Divider sx={{ mb: 3 }} />
-       </Grid>
-    
-       <Grid item xs={12}>
-         {feedBack.map((field) => (
-         <Field name={field.name} key={field.name}>
-          {({ field: formikField, meta }) => (
-            <TextField
-              {...formikField}
-              fullWidth
-              multiline
-              rows={4}
-              placeholder={`Enter ${field.label.toLowerCase()}`}
-              error={meta.touched && Boolean(meta.error)}
-              helperText={meta.touched && meta.error}
-              variant="outlined"
-             InputLabelProps={{ shrink: true }}
-            />
-          )}
-        </Field>
-        ))}
-       </Grid>
-      </React.Fragment>
-       )} 
+                {/* Feedback — edit mode only */}
+                {isEdit && (
+                  <React.Fragment>
+                    <Grid item xs={12}>
+                      <Typography
+                        variant="h6"
+                        color="primary"
+                        sx={{
+                          mt: 1,
+                          mb: 1,
+                          fontWeight: 500,
+                          display: "flex",
+                          alignItems: "center",
+                        }}
+                      >
+                        <Assignment sx={{ mr: 1 }} /> Feedback
+                      </Typography>
+                      <Divider sx={{ mb: 3 }} />
+                    </Grid>
 
+                    <Grid item xs={12}>
+                      {feedBack.map((field) => (
+                        <Field name={field.name} key={field.name}>
+                          {({ field: formikField, meta }) => (
+                            <TextField
+                              {...formikField}
+                              fullWidth
+                              multiline
+                              rows={4}
+                              placeholder={`Enter ${field.label.toLowerCase()}`}
+                              error={meta.touched && Boolean(meta.error)}
+                              helperText={meta.touched && meta.error}
+                              variant="outlined"
+                              InputLabelProps={{ shrink: true }}
+                            />
+                          )}
+                        </Field>
+                      ))}
+                    </Grid>
+                  </React.Fragment>
+                )}
+
+                {/* Action Buttons */}
                 <Grid item xs={12}>
                   <Divider sx={{ my: 3 }} />
                   <Stack
@@ -954,7 +1087,11 @@ const ClientForm = ({
                       color="secondary"
                       onClick={() => {
                         resetForm();
-                        if (!isEdit) setFiles([]);
+                        if (!isEdit) {
+                          setFiles([]);
+                          setLocationSelection("");
+                          setCustomLocation("");
+                        }
                         showToast("Form has been reset", "info");
                       }}
                       startIcon={<RestartAlt />}
