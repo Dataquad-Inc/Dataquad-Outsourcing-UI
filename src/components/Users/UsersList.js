@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import DataTable from "../muiComponents/DataTabel";
 import {
   Box,
@@ -21,13 +21,13 @@ import {
   ToggleButtonGroup,
   ToggleButton,
 } from "@mui/material";
-import { 
-  Refresh, 
-  Delete, 
-  Edit, 
-  PersonAdd, 
-  Close, 
-  Visibility 
+import {
+  Refresh,
+  Delete,
+  Edit,
+  PersonAdd,
+  Close,
+  Visibility,
 } from "@mui/icons-material";
 import { useSelector, useDispatch } from "react-redux";
 import {
@@ -149,30 +149,28 @@ const UserDetailsDialog = ({ open, onClose, user }) => {
 
   const formatDate = (dateString) => {
     if (!dateString) return "-";
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
   return (
-    <Dialog 
-      open={open} 
+    <Dialog
+      open={open}
       onClose={onClose}
       maxWidth="md"
       fullWidth
-      PaperProps={{
-        sx: { borderRadius: 2 }
-      }}
+      PaperProps={{ sx: { borderRadius: 2 } }}
     >
-      <DialogTitle 
-        sx={{ 
-          backgroundColor: "#1976d2", 
-          color: "white", 
-          display: "flex", 
+      <DialogTitle
+        sx={{
+          backgroundColor: "#1976d2",
+          color: "white",
+          display: "flex",
           justifyContent: "space-between",
-          alignItems: "center"
+          alignItems: "center",
         }}
       >
         <Typography variant="h6">User Details</Typography>
@@ -183,14 +181,14 @@ const UserDetailsDialog = ({ open, onClose, user }) => {
       <DialogContent sx={{ p: 3, mt: 2 }}>
         <Grid container spacing={3}>
           <Grid item xs={12}>
-            <Paper 
+            <Paper
               elevation={1}
               sx={{
                 p: 3,
                 backgroundColor: "#f8f9fa",
                 borderRadius: 2,
                 mb: 3,
-                border: "1px solid #e0e0e0"
+                border: "1px solid #e0e0e0",
               }}
             >
               <Grid container spacing={3}>
@@ -208,7 +206,7 @@ const UserDetailsDialog = ({ open, onClose, user }) => {
                     {user.designation || "Software Engineer"}
                   </Typography>
                 </Grid>
-                <Grid item xs={12} sm={6} sx={{ textAlign: { sm: 'right' } }}>
+                <Grid item xs={12} sm={6} sx={{ textAlign: { sm: "right" } }}>
                   <Typography variant="body2" color="text.secondary">
                     Employee ID
                   </Typography>
@@ -219,7 +217,6 @@ const UserDetailsDialog = ({ open, onClose, user }) => {
               </Grid>
             </Paper>
           </Grid>
-          
           <Grid item xs={12} md={6}>
             <Typography variant="subtitle2" sx={{ color: "#757575", mb: 1 }}>
               Personal Information
@@ -236,7 +233,9 @@ const UserDetailsDialog = ({ open, onClose, user }) => {
                   <Typography variant="body2" color="text.secondary">
                     Date of Birth
                   </Typography>
-                  <Typography variant="body1">{formatDate(user.dob)}</Typography>
+                  <Typography variant="body1">
+                    {formatDate(user.dob)}
+                  </Typography>
                 </Grid>
                 <Grid item xs={6}>
                   <Typography variant="body2" color="text.secondary">
@@ -263,7 +262,6 @@ const UserDetailsDialog = ({ open, onClose, user }) => {
               </Grid>
             </Paper>
           </Grid>
-          
           <Grid item xs={12} md={6}>
             <Typography variant="subtitle2" sx={{ color: "#757575", mb: 1 }}>
               Employment Details
@@ -283,7 +281,9 @@ const UserDetailsDialog = ({ open, onClose, user }) => {
                     Role
                   </Typography>
                   <Typography variant="body1">
-                    {Array.isArray(user.roles) ? user.roles.join(", ") : user.roles}
+                    {Array.isArray(user.roles)
+                      ? user.roles.join(", ")
+                      : user.roles}
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
@@ -301,15 +301,11 @@ const UserDetailsDialog = ({ open, onClose, user }) => {
           </Grid>
         </Grid>
       </DialogContent>
-      <DialogActions sx={{ p: 2, justifyContent: 'center' }}>
-        <Button 
-          onClick={onClose} 
-          variant="contained" 
-          sx={{ 
-            minWidth: 120, 
-            textTransform: 'none',
-            borderRadius: 1
-          }}
+      <DialogActions sx={{ p: 2, justifyContent: "center" }}>
+        <Button
+          onClick={onClose}
+          variant="contained"
+          sx={{ minWidth: 120, textTransform: "none", borderRadius: 1 }}
         >
           Close
         </Button>
@@ -329,8 +325,12 @@ const UsersList = () => {
   const [openAddDrawer, setOpenAddDrawer] = useState(false);
   const [openViewDialog, setOpenViewDialog] = useState(false);
   const [userToView, setUserToView] = useState(null);
-  const [userType, setUserTypeLocal] = useState('internal'); // 'internal' or 'external'
-  const [userStatus, setUserStatusLocal] = useState('active'); // 'active' or 'inactive'
+  const [userType, setUserTypeLocal] = useState("internal");
+  const [userStatus, setUserStatusLocal] = useState("active");
+
+  // ✅ Guards the filter useEffect from firing on initial mount.
+  // Set to true only when the user explicitly clicks a toggle button.
+  const isFilterToggled = useRef(false);
 
   const { isFilteredDataRequested } = useSelector((state) => state.bench);
   const { filteredUsers, loading } = useSelector((state) => state.employee);
@@ -350,12 +350,11 @@ const UsersList = () => {
     externalInactive,
   } = useSelector((state) => state.employee);
 
+  // ✅ INITIAL LOAD — only one API call on mount: fetchEmployees().
+  // No filtered call is made here at all.
   useEffect(() => {
     dispatch(fetchEmployees());
-    dispatch(activeInternalUsers()); // Default load active internal users
   }, [refreshTrigger, dispatch]);
-
-  console.log("Active Internal Users:", internalActive);
 
   useEffect(() => {
     if (employeesList) {
@@ -368,15 +367,18 @@ const UsersList = () => {
     }
   }, [employeesList]);
 
-  // Load data based on user type and status
+  // ✅ FILTERED CALL — fires only when the user clicks a toggle.
+  // The ref guard (isFilterToggled) prevents this from running on mount.
   useEffect(() => {
-    if (userType === 'internal' && userStatus === 'active') {
+    if (!isFilterToggled.current) return;
+
+    if (userType === "internal" && userStatus === "active") {
       dispatch(activeInternalUsers());
-    } else if (userType === 'internal' && userStatus === 'inactive') {
+    } else if (userType === "internal" && userStatus === "inactive") {
       dispatch(inactiveInternalUsers());
-    } else if (userType === 'external' && userStatus === 'active') {
+    } else if (userType === "external" && userStatus === "active") {
       dispatch(activeExternalUsers());
-    } else if (userType === 'external' && userStatus === 'inactive') {
+    } else if (userType === "external" && userStatus === "inactive") {
       dispatch(inactiveExternalUsers());
     }
   }, [userType, userStatus, dispatch]);
@@ -409,20 +411,10 @@ const UsersList = () => {
   };
 
   const renderStatus = (status) => {
-    let color = "default";
     const statusLower = status?.toLowerCase();
-
-    switch (statusLower) {
-      case "active":
-        color = "success";
-        break;
-      case "inactive":
-        color = "error";
-        break;
-      default:
-        color = "default";
-    }
-
+    let color = "default";
+    if (statusLower === "active") color = "success";
+    else if (statusLower === "inactive") color = "error";
     return <Chip label={status || "Unknown"} size="small" color={color} />;
   };
 
@@ -432,17 +424,12 @@ const UsersList = () => {
   };
 
   const handleEditUser = (user) => {
-    // Fixed date formatting for the form inputs
-    // Ensures dates are in YYYY-MM-DD format which is required by the date input
     const formattedUser = {
       ...user,
-      // For string roles, keep as is; otherwise handle array
       roles: Array.isArray(user.roles) ? user.roles[0] : user.roles,
-      // Properly format dates for the form inputs without time component
       dob: user.dob ? user.dob.split("T")[0] : "",
       joiningDate: user.joiningDate ? user.joiningDate.split("T")[0] : "",
     };
-
     setCurrentUser(formattedUser);
     setOpenEditDrawer(true);
   };
@@ -460,10 +447,7 @@ const UsersList = () => {
 
   const handleSubmitEdit = (values, actions) => {
     dispatch(
-      updateEmployee({
-        employeeId: currentUser.employeeId,
-        ...values,
-      })
+      updateEmployee({ employeeId: currentUser.employeeId, ...values }),
     ).finally(() => {
       actions.setSubmitting(false);
     });
@@ -475,12 +459,10 @@ const UsersList = () => {
 
   const handleSubmitNewUser = async (values, actions) => {
     try {
-      // Call your API service to register a new user
       const response = await httpService.post("/auth/register", values);
-
       if (response.data.success) {
         showToast("Employee registered successfully!", "success");
-        setOpenAddDrawer(false); // Auto-close drawer on success
+        setOpenAddDrawer(false);
         setRefreshTrigger((prev) => prev + 1);
       } else {
         showToast(response.data.message || "Registration failed", "error");
@@ -488,15 +470,18 @@ const UsersList = () => {
     } catch (error) {
       showToast(
         error.response?.data?.message || "Failed to register employee",
-        "error"
+        "error",
       );
     } finally {
       actions.setSubmitting(false);
     }
   };
 
+  // ✅ Set the ref to true BEFORE updating state so the useEffect
+  // sees the flag as true when it runs after the state change.
   const handleUserTypeChange = (event, newUserType) => {
     if (newUserType !== null) {
+      isFilterToggled.current = true;
       setUserTypeLocal(newUserType);
       dispatch(setUserType(newUserType));
     }
@@ -504,6 +489,7 @@ const UsersList = () => {
 
   const handleUserStatusChange = (event, newUserStatus) => {
     if (newUserStatus !== null) {
+      isFilterToggled.current = true;
       setUserStatusLocal(newUserStatus);
       dispatch(setUserStatus(newUserStatus));
     }
@@ -653,22 +639,27 @@ const UsersList = () => {
     ];
   };
 
-  // Determine which data to display
+  // ✅ Display logic:
+  // - If DateRangeFilter is active → show filteredUsers
+  // - If user clicked a toggle → show the relevant filtered slice
+  // - Otherwise (initial load) → show full employeesList from fetchEmployees()
   const getDisplayData = () => {
     if (isFilteredDataRequested && filteredUsers.length > 0) {
       return filteredUsers;
     }
-    
-    if (userType === 'internal' && userStatus === 'active') {
-      return internalActive || [];
-    } else if (userType === 'internal' && userStatus === 'inactive') {
-      return internalInactive || [];
-    } else if (userType === 'external' && userStatus === 'active') {
-      return externalActive || [];
-    } else if (userType === 'external' && userStatus === 'inactive') {
-      return externalInactive || [];
+
+    if (isFilterToggled.current) {
+      if (userType === "internal" && userStatus === "active")
+        return internalActive || [];
+      if (userType === "internal" && userStatus === "inactive")
+        return internalInactive || [];
+      if (userType === "external" && userStatus === "active")
+        return externalActive || [];
+      if (userType === "external" && userStatus === "inactive")
+        return externalInactive || [];
     }
-    
+
+    // Default: full list from the single initial fetchEmployees() call
     return users || [];
   };
 
@@ -716,23 +707,33 @@ const UsersList = () => {
 
   return (
     <>
-      <Stack direction="row" alignItems="center" spacing={2}
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={2}
         sx={{
-          flexWrap: 'wrap',
+          flexWrap: "wrap",
           mb: 3,
-          justifyContent: 'space-between',
+          justifyContent: "space-between",
           p: 2,
-          backgroundColor: '#f9f9f9',
+          backgroundColor: "#f9f9f9",
           borderRadius: 2,
           boxShadow: 1,
         }}
       >
-        <Typography variant='h6' color='primary'>Users Management</Typography>
-        <Stack direction="row" alignItems="center" spacing={2} sx={{ ml: 'auto' }}>
-          <DateRangeFilter component="Users"/>
-          <Button 
-            variant="contained" 
-            color="primary" 
+        <Typography variant="h6" color="primary">
+          Users Management
+        </Typography>
+        <Stack
+          direction="row"
+          alignItems="center"
+          spacing={2}
+          sx={{ ml: "auto" }}
+        >
+          <DateRangeFilter component="Users" />
+          <Button
+            variant="contained"
+            color="primary"
             onClick={handleAddUser}
             startIcon={<PersonAdd />}
             sx={buttonStyles}
@@ -742,7 +743,7 @@ const UsersList = () => {
         </Stack>
       </Stack>
 
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center', gap: 2 }}>
+      <Box sx={{ mb: 3, display: "flex", justifyContent: "center", gap: 2 }}>
         <ToggleButtonGroup
           color="primary"
           value={userType}
@@ -759,13 +760,9 @@ const UsersList = () => {
               "&.Mui-selected": {
                 backgroundColor: "#1976d2",
                 color: "white",
-                "&:hover": {
-                  backgroundColor: "#1565c0",
-                },
+                "&:hover": { backgroundColor: "#1565c0" },
               },
-              "&:hover": {
-                backgroundColor: "rgba(25, 118, 210, 0.08)",
-              },
+              "&:hover": { backgroundColor: "rgba(25, 118, 210, 0.08)" },
             },
           }}
         >
@@ -787,15 +784,15 @@ const UsersList = () => {
               border: "1px solid rgba(25, 118, 210, 0.5)",
               fontWeight: 600,
               "&.Mui-selected": {
-                backgroundColor: userStatus === 'active' ? "#4caf50" : "#f44336",
+                backgroundColor:
+                  userStatus === "active" ? "#4caf50" : "#f44336",
                 color: "white",
                 "&:hover": {
-                  backgroundColor: userStatus === 'active' ? "#45a049" : "#d32f2f",
+                  backgroundColor:
+                    userStatus === "active" ? "#45a049" : "#d32f2f",
                 },
               },
-              "&:hover": {
-                backgroundColor: "rgba(25, 118, 210, 0.08)",
-              },
+              "&:hover": { backgroundColor: "rgba(25, 118, 210, 0.08)" },
             },
           }}
         >
@@ -825,13 +822,13 @@ const UsersList = () => {
       />
 
       {/* User Details Dialog */}
-      <UserDetailsDialog 
+      <UserDetailsDialog
         open={openViewDialog}
         onClose={() => setOpenViewDialog(false)}
         user={userToView}
       />
 
-      {/* Edit User Drawer with UserForm component */}
+      {/* Edit User Drawer */}
       <Drawer
         anchor="right"
         open={openEditDrawer}
@@ -850,8 +847,7 @@ const UsersList = () => {
                 gap: 1,
               }}
             >
-              <Edit fontSize="small" />
-              Edit User Details
+              <Edit fontSize="small" /> Edit User Details
             </Typography>
             <IconButton
               edge="end"
@@ -863,7 +859,6 @@ const UsersList = () => {
             </IconButton>
           </Toolbar>
         </AppBar>
-
         <Box sx={{ p: 3, overflowY: "auto" }}>
           {currentUser && (
             <UserForm
@@ -876,7 +871,7 @@ const UsersList = () => {
         </Box>
       </Drawer>
 
-      {/* Add User Drawer with UserForm component */}
+      {/* Add User Drawer */}
       <Drawer
         anchor="right"
         open={openAddDrawer}
@@ -895,8 +890,7 @@ const UsersList = () => {
                 gap: 1,
               }}
             >
-              <PersonAdd fontSize="small" />
-              Register New Employee
+              <PersonAdd fontSize="small" /> Register New Employee
             </Typography>
             <IconButton
               edge="end"
@@ -908,7 +902,6 @@ const UsersList = () => {
             </IconButton>
           </Toolbar>
         </AppBar>
-
         <Box sx={{ p: 3, overflowY: "auto" }}>
           <Registration onRegistrationSuccess={() => setOpenAddDrawer(false)} />
         </Box>
@@ -918,9 +911,7 @@ const UsersList = () => {
       <Dialog
         open={openDeleteDialog}
         onClose={() => setOpenDeleteDialog(false)}
-        PaperProps={{
-          sx: { borderRadius: 2 },
-        }}
+        PaperProps={{ sx: { borderRadius: 2 } }}
       >
         <DialogTitle
           sx={{ backgroundColor: "#f44336", color: "white", fontWeight: 600 }}
