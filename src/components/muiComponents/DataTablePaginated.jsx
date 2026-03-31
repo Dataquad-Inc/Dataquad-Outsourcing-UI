@@ -6,12 +6,16 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableSortLabel,
   Paper,
   TextField,
   Box,
   Typography,
   Toolbar,
   TablePagination,
+  FormControl,
+  InputLabel,
+  Select,
   IconButton,
   InputAdornment,
   Chip,
@@ -37,25 +41,26 @@ import {
   LightMode,
   CloudDownload,
   Send,
+  ExpandMore,
+  ExpandLess,
 } from "@mui/icons-material";
 import * as XLSX from "xlsx";
 
+
 const exportToCsv = (data, columns) => {
-  const headerRow = columns.map((column) => column.label).join(",");
+  const headerRow = columns.map((c) => c.label).join(",");
   const dataRows = data.map((row) =>
     columns
-      .map((column) => {
-        if (column.key === "actions") return "";
-        const value = row[column.key];
-        return typeof value === "string"
-          ? `"${value.replace(/"/g, '""')}"`
-          : value;
+      .map((c) => {
+        if (c.key === "actions") return "";
+        const v = row[c.key];
+        return typeof v === "string" ? `"${v.replace(/"/g, '""')}"` : v;
       })
       .join(","),
   );
-
-  const csvContent = [headerRow, ...dataRows].join("\n");
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const blob = new Blob([[headerRow, ...dataRows].join("\n")], {
+    type: "text/csv;charset=utf-8;",
+  });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.setAttribute("href", url);
@@ -67,21 +72,18 @@ const exportToCsv = (data, columns) => {
 
 const exportToExcel = (data, columns, fileName = "data_export") => {
   const visibleColumns = columns.filter(
-    (col) => col.visible !== false && col.key !== "actions",
+    (c) => c.visible !== false && c.key !== "actions",
   );
-  const headers = visibleColumns.map((col) => col.label);
-
+  const headers = visibleColumns.map((c) => c.label);
   const excelData = data.map((row) => {
     const rowData = {};
-    visibleColumns.forEach((col) => {
-      rowData[col.label] = row[col.key];
+    visibleColumns.forEach((c) => {
+      rowData[c.label] = row[c.key];
     });
     return rowData;
   });
-
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(excelData, { header: headers });
-
   XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
   XLSX.writeFile(wb, `${fileName}.xlsx`);
 };
@@ -91,6 +93,8 @@ const ListItemIcon = ({ children, ...props }) => (
     {children}
   </Box>
 );
+
+
 
 const DataTablePaginated = ({
   data: initialData = [],
@@ -127,32 +131,36 @@ const DataTablePaginated = ({
   onExportData,
   onRowsPerPageChange,
   enableServerSideFiltering = false,
-  // New prop for external search value
   searchValue = "",
 }) => {
-  const processedColumns = useMemo(() => {
-    return initialColumns.map((column) => ({
-      ...column,
-      sortable: column.sortable !== false,
-      filterable: column.filterable !== false,
-      visible: column.visible !== false,
-      type: column.type || "text",
-      width: column.width || "auto",
-      options: column.options || [],
-    }));
-  }, [initialColumns]);
+  // ── Derived columns ──────────────────────────────────────────────────────
+  const processedColumns = useMemo(
+    () =>
+      initialColumns.map((column) => ({
+        ...column,
+        sortable: column.sortable !== false,
+        filterable: column.filterable !== false,
+        visible: column.visible !== false,
+        type: column.type || "text",
+        width: column.width || "auto",
+        options: column.options || [],
+      })),
+    [initialColumns],
+  );
 
+  // ── State ────────────────────────────────────────────────────────────────
   const [data, setData] = useState(initialData);
   const [columns, setColumns] = useState(processedColumns);
   const [filteredData, setFilteredData] = useState(initialData);
   const [order, setOrder] = useState(defaultSortDirection);
   const [orderBy, setOrderBy] = useState(
-    defaultSortColumn || columns[0]?.key || uniqueId,
+    defaultSortColumn || processedColumns[0]?.key || uniqueId,
   );
   const [searchInput, setSearchInput] = useState(searchValue || "");
   const [searchQuery, setSearchQuery] = useState(searchValue || "");
   const [filters, setFilters] = useState({});
   const [showFilters, setShowFilters] = useState(false);
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState([]);
   const [columnVisibilityMenu, setColumnVisibilityMenu] = useState(null);
   const [optionsMenu, setOptionsMenu] = useState(null);
@@ -160,16 +168,22 @@ const DataTablePaginated = ({
   const [densePadding, setDensePadding] = useState(false);
   const [expandedRow, setExpandedRow] = useState(null);
 
+  // Internal pagination state (used when external not provided)
+  const [internalPage, setInternalPage] = useState(0);
+  const [internalRowsPerPage, setInternalRowsPerPage] = useState(defaultRowsPerPage);
+
+  // Use external pagination if provided, otherwise use internal
+  const currentPage = externalPage !== undefined ? externalPage : internalPage;
+  const currentRowsPerPage = externalRowsPerPage !== undefined ? externalRowsPerPage : internalRowsPerPage;
+
   const tableHeight = customTableHeight || "100%";
   const tableWidth = customTableWidth || "100%";
 
   const tableStyles = {
     headerBackground: darkMode ? alpha(primaryColor, 0.8) : primaryColor,
     headerText: "#ffffff",
-    rowHover: darkMode ? alpha(primaryColor, 0.1) : alpha(primaryColor, 0.1),
-    selectedRow: darkMode
-      ? alpha(primaryColor, 0.2)
-      : alpha(primaryColor, 0.15),
+    rowHover: alpha(primaryColor, 0.1),
+    selectedRow: darkMode ? alpha(primaryColor, 0.2) : alpha(primaryColor, 0.15),
     paper: {
       backgroundColor: darkMode ? "#333" : "#fff",
       color: darkMode ? "#fff" : "#333",
@@ -177,153 +191,158 @@ const DataTablePaginated = ({
     ...customStyles,
   };
 
-  // Sync search input with external searchValue prop
+  // ── Compute visible columns early ─────────────────────────────────────────
+  const visibleColumns = useMemo(() =>
+    columns.filter((c) => c.visible !== false),
+    [columns]
+  );
+
+  const filterableColumns = useMemo(() =>
+    columns.filter((col) => col.filterable && col.visible !== false),
+    [columns]
+  );
+
+  // ── Sync external searchValue ────────────────────────────────────────────
   useEffect(() => {
-    if (searchValue !== undefined) {
+    if (searchValue !== undefined && searchValue !== searchInput) {
       setSearchInput(searchValue);
       setSearchQuery(searchValue);
     }
   }, [searchValue]);
 
+  // ── Sync data ────────────────────────────────────────────────────────────
   useEffect(() => {
     setData(initialData);
-    if (!serverSide || enableLocalFiltering) {
-      setFilteredData(initialData);
-    }
+    if (!serverSide || enableLocalFiltering) setFilteredData(initialData);
   }, [initialData, serverSide, enableLocalFiltering]);
 
   useEffect(() => {
     setColumns(processedColumns);
   }, [processedColumns]);
 
-  const handleChangePage = (event, newPage) => {
-    console.log(
-      `handleChangePage: newPage=${newPage}, currentRowsPerPage=${externalRowsPerPage || defaultRowsPerPage}`,
-    );
-
-    if (serverSide && onPageChange) {
-      onPageChange(newPage, externalRowsPerPage || defaultRowsPerPage);
-    }
+  // ── Comparators ──────────────────────────────────────────────────────────
+  const descendingComparator = (a, b, key) => {
+    const aVal = a[key] ?? "";
+    const bVal = b[key] ?? "";
+    if (bVal < aVal) return -1;
+    if (bVal > aVal) return 1;
+    return 0;
   };
 
-  const handleChangeRowsPerPage = (event) => {
-    const newRowsPerPage = parseInt(event.target.value, 10);
-    console.log(`handleChangeRowsPerPage: newRowsPerPage=${newRowsPerPage}`);
+  const getComparator = (ord, key) =>
+    ord === "desc"
+      ? (a, b) => descendingComparator(a, b, key)
+      : (a, b) => -descendingComparator(a, b, key);
 
-    if (serverSide) {
-      if (onRowsPerPageChange) {
-        onRowsPerPageChange(newRowsPerPage);
-      }
-      if (onPageChange) {
-        onPageChange(0, newRowsPerPage);
-      }
-    }
-  };
-
+  // ── Sort ─────────────────────────────────────────────────────────────────
   const handleSort = (property) => {
     const isAsc = orderBy === property && order === "asc";
     const newOrder = isAsc ? "desc" : "asc";
-
     setOrder(newOrder);
     setOrderBy(property);
 
-    if (serverSide && onSortChange) {
+    // For server-side sorting, trigger the callback
+    if (serverSide && !enableLocalFiltering && onSortChange) {
       onSortChange(
         property,
         newOrder,
-        externalPage || 0,
-        externalRowsPerPage || defaultRowsPerPage,
+        currentPage,
+        currentRowsPerPage,
         filters,
         searchQuery,
       );
     }
   };
 
-  const getComparator = (order, orderBy) => {
-    return order === "desc"
-      ? (a, b) => descendingComparator(a, b, orderBy)
-      : (a, b) => -descendingComparator(a, b, orderBy);
-  };
+  // ── Pagination ───────────────────────────────────────────────────────────
+const handleChangePage = (_, newPage) => {
+  if (serverSide && onPageChange) {
+    onPageChange(newPage, currentRowsPerPage); // ← always call server
+  }
+  setInternalPage(newPage); // ← also update internal state
+};
 
-  const descendingComparator = (a, b, orderBy) => {
-    const aVal =
-      a[orderBy] === null || a[orderBy] === undefined ? "" : a[orderBy];
-    const bVal =
-      b[orderBy] === null || b[orderBy] === undefined ? "" : b[orderBy];
+const handleChangeRowsPerPage = (e) => {
+  const newRowsPerPage = parseInt(e.target.value, 10);
+  setInternalRowsPerPage(newRowsPerPage);
+  setInternalPage(0);
 
-    if (bVal < aVal) return -1;
-    if (bVal > aVal) return 1;
-    return 0;
-  };
-
-  const handleSearchInputChange = (event) => {
-    const value = event.target.value;
+  if (serverSide) {
+    if (onRowsPerPageChange) onRowsPerPageChange(newRowsPerPage);
+    if (onPageChange) onPageChange(0, newRowsPerPage); // ← always call server
+  }
+};
+  // ── Search ───────────────────────────────────────────────────────────────
+  const handleSearchInputChange = (e) => {
+    const value = e.target.value;
     setSearchInput(value);
-    
-    // For real-time search (without debounce)
-    if (serverSide && onSearchChange && !enableLocalFiltering) {
-      // Call search immediately for server-side
+
+    if (serverSide && !enableLocalFiltering) {
+      // Pure server-side: trigger search on server
       setSearchQuery(value);
-      onSearchChange(
-        value,
-        0, // Reset to first page when searching
-        externalRowsPerPage || defaultRowsPerPage,
-        orderBy,
-        order,
-      );
+      if (onSearchChange) {
+        onSearchChange(
+          value,
+          currentPage,
+          currentRowsPerPage,
+          orderBy,
+          order,
+        );
+      }
+    } else {
+      // Client-side or server-side with local filtering: just update input
+      // Search will be applied in the useEffect
+      setSearchQuery(value);
     }
   };
 
   const handleSearchClick = () => {
-    const trimmedSearch = searchInput.trim();
-    setSearchQuery(trimmedSearch);
+    const trimmed = searchInput.trim();
+    setSearchQuery(trimmed);
 
-    if (serverSide && onSearchChange) {
+    if (serverSide && !enableLocalFiltering && onSearchChange) {
       onSearchChange(
-        trimmedSearch,
-        0, // Reset to first page when searching
-        externalRowsPerPage || defaultRowsPerPage,
+        trimmed,
+        currentPage,
+        currentRowsPerPage,
         orderBy,
         order,
       );
     }
   };
 
-  const handleSearchKeyPress = (event) => {
-    if (event.key === "Enter") {
-      handleSearchClick();
-    }
+  const handleSearchKeyPress = (e) => {
+    if (e.key === "Enter") handleSearchClick();
   };
 
   const clearSearch = () => {
-    const emptyValue = "";
-    setSearchInput(emptyValue);
-    setSearchQuery(emptyValue);
-    
-    if (serverSide && onSearchChange) {
+    setSearchInput("");
+    setSearchQuery("");
+
+    if (serverSide && !enableLocalFiltering && onSearchChange) {
       onSearchChange(
-        emptyValue,
-        externalPage || 0,
-        externalRowsPerPage || defaultRowsPerPage,
+        "",
+        currentPage,
+        currentRowsPerPage,
         orderBy,
         order,
       );
     }
   };
 
-  const handleFilterChange = (column, value) => {
-    const newFilters = {
-      ...filters,
-      [column]: value,
-    };
+  // ── Filters ──────────────────────────────────────────────────────────────
+  const toggleFilters = () => setShowFilters((v) => !v);
+  const toggleAdvancedFilters = () => setAdvancedFiltersOpen((v) => !v);
 
+  const handleFilterChange = (column, value) => {
+    const newFilters = { ...filters, [column]: value };
     setFilters(newFilters);
 
-    if ((serverSide || enableServerSideFiltering) && onFilterChange) {
+    if ((serverSide && !enableLocalFiltering) && onFilterChange) {
       onFilterChange(
         newFilters,
-        externalPage || 0,
-        externalRowsPerPage || defaultRowsPerPage,
+        currentPage,
+        currentRowsPerPage,
         orderBy,
         order,
         searchQuery,
@@ -333,11 +352,12 @@ const DataTablePaginated = ({
 
   const clearAllFilters = () => {
     setFilters({});
-    if ((serverSide || enableServerSideFiltering) && onFilterChange) {
+
+    if ((serverSide && !enableLocalFiltering) && onFilterChange) {
       onFilterChange(
         {},
-        externalPage || 0,
-        externalRowsPerPage || defaultRowsPerPage,
+        currentPage,
+        currentRowsPerPage,
         orderBy,
         order,
         searchQuery,
@@ -345,85 +365,67 @@ const DataTablePaginated = ({
     }
   };
 
-  const toggleFilters = () => {
-    setShowFilters(!showFilters);
+  /**
+   * Returns options for a column filter dropdown.
+   * Uses column.options if provided, otherwise derives unique values from data.
+   */
+  const getColumnFilterOptions = (columnKey) => {
+    const column = columns.find((c) => c.key === columnKey);
+    if (column?.options?.length > 0) return column.options;
+    return [...new Set(data.map((row) => row[columnKey]))]
+      .filter((v) => v !== null && v !== undefined)
+      .sort();
   };
 
-  const handleSelectAllClick = (event) => {
-    if (event.target.checked) {
-      const dataToSelect = serverSide ? data : filteredData;
-      const newSelected = dataToSelect.map((row) => row[uniqueId]);
-      setSelectedRows(newSelected);
+  // ── Selection ────────────────────────────────────────────────────────────
+  const handleSelectAllClick = (e) => {
+    if (e.target.checked) {
+      const src = (serverSide && !enableLocalFiltering) ? data : filteredData;
+      setSelectedRows(src.map((row) => row[uniqueId]));
     } else {
       setSelectedRows([]);
     }
   };
 
-  const handleCheckboxClick = (event, id) => {
-    event.stopPropagation();
-
-    const selectedIndex = selectedRows.indexOf(id);
-    let newSelected = [];
-
-    if (selectedIndex === -1) {
-      newSelected = [...selectedRows, id];
-    } else {
-      newSelected = selectedRows.filter((rowId) => rowId !== id);
-    }
-
-    setSelectedRows(newSelected);
-  };
-
-  const isRowSelected = (id) => selectedRows.indexOf(id) !== -1;
-
-  const handleColumnVisibilityMenuOpen = (event) => {
-    setColumnVisibilityMenu(event.currentTarget);
-  };
-
-  const handleColumnVisibilityMenuClose = () => {
-    setColumnVisibilityMenu(null);
-  };
-
-  const handleOptionsMenuOpen = (event) => {
-    setOptionsMenu(event.currentTarget);
-  };
-
-  const handleOptionsMenuClose = () => {
-    setOptionsMenu(null);
-  };
-
-  const toggleColumnVisibility = (columnKey) => {
-    setColumns(
-      columns.map((col) =>
-        col.key === columnKey ? { ...col, visible: !col.visible } : col,
-      ),
+  const handleCheckboxClick = (e, id) => {
+    e.stopPropagation();
+    setSelectedRows((prev) =>
+      prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id],
     );
   };
 
-  const toggleDarkMode = () => {
-    setDarkMode(!darkMode);
-  };
+  const isRowSelected = (id) => selectedRows.includes(id);
 
-  const toggleDensePadding = () => {
-    setDensePadding(!densePadding);
-  };
+  // ── Column visibility ────────────────────────────────────────────────────
+  const handleColumnVisibilityMenuOpen = (e) => setColumnVisibilityMenu(e.currentTarget);
+  const handleColumnVisibilityMenuClose = () => setColumnVisibilityMenu(null);
 
+  const toggleColumnVisibility = (key) =>
+    setColumns((cols) =>
+      cols.map((c) => (c.key === key ? { ...c, visible: !c.visible } : c)),
+    );
+
+  // ── Options menu ─────────────────────────────────────────────────────────
+  const handleOptionsMenuOpen = (e) => setOptionsMenu(e.currentTarget);
+  const handleOptionsMenuClose = () => setOptionsMenu(null);
+
+  const toggleDarkMode = () => setDarkMode((v) => !v);
+  const toggleDensePadding = () => setDensePadding((v) => !v);
+
+  // ── Export ───────────────────────────────────────────────────────────────
   const handleExportData = (format = "csv") => {
     if (enableFinancialValidation && !isFinancialVerified) {
-      onRequestOtpVerification(() => {
-        performExport(format);
-      });
+      onRequestOtpVerification(() => performExport(format));
       return;
     }
-
     performExport(format);
   };
 
   const performExport = (format) => {
-    if (serverSide && onExportData) {
+    if (serverSide && !enableLocalFiltering && onExportData) {
       onExportData(format, {
-        page: externalPage || 0,
-        rowsPerPage: externalRowsPerPage || defaultRowsPerPage,
+        page: currentPage,
+        rowsPerPage: currentRowsPerPage,
         orderBy,
         order,
         filters,
@@ -432,50 +434,39 @@ const DataTablePaginated = ({
       handleOptionsMenuClose();
       return;
     }
-
-    const visibleColumns = columns.filter((col) => col.visible !== false);
-    const dataToExport = serverSide ? data : filteredData;
-
-    if (format === "csv") {
-      exportToCsv(dataToExport, visibleColumns);
-    } else {
-      exportToExcel(dataToExport, visibleColumns);
-    }
-
+    const visibleCols = columns.filter((c) => c.visible !== false);
+    const src = (serverSide && !enableLocalFiltering) ? data : filteredData;
+    if (format === "csv") exportToCsv(src, visibleCols);
+    else exportToExcel(src, visibleCols);
     handleOptionsMenuClose();
   };
 
-  const handleRowExpand = (id) => {
-    setExpandedRow(expandedRow === id ? null : id);
-  };
+  // ── Row expand ───────────────────────────────────────────────────────────
+  const handleRowExpand = (id) =>
+    setExpandedRow((prev) => (prev === id ? null : id));
 
+  // ── Reset ────────────────────────────────────────────────────────────────
   const resetAllSettings = () => {
-    const emptyValue = "";
-    setSearchQuery(emptyValue);
-    setSearchInput(emptyValue);
+    setSearchQuery("");
+    setSearchInput("");
     setFilters({});
     setSelectedRows([]);
     setColumns(processedColumns);
     setOrder(defaultSortDirection);
-    setOrderBy(defaultSortColumn || columns[0]?.key || uniqueId);
+    setOrderBy(defaultSortColumn || processedColumns[0]?.key || uniqueId);
     setDarkMode(false);
     setDensePadding(false);
     setShowFilters(false);
+    setAdvancedFiltersOpen(false);
+    setInternalPage(0);
+    setInternalRowsPerPage(defaultRowsPerPage);
     handleOptionsMenuClose();
 
-    if (serverSide && onPageChange) {
+    if (serverSide && !enableLocalFiltering && onPageChange) {
       onPageChange(0, defaultRowsPerPage);
     }
-    
-    // Call external reset if needed
-    if (serverSide && onSearchChange) {
-      onSearchChange(
-        emptyValue,
-        0,
-        externalRowsPerPage || defaultRowsPerPage,
-        orderBy,
-        order,
-      );
+    if (serverSide && !enableLocalFiltering && onSearchChange) {
+      onSearchChange("", 0, currentRowsPerPage, orderBy, order);
     }
   };
 
@@ -484,86 +475,101 @@ const DataTablePaginated = ({
 
     let result = [...data];
 
+    // Apply search query filter
     if (searchQuery) {
-      const lowercasedQuery = searchQuery.toLowerCase();
-      result = result.filter((row) => {
-        return columns.some((column) => {
-          if (!column.visible) return false;
-          const value = row[column.key];
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter((row) =>
+        columns.some((col) => {
+          // Skip columns that are not visible or are actions
+          if (!col.visible || col.key === 'actions') return false;
+
+          const value = row[col.key];
           if (value === null || value === undefined) return false;
-          return String(value).toLowerCase().includes(lowercasedQuery);
-        });
-      });
-    }
 
-    Object.keys(filters).forEach((key) => {
-      if (
-        filters[key] !== "" &&
-        filters[key] !== null &&
-        filters[key] !== undefined
-      ) {
-        result = result.filter((row) => {
-          const rowValue = row[key];
-          const filterValue = filters[key];
-
-          if (rowValue === null || rowValue === undefined) return false;
-
-          if (typeof rowValue === "number") {
-            return rowValue === Number(filterValue);
+          // Handle different data types
+          if (Array.isArray(value)) {
+            return value.some(v =>
+              String(v).toLowerCase().includes(q)
+            );
           }
 
-          if (Array.isArray(filterValue)) {
-            return filterValue.includes(String(rowValue).toLowerCase());
+          if (typeof value === 'object') {
+            return false; 
           }
 
-          return String(rowValue)
-            .toLowerCase()
-            .includes(String(filterValue).toLowerCase());
-        });
-      }
-    });
-
-    result = result.sort(getComparator(order, orderBy));
-
-    setFilteredData(result);
-  }, [
-    searchQuery,
-    filters,
-    data,
-    order,
-    orderBy,
-    columns,
-    serverSide,
-    enableLocalFiltering,
-  ]);
-
-  const displayData = useMemo(() => {
-    if (serverSide) {
-      return data;
-    } else {
-      const page = externalPage || 0;
-      const rowsPerPage = externalRowsPerPage || defaultRowsPerPage;
-      return filteredData.slice(
-        page * rowsPerPage,
-        page * rowsPerPage + rowsPerPage,
+          return String(value).toLowerCase().includes(q);
+        })
       );
     }
-  }, [
-    serverSide,
-    data,
-    filteredData,
-    externalPage,
-    externalRowsPerPage,
-    defaultRowsPerPage,
-  ]);
 
-  const totalRowCount = serverSide ? totalCount : filteredData.length;
+    // Apply column filters
+    Object.keys(filters).forEach((key) => {
+      const filterValue = filters[key];
+      if (filterValue === "" || filterValue === null || filterValue === undefined) return;
 
-  const visibleColumns = columns.filter((column) => column.visible !== false);
+      result = result.filter((row) => {
+        const rowValue = row[key];
+        if (rowValue === null || rowValue === undefined) return false;
 
-  const shouldShowFilters =
-    !serverSide || enableLocalFiltering || enableServerSideFiltering;
+        // Handle select filters (exact match)
+        if (typeof filterValue === "string" && columns.find(c => c.key === key)?.type === "select") {
+          return String(rowValue).toLowerCase() === String(filterValue).toLowerCase();
+        }
 
+        // Handle text filters (partial match)
+        if (typeof filterValue === "string") {
+          return String(rowValue).toLowerCase().includes(String(filterValue).toLowerCase());
+        }
+
+        // Handle array filters
+        if (Array.isArray(filterValue)) {
+          return filterValue.includes(String(rowValue).toLowerCase());
+        }
+
+        // Handle number filters
+        if (typeof rowValue === "number" && !isNaN(filterValue)) {
+          return rowValue === Number(filterValue);
+        }
+
+        return false;
+      });
+    });
+
+    // Apply sorting
+    result = result.sort(getComparator(order, orderBy));
+    setFilteredData(result);
+  }, [searchQuery, filters, data, order, orderBy, columns, serverSide, enableLocalFiltering]);
+
+  // ── Display data and total count ─────────────────────────────────────────
+ const displayData = useMemo(() => {
+  if (serverSide && !enableLocalFiltering) {
+    return data;
+  }
+  if (serverSide && enableLocalFiltering) {
+    return filteredData; // ← server already gave us exactly one page, just filter it
+  }
+  // Pure client-side: slice locally
+  const p = currentPage;
+  const rpp = currentRowsPerPage;
+  return filteredData.slice(p * rpp, p * rpp + rpp);
+}, [serverSide, enableLocalFiltering, data, filteredData, currentPage, currentRowsPerPage]);
+
+const totalRowCount = useMemo(() => {
+  if (serverSide && enableLocalFiltering) {
+    // If actively searching, show filtered count; otherwise show server total
+    return searchQuery || Object.keys(filters).length > 0
+      ? filteredData.length
+      : totalCount;
+  }
+  if (serverSide) {
+    return totalCount;
+  }
+  return filteredData.length;
+}, [serverSide, enableLocalFiltering, totalCount, filteredData, searchQuery, filters]);
+
+  const shouldShowFilters = !serverSide || enableLocalFiltering || enableServerSideFiltering;
+
+  // ── Render ───────────────────────────────────────────────────────────────
   return (
     <Box sx={{ width: tableWidth }}>
       <Paper
@@ -576,7 +582,9 @@ const DataTablePaginated = ({
           transition: "all 0.3s ease",
         }}
       >
+        {/* ── Toolbar ── */}
         <Toolbar
+          variant="dense"
           sx={{
             pl: { sm: 2 },
             pr: { xs: 1, sm: 1 },
@@ -584,17 +592,13 @@ const DataTablePaginated = ({
             flexWrap: "wrap",
             gap: 1,
           }}
-          variant="dense"
         >
           <Typography
-            sx={{
-              flex: "1 1 auto",
-              color: tableStyles.paper.color,
-            }}
             variant="h6"
             component="div"
+            sx={{ flex: "1 1 auto", color: tableStyles.paper.color }}
           >
-            {title}{" "}
+            {title}
             {selectedRows.length > 0 && (
               <Chip
                 label={`${selectedRows.length} selected`}
@@ -605,72 +609,54 @@ const DataTablePaginated = ({
             )}
           </Typography>
 
-          <Box
-            sx={{
-              display: "flex",
-              gap: 1,
-              flexWrap: "wrap",
-              alignItems: "center",
-            }}
-          >
+          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
+            {/* Search field */}
             <TextField
               variant="outlined"
               size="small"
               value={searchInput}
               onChange={handleSearchInputChange}
               onKeyPress={handleSearchKeyPress}
+              placeholder="Search..."
+              disabled={serverSide && !onSearchChange && !enableLocalFiltering}
               sx={{
                 width: { xs: "100%", sm: 200 },
                 "& .MuiOutlinedInput-root": {
                   color: tableStyles.paper.color,
-                  "& fieldset": {
-                    borderColor: alpha(tableStyles.paper.color, 0.5),
-                  },
-                  "&:hover fieldset": {
-                    borderColor: alpha(tableStyles.paper.color, 0.7),
-                  },
+                  "& fieldset": { borderColor: alpha(tableStyles.paper.color, 0.5) },
+                  "&:hover fieldset": { borderColor: alpha(tableStyles.paper.color, 0.7) },
                   "&.Mui-focused fieldset": { borderColor: primaryColor },
                 },
-                "& .MuiInputLabel-root": {
-                  color: alpha(tableStyles.paper.color, 0.7),
-                },
+                "& .MuiInputLabel-root": { color: alpha(tableStyles.paper.color, 0.7) },
               }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Search
-                      sx={{ color: alpha(tableStyles.paper.color, 0.7) }}
-                    />
+                    <Search sx={{ color: alpha(tableStyles.paper.color, 0.7) }} />
                   </InputAdornment>
                 ),
-                endAdornment: (
+                endAdornment: searchInput && (
                   <InputAdornment position="end">
-                    {searchInput && (
-                      <IconButton
-                        aria-label="clear search"
-                        onClick={clearSearch}
-                        edge="end"
-                        size="small"
-                        sx={{
-                          color: alpha(tableStyles.paper.color, 0.7),
-                        }}
-                      >
-                        <Clear fontSize="small" />
-                      </IconButton>
-                    )}
+                    <IconButton
+                      aria-label="clear search"
+                      onClick={clearSearch}
+                      edge="end"
+                      size="small"
+                      sx={{ color: alpha(tableStyles.paper.color, 0.7) }}
+                    >
+                      <Clear fontSize="small" />
+                    </IconButton>
                   </InputAdornment>
                 ),
               }}
-              placeholder="Search..."
-              disabled={serverSide && !onSearchChange}
             />
 
+            {/* Filter toggle */}
             {shouldShowFilters && (
               <Tooltip title="Show/Hide Filters">
                 <IconButton
                   onClick={toggleFilters}
                   aria-label="filter list"
-                  color={showFilters ? "primary" : "default"}
                   sx={{
                     color: showFilters
                       ? primaryColor
@@ -688,6 +674,7 @@ const DataTablePaginated = ({
               </Tooltip>
             )}
 
+            {/* Column visibility */}
             <Tooltip title="Column Visibility">
               <IconButton
                 onClick={handleColumnVisibilityMenuOpen}
@@ -698,6 +685,7 @@ const DataTablePaginated = ({
               </IconButton>
             </Tooltip>
 
+            {/* Refresh */}
             {refreshData && (
               <Tooltip title="Refresh Data">
                 <IconButton
@@ -710,6 +698,7 @@ const DataTablePaginated = ({
               </Tooltip>
             )}
 
+            {/* More options */}
             <Tooltip title="Table Options">
               <IconButton
                 onClick={handleOptionsMenuOpen}
@@ -720,6 +709,7 @@ const DataTablePaginated = ({
               </IconButton>
             </Tooltip>
 
+            {/* Column visibility menu */}
             <Menu
               id="column-visibility-menu"
               anchorEl={columnVisibilityMenu}
@@ -753,6 +743,7 @@ const DataTablePaginated = ({
               ))}
             </Menu>
 
+            {/* Options menu */}
             <Menu
               id="options-menu"
               anchorEl={optionsMenu}
@@ -769,19 +760,14 @@ const DataTablePaginated = ({
               <MenuItem onClick={toggleDarkMode}>
                 <ListItemIcon>
                   {darkMode ? (
-                    <LightMode
-                      fontSize="small"
-                      sx={{ color: darkMode ? "#fff" : "#333" }}
-                    />
+                    <LightMode fontSize="small" sx={{ color: darkMode ? "#fff" : "#333" }} />
                   ) : (
-                    <DarkMode
-                      fontSize="small"
-                      sx={{ color: darkMode ? "#fff" : "#333" }}
-                    />
+                    <DarkMode fontSize="small" sx={{ color: darkMode ? "#fff" : "#333" }} />
                   )}
                 </ListItemIcon>
                 {darkMode ? "Light Mode" : "Dark Mode"}
               </MenuItem>
+
               <MenuItem onClick={toggleDensePadding}>
                 <ListItemIcon>
                   <Checkbox
@@ -792,6 +778,7 @@ const DataTablePaginated = ({
                 </ListItemIcon>
                 Compact Mode
               </MenuItem>
+
               {enableSendEmail && onSendEmail && (
                 <>
                   <MenuItem
@@ -801,10 +788,7 @@ const DataTablePaginated = ({
                     }}
                   >
                     <ListItemIcon>
-                      <Send
-                        fontSize="small"
-                        sx={{ color: darkMode ? "#fff" : "#333" }}
-                      />
+                      <Send fontSize="small" sx={{ color: darkMode ? "#fff" : "#333" }} />
                     </ListItemIcon>
                     Send Email
                     {userFilteredDataCount !== undefined && (
@@ -819,7 +803,9 @@ const DataTablePaginated = ({
                   <Divider />
                 </>
               )}
+
               <Divider />
+
               <MenuItem
                 onClick={() => handleExportData("csv")}
                 disabled={enableFinancialValidation && !isFinancialVerified}
@@ -842,10 +828,7 @@ const DataTablePaginated = ({
               <Divider />
               <MenuItem onClick={resetAllSettings}>
                 <ListItemIcon>
-                  <Refresh
-                    fontSize="small"
-                    sx={{ color: darkMode ? "#fff" : "#333" }}
-                  />
+                  <Refresh fontSize="small" sx={{ color: darkMode ? "#fff" : "#333" }} />
                 </ListItemIcon>
                 Reset All Settings
               </MenuItem>
@@ -853,6 +836,141 @@ const DataTablePaginated = ({
           </Box>
         </Toolbar>
 
+        {/* ── Filter panel ── */}
+        <Collapse in={showFilters}>
+          <Box
+            sx={{
+              p: 2,
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 2,
+              borderBottom: 1,
+              borderColor: "divider",
+              backgroundColor: darkMode
+                ? alpha(primaryColor, 0.05)
+                : alpha(primaryColor, 0.03),
+            }}
+          >
+            {filterableColumns
+              // Show first 3 unless advanced is open
+              .slice(0, advancedFiltersOpen ? filterableColumns.length : 3)
+              .map((column) => (
+                <FormControl
+                  key={column.key}
+                  size="small"
+                  variant="outlined"
+                  sx={{
+                    minWidth: 150,
+                    "& .MuiInputLabel-outlined": {
+                      color: alpha(tableStyles.paper.color, 0.7),
+                      "&.Mui-focused": { color: primaryColor },
+                    },
+                    "& .MuiOutlinedInput-root": {
+                      color: tableStyles.paper.color,
+                      "& fieldset": { borderColor: alpha(tableStyles.paper.color, 0.5) },
+                      "&:hover fieldset": { borderColor: alpha(tableStyles.paper.color, 0.7) },
+                      "&.Mui-focused fieldset": { borderColor: primaryColor },
+                    },
+                  }}
+                >
+                  {column.type === "select" ? (
+                    <>
+                      <InputLabel id={`filter-${column.key}-label`}>
+                        {column.label}
+                      </InputLabel>
+                      <Select
+                        labelId={`filter-${column.key}-label`}
+                        value={filters[column.key] || ""}
+                        label={column.label}
+                        onChange={(e) => handleFilterChange(column.key, e.target.value)}
+                        MenuProps={{
+                          PaperProps: {
+                            sx: {
+                              maxHeight: 300,
+                              backgroundColor: darkMode ? "#444" : "#fff",
+                              color: darkMode ? "#fff" : "#333",
+                            },
+                          },
+                        }}
+                      >
+                        <MenuItem value="">
+                          <em>None</em>
+                        </MenuItem>
+                        {getColumnFilterOptions(column.key).map((option) => (
+                          <MenuItem
+                            key={option}
+                            value={option}
+                            sx={{
+                              backgroundColor: darkMode ? "#444" : "#fff",
+                              color: darkMode ? "#fff" : "#333",
+                              "&:hover": { backgroundColor: darkMode ? "#555" : "#f5f5f5" },
+                            }}
+                          >
+                            {option}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </>
+                  ) : (
+                    <TextField
+                      id={column.key}
+                      label={column.label}
+                      type={column.type}
+                      value={filters[column.key] || ""}
+                      onChange={(e) => handleFilterChange(column.key, e.target.value)}
+                      size="small"
+                      variant="outlined"
+                      placeholder={column.type === "date" ? undefined : column.label}
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          color: tableStyles.paper.color,
+                          "& fieldset": { borderColor: alpha(tableStyles.paper.color, 0.5) },
+                          "&:hover fieldset": { borderColor: alpha(tableStyles.paper.color, 0.7) },
+                          "&.Mui-focused fieldset": { borderColor: primaryColor },
+                        },
+                        "& .MuiInputLabel-root": {
+                          color: alpha(tableStyles.paper.color, 0.7),
+                        },
+                      }}
+                    />
+                  )}
+                </FormControl>
+              ))}
+
+            <Box sx={{ display: "flex", alignItems: "center", ml: "auto" }}>
+              <Button
+                size="small"
+                onClick={clearAllFilters}
+                startIcon={<Clear />}
+                variant="outlined"
+                sx={{
+                  borderColor: alpha(tableStyles.paper.color, 0.5),
+                  color: tableStyles.paper.color,
+                  "&:hover": {
+                    borderColor: alpha(tableStyles.paper.color, 0.7),
+                    backgroundColor: alpha(tableStyles.paper.color, 0.05),
+                  },
+                }}
+              >
+                Clear
+              </Button>
+
+              {/* More / Less button — only shown when there are more than 3 filterable columns */}
+              {filterableColumns.length > 3 && (
+                <Button
+                  size="small"
+                  onClick={toggleAdvancedFilters}
+                  endIcon={advancedFiltersOpen ? <ExpandLess /> : <ExpandMore />}
+                  sx={{ ml: 1, color: tableStyles.paper.color }}
+                >
+                  {advancedFiltersOpen ? "Less" : "More"}
+                </Button>
+              )}
+            </Box>
+          </Box>
+        </Collapse>
+
+        {/* ── Table ── */}
         <TableContainer
           sx={{
             height: tableHeight,
@@ -866,10 +984,7 @@ const DataTablePaginated = ({
             <Box
               sx={{
                 position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
+                inset: 0,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -903,14 +1018,12 @@ const DataTablePaginated = ({
                       indeterminate={
                         selectedRows.length > 0 &&
                         selectedRows.length <
-                          (serverSide ? data.length : filteredData.length)
+                        ((serverSide && !enableLocalFiltering) ? data.length : filteredData.length)
                       }
                       checked={
-                        (serverSide
-                          ? data.length > 0
-                          : filteredData.length > 0) &&
+                        ((serverSide && !enableLocalFiltering) ? data.length > 0 : filteredData.length > 0) &&
                         selectedRows.length ===
-                          (serverSide ? data.length : filteredData.length)
+                        ((serverSide && !enableLocalFiltering) ? data.length : filteredData.length)
                       }
                       onChange={handleSelectAllClick}
                       sx={{ color: tableStyles.headerText }}
@@ -922,6 +1035,7 @@ const DataTablePaginated = ({
                   <TableCell
                     key={column.key}
                     align={column.align || "left"}
+                    sortDirection={orderBy === column.key ? order : false}
                     style={{
                       minWidth: column.width,
                       width: column.width,
@@ -933,9 +1047,27 @@ const DataTablePaginated = ({
                     sx={{
                       color: tableStyles.headerText,
                       whiteSpace: "nowrap",
+                      "& .MuiTableSortLabel-root": {
+                        color: `${tableStyles.headerText} !important`,
+                        "&:hover": { color: "rgba(255,255,255,0.7) !important" },
+                        "&.Mui-active": { color: `${tableStyles.headerText} !important` },
+                      },
+                      "& .MuiTableSortLabel-icon": {
+                        color: "rgba(255,255,255,0.7) !important",
+                      },
                     }}
                   >
-                    {column.label}
+                    {column.sortable ? (
+                      <TableSortLabel
+                        active={orderBy === column.key}
+                        direction={orderBy === column.key ? order : "asc"}
+                        onClick={() => handleSort(column.key)}
+                      >
+                        {column.label}
+                      </TableSortLabel>
+                    ) : (
+                      column.label
+                    )}
                   </TableCell>
                 ))}
               </TableRow>
@@ -964,7 +1096,7 @@ const DataTablePaginated = ({
                     <React.Fragment key={rowId}>
                       <TableRow
                         hover
-                        onClick={(event) => {
+                        onClick={() => {
                           if (onRowClick) onRowClick(row);
                           handleRowExpand(rowId);
                         }}
@@ -986,8 +1118,7 @@ const DataTablePaginated = ({
                           <TableCell
                             padding="checkbox"
                             sx={{
-                              backgroundColor:
-                                tableStyles.paper.backgroundColor,
+                              backgroundColor: tableStyles.paper.backgroundColor,
                               position: "sticky",
                               left: 0,
                               zIndex: 2,
@@ -996,9 +1127,7 @@ const DataTablePaginated = ({
                             <Checkbox
                               checked={isItemSelected}
                               color="primary"
-                              onClick={(event) =>
-                                handleCheckboxClick(event, rowId)
-                              }
+                              onClick={(e) => handleCheckboxClick(e, rowId)}
                             />
                           </TableCell>
                         )}
@@ -1007,16 +1136,11 @@ const DataTablePaginated = ({
                           <TableCell
                             key={`${rowId}-${column.key}`}
                             align={column.align || "left"}
-                            sx={{
-                              backgroundColor: "inherit",
-                              position: "inherit",
-                              zIndex: 0,
-                            }}
+                            sx={{ backgroundColor: "inherit", position: "inherit", zIndex: 0 }}
                           >
                             {column.render
                               ? column.render(row)
-                              : row[column.key] !== null &&
-                                  row[column.key] !== undefined
+                              : row[column.key] !== null && row[column.key] !== undefined
                                 ? row[column.key]
                                 : "-"}
                           </TableCell>
@@ -1026,16 +1150,10 @@ const DataTablePaginated = ({
                       {row.expandContent && (
                         <TableRow>
                           <TableCell
-                            colSpan={
-                              visibleColumns.length + (enableSelection ? 1 : 0)
-                            }
+                            colSpan={visibleColumns.length + (enableSelection ? 1 : 0)}
                             style={{ paddingBottom: 0, paddingTop: 0 }}
                           >
-                            <Collapse
-                              in={isExpanded}
-                              timeout="auto"
-                              unmountOnExit
-                            >
+                            <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                               <Box sx={{ p: 2 }}>
                                 {typeof row.expandContent === "function"
                                   ? row.expandContent(row)
@@ -1053,23 +1171,20 @@ const DataTablePaginated = ({
           </Table>
         </TableContainer>
 
+        {/* ── Pagination ── */}
         <TablePagination
           rowsPerPageOptions={[10, 20, 40, 60, 80, 100]}
           component="div"
           count={totalRowCount}
-          rowsPerPage={externalRowsPerPage || defaultRowsPerPage}
-          page={externalPage || 0}
+          rowsPerPage={currentRowsPerPage}
+          page={currentPage}
           onPageChange={handleChangePage}
           onRowsPerPageChange={handleChangeRowsPerPage}
           sx={{
             color: tableStyles.paper.color,
-            "& .MuiTablePagination-selectIcon": {
-              color: tableStyles.paper.color,
-            },
-            "& .MuiTablePagination-actions": {
-              "& .MuiIconButton-root": {
-                color: alpha(tableStyles.paper.color, 0.7),
-              },
+            "& .MuiTablePagination-selectIcon": { color: tableStyles.paper.color },
+            "& .MuiTablePagination-actions .MuiIconButton-root": {
+              color: alpha(tableStyles.paper.color, 0.7),
             },
           }}
         />
