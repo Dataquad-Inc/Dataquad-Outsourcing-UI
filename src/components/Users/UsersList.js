@@ -317,7 +317,8 @@ const UserDetailsDialog = ({ open, onClose, user }) => {
 const UsersList = () => {
   const [users, setUsers] = useState([]);
   const [columns, setColumns] = useState([]);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  // const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const hasFetched = useRef(false);
   const [openEditDrawer, setOpenEditDrawer] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
@@ -326,10 +327,8 @@ const UsersList = () => {
   const [openViewDialog, setOpenViewDialog] = useState(false);
   const [userToView, setUserToView] = useState(null);
   const [userType, setUserTypeLocal] = useState("internal");
-  const [userStatus, setUserStatusLocal] = useState("active");
+  const [userStatus, setUserStatusLocal] = useState(null);
 
-  // ✅ Guards the filter useEffect from firing on initial mount.
-  // Set to true only when the user explicitly clicks a toggle button.
   const isFilterToggled = useRef(false);
 
   const { isFilteredDataRequested } = useSelector((state) => state.bench);
@@ -350,11 +349,11 @@ const UsersList = () => {
     externalInactive,
   } = useSelector((state) => state.employee);
 
-  // ✅ INITIAL LOAD — only one API call on mount: fetchEmployees().
-  // No filtered call is made here at all.
   useEffect(() => {
+    if (hasFetched.current) return;
+    hasFetched.current = true;
     dispatch(fetchEmployees());
-  }, [refreshTrigger, dispatch]);
+  }, []);
 
   useEffect(() => {
     if (employeesList) {
@@ -389,7 +388,7 @@ const UsersList = () => {
       showToast("User updated successfully!", "success");
       setOpenEditDrawer(false);
       dispatch(resetUpdateStatus());
-      setRefreshTrigger((prev) => prev + 1);
+      dispatch(fetchEmployees());
     } else if (updateStatus === "failed") {
       showToast(updateError || "Failed to update user", "error");
     }
@@ -400,14 +399,15 @@ const UsersList = () => {
       showToast("User deleted successfully!", "success");
       setOpenDeleteDialog(false);
       dispatch(resetDeleteStatus());
-      setRefreshTrigger((prev) => prev + 1);
+      dispatch(fetchEmployees()); 
     } else if (deleteStatus === "failed") {
       showToast(deleteError || "Failed to delete user", "error");
     }
   }, [deleteStatus, deleteError, dispatch]);
 
   const refreshData = () => {
-    setRefreshTrigger((prev) => prev + 1);
+    // setRefreshTrigger((prev) => prev + 1);
+    dispatch(fetchEmployees());
   };
 
   const renderStatus = (status) => {
@@ -463,7 +463,7 @@ const UsersList = () => {
       if (response.data.success) {
         showToast("Employee registered successfully!", "success");
         setOpenAddDrawer(false);
-        setRefreshTrigger((prev) => prev + 1);
+        dispatch(fetchEmployees());
       } else {
         showToast(response.data.message || "Registration failed", "error");
       }
