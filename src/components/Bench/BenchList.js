@@ -76,13 +76,13 @@ const BenchList = () => {
         params.search = search.trim();
       }
 
-      console.log('Fetching bench list with params:', params);
+      
       const response = await httpService.get('/candidate/bench/getBenchList', params);
 
       const data = response.data.data || [];
       const total = response.data.totalItems || 0;
 
-      console.log('Received data:', { dataLength: data.length, total, currentPage });
+      
 
       setBenchData(data);
       setTotalCount(total);
@@ -175,22 +175,19 @@ const BenchList = () => {
     }
   };
 
-  const handlePageChange = (newPage, newRowsPerPage) => {
-    console.log('Page changed:', newPage, 'RowsPerPage:', newRowsPerPage);
+  const handlePageChange = (newPage, newRowsPerPage) => {   
     setPage(newPage);
     if (newRowsPerPage !== undefined && newRowsPerPage !== rowsPerPage) {
       setRowsPerPage(newRowsPerPage);
     }
   };
 
-  const handleRowsPerPageChange = (newRowsPerPage) => {
-    console.log('RowsPerPage changed:', newRowsPerPage);
+  const handleRowsPerPageChange = (newRowsPerPage) => { 
     setRowsPerPage(newRowsPerPage);
     setPage(0); // Reset to first page on rows-per-page change
   };
 
   const handleSearch = (keyword) => {
-    console.log('Search keyword:', keyword);
     setSearchKeyword(keyword);
     setPage(0); // Reset to first page on new search
   };
@@ -363,7 +360,6 @@ const BenchList = () => {
               fullName: row?.fullName ?? 'NO_NAME',
             }}
             getDownloadUrl={(candidate, format) => {
-              console.log("Resolved candidate for download:", candidate, format);
               return `${API_BASE_URL}/candidate/bench/download/${candidate.candidateId}?format=${format}`;
             }}
           />
