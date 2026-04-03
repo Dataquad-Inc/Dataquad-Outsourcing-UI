@@ -195,6 +195,40 @@ const CustomDataTable = ({
     }
   };
 
+  const getExportText = (value) => {
+    if (value === null || value === undefined) return "";
+
+    if (React.isValidElement(value)) {
+      const children = value.props?.children;
+      if (children === null || children === undefined) return "";
+      if (Array.isArray(children)) {
+        return children.map((child) => getExportText(child)).join(" ");
+      }
+      return getExportText(children);
+    }
+
+    if (Array.isArray(value)) {
+      return value.map((item) => getExportText(item)).join(", ");
+    }
+
+    if (value instanceof Date) {
+      return value.toLocaleDateString();
+    }
+
+    if (typeof value === "object") {
+      if (value.toString && value.toString() !== "[object Object]") {
+        return String(value);
+      }
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return "";
+      }
+    }
+
+    return String(value);
+  };
+
   // Excel export function
   const handleExportExcel = async () => {
     try {
@@ -205,25 +239,22 @@ const CustomDataTable = ({
       const visibleCols = columns.filter((col) => visibleColumns[col.id]);
 
       // Prepare header row
-      const headers = visibleCols.map((col) => col.label);
+      const headers = visibleCols.map((col) => getExportText(col.label));
 
       // Prepare data rows
       const dataRows = (Array.isArray(rows) ? rows : []).map((row) =>
         visibleCols.map((col) => {
-          const cellValue = col.render
-            ? col.render(row[col.id], row)
-            : row[col.id];
+          const rawValue = row[col.id];
+          let cellValue = rawValue;
 
-          // Handle React elements and other non-string values
-          if (typeof cellValue === "string" || typeof cellValue === "number") {
-            return cellValue;
-          } else if (React.isValidElement(cellValue)) {
-            // For React elements, try to extract text content
-            return cellValue.props?.children || cellValue.props?.value || "";
-          } else if (cellValue instanceof Date) {
-            return cellValue.toLocaleDateString();
+          if (col.exportValue) {
+            cellValue = col.exportValue(rawValue, row);
+          } else if (rawValue === undefined && col.render) {
+            // Avoid React-only render outputs for most cells.
+            cellValue = col.render(rawValue, row);
           }
-          return cellValue?.toString?.() || "";
+
+          return getExportText(cellValue);
         })
       );
 
@@ -263,18 +294,21 @@ const CustomDataTable = ({
     const visibleCols = columns.filter((col) => visibleColumns[col.id]);
 
     // Prepare header row
-    const headers = visibleCols.map((col) => col.label);
+    const headers = visibleCols.map((col) => getExportText(col.label));
 
     // Prepare data rows
     const dataRows = (Array.isArray(rows) ? rows : []).map((row) =>
       visibleCols.map((col) => {
-        const cellValue = col.render
-          ? col.render(row[col.id], row)
-          : row[col.id];
-        // Handle React elements and other non-string values
-        return typeof cellValue === "string" || typeof cellValue === "number"
-          ? cellValue
-          : cellValue?.toString?.() || "";
+        const rawValue = row[col.id];
+        let cellValue = rawValue;
+
+        if (col.exportValue) {
+          cellValue = col.exportValue(rawValue, row);
+        } else if (rawValue === undefined && col.render) {
+          cellValue = col.render(rawValue, row);
+        }
+
+        return getExportText(cellValue);
       })
     );
 

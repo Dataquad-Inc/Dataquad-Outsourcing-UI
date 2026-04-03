@@ -176,23 +176,10 @@ const getRequirementsColumns = ({
     label: "Assigned Users",
     applyFilter: true,
     align: "center",
+    exportValue: (v) =>
+      !v || v.length === 0 ? "N/A" : Array.isArray(v) ? v.map((user) => user.userName).join(", ") : "Invalid Data",
     render: (v) =>
-      v && v.length ? (
-        <Box
-          sx={{
-            display: "flex",
-            flexWrap: "wrap",
-            justifyContent: "center",
-            gap: 0.5,
-          }}
-        >
-          {v.map((user) => (
-            <Chip key={user.userId} label={user.userName} size="small" />
-          ))}
-        </Box>
-      ) : (
-        "-"
-      ),
+      v && v?.length && <small>{v?.map((user) => user.userName).join(", ") || "-"}</small>,
   },
   {
     id: "submissions",
