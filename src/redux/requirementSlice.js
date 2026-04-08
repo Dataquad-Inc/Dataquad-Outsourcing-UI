@@ -34,17 +34,21 @@ export const fetchRequirementsBdmSelf = createAsyncThunk(
 
 export const filterRequirementsByDateRange = createAsyncThunk(
     'requirements/filterByDateRange',
-    async({startDate, endDate}, {rejectWithValue}) => {
-        try{
-       
-          const response = await httpService.get(`/requirements/filterByDate?startDate=${startDate}&endDate=${endDate}`);
-          
-          return response.data;
-        }catch(error){
-          console.log(error);
-          return rejectWithValue(error);
-        }
-       }
+      async ({ startDate, endDate, page, size, search }, { rejectWithValue }) => {
+    try {
+      const params = {
+        startDate,
+        endDate,
+        page,
+        size,
+        ...(search && { search }),
+      };
+      const response = await httpService.get('/requirements/filterByDate', params);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error);
+    }
+  }
 )
 
 // Filter requirements for employee
@@ -107,7 +111,8 @@ const requirementSlice =  createSlice({
         requirementsAllBDM : [],
         requirementsSelfBDM : [],
         isFilteredReqRequested: false,
-        error: null
+        error: null,
+        filteredTotalCount: 0,
     },
     reducers: {
         setFilteredReqDataRequested: (state, action) => {
@@ -145,19 +150,19 @@ const requirementSlice =  createSlice({
           
         })
           // Filter Requirement List By date Range
-          .addCase(filterRequirementsByDateRange.pending, (state) => {
-            state.loading = true;
-            state.error = null;
-          })
-          .addCase(filterRequirementsByDateRange.fulfilled, (state, action) => {
-            state.loading = false;
-            state.filteredRequirementList = action.payload;
-          })
-          .addCase(filterRequirementsByDateRange.rejected, (state, action) => {
-            state.loading = false;
-            state.error = action.payload.message;
-            
-          })
+         .addCase(filterRequirementsByDateRange.pending, (state) => {
+          state.loading = true;
+          state.error = null;
+        })
+        .addCase(filterRequirementsByDateRange.fulfilled, (state, action) => {
+          state.loading = false;
+          state.filteredRequirementList = Array.isArray(action.payload)? action.payload : action.payload.content ?? [];
+          state.filteredTotalCount = Array.isArray(action.payload) ? action.payload.length : action.payload.totalElements ?? 0;
+        })
+        .addCase(filterRequirementsByDateRange.rejected, (state, action) => {
+         state.loading = false;
+         state.error = action.payload;
+        })
 
           // Filter Recruiter requirements
           .addCase(filterRequirementsByRecruiter.pending, (state) => {

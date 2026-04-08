@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import DataTable from "../muiComponents/DataTabel";
+import React, { useState, useEffect, useRef } from "react";
+import DataTablePaginated from "../muiComponents/DataTablePaginated";
 import {
   Box,
   Typography,
@@ -42,10 +42,9 @@ import LoadingSkeleton from "../muiComponents/LoadingSkeleton"; // Import Loadin
 import { DateRangeIcon } from "@mui/x-date-pickers";
 import DateRangeFilter from "../muiComponents/DateRangeFilter";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchAllRequirementsBDM, fetchRequirementsBdmSelf, setFilteredReqDataRequested } from "../../redux/requirementSlice";
+import { fetchAllRequirementsBDM, fetchRequirementsBdmSelf, setFilteredReqDataRequested, filterRequirementsByDateRange } from "../../redux/requirementSlice";
 import { Send } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-
 
 const Requirements = () => {
   const [data, setData] = useState([]);
@@ -57,6 +56,16 @@ const Requirements = () => {
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
   const [editFormData, setEditFormData] = useState(null);
   const navigate = useNavigate()
+
+  // Pagination state 
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [totalCount, setTotalCount] = useState(0);
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const isFetching = useRef(false);
+ 
   const [descriptionDialog, setDescriptionDialog] = useState({
     open: false,
     content: "",
@@ -69,7 +78,7 @@ const Requirements = () => {
   });
   const [expandedRowId, setExpandedRowId] = useState(null);
 
-  const { filteredRequirementList } = useSelector((state) => state.requirement);
+  const { filteredRequirementList, filteredTotalCount } = useSelector((state) => state.requirement);
   const { isFilteredDataRequested } = useSelector((state) => state.bench);
   const { role, userId } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
@@ -84,72 +93,128 @@ const Requirements = () => {
     ToastService.info("Refreshing requirements data...");
   };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        let response;
+useEffect(() => {
+  if (startDate && endDate) return; 
 
-        if (role === "SUPERADMIN") {
-          response = await httpService.get("/requirements/getAssignments");
-        } else if (role === "TEAMLEAD") {
-          response = await httpService.get(`/requirements/teamleadrequirements/${userId}`);
-        }
-        else if (role === "COORDINATOR") {
-          response = await httpService.get(`/requirements/coordinatorRequirements/${userId}`)
-        }
-        else if (role === "BDM") {
-          dispatch(fetchAllRequirementsBDM());
-          dispatch(fetchRequirementsBdmSelf());
-          ToastService.success("Data Fetched Successfully!")
-        }
-        else {
-          setData([]);
-          setError(new Error("Unauthorized role for this action"));
-          ToastService.error("Unauthorized role for fetching requirements",
-            "error")
-          return;
-        }
+  const fetchData = async () => {
+    if (isFetching.current) return;
+    isFetching.current = true;
+    setLoading(true);
 
-        if (Array.isArray(response.data) && role != "BDM") {
-          const priorityStatuses = ["Submitted", "On Hold", "In Progress"];
+    try {
+      const params = {
+        page,
+        size: rowsPerPage,
+        ...(searchKeyword && { search: searchKeyword }),
+      };
 
-          const sortedData = response.data.sort((a, b) => {
-            const aPriority = priorityStatuses.includes(a.status) ? 0 : 1;
-            const bPriority = priorityStatuses.includes(b.status) ? 0 : 1;
-
-            if (aPriority !== bPriority) {
-              return aPriority - bPriority;
-            }
-
-            return (
-              new Date(b.requirementAddedTimeStamp) -
-              new Date(a.requirementAddedTimeStamp)
-            );
-          });
-
-          setData(sortedData);
-          ToastService.success("Requirements data loaded successfully")
-        } else {
-          setData([]);
-          const msg =
-            response.data?.message || "Data fetched was not an array.";
-          setError(new Error(msg));
-          ToastService.error(msg)
-        }
-      } catch (err) {
-        setError(err);
+      let response;
+      if (role === "SUPERADMIN") {
+        response = await httpService.get("/requirements/getAssignments", params);
+      } else if (role === "TEAMLEAD") {
+        response = await httpService.get(`/requirements/teamleadrequirements/${userId}`, params);
+      } else if (role === "COORDINATOR") {
+        response = await httpService.get(`/requirements/coordinatorRequirements/${userId}`, params);
+      } else if (role === "BDM") {
+        const endpoint = isAllData
+          ? "/requirements/getAssignments"
+          : `/requirements/bdmrequirements/${userId}`;
+        response = await httpService.get(endpoint, params);
+      } else {
         setData([]);
-        console.warn(err);
-        ToastService.error(err)
-      } finally {
+        setError(new Error("Unauthorized role"));
         setLoading(false);
+        isFetching.current = false;
+        return;
       }
-    };
 
-    fetchData();
-  }, [refreshTrigger, role, userId]);
+      if (response.data) {
+        const records = Array.isArray(response.data)
+          ? response.data
+          : response.data.content ?? [];
+        const total = Array.isArray(response.data)
+          ? response.data.length
+          : response.data.totalElements ?? records.length;
 
+        const priorityStatuses = ["Submitted", "On Hold", "In Progress"];
+        const sortedData = [...records].sort((a, b) => {
+          const aPriority = priorityStatuses.includes(a.status) ? 0 : 1;
+          const bPriority = priorityStatuses.includes(b.status) ? 0 : 1;
+          if (aPriority !== bPriority) return aPriority - bPriority;
+          return new Date(b.requirementAddedTimeStamp) - new Date(a.requirementAddedTimeStamp);
+        });
+
+        setData(sortedData);
+        setTotalCount(total);
+      } else {
+        setData([]);
+        setTotalCount(0);
+      }
+    } catch (err) {
+      setError(err);
+      setData([]);
+      setTotalCount(0);
+      ToastService.error("Failed to fetch requirements");
+    } finally {
+      setLoading(false);
+      setTimeout(() => { isFetching.current = false; }, 0);
+    }
+  };
+
+  fetchData();
+}, [refreshTrigger, role, userId, page, rowsPerPage, isAllData, searchKeyword]);
+
+
+useEffect(() => {
+  if (!startDate || !endDate) return; // no dates → Effect 1 handles it
+
+  setLoading(true);
+  dispatch(
+    filterRequirementsByDateRange({
+      startDate,
+      endDate,
+      page,
+      size: rowsPerPage,
+      ...(searchKeyword && { search: searchKeyword }),
+    })
+  ).finally(() => setLoading(false));
+
+}, [startDate, endDate, page, rowsPerPage, searchKeyword, dispatch]);
+
+  useEffect(() => {
+  setPage(0);
+  }, [startDate, endDate]);
+
+  // ── Pagination handlers ───────────────────────────────────────────────────
+  const handlePageChange = (newPage, newRowsPerPage) => {
+  setPage(newPage);
+  if (newRowsPerPage !== undefined) {
+    setRowsPerPage(newRowsPerPage);
+  }
+};
+
+  const handleRowsPerPageChange = (newRowsPerPage) => {
+    setRowsPerPage(newRowsPerPage);
+    setPage(0);
+  };
+
+  const handleSearch = (keyword) => {
+    setSearchKeyword(keyword);
+    setPage(0); // Reset to first page on new search
+  };
+
+
+  const handleDateChange = (start, end) => {
+    setStartDate(start);
+    setEndDate(end);
+    //setPage(0);
+  };
+
+  const handleClearDateFilter = () => {
+    setStartDate(null);
+    setEndDate(null);
+    setPage(0);
+};
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -167,7 +232,6 @@ const Requirements = () => {
   }, [loading]);
 
   const handleJobIdClick = (jobId) => {
-    console.log("Job ID clicked:", jobId);
     ToastService.info(`Viewing details for Job ID: ${jobId}`);
     navigate(`job-details/${jobId}`);
   };
@@ -325,7 +389,6 @@ const Requirements = () => {
               {row.jobDescription}
             </Typography>
           </Box>
-
           <Box>
             <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
               <DescriptionIcon sx={{ mr: 1, color: "#00796b" }} />
@@ -648,8 +711,7 @@ const Requirements = () => {
           ) : (
             "Invalid Data"
           ),
-      },
-
+      },    
       {
         key: "numberOfSubmissions",
         label: "Submissions",
@@ -814,31 +876,11 @@ const Requirements = () => {
     ];
   };
 
- 
-
   const processedData = data.map((row) => ({
     ...row,
     expandContent: renderExpandedContent,
     expanded: row.jobId === expandedRowId,
   }));
-
-  console.log("Processed data",processedData)
-   
-  // if (error) {
-  //   return (
-  //     <Box sx={{ p: 3, textAlign: "center" }}>
-  //       <Typography color="error">Error: {error.message}</Typography>
-  //       <Button
-  //         variant="outlined"
-  //         onClick={refreshData}
-  //         startIcon={<Refresh />}
-  //         sx={{ mt: 2 }}
-  //       >
-  //         Retry
-  //       </Button>
-  //     </Box>
-  //   );
-  // }
 
   const handleCalenderDialog = () => {
     setDialogOpen(!dialogOpen);
@@ -848,6 +890,16 @@ const Requirements = () => {
     dispatch(setFilteredReqDataRequested(false));
     setDialogOpen(false);
   };
+
+  const isDateFiltered = !!(startDate && endDate);
+
+  const tableData = isDateFiltered
+  ? filteredRequirementList.map((row) => ({
+      ...row,
+      expandContent: renderExpandedContent,
+      expanded: row.jobId === expandedRowId,
+    }))
+  : processedData;
 
   return (
     <>
@@ -877,7 +929,9 @@ const Requirements = () => {
           spacing={2}
           sx={{ ml: "auto" }}
         >
-          <DateRangeFilter component="Requirement" />
+          <DateRangeFilter component="Requirement" 
+          onDateChange={handleDateChange}     
+          onClearFilter={handleClearDateFilter} />
           <Button
             variant="contained"
             color="primary"
@@ -906,27 +960,35 @@ const Requirements = () => {
           <LoadingSkeleton rows={5} height={60} spacing={2} />
         </Box>
       ) : (
-        <DataTable
-        data={isFilteredDataRequested ? filteredRequirementList :
-          role === "BDM" ? isAllData ? requirementsAllBDM : requirementsSelfBDM :
-          processedData || []}
+        <DataTablePaginated
+          data={tableData}
           columns={columns}
           title=""
           loading={loading}
           enableSelection={false}
           defaultSortColumn="requirementAddedTimeStamp"
           defaultSortDirection="desc"
-          defaultRowsPerPage={10}
+          defaultRowsPerPage={rowsPerPage}
           refreshData={refreshData}
           primaryColor="#1976d2"
           secondaryColor="#e0f2f1"
+          uniqueId="jobId"
+          onRowClick={(row) => handleViewDetails(row.jobId)}
           customStyles={{
             headerBackground: "#1976d2",
             rowHover: "#e0f2f1",
             selectedRow: "#b2dfdb",
           }}
-          uniqueId="jobId"
-          onRowClick={(row) => handleViewDetails(row.jobId)}
+          // ── Server-side pagination ──
+          serverSide={true}
+          totalCount={isDateFiltered ? filteredTotalCount : totalCount}
+          page={page}
+          rowsPerPage={rowsPerPage}
+          onPageChange={handlePageChange}
+          onRowsPerPageChange={handleRowsPerPageChange}
+          onSearchChange={handleSearch}
+          searchValue={searchKeyword}
+          enableServerSideFiltering={true}
         />
       )}
 
