@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -27,6 +27,7 @@ import {
   Popover,
   FormGroup,
   FormControlLabel,
+  TableSortLabel,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ClearIcon from "@mui/icons-material/Close";
@@ -76,6 +77,8 @@ const CustomDataTable = ({
   });
 
   const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
+  const [sortBy, setSortBy] = useState(null);
+  const [sortDirection, setSortDirection] = useState("asc");
 
   const [visibleColumns, setVisibleColumns] = useState(() => {
     const storageKey = filterStorageKey ? `${filterStorageKey}_columns` : null;
@@ -194,6 +197,85 @@ const CustomDataTable = ({
       }
     }
   };
+
+  const handleSortRequest = (columnId) => {
+    if (sortBy === columnId) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setSortBy(columnId);
+    setSortDirection("asc");
+  };
+
+  const getSortValue = (row, column) => {
+    if (column.sortValue) {
+      return column.sortValue(row[column.id], row);
+    }
+
+    return row[column.id];
+  };
+
+  const visibleTableColumns = columns.filter((col) => visibleColumns[col.id]);
+
+  const sortedRows = useMemo(() => {
+    const sourceRows = Array.isArray(rows) ? [...rows] : [];
+    if (!sortBy) return sourceRows;
+
+    const sortColumn = columns.find((col) => col.id === sortBy);
+    if (!sortColumn) return sourceRows;
+
+    sourceRows.sort((a, b) => {
+      const aValue = getSortValue(a, sortColumn);
+      const bValue = getSortValue(b, sortColumn);
+
+      if (aValue === null || aValue === undefined) {
+        return bValue === null || bValue === undefined ? 0 : 1;
+      }
+      if (bValue === null || bValue === undefined) {
+        return -1;
+      }
+
+      if (typeof aValue === "number" && typeof bValue === "number") {
+        return aValue - bValue;
+      }
+
+      const aText = String(aValue).trim();
+      const bText = String(bValue).trim();
+      const aNumeric = Number(aText);
+      const bNumeric = Number(bText);
+      const isNumericSort =
+        Number.isFinite(aNumeric) &&
+        Number.isFinite(bNumeric) &&
+        (sortColumn.filterType === "number" ||
+          /^-?\d+(\.\d+)?$/.test(aText) ||
+          /^-?\d+(\.\d+)?$/.test(bText));
+
+      if (isNumericSort) {
+        return aNumeric - bNumeric;
+      }
+
+      const isDateColumn =
+        sortColumn.filterType === "date" || sortColumn.filterType === "dateRange";
+      const isDateLike =
+        /^\d{4}-\d{2}-\d{2}/.test(aText) && /^\d{4}-\d{2}-\d{2}/.test(bText);
+
+      if (isDateColumn || isDateLike) {
+        const aDate = new Date(aValue);
+        const bDate = new Date(bValue);
+        if (!Number.isNaN(aDate.getTime()) && !Number.isNaN(bDate.getTime())) {
+          return aDate.getTime() - bDate.getTime();
+        }
+      }
+
+      return String(aValue).localeCompare(String(bValue), undefined, {
+        numeric: true,
+        sensitivity: "base",
+      });
+    });
+
+    return sortDirection === "desc" ? sourceRows.reverse() : sourceRows;
+  }, [rows, sortBy, sortDirection, columns]);
 
   const getExportText = (value) => {
     if (value === null || value === undefined) return "";
@@ -855,9 +937,7 @@ const CustomDataTable = ({
           <Table stickyHeader>
             <TableHead>
               <TableRow sx={{ backgroundColor: theme.palette.primary.main }}>
-                {columns
-                  .filter((col) => visibleColumns[col.id])
-                  .map((col, index) => (
+                {visibleTableColumns.map((col, index) => (
                     <TableCell
                       key={col.id}
                       sx={{
@@ -876,7 +956,20 @@ const CustomDataTable = ({
                       <Box
                         sx={{ display: "flex", alignItems: "center", gap: 1 }}
                       >
-                        {col.label}
+                        <TableSortLabel
+                          active={sortBy === col.id}
+                          direction={sortBy === col.id ? sortDirection : "asc"}
+                          onClick={() => handleSortRequest(col.id)}
+                          disabled={col.sortable === false || col.id === "actions"}
+                          sx={{
+                            color: "inherit !important",
+                            "& .MuiTableSortLabel-icon": {
+                              color: "inherit !important",
+                            },
+                          }}
+                        >
+                          {col.label}
+                        </TableSortLabel>
                         {/* {col.applyFilter && (
                           <FilterListIcon
                             sx={{
@@ -905,7 +998,7 @@ const CustomDataTable = ({
                   </TableCell>
                 </TableRow>
               ) : (
-                (Array.isArray(rows) ? rows : []).map((row, i) => (
+                sortedRows.map((row, i) => (
                   <TableRow
                     key={i}
                     hover
@@ -915,9 +1008,7 @@ const CustomDataTable = ({
                       },
                     }}
                   >
-                    {columns
-                      .filter((col) => visibleColumns[col.id])
-                      .map((col) => (
+                    {visibleTableColumns.map((col) => (
                         <TableCell
                           key={col.id}
                           sx={{
