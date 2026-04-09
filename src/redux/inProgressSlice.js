@@ -3,25 +3,22 @@ import httpService from '../Services/httpService';
 
 export const fetchInProgressData = createAsyncThunk(
     'inProgress/fetchInProgressDate',
-    async ({ page = 0, size = 20, search = '' } = {}, { rejectWithValue }) => {
+    async (_, { rejectWithValue }) => {
         try {
-            const searchParam = search.trim() ? `&search=${encodeURIComponent(search.trim())}` : '';
-            const response = await httpService.get(
-                `/requirements/inprogress?page=${page}&size=${size}${searchParam}`
-            );
-            return response.data;
-        } catch (error) {
-            return rejectWithValue(error);
+            const response = await httpService.get("/requirements/inprogress");
+            return response.data
+        }
+        catch (error) {
+            return rejectWithValue(error)
         }
     }
 )
 
 export const filterInProgressDataByDateRange = createAsyncThunk(
     'inProgress/filterInProgressDataByDateRange',
-    async ({ startDate, endDate, page = 0, size = 20, search = '' }, { rejectWithValue }) => {
+    async ({ startDate, endDate }, { rejectWithValue }) => {
         try {
-            const searchParam = search.trim() ? `&search=${encodeURIComponent(search.trim())}` : '';
-            const response = await httpService.get(`/requirements/inprogress/filterByDate?startDate=${startDate}&endDate=${endDate}&page=${page}&size=${size}${searchParam}`);
+            const response = await httpService.get(`/requirements/inprogress/filterByDate?startDate=${startDate}&endDate=${endDate}`);
             return response.data
         }
         catch (error) {
@@ -55,38 +52,17 @@ const InProgressSlice = createSlice({
         error: null,
         loading: false,
         emailLoading: false, // Separate loading state for email
-        isFiltered: false,
-        searchQuery: '',
-        pagination: {
-        currentPage: 0,
-        rowsPerPage: 20,
-        totalCount: 0,
-        activeDateRange: { startDate: null, endDate: null },
-    }
+        isFiltered: false
     },
     reducers: {
         clearFilterData: (state) => {
             state.filterinProgressByDateRange = [];
             state.isFiltered = false;
             state.loading = false;
-            state.activeDateRange = { startDate: null, endDate: null };
         },
         clearEmailStatus: (state) => {
             state.emailStatus = null;
-        },
-        setPage: (state, action) => {
-        state.pagination.currentPage = action.payload;
-    },
-    setRowsPerPage: (state, action) => {
-        state.pagination.rowsPerPage = action.payload;
-        state.pagination.currentPage = 0; 
-    },
-    setSearchQuery: (state, action) => {   
-        state.searchQuery = action.payload;
-    },
-    setActiveDateRange: (state, action) => {
-    state.activeDateRange = action.payload;
-    },
+        }
     },
     extraReducers: (builder) => {
         builder
@@ -109,8 +85,7 @@ const InProgressSlice = createSlice({
                     }
                 }
 
-                state.inProgress = action.payload.content ?? action.payload;
-                state.pagination.totalCount = action.payload.totalElements ?? (action.payload.content ?? action.payload).length; 
+                state.inProgress = unique;
             })
             .addCase(fetchInProgressData.rejected, (state, action) => {
                 state.loading = false;
@@ -125,8 +100,6 @@ const InProgressSlice = createSlice({
                 state.loading = false;
                 state.filterinProgressByDateRange = action.payload;
                 state.isFiltered = true;
-                state.pagination.totalCount = action.payload.length;
-                state.activeDateRange = {startDate: action.meta.arg.startDate,endDate: action.meta.arg.endDate}; 
             })
             .addCase(filterInProgressDataByDateRange.rejected, (state, action) => {
                 state.loading = false;
@@ -157,6 +130,6 @@ const InProgressSlice = createSlice({
     }
 });
 
-export const { clearFilterData, clearEmailStatus, setPage, setRowsPerPage, setSearchQuery, setActiveDateRange } = InProgressSlice.actions;
+export const { clearFilterData, clearEmailStatus } = InProgressSlice.actions;
 
 export default InProgressSlice.reducer;
