@@ -1,11 +1,13 @@
-import React, { useEffect, useRef, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchInProgressData, clearFilterData, sendingUsersData, setPage, setRowsPerPage, setSearchQuery, filterInProgressDataByDateRange } from '../../redux/inProgressSlice';
-import DataTablePaginated from '../muiComponents/DataTablePaginated';
+import { fetchInProgressData, clearFilterData, sendingUsersData } from '../../redux/inProgressSlice';
+import DataTable from '../muiComponents/DataTabel';
 import DateRangeFilter from '../muiComponents/DateRangeFilter';
 import { Stack, Typography, Alert, Snackbar,Link} from '@mui/material';
 import { formatDateTime } from '../../utils/dateformate';
 import { useNavigate } from 'react-router-dom';
+import ToastService from '../../Services/toastService';
+
 
 const InProgress = () => {
     const dispatch = useDispatch();
@@ -15,20 +17,17 @@ const InProgress = () => {
         loading, 
         filterinProgressByDateRange,
         isFiltered,
-        searchQuery,
-        pagination,
-        activeDateRange
+        error 
     } = useSelector((state) => state.inProgress);
-
-    const { currentPage, rowsPerPage, totalCount } = pagination;
+   
     const { userName, userId } = useSelector((state) => state.auth);
-    const isUpdating = useRef(false);
 
     const [sortConfig, setSortConfig] = useState({
         key: 'bdm',
         direction: 'asc'
     });
 
+    // State for email sending feedback
     const [emailStatus, setEmailStatus] = useState({
         open: false,
         message: '',
@@ -36,33 +35,10 @@ const InProgress = () => {
     });
 
     useEffect(() => {
-       if (isFiltered) return;
-    if (isUpdating.current) return;
+        dispatch(fetchInProgressData());
+    }, [dispatch]);
 
-    isUpdating.current = true;
-    dispatch(fetchInProgressData({
-        page: currentPage,
-        size: rowsPerPage,
-        search: searchQuery
-    }));
-    setTimeout(() => { isUpdating.current = false; }, 0);
-    }, [currentPage, rowsPerPage, searchQuery]);
-
-
-   useEffect(() => {
-    if (!isFiltered) return;
-    if (!activeDateRange.startDate || !activeDateRange.endDate) return;
-
-    dispatch(filterInProgressDataByDateRange({
-        startDate: activeDateRange.startDate,
-        endDate: activeDateRange.endDate,
-        page: currentPage,
-        size: rowsPerPage,
-        search: searchQuery
-    }));
-    }, [currentPage, rowsPerPage, searchQuery, isFiltered]);
-        
-        // Enhanced sorting function
+    // Enhanced sorting function
 const customSort = (a, b, key) => {
     const valA = a[key];
     const valB = b[key];
@@ -181,20 +157,6 @@ const processedData = useMemo(() => {
             return { key, direction: 'asc' };
         });
     };
-    
-    const handleChangePage = (newPage) => {
-        dispatch(setPage(newPage));
-    };
-
-    const handleChangeRowsPerPage = (newRowsPerPage) => {
-        dispatch(setRowsPerPage(newRowsPerPage)); 
-    };
-
-    const handleSearchChange = (value) => {
-        dispatch(setPage(0));           
-        dispatch(setSearchQuery(value)); 
-    };
-
 
     const columns = [
          {
@@ -331,11 +293,7 @@ const processedData = useMemo(() => {
 
     const handleRefresh = () => {
         dispatch(clearFilterData());
-        if (currentPage !== 0) dispatch(setPage(0));
-        if (searchQuery !== '') dispatch(setSearchQuery(''));
-        if (currentPage === 0 && searchQuery === '') {
-            dispatch(fetchInProgressData({ page: 0, size: rowsPerPage, search: '' }));
-        }
+        dispatch(fetchInProgressData());
     };
 
     const handleCloseSnackbar = () => {
@@ -361,7 +319,7 @@ const processedData = useMemo(() => {
                 </Stack>
             </Stack>
 
-            <DataTablePaginated
+            <DataTable
                 data={processedData || []}
                 columns={columns}
                 title="In Progress"
@@ -369,7 +327,7 @@ const processedData = useMemo(() => {
                 enableSelection={false}
                 defaultSortColumn="bdm"
                 defaultSortDirection="asc"
-                defaultRowsPerPage={rowsPerPage}
+                defaultRowsPerPage={20}
                 primaryColor="#00796b"
                 secondaryColor="#e0f2f1"
                 customStyles={{
@@ -382,18 +340,11 @@ const processedData = useMemo(() => {
                 orderBy={sortConfig.key}
                 order={sortConfig.direction}
                 enableSendEmail={true}
-                onSendEmail={handleSendEmail}
-                userFilteredDataCount={getUserFilteredData().length}
-                serverSide={true}
-                page={currentPage}
-                rowsPerPage={rowsPerPage}
-                totalCount={totalCount}
-                onPageChange={handleChangePage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
-                onSearchChange={handleSearchChange}
-                searchValue={searchQuery}
+                onSendEmail={handleSendEmail} // Pass the email handler
+                userFilteredDataCount={getUserFilteredData().length} // Pass filtered count for display
             />
 
+            {/* Snackbar for email status feedback */}
             <Snackbar
                 open={emailStatus.open}
                 autoHideDuration={6000}
