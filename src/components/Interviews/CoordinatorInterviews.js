@@ -30,21 +30,21 @@ import ToastService from "../../Services/toastService";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { formatDateTime } from "../../utils/dateformate";
-import DateRangeFilterUtil from "../muiComponents/DateRangeFilterUtil";
+import DataTable from "../muiComponents/DataTabel";
+import DateRangeFilter from "../muiComponents/DateRangeFilter";
 import { getStatusChip, getInterviewLevelChip } from "../../utils/statusUtils";
 import ReusableExpandedContent from "../muiComponents/ReusableExpandedContent";
 import InternalFeedbackCell from "./FeedBack";
 import DownloadResume from "../../utils/DownloadResume";
 import { API_BASE_URL } from "../../Services/httpService";
 import EditInterviewForm from "./EditInterviewForm";
-import DataTablePaginated from "../muiComponents/DataTablePaginated";
+import { clearCoordinatorFilter, clearTeamLeadFilter } from "../../redux/interviewSlice";
 
 const processInterviewData = (interviews) => {
   if (!Array.isArray(interviews)) return [];
   return interviews.map((interview) => ({
     ...interview,
-    interviewId:
-      interview.interviewId || `${interview.candidateId}_${interview.jobId}`,
+    interviewId: interview.interviewId || `${interview.candidateId}_${interview.jobId}`,
     interviewStatus: interview.latestInterviewStatus,
   }));
 };
@@ -52,19 +52,15 @@ const processInterviewData = (interviews) => {
 const CoordinatorInterviews = () => {
   const dispatch = useDispatch();
   const { userId } = useSelector((state) => state.auth);
-
-  // ─── Date-range filter state — Team View ──────────────────────────────────
-  const [teamFilteredData, setTeamFilteredData] = useState(null);
-  const [teamFilterLoading, setTeamFilterLoading] = useState(false);
-  const [teamFilterStartDate, setTeamFilterStartDate] = useState(null);
-  const [teamFilterEndDate, setTeamFilterEndDate] = useState(null);
-
-  // ─── Date-range filter state — Self View ──────────────────────────────────
-  const [selfFilteredData, setSelfFilteredData] = useState(null);
-  const [selfFilterLoading, setSelfFilterLoading] = useState(false);
-  const [selfFilterStartDate, setSelfFilterStartDate] = useState(null);
-  const [selfFilterEndDate, setSelfFilterEndDate] = useState(null);
-
+  const {
+    isFilteredDataRequested,
+    filterInterviewsForCoordinator,
+    filterInterviewsForTeamLeadTeam,
+    isCoordinatorFilterActive,
+    isTeamLeadFilterActive,
+    loading: reduxLoading
+  } = useSelector((state) => state.interview);
+  
   const [interviews, setInterviews] = useState([]);
   const [coordinatorInterviews, setCoordinatorInterviews] = useState([]);
   const [showCoordinatorView, setShowCoordinatorView] = useState(false);
@@ -83,35 +79,13 @@ const CoordinatorInterviews = () => {
   const [teamLeadId, setTeamLeadId] = useState(null);
   const navigate = useNavigate();
 
-  // ─── Team view pagination state ───────────────────────────────────────────
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [totalCount, setTotalCount] = useState(0);
-  const [searchQuery, setSearchQuery] = useState("");
-
-  // ─── Self view pagination state ───────────────────────────────────────────
-  const [coordPage, setCoordPage] = useState(0);
-  const [coordRowsPerPage, setCoordRowsPerPage] = useState(10);
-  const [coordTotalCount, setCoordTotalCount] = useState(0);
-  const [coordSearchQuery, setCoordSearchQuery] = useState("");
-
-  // ─── Helpers ──────────────────────────────────────────────────────────────
-  const validatePage = (n) => {
-    const num = Number(n);
-    return !isNaN(num) && num >= 0 ? num : 0;
-  };
-  const validateSize = (n) => {
-    const num = Number(n);
-    return !isNaN(num) && num > 0 ? num : 10;
-  };
-
-  // ─── Team lead ID ─────────────────────────────────────────────────────────
+  // New function to get team lead ID for coordinator view
   const getTeamLeadId = async () => {
     try {
       const response = await httpService.get(
-        `/users/AllAssociatedUsers?entity=US&userId=${userId}`,
+        `/users/AllAssociatedUsers?entity=US&userId=${userId}`
       );
-      setTeamLeadId(response.data);
+      setTeamLeadId(response.data); // Store the team lead ID
       return response.data;
     } catch (err) {
       console.error("Error fetching team lead ID:", err);
@@ -120,47 +94,25 @@ const CoordinatorInterviews = () => {
     }
   };
 
-  // ─── Fetch: Team View ─────────────────────────────────────────────────────
-  const fetchInterviews = async (
-    pageNum = 0,
-    pageSize = rowsPerPage,
-    searchText = "",
-  ) => {
-    const validPage = validatePage(pageNum);
-    const validSize = validateSize(pageSize);
-
+  // REVERSED: Regular view now uses the coordinator API logic
+  const fetchInterviews = async () => {
     try {
       setLoading(true);
-      const resolvedTeamLeadId = await getTeamLeadId();
-
-      const params = new URLSearchParams({
-        page: validPage,
-        size: validSize,
-        ...(searchText && { searchText }),
-      });
-
+      
+      // First get the team lead ID for regular view
+      const teamLeadId = await getTeamLeadId();
+      
+      // Use team lead ID for regular view
       const response = await httpService.get(
-        `/candidate/interviews/teamlead/${resolvedTeamLeadId}?${params}`,
+        `/candidate/interviews/teamlead/${teamLeadId}`
       );
-
-      const responseData = response.data;
-      const teamInterviews =
-        responseData?.data?.content ||
-        responseData?.teamInterviews ||
-        responseData?.data ||
-        responseData?.content ||
-        [];
-      setInterviews(processInterviewData(teamInterviews));
-
-      const total =
-        responseData?.data?.totalElements ??
-        responseData?.totalElements ??
-        responseData?.data?.totalCount ??
-        responseData?.totalCount ??
-        0;
-      setTotalCount(total);
+      
+      const teamInterviews = response.data?.teamInterviews || [];
+      const processedData = processInterviewData(teamInterviews);
+      setInterviews(processedData);
       setError(null);
     } catch (err) {
+      // setError("Failed to fetch interview data");
       console.error("Error fetching interviews:", err);
       ToastService.error("Failed to load interviews");
     } finally {
@@ -168,89 +120,21 @@ const CoordinatorInterviews = () => {
     }
   };
 
-  // ─── Fetch: date-range filtered — Team View ───────────────────────────────
-  const fetchTeamFilteredInterviews = async (
-    startDate,
-    endDate,
-    pageNum = 0,
-    pageSize = rowsPerPage,
-    searchText = searchQuery,
-  ) => {
-    const validPage = validatePage(pageNum);
-    const validSize = validateSize(pageSize);
-
-    try {
-      setTeamFilterLoading(true);
-      const params = new URLSearchParams({
-        startDate,
-        endDate,
-        page: validPage,
-        size: validSize,
-        ...(searchText && { searchText }),
-      });
-
-      const response = await httpService.get(
-        `/candidate/interviews/filterByDate?${params}`,
-      );
-
-      const data = processInterviewData(
-        Array.isArray(response.data)
-          ? response.data
-          : response.data?.data || [],
-      );
-
-      setTeamFilteredData(data);
-      setTotalCount(response.data?.totalElements || 0);
-    } catch (err) {
-      console.error("Error fetching filtered interviews:", err);
-      ToastService.error("Failed to filter interviews");
-    } finally {
-      setTeamFilterLoading(false);
-    }
-  };
-
-  // ─── Fetch: Self View ─────────────────────────────────────────────────────
-  const fetchCoordinatorInterviews = async (
-    pageNum = 0,
-    pageSize = coordRowsPerPage,
-    searchText = "",
-  ) => {
-    const validPage = validatePage(pageNum);
-    const validSize = validateSize(pageSize);
-
-    const params = new URLSearchParams({
-      page: validPage,
-      size: validSize,
-      coordinator: true,
-      ...(searchText && { searchText }),
-    });
-
+  // REVERSED: Coordinator view now uses the original regular API logic
+  const fetchCoordinatorInterviews = async () => {
     try {
       setCoordinatorLoading(true);
+      
+      // Use the original regular endpoint for coordinator view
       const response = await httpService.get(
-        `/candidate/interviews/interviewsByUserId/${userId}?${params.toString()}`,
+        `/candidate/interviews/interviewsByUserId/${userId}?coordinator=true`
       );
-
-      const responseData = response.data;
-      setCoordinatorInterviews(
-        processInterviewData(
-          responseData?.data?.content ||
-            responseData?.data ||
-            responseData?.content ||
-            responseData ||
-            [],
-        ),
-      );
-
-      const total =
-        responseData?.data?.totalElements ??
-        responseData?.totalElements ??
-        responseData?.data?.totalCount ??
-        responseData?.totalCount ??
-        0;
-      setCoordTotalCount(total);
+      
+      const processedData = processInterviewData(response.data || []);
+      setCoordinatorInterviews(processedData);
       setError(null);
     } catch (err) {
+      // setError("Failed to fetch coordinator interviews");
       console.error("Error fetching coordinator interviews:", err);
       ToastService.error("Failed to load coordinator interviews");
     } finally {
@@ -258,114 +142,46 @@ const CoordinatorInterviews = () => {
     }
   };
 
-  // ─── Fetch: date-range filtered — Self View ───────────────────────────────
-  const fetchSelfFilteredInterviews = async (
-    startDate,
-    endDate,
-    pageNum = 0,
-    pageSize = coordRowsPerPage,
-    searchText = coordSearchQuery,
-  ) => {
-    const validPage = validatePage(pageNum);
-    const validSize = validateSize(pageSize);
-
-    try {
-      setSelfFilterLoading(true);
-      const params = new URLSearchParams({
-        startDate,
-        endDate,
-        page: validPage,
-        size: validSize,
-        ...(searchText && { searchText }),
-      });
-
-      const response = await httpService.get(
-        `/candidate/interviews/filterByDate?${params}`,
-      );
-
-      const data = processInterviewData(
-        Array.isArray(response.data)
-          ? response.data
-          : response.data?.data || [],
-      );
-
-      setSelfFilteredData(data);
-      setCoordTotalCount(response.data?.totalElements || 0);
-    } catch (err) {
-      console.error("Error fetching filtered self interviews:", err);
-      ToastService.error("Failed to filter interviews");
-    } finally {
-      setSelfFilterLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchInterviews(0, rowsPerPage, "");
+    fetchInterviews();
   }, [userId]);
 
-  // ─── Toggle view: reset self-view pagination & clear its date filter ──────
   const handleToggleCoordinatorView = () => {
-    const nextView = !showCoordinatorView;
-    setShowCoordinatorView(nextView);
-    if (nextView) {
-      setCoordPage(0);
-      setCoordSearchQuery("");
-      setSelfFilteredData(null);
-      setSelfFilterStartDate(null);
-      setSelfFilterEndDate(null);
-      fetchCoordinatorInterviews(0, coordRowsPerPage, "");
-    } else {
-      // switching back to team view — clear team filter
-      setTeamFilteredData(null);
-      setTeamFilterStartDate(null);
-      setTeamFilterEndDate(null);
+    setShowCoordinatorView(!showCoordinatorView);
+    if (!showCoordinatorView && coordinatorInterviews.length === 0) {
+      fetchCoordinatorInterviews();
     }
   };
 
-  // ─── Date-range handlers — Team View ─────────────────────────────────────
-  const handleTeamDateChange = (startDate, endDate) => {
-    if (startDate && endDate) {
-      setTeamFilterStartDate(startDate);
-      setTeamFilterEndDate(endDate);
-      setPage(0);
-      fetchTeamFilteredInterviews(startDate, endDate, 0, rowsPerPage, "");
+  // Add effect to handle filtered data updates
+  useEffect(() => {
+    console.log("Filter state changed:", {
+      isFilteredDataRequested,
+      isCoordinatorFilterActive,
+      isTeamLeadFilterActive,
+      filterInterviewsForCoordinator: filterInterviewsForCoordinator?.length,
+      filterInterviewsForTeamLeadTeam: filterInterviewsForTeamLeadTeam?.length,
+    });
+  }, [
+    isFilteredDataRequested,
+    isCoordinatorFilterActive,
+    isTeamLeadFilterActive,
+    filterInterviewsForCoordinator,
+    filterInterviewsForTeamLeadTeam,
+  ]);
+
+  // Create a custom date change handler for team view
+  const handleTeamViewDateChange = (startDate, endDate) => {
+    if (startDate && endDate && teamLeadId) {
+      console.log("Team view date filter applied with teamLeadId:", teamLeadId);
     }
   };
 
-  const handleClearTeamDateFilter = () => {
-    setTeamFilteredData(null);
-    setTeamFilterStartDate(null);
-    setTeamFilterEndDate(null);
-    setPage(0);
-    fetchInterviews(0, rowsPerPage, searchQuery);
-  };
-
-  // ─── Date-range handlers — Self View ─────────────────────────────────────
-  const handleSelfDateChange = (startDate, endDate) => {
-    if (startDate && endDate) {
-      setSelfFilterStartDate(startDate);
-      setSelfFilterEndDate(endDate);
-      setCoordPage(0);
-      fetchSelfFilteredInterviews(startDate, endDate, 0, coordRowsPerPage, "");
-    }
-  };
-
-  const handleClearSelfDateFilter = () => {
-    setSelfFilteredData(null);
-    setSelfFilterStartDate(null);
-    setSelfFilterEndDate(null);
-    setCoordPage(0);
-    fetchCoordinatorInterviews(0, coordRowsPerPage, coordSearchQuery);
-  };
-
-  // ─── Level filter ─────────────────────────────────────────────────────────
-  const filterInterviewsByLevel = (data) => {
-    if (levelFilter === "ALL") return data;
-    return data.filter((interview) => {
-      if (levelFilter === "INTERNAL")
-        return interview.interviewLevel === "INTERNAL";
-      if (levelFilter === "EXTERNAL")
-        return interview.interviewLevel !== "INTERNAL";
+  const filterInterviewsByLevel = (interviews) => {
+    if (levelFilter === "ALL") return interviews;
+    return interviews.filter((interview) => {
+      if (levelFilter === "INTERNAL") return interview.interviewLevel === "INTERNAL";
+      if (levelFilter === "EXTERNAL") return interview.interviewLevel !== "INTERNAL";
       if (levelFilter === "L1") return interview.interviewLevel === "L1";
       if (levelFilter === "L2") return interview.interviewLevel === "L2";
       if (levelFilter === "L3") return interview.interviewLevel === "L3";
@@ -382,17 +198,25 @@ const CoordinatorInterviews = () => {
   };
 
   const toggleRowExpansion = (interviewId) => {
-    setExpandedRows((prev) => ({ ...prev, [interviewId]: !prev[interviewId] }));
+    setExpandedRows((prev) => ({
+      ...prev,
+      [interviewId]: !prev[interviewId],
+    }));
   };
 
-  // ─── Feedback handlers ────────────────────────────────────────────────────
   const handleOpenFeedbackDialog = (interview) => {
-    setFeedbackDialog({ open: true, interview });
+    setFeedbackDialog({
+      open: true,
+      interview: interview,
+    });
     setFeedback(interview.internalFeedback || "");
   };
 
   const handleCloseFeedbackDialog = () => {
-    setFeedbackDialog({ open: false, interview: null });
+    setFeedbackDialog({
+      open: false,
+      interview: null,
+    });
     setFeedback("");
     setIsSubmittingFeedback(false);
   };
@@ -402,28 +226,27 @@ const CoordinatorInterviews = () => {
       ToastService.error("Feedback cannot be empty");
       return;
     }
+
     setIsSubmittingFeedback(true);
+
     try {
       const { interview } = feedbackDialog;
-      if (!interview || !interview.interviewId)
+      if (!interview || !interview.interviewId) {
         throw new Error("Missing interview data");
+      }
 
       const response = await httpService.put(
         `/candidate/updateInterviewByCoordinator/${userId}/${interview.interviewId}`,
-        { internalFeedBack: feedback },
+        { internalFeedBack: feedback }
       );
 
       if (response.data.success) {
         ToastService.success("Feedback submitted successfully!");
         handleCloseFeedbackDialog();
         if (showCoordinatorView) {
-          fetchCoordinatorInterviews(
-            coordPage,
-            coordRowsPerPage,
-            coordSearchQuery,
-          );
+          fetchCoordinatorInterviews();
         } else {
-          fetchInterviews(page, rowsPerPage, searchQuery);
+          fetchInterviews();
         }
       } else {
         throw new Error(response.data.message || "Failed to submit feedback");
@@ -436,154 +259,82 @@ const CoordinatorInterviews = () => {
     }
   };
 
-  // ─── Edit handlers ────────────────────────────────────────────────────────
-  const handleEdit = (row, isReschedule = false) => {
-    setEditDrawer({ open: true, data: { ...row, isReschedule } });
+  const getDisplayData = () => {
+    console.log("getDisplayData called:", {
+      showCoordinatorView,
+      isCoordinatorFilterActive,
+      isTeamLeadFilterActive,
+      filterInterviewsForCoordinator: filterInterviewsForCoordinator?.length,
+      filterInterviewsForTeamLeadTeam: filterInterviewsForTeamLeadTeam?.length,
+      interviews: interviews?.length,
+      coordinatorInterviews: coordinatorInterviews?.length,
+    });
+
+    // For self view: check if coordinator filter is active
+    if (showCoordinatorView) {
+      if (isCoordinatorFilterActive && filterInterviewsForCoordinator?.length > 0) {
+        console.log("Using filtered coordinator data");
+        return processInterviewData(filterInterviewsForCoordinator);
+      } else if (isCoordinatorFilterActive && filterInterviewsForCoordinator?.length === 0) {
+        console.log("Filter active but no results");
+        return [];
+      } else {
+        console.log("Using regular coordinator data");
+        return coordinatorInterviews;
+      }
+    } 
+    // For team view: check if team lead filter is active
+    else {
+      if (isTeamLeadFilterActive && filterInterviewsForTeamLeadTeam?.length > 0) {
+        console.log("Using filtered team lead data");
+        return processInterviewData(filterInterviewsForTeamLeadTeam);
+      } else if (isTeamLeadFilterActive && filterInterviewsForTeamLeadTeam?.length === 0) {
+        console.log("Filter active but no results");
+        return [];
+      } else {
+        console.log("Using regular team lead data");
+        return interviews;
+      }
+    }
   };
 
-  const handleCloseEditDrawer = () =>
+  // Add function to clear filters
+  const handleClearFilters = () => {
+    if (showCoordinatorView) {
+      dispatch(clearCoordinatorFilter());
+    } else {
+      dispatch(clearTeamLeadFilter());
+    }
+    // Also clear the level filter
+    setLevelFilter("ALL");
+  };
+
+  const handleEdit = (row, isReschedule = false) => {
+    setEditDrawer({
+      open: true,
+      data: { ...row, isReschedule },
+    });
+  };
+
+  const handleCloseEditDrawer = () => {
     setEditDrawer({ open: false, data: null });
+  };
 
   const handleInterviewUpdated = () => {
     if (showCoordinatorView) {
-      fetchCoordinatorInterviews(coordPage, coordRowsPerPage, coordSearchQuery);
+      fetchCoordinatorInterviews();
     } else {
-      fetchInterviews(page, rowsPerPage, searchQuery);
+      fetchInterviews();
     }
     handleCloseEditDrawer();
   };
 
-  // ─── Team view pagination handlers ───────────────────────────────────────
-  const handlePageChange = (newPage, newRowsPerPage) => {
-    const validPage = validatePage(newPage);
-    setPage(validPage);
-
-    if (teamFilteredData !== null) {
-      fetchTeamFilteredInterviews(
-        teamFilterStartDate,
-        teamFilterEndDate,
-        validPage,
-        newRowsPerPage ?? rowsPerPage,
-        searchQuery,
-      );
-    } else {
-      fetchInterviews(validPage, newRowsPerPage ?? rowsPerPage, searchQuery);
-    }
-  };
-
-  const handleRowsPerPageChange = (newSize) => {
-    const validSize = validateSize(newSize);
-    setRowsPerPage(validSize);
-    setPage(0);
-
-    if (teamFilteredData !== null) {
-      fetchTeamFilteredInterviews(
-        teamFilterStartDate,
-        teamFilterEndDate,
-        0,
-        validSize,
-        searchQuery,
-      );
-    } else {
-      fetchInterviews(0, validSize, searchQuery);
-    }
-  };
-
-  const handleSearchChange = (value, newPage = 0, newSize = rowsPerPage) => {
-    setSearchQuery(value);
-    setPage(newPage);
-
-    if (teamFilteredData !== null) {
-      fetchTeamFilteredInterviews(
-        teamFilterStartDate,
-        teamFilterEndDate,
-        newPage,
-        newSize,
-        value,
-      );
-    } else {
-      fetchInterviews(newPage, newSize, value);
-    }
-  };
-
-  // ─── Self view pagination handlers ───────────────────────────────────────
-  const handleCoordPageChange = (newPage, newRowsPerPage) => {
-    const validPage = validatePage(newPage);
-    setCoordPage(validPage);
-
-    if (selfFilteredData !== null) {
-      fetchSelfFilteredInterviews(
-        selfFilterStartDate,
-        selfFilterEndDate,
-        validPage,
-        newRowsPerPage ?? coordRowsPerPage,
-        coordSearchQuery,
-      );
-    } else {
-      fetchCoordinatorInterviews(
-        validPage,
-        newRowsPerPage ?? coordRowsPerPage,
-        coordSearchQuery,
-      );
-    }
-  };
-
-  const handleCoordRowsPerPageChange = (newSize) => {
-    const validSize = validateSize(newSize);
-    setCoordRowsPerPage(validSize);
-    setCoordPage(0);
-
-    if (selfFilteredData !== null) {
-      fetchSelfFilteredInterviews(
-        selfFilterStartDate,
-        selfFilterEndDate,
-        0,
-        validSize,
-        coordSearchQuery,
-      );
-    } else {
-      fetchCoordinatorInterviews(0, validSize, coordSearchQuery);
-    }
-  };
-
-  const handleCoordSearchChange = (
-    value,
-    newPage = 0,
-    newSize = coordRowsPerPage,
-  ) => {
-    setCoordSearchQuery(value);
-    setCoordPage(newPage);
-
-    if (selfFilteredData !== null) {
-      fetchSelfFilteredInterviews(
-        selfFilterStartDate,
-        selfFilterEndDate,
-        newPage,
-        newSize,
-        value,
-      );
-    } else {
-      fetchCoordinatorInterviews(newPage, newSize, value);
-    }
-  };
-
-  // ─── Display data resolution ──────────────────────────────────────────────
-  const getDisplayData = () => {
-    if (showCoordinatorView) {
-      const data =
-        selfFilteredData !== null ? selfFilteredData : coordinatorInterviews;
-      return data;
-    } else {
-      const data =
-        teamFilteredData !== null ? teamFilteredData : interviews;
-      return filterInterviewsByLevel(data);
-    }
-  };
-
-  // ─── Expanded content ─────────────────────────────────────────────────────
   const getExpandedContentConfig = (row) => ({
     title: "Interview Details",
-    description: { key: "notes", fallback: "No additional notes available." },
+    description: {
+      key: "notes",
+      fallback: "No additional notes available.",
+    },
     backgroundColor: "#f5f5f5",
     sections: [
       {
@@ -620,7 +371,7 @@ const CoordinatorInterviews = () => {
   });
 
   const renderExpandedContent = (row) => {
-    if (loading || coordinatorLoading) {
+    if (loading || coordinatorLoading || reduxLoading) {
       return (
         <Box sx={{ p: 2 }}>
           <CircularProgress size={24} sx={{ mr: 2 }} />
@@ -628,15 +379,9 @@ const CoordinatorInterviews = () => {
         </Box>
       );
     }
-    return (
-      <ReusableExpandedContent
-        row={row}
-        config={getExpandedContentConfig(row)}
-      />
-    );
+    return <ReusableExpandedContent row={row} config={getExpandedContentConfig(row)} />;
   };
 
-  // ─── Columns ──────────────────────────────────────────────────────────────
   const columns = [
     {
       key: "jobId",
@@ -685,7 +430,7 @@ const CoordinatorInterviews = () => {
       width: 120,
       render: (row) => getInterviewLevelChip(row.interviewLevel),
     },
-    {
+     {
       key: "latestInterviewStatus",
       label: "Status",
       width: 140,
@@ -702,7 +447,7 @@ const CoordinatorInterviews = () => {
       label: "Meeting",
       width: 120,
       render: (row) =>
-        loading || coordinatorLoading ? (
+        loading || coordinatorLoading || reduxLoading ? (
           <Skeleton variant="rectangular" width={120} height={24} />
         ) : row.zoomLink ? (
           <Button
@@ -732,7 +477,7 @@ const CoordinatorInterviews = () => {
       render: (row) => (
         <InternalFeedbackCell
           value={row.comments}
-          loading={loading || coordinatorLoading}
+          loading={loading || coordinatorLoading || reduxLoading}
           isCoordinator={false}
           candidateName={row.candidateFullName}
           type="comments"
@@ -740,15 +485,15 @@ const CoordinatorInterviews = () => {
       ),
     },
     {
-      key: "internalFeedback",
-      label: "FeedBack",
+      key:"internalFeedback",
+      label:"FeedBack",
       sortable: false,
       filterable: false,
       width: 160,
-      render: (row) => (
+       render: (row) => (
         <InternalFeedbackCell
           value={row.internalFeedback}
-          loading={loading || coordinatorLoading}
+          loading={loading || coordinatorLoading || reduxLoading}
           isCoordinator={false}
         />
       ),
@@ -777,37 +522,31 @@ const CoordinatorInterviews = () => {
               <EditIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-          <DownloadResume
+          <DownloadResume 
             candidate={{ ...row, jobId: row.jobId }}
             getDownloadUrl={(candidate, format) =>
-              `${API_BASE_URL}/candidate/download-resume/${candidate.candidateId}/${candidate.jobId}?format=${format}`
-            }
+              `${API_BASE_URL}/candidate/download-resume/${candidate.candidateId}/${candidate.jobId}?format=${format}`}
           />
         </Box>
       ),
     },
   ];
 
-  const isActiveFilterLoading = showCoordinatorView
-    ? selfFilterLoading
-    : teamFilterLoading;
+  const displayData = getDisplayData();
+  const filteredData = showCoordinatorView ? displayData : filterInterviewsByLevel(displayData);
 
-  const processedData =
-    loading || coordinatorLoading || isActiveFilterLoading
-      ? []
-      : getDisplayData().map((row) => ({
-          ...row,
-          expandContent: renderExpandedContent(row),
-          isExpanded: expandedRows[row.interviewId],
-        }));
+  const processedData = (loading || coordinatorLoading || reduxLoading)
+    ? []
+    : filteredData.map((row) => ({
+        ...row,
+        expandContent: renderExpandedContent(row),
+        isExpanded: expandedRows[row.interviewId],
+      }));
 
-  // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <Box sx={{ p: 1 }}>
       {(loading && interviews.length === 0 && !showCoordinatorView) ||
-      (coordinatorLoading &&
-        coordinatorInterviews.length === 0 &&
-        showCoordinatorView) ? (
+      (coordinatorLoading && coordinatorInterviews.length === 0 && showCoordinatorView) ? (
         <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
           <CircularProgress sx={{ color: "#1976d2" }} />
         </Box>
@@ -832,7 +571,6 @@ const CoordinatorInterviews = () => {
         </Box>
       ) : (
         <>
-          {/* ── Header bar ── */}
           <Stack
             direction="row"
             alignItems="center"
@@ -848,9 +586,7 @@ const CoordinatorInterviews = () => {
             }}
           >
             <Typography variant="h6" color="primary">
-              {showCoordinatorView
-                ? "Self View - Interviews"
-                : "Team View - Interviews"}
+              {showCoordinatorView ? "Self View - Interviews" : "Team View - Interviews"}
             </Typography>
             <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
               <Button
@@ -873,25 +609,15 @@ const CoordinatorInterviews = () => {
               >
                 {showCoordinatorView ? "Team View" : "Self View"}
               </Button>
-
-              {/* ── DateRangeFilterUtil — switches callbacks per active view ── */}
-              {showCoordinatorView ? (
-                <DateRangeFilterUtil
-                  key="self-filter"
-                  onDateChange={handleSelfDateChange}
-                  onClearFilter={handleClearSelfDateFilter}
-                />
-              ) : (
-                <DateRangeFilterUtil
-                  key="team-filter"
-                  onDateChange={handleTeamDateChange}
-                  onClearFilter={handleClearTeamDateFilter}
-                />
-              )}
+              <DateRangeFilter 
+                component={showCoordinatorView ? "InterviewsForCoordinator" : "InterviewsForTeamLead"}
+                onClearFilter={handleClearFilters}
+                teamLeadId={!showCoordinatorView ? teamLeadId : null}
+              />
             </Box>
           </Stack>
 
-          {/* ── Level filter toggle (Team View only) ── */}
+          {/* Only show level filter buttons for Team View */}
           {!showCoordinatorView && (
             <Box sx={{ mb: 2, display: "flex", justifyContent: "start" }}>
               <ToggleButtonGroup
@@ -911,7 +637,9 @@ const CoordinatorInterviews = () => {
                     "&.Mui-selected": {
                       backgroundColor: "#1976d2",
                       color: "white",
-                      "&:hover": { backgroundColor: "#1565c0" },
+                      "&:hover": {
+                        backgroundColor: "#1565c0",
+                      },
                     },
                     "&:hover": {
                       backgroundColor: "rgba(25, 118, 210, 0.08)",
@@ -932,7 +660,7 @@ const CoordinatorInterviews = () => {
             </Box>
           )}
 
-          <DataTablePaginated
+          <DataTable
             data={processedData || []}
             columns={columns}
             title={showCoordinatorView ? "Self Interviews" : "Team Interviews"}
@@ -953,27 +681,9 @@ const CoordinatorInterviews = () => {
             uniqueId="interviewId"
             enableRowExpansion={true}
             onRowExpandToggle={toggleRowExpansion}
-            loading={loading || coordinatorLoading || isActiveFilterLoading}
-            serverSide={true}
-            totalCount={showCoordinatorView ? coordTotalCount : totalCount}
-            page={showCoordinatorView ? coordPage : page}
-            rowsPerPage={
-              showCoordinatorView ? coordRowsPerPage : rowsPerPage
-            }
-            onPageChange={
-              showCoordinatorView ? handleCoordPageChange : handlePageChange
-            }
-            onRowsPerPageChange={
-              showCoordinatorView
-                ? handleCoordRowsPerPageChange
-                : handleRowsPerPageChange
-            }
-            onSearchChange={
-              showCoordinatorView ? handleCoordSearchChange : handleSearchChange
-            }
+            loading={loading || coordinatorLoading || reduxLoading}
           />
 
-          {/* ── Feedback dialog ── */}
           <Dialog
             open={feedbackDialog.open}
             onClose={handleCloseFeedbackDialog}
@@ -981,8 +691,7 @@ const CoordinatorInterviews = () => {
             maxWidth="sm"
           >
             <DialogTitle sx={{ px: 4, pt: 3 }}>
-              Feedback for{" "}
-              {feedbackDialog.interview?.candidateFullName || "Candidate"}
+              Feedback for {feedbackDialog.interview?.candidateFullName || "Candidate"}
             </DialogTitle>
             <DialogContent sx={{ px: 2, py: 2 }}>
               <Box sx={{ p: 2 }}>
@@ -1015,14 +724,11 @@ const CoordinatorInterviews = () => {
             </DialogActions>
           </Dialog>
 
-          {/* ── Edit drawer ── */}
           <Drawer
             anchor="right"
             open={editDrawer.open}
             onClose={handleCloseEditDrawer}
-            PaperProps={{
-              sx: { width: { xs: "60%", sm: "50%", md: "50%" } },
-            }}
+            PaperProps={{ sx: { width: { xs: "60%", sm: "50%", md: "50%" } } }}
           >
             {editDrawer.data && (
               <EditInterviewForm

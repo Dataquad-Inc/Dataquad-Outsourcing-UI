@@ -5,8 +5,13 @@ import {
   Typography,
   Button,
   Link,
+  Tooltip,
   Stack,
   CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
   Drawer,
   Skeleton,
   TextField,
@@ -16,7 +21,9 @@ import {
 import {
   Edit as EditIcon,
   Delete as DeleteIcon,
+  VideoCall as VideoCallIcon,
   Refresh as RefreshIcon,
+  Visibility as VisibilityIcon,
 } from "@mui/icons-material";
 import httpService from "../../Services/httpService";
 import ToastService from "../../Services/toastService";
@@ -24,14 +31,20 @@ import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { formatDateTime } from "../../utils/dateformate";
 import { API_BASE_URL } from "../../Services/httpService";
-import DateRangeFilterUtil from "../muiComponents/DateRangeFilterUtil";
+import DataTable from "../muiComponents/DataTabel";
+import DateRangeFilter from "../muiComponents/DateRangeFilter";
 import { getStatusChip, getInterviewLevelChip } from "../../utils/statusUtils";
 import ConfirmDialog from "../muiComponents/ConfirmDialog";
+import EditInterviewForm from "./EditInterviewForm";
+import ReusableExpandedContent from "../muiComponents/ReusableExpandedContent";
 import MoveToBench from "./MoveToBench";
 import DownloadResume from "../../utils/DownloadResume";
 import InternalFeedbackCell from "./FeedBack";
+import {
+  clearFilteredData,
+  clearRecruiterFilter,
+} from "../../redux/interviewSlice"; // Import the action
 import InterviewFormWrapper from "./InterviewFormWrapper";
-import DataTablePaginated from "../muiComponents/DataTablePaginated";
 
 const processInterviewData = (interviews) => {
   if (!Array.isArray(interviews)) return [];
@@ -45,75 +58,38 @@ const processInterviewData = (interviews) => {
 
 const RecruiterInterviews = () => {
   const dispatch = useDispatch();
-  const { userId } = useSelector((state) => state.auth);
-
-  // ─── Date-range filter state ──────────────────────────────────────────────
-  const [filteredData, setFilteredData] = useState(null);
-  const [filterLoading, setFilterLoading] = useState(false);
-  const [filterStartDate, setFilterStartDate] = useState(null);
-  const [filterEndDate, setFilterEndDate] = useState(null);
+  const { userId, role } = useSelector((state) => state.auth);
+  const {
+    isFilteredDataRequested,
+    isRecruiterFilterActive,
+    filterInterviewsForRecruiter,
+    loading: reduxLoading,
+  } = useSelector((state) => state.interview);
 
   const [interviews, setInterviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [expandedRows, setExpandedRows] = useState({});
   const [confirmDialog, setConfirmDialog] = useState({
     open: false,
     interview: null,
   });
-  const [editDrawer, setEditDrawer] = useState({ open: false, data: null });
+  const [editDrawer, setEditDrawer] = useState({
+    open: false,
+    data: null,
+  });
   const [levelFilter, setLevelFilter] = useState("ALL");
   const [moveToBenchLoading, setMoveToBenchLoading] = useState(false);
   const navigate = useNavigate();
 
-  // ─── Server-side pagination state ────────────────────────────────────────
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [totalCount, setTotalCount] = useState(0);
-  const [searchQuery, setSearchQuery] = useState("");
-
-  // ─── Helpers ──────────────────────────────────────────────────────────────
-  const validatePage = (pageNum) => {
-    const num = Number(pageNum);
-    return !isNaN(num) && num >= 0 ? num : 0;
-  };
-
-  const validateSize = (size) => {
-    const num = Number(size);
-    return !isNaN(num) && num > 0 ? num : 10;
-  };
-
-  // ─── Fetch: standard paginated interviews ─────────────────────────────────
-  const fetchInterviews = async (
-    pageNum = 0,
-    pageSize = rowsPerPage,
-    searchText = "",
-  ) => {
-    const validPage = validatePage(pageNum);
-    const validSize = validateSize(pageSize);
-
-    const params = new URLSearchParams({
-      page: validPage,
-      size: validSize,
-      ...(searchText && { searchText }),
-    });
-
+  const fetchInterviews = async () => {
     try {
       setLoading(true);
       const response = await httpService.get(
-        `/candidate/interviews/interviewsByUserId/${userId}?${params}`,
+        `/candidate/interviews/interviewsByUserId/${userId}`
       );
-      const responseData = response.data;
-      const processedData = processInterviewData(
-        responseData?.data?.content ||
-          responseData?.data ||
-          responseData?.content ||
-          responseData ||
-          [],
-      );
+      const processedData = processInterviewData(response.data || []);
       setInterviews(processedData);
-
-      const total = responseData.length;
-      setTotalCount(total);
       setError(null);
     } catch (err) {
       setError("Failed to fetch interview data");
@@ -124,73 +100,33 @@ const RecruiterInterviews = () => {
     }
   };
 
-  // ─── Fetch: date-range filtered interviews ────────────────────────────────
-  const fetchFilteredInterviews = async (
-    startDate,
-    endDate,
-    pageNum = 0,
-    pageSize = rowsPerPage,
-    searchText = searchQuery,
-  ) => {
-    const validPage = validatePage(pageNum);
-    const validSize = validateSize(pageSize);
-
-    try {
-      setFilterLoading(true);
-      const params = new URLSearchParams({
-        startDate,
-        endDate,
-        page: validPage,
-        size: validSize,
-        ...(searchText && { searchText }),
-      });
-
-      const response = await httpService.get(
-        `/candidate/interviews/filterByDate?${params}`,
-      );
-
-      const data = processInterviewData(
-        Array.isArray(response.data)
-          ? response.data
-          : response.data?.data || [],
-      );
-
-      setFilteredData(data);
-      setTotalCount(response.data?.data?.length);
-    } catch (err) {
-      console.error("Error fetching filtered interviews:", err);
-      ToastService.error("Failed to filter interviews");
-    } finally {
-      setFilterLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchInterviews(0, rowsPerPage, "");
+    fetchInterviews();
   }, [userId]);
 
-  // ─── Date-range handlers ──────────────────────────────────────────────────
-  const handleDateChange = (startDate, endDate) => {
-    if (startDate && endDate) {
-      setFilterStartDate(startDate);
-      setFilterEndDate(endDate);
-      setPage(0);
-      fetchFilteredInterviews(startDate, endDate, 0, rowsPerPage, "");
-    }
+  // Add effect to handle filtered data updates
+  useEffect(() => {
+    console.log("Filter state changed:", {
+      isFilteredDataRequested,
+      isRecruiterFilterActive,
+      filterInterviewsForRecruiter: filterInterviewsForRecruiter.length,
+    });
+  }, [
+    isFilteredDataRequested,
+    isRecruiterFilterActive,
+    filterInterviewsForRecruiter,
+  ]);
+
+  const handleBenchSuccess = (row) => {
+    setInterviews((prevInterviews) =>
+      prevInterviews.filter((item) => item.interviewId !== row.interviewId)
+    );
   };
 
-  const handleClearDateFilter = () => {
-    setFilteredData(null);
-    setFilterStartDate(null);
-    setFilterEndDate(null);
-    setPage(0);
-    fetchInterviews(0, rowsPerPage, searchQuery);
-  };
+  const filterInterviewsByLevel = (interviews) => {
+    if (levelFilter === "ALL") return interviews;
 
-  // ─── Level filter ─────────────────────────────────────────────────────────
-  const filterInterviewsByLevel = (data) => {
-    if (levelFilter === "ALL") return data;
-    return data.filter((interview) => {
+    return interviews.filter((interview) => {
       if (levelFilter === "INTERNAL")
         return interview.interviewLevel === "INTERNAL";
       if (levelFilter === "EXTERNAL")
@@ -206,52 +142,58 @@ const RecruiterInterviews = () => {
     if (newFilter !== null) setLevelFilter(newFilter);
   };
 
-  // ─── CRUD handlers ────────────────────────────────────────────────────────
-  const handleBenchSuccess = (row) => {
-    setInterviews((prev) =>
-      prev.filter((item) => item.interviewId !== row.interviewId),
-    );
-  };
-
   const handleJobIdClick = (jobId) => {
     navigate(`/dashboard/requirements/job-details/${jobId}`);
   };
 
   const handleEdit = (row, isReschedule = false, isScheduleJoining = false) => {
-    let formType = "edit";
-    if (isReschedule) formType = "reschedule";
-    else if (isScheduleJoining) formType = "schedule";
+    let formType = "edit"; // Default to edit
+
+    if (isReschedule) {
+      formType = "reschedule";
+    } else if (isScheduleJoining) {
+      formType = "schedule";
+    }
 
     setEditDrawer({
       open: true,
-      data: { ...row, formType, isReschedule, isScheduleJoining },
+      data: {
+        ...row,
+        formType,
+        isReschedule,
+        isScheduleJoining,
+      },
     });
   };
 
-  const handleCloseEditDrawer = () =>
+  const handleCloseEditDrawer = () => {
     setEditDrawer({ open: false, data: null });
+  };
 
   const handleInterviewUpdated = () => {
-    fetchInterviews(page, rowsPerPage, searchQuery);
+    fetchInterviews();
     handleCloseEditDrawer();
   };
 
-  const handleDelete = (row) =>
+  const handleDelete = async (row) => {
     setConfirmDialog({ open: true, interview: row });
+  };
 
   const handleConfirmDelete = async () => {
-    const { interview } = confirmDialog;
+    const interview = confirmDialog.interview;
     if (!interview) return;
 
     try {
       const toastId = ToastService.loading("Deleting interview...");
-      const deleteEndpoint =
-        interview.candidateId && interview.jobId
-          ? `/candidate/deleteinterview/${interview.candidateId}/${interview.jobId}`
-          : `/interview/${interview.interviewId}`;
+      let deleteEndpoint;
+      if (interview.candidateId && interview.jobId) {
+        deleteEndpoint = `/candidate/deleteinterview/${interview.candidateId}/${interview.jobId}`;
+      } else {
+        deleteEndpoint = `/interview/${interview.interviewId}`;
+      }
 
       await httpService.delete(deleteEndpoint);
-      await fetchInterviews(page, rowsPerPage, searchQuery);
+      await fetchInterviews();
       ToastService.update(toastId, "Interview deleted successfully", "success");
     } catch (error) {
       ToastService.error("Failed to delete interview");
@@ -261,68 +203,6 @@ const RecruiterInterviews = () => {
     }
   };
 
-  // ─── Pagination / search handlers ─────────────────────────────────────────
-  const handlePageChange = (newPage, newRowsPerPage) => {
-    const validPage = validatePage(newPage);
-    setPage(validPage);
-
-    if (filteredData !== null) {
-      fetchFilteredInterviews(
-        filterStartDate,
-        filterEndDate,
-        validPage,
-        newRowsPerPage ?? rowsPerPage,
-        searchQuery,
-      );
-    } else {
-      fetchInterviews(validPage, newRowsPerPage ?? rowsPerPage, searchQuery);
-    }
-  };
-
-  const handleRowsPerPageChange = (newSize) => {
-    const validSize = validateSize(newSize);
-    setRowsPerPage(validSize);
-    setPage(0);
-
-    if (filteredData !== null) {
-      fetchFilteredInterviews(
-        filterStartDate,
-        filterEndDate,
-        0,
-        validSize,
-        searchQuery,
-      );
-    } else {
-      fetchInterviews(0, validSize, searchQuery);
-    }
-  };
-
-  const handleSearchChange = (value, newPage = 0, newSize = rowsPerPage) => {
-    setSearchQuery(value);
-    setPage(newPage);
-
-    if (filteredData !== null) {
-      fetchFilteredInterviews(
-        filterStartDate,
-        filterEndDate,
-        newPage,
-        newSize,
-        value,
-      );
-    } else {
-      fetchInterviews(newPage, newSize, value);
-    }
-  };
-
-  // ─── Display data ─────────────────────────────────────────────────────────
-  const getDisplayData = () => {
-    const data = filteredData !== null ? filteredData : interviews;
-    return filterInterviewsByLevel(data);
-  };
-
-  const processedData = loading || filterLoading ? [] : getDisplayData();
-
-  // ─── Columns ──────────────────────────────────────────────────────────────
   const columns = [
     {
       key: "jobId",
@@ -370,7 +250,7 @@ const RecruiterInterviews = () => {
       width: 120,
       render: (row) => getInterviewLevelChip(row.interviewLevel),
     },
-    {
+     {
       key: "latestInterviewStatus",
       label: "Status",
       width: 140,
@@ -400,6 +280,30 @@ const RecruiterInterviews = () => {
             />
           ),
     },
+    // {
+    //   key: "zoomLink",
+    //   label: "Meeting",
+    //   width: 120,
+    //   render: (row) =>
+    //     row.zoomLink ? (
+    //       <Button
+    //         size="small"
+    //         variant="outlined"
+    //         color="primary"
+    //         startIcon={<VideoCallIcon />}
+    //         href={row.zoomLink}
+    //         target="_blank"
+    //         rel="noopener noreferrer"
+    //         sx={{ px: 1, py: 0.5 }}
+    //       >
+    //         Join
+    //       </Button>
+    //     ) : (
+    //       <Typography variant="body2" color="text.secondary">
+    //         No link
+    //       </Typography>
+    //     ),
+    // },
     {
       key: "internalFeedback",
       label: "Internal Feedback",
@@ -418,13 +322,12 @@ const RecruiterInterviews = () => {
       width: 200,
       render: (row) => {
         const status = row.latestInterviewStatus?.toUpperCase();
-        const showReschedule = ["CANCELLED", "NO_SHOW", "RESCHEDULED"].includes(
-          status,
-        );
+        const showReschedule = ["CANCELLED", "NO_SHOW","RESCHEDULED"].includes(status);
         const showScheduleJoining = status === "SELECTED";
 
         return (
           <Box sx={{ display: "flex", gap: 1 }}>
+            {/* Regular Edit Button - always shows edit form */}
             <IconButton
               onClick={() => handleEdit(row)}
               color="primary"
@@ -450,6 +353,7 @@ const RecruiterInterviews = () => {
               }
             />
 
+            {/* Conditional Buttons */}
             {showReschedule && (
               <Button
                 variant="outlined"
@@ -477,7 +381,40 @@ const RecruiterInterviews = () => {
     },
   ];
 
-  // ─── Render ───────────────────────────────────────────────────────────────
+  // Updated function to get display data with better logic
+  const getDisplayData = () => {
+    if (isRecruiterFilterActive && filterInterviewsForRecruiter.length > 0) {
+      // Use filtered data from Redux
+      return processInterviewData(filterInterviewsForRecruiter);
+    } else if (
+      isFilteredDataRequested &&
+      filterInterviewsForRecruiter.length === 0
+    ) {
+      // Filter was applied but no results
+      return [];
+    } else {
+      // Use original interviews data
+      return interviews;
+    }
+  };
+
+  // Add function to clear filters
+  const handleClearFilters = () => {
+    dispatch(clearRecruiterFilter());
+    // Also clear the level filter
+    setLevelFilter("ALL");
+  };
+
+  const displayData = getDisplayData();
+  const filteredData = filterInterviewsByLevel(displayData);
+
+  const processedData =
+    loading || reduxLoading
+      ? []
+      : filteredData.map((row) => ({
+          ...row,
+        }));
+
   return (
     <Box sx={{ p: 1 }}>
       {loading && interviews.length === 0 ? (
@@ -490,7 +427,7 @@ const RecruiterInterviews = () => {
           <Button
             variant="outlined"
             startIcon={<RefreshIcon />}
-            onClick={() => fetchInterviews()}
+            onClick={fetchInterviews}
             sx={{
               mt: 2,
               color: "#1976d2",
@@ -503,7 +440,6 @@ const RecruiterInterviews = () => {
         </Box>
       ) : (
         <>
-          {/* ── Header bar ── */}
           <Stack
             direction="row"
             alignItems="center"
@@ -523,14 +459,9 @@ const RecruiterInterviews = () => {
                 My Scheduled Interviews
               </Typography>
             </Box>
-            {/* ── DateRangeFilterUtil wired with callbacks ── */}
-            <DateRangeFilterUtil
-              onDateChange={handleDateChange}
-              onClearFilter={handleClearDateFilter}
-            />
+            <DateRangeFilter component="InterviewsForRecruiter" />
           </Stack>
 
-          {/* ── Level filter toggle ── */}
           <Box sx={{ mb: 2, display: "flex", justifyContent: "start" }}>
             <ToggleButtonGroup
               value={levelFilter}
@@ -549,7 +480,9 @@ const RecruiterInterviews = () => {
                   "&.Mui-selected": {
                     backgroundColor: "#1976d2",
                     color: "white",
-                    "&:hover": { backgroundColor: "#1565c0" },
+                    "&:hover": {
+                      backgroundColor: "#1565c0",
+                    },
                   },
                   "&:hover": {
                     backgroundColor: "rgba(25, 118, 210, 0.08)",
@@ -569,7 +502,7 @@ const RecruiterInterviews = () => {
             </ToggleButtonGroup>
           </Box>
 
-          <DataTablePaginated
+          <DataTable
             data={processedData || []}
             columns={columns}
             title="My Interviews"
@@ -585,17 +518,9 @@ const RecruiterInterviews = () => {
               rowHover: "#f5f5f5",
               selectedRow: "#e3f2fd",
             }}
-            loading={loading || filterLoading}
-            serverSide={true}
-            totalCount={totalCount}
-            page={page}
-            rowsPerPage={rowsPerPage}
-            onPageChange={handlePageChange}
-            onRowsPerPageChange={handleRowsPerPageChange}
-            onSearchChange={handleSearchChange}
+            loading={loading || reduxLoading}
           />
 
-          {/* ── Edit drawer ── */}
           <Drawer
             anchor="right"
             open={editDrawer.open}
@@ -606,15 +531,15 @@ const RecruiterInterviews = () => {
           >
             {editDrawer.data && (
               <InterviewFormWrapper
-                formType={editDrawer.data.formType || "edit"}
+                formType={editDrawer.data.formType || "edit"} // Default to edit if not specified
                 data={editDrawer.data}
                 onClose={handleCloseEditDrawer}
                 onSuccess={handleInterviewUpdated}
+                //  showCoordinatorView={showCoordinatorView}
               />
             )}
           </Drawer>
 
-          {/* ── Delete confirm dialog ── */}
           <ConfirmDialog
             open={confirmDialog.open}
             title="Delete Interview?"
