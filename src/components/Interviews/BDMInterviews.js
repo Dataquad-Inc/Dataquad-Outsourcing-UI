@@ -30,15 +30,14 @@ import ToastService from "../../Services/toastService";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { formatDateTime } from "../../utils/dateformate";
-import DataTable from "../muiComponents/DataTabel";
-import DateRangeFilter from "../muiComponents/DateRangeFilter";
+import DateRangeFilterUtil from "../muiComponents/DateRangeFilterUtil";
 import { getStatusChip, getInterviewLevelChip } from "../../utils/statusUtils";
 import ConfirmDialog from "../muiComponents/ConfirmDialog";
-import EditInterviewForm from "./EditInterviewForm";
 import InternalFeedbackCell from "./FeedBack";
 import DownloadResume from "../../utils/DownloadResume";
 import MoveToBench from "./MoveToBench";
 import InterviewFormWrapper from "./InterviewFormWrapper";
+import DataTablePaginated from "../muiComponents/DataTablePaginated";
 
 const processInterviewData = (interviews) => {
   if (!Array.isArray(interviews)) return [];
@@ -51,6 +50,12 @@ const processInterviewData = (interviews) => {
 };
 
 const BDMInterviews = () => {
+  // ─── Date-range filter state (mirrors AllInterviews) ────────────────────────
+  const [filteredData, setFilteredData] = useState(null);
+  const [filterLoading, setFilterLoading] = useState(false);
+  const [filterStartDate, setFilterStartDate] = useState(null);
+  const [filterEndDate, setFilterEndDate] = useState(null);
+
   const { userId } = useSelector((state) => state.auth);
   const [interviews, setInterviews] = useState([]);
   const [coordinatorInterviews, setCoordinatorInterviews] = useState([]);
@@ -58,15 +63,11 @@ const BDMInterviews = () => {
   const [loading, setLoading] = useState(true);
   const [coordinatorLoading, setCoordinatorLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [expandedRows, setExpandedRows] = useState({});
   const [confirmDialog, setConfirmDialog] = useState({
     open: false,
     interview: null,
   });
-  const [editDrawer, setEditDrawer] = useState({
-    open: false,
-    data: null,
-  });
+  const [editDrawer, setEditDrawer] = useState({ open: false, data: null });
   const [feedbackDialog, setFeedbackDialog] = useState({
     open: false,
     interview: null,
@@ -76,14 +77,51 @@ const BDMInterviews = () => {
   const [levelFilter, setLevelFilter] = useState("ALL");
   const navigate = useNavigate();
 
-  const fetchInterviews = async () => {
+  // ─── Server-side pagination state ───────────────────────────────────────────
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // ─── Helpers ─────────────────────────────────────────────────────────────────
+  const validatePage = (pageNum) => {
+    const num = Number(pageNum);
+    return !isNaN(num) && num >= 0 ? num : 0;
+  };
+
+  const validateSize = (size) => {
+    const num = Number(size);
+    return !isNaN(num) && num > 0 ? num : 10;
+  };
+
+  // ─── Fetch: standard paginated interviews ────────────────────────────────────
+  const fetchInterviews = async (
+    pageNum = 0,
+    pageSize = rowsPerPage,
+    searchText = "",
+  ) => {
+    const validPage = validatePage(pageNum);
+    const validSize = validateSize(pageSize);
+
+    const params = new URLSearchParams({
+      page: validPage,
+      size: validSize,
+      ...(searchText && { searchText }),
+    });
+
     try {
       setLoading(true);
       const response = await httpService.get(
-        `/candidate/interviews/interviewsByUserId/${userId}`
+        `/candidate/interviews/interviewsByUserId/${userId}?${params}`,
       );
-      const processedData = processInterviewData(response.data || []);
+
+      const processedData = processInterviewData(
+        response.data?.data || response.data || [],
+      );
       setInterviews(processedData);
+      setTotalCount(
+        response.data.length || response.data?.totalElements || 0,
+      );
       setError(null);
     } catch (err) {
       setError("Failed to fetch interview data");
@@ -94,14 +132,77 @@ const BDMInterviews = () => {
     }
   };
 
-  const fetchCoordinatorInterviews = async () => {
+  // ─── Fetch: date-range filtered interviews (mirrors AllInterviews) ───────────
+  const fetchFilteredInterviews = async (
+    startDate,
+    endDate,
+    pageNum = 0,
+    pageSize = rowsPerPage,
+    searchText = searchQuery,
+  ) => {
+    const validPage = validatePage(pageNum);
+    const validSize = validateSize(pageSize);
+
+    try {
+      setFilterLoading(true);
+      const params = new URLSearchParams({
+        startDate,
+        endDate,
+        page: validPage,
+        size: validSize,
+        ...(searchText && { searchText }),
+      });
+
+      const response = await httpService.get(
+        `/candidate/interviews/filterByDate?${params}`,
+      );
+
+      const data = processInterviewData(
+        Array.isArray(response.data)
+          ? response.data
+          : response.data?.data || [],
+      );
+
+      setFilteredData(data);
+      setTotalCount(response.data.length || 0);
+    } catch (err) {
+      console.error("Error fetching filtered interviews:", err);
+      ToastService.error("Failed to filter interviews");
+    } finally {
+      setFilterLoading(false);
+    }
+  };
+
+  // ─── Fetch: coordinator interviews ──────────────────────────────────────────
+  const fetchCoordinatorInterviews = async (
+    pageNum = 0,
+    pageSize = rowsPerPage,
+    searchText = "",
+  ) => {
+    const validPage = validatePage(pageNum);
+    const validSize = validateSize(pageSize);
+
     try {
       setCoordinatorLoading(true);
+
+      const params = new URLSearchParams({
+        page: validPage,
+        size: validSize,
+        coordinator: true,
+        ...(searchText && { searchText }),
+      });
+
       const response = await httpService.get(
-        `/candidate/interviews/interviewsByUserId/${userId}?coordinator=true`
+        `/candidate/interviews/interviewsByUserId/${userId}?${params.toString()}`,
       );
-      const processedData = processInterviewData(response.data || []);
+
+      const processedData = processInterviewData(
+        response.data?.data || response.data || [],
+      );
       setCoordinatorInterviews(processedData);
+      setTotalCount(
+        response.data?.totalCount || response.data?.totalElements || 0,
+      );
       setError(null);
     } catch (err) {
       setError("Failed to fetch coordinator interviews");
@@ -113,19 +214,39 @@ const BDMInterviews = () => {
   };
 
   useEffect(() => {
-    fetchInterviews();
+    fetchInterviews(0, rowsPerPage, "");
   }, [userId]);
 
+  // ─── Date-range handlers (mirrors AllInterviews exactly) ─────────────────────
+  const handleDateChange = (startDate, endDate) => {
+    if (startDate && endDate) {
+      setFilterStartDate(startDate);
+      setFilterEndDate(endDate);
+      setPage(0);
+      fetchFilteredInterviews(startDate, endDate, 0, rowsPerPage, "");
+    }
+  };
+
+  const handleClearDateFilter = () => {
+    setFilteredData(null);
+    setFilterStartDate(null);
+    setFilterEndDate(null);
+    setPage(0);
+    fetchInterviews(0, rowsPerPage, searchQuery);
+  };
+
+  // ─── Coordinator toggle ──────────────────────────────────────────────────────
   const handleToggleCoordinatorView = () => {
-    setShowCoordinatorView(!showCoordinatorView);
+    setShowCoordinatorView((prev) => !prev);
     if (!showCoordinatorView && coordinatorInterviews.length === 0) {
       fetchCoordinatorInterviews();
     }
   };
 
-  const filterInterviewsByLevel = (interviews) => {
-    if (levelFilter === "ALL") return interviews;
-    return interviews.filter((interview) => {
+  // ─── Level filter ────────────────────────────────────────────────────────────
+  const filterInterviewsByLevel = (data) => {
+    if (levelFilter === "ALL") return data;
+    return data.filter((interview) => {
       if (levelFilter === "INTERNAL")
         return interview.interviewLevel === "INTERNAL";
       if (levelFilter === "EXTERNAL")
@@ -137,14 +258,15 @@ const BDMInterviews = () => {
     });
   };
 
-  const handleBenchSuccess = (row) => {
-    setInterviews((prevInterviews) =>
-      prevInterviews.filter((item) => item.interviewId !== row.interviewId)
-    );
-  };
-
   const handleLevelFilterChange = (event, newFilter) => {
     if (newFilter !== null) setLevelFilter(newFilter);
+  };
+
+  // ─── CRUD handlers ────────────────────────────────────────────────────────────
+  const handleBenchSuccess = (row) => {
+    setInterviews((prev) =>
+      prev.filter((item) => item.interviewId !== row.interviewId),
+    );
   };
 
   const handleJobIdClick = (jobId) => {
@@ -152,21 +274,17 @@ const BDMInterviews = () => {
   };
 
   const handleEdit = (row, isReschedule = false, isScheduleJoining = false) => {
-    let formType;
-
-    if (isScheduleJoining) {
-      formType = "schedule";
-    } else if (isReschedule) {
-      formType = "reschedule";
-    } else {
-      formType = "edit";
-    }
+    const formType = isScheduleJoining
+      ? "schedule"
+      : isReschedule
+        ? "reschedule"
+        : "edit";
 
     setEditDrawer({
       open: true,
       data: {
         ...row,
-        formType, // This is now explicitly set
+        formType,
         isReschedule,
         isScheduleJoining,
         fromView: showCoordinatorView ? "coordinator" : "recruiter",
@@ -175,41 +293,38 @@ const BDMInterviews = () => {
     });
   };
 
-  const handleCloseEditDrawer = () => {
+  const handleCloseEditDrawer = () =>
     setEditDrawer({ open: false, data: null });
-  };
 
   const handleInterviewUpdated = () => {
     if (showCoordinatorView) {
       fetchCoordinatorInterviews();
     } else {
-      fetchInterviews();
+      fetchInterviews(page, rowsPerPage, searchQuery);
     }
     handleCloseEditDrawer();
   };
 
-  const handleDelete = async (row) => {
+  const handleDelete = (row) =>
     setConfirmDialog({ open: true, interview: row });
-  };
 
   const handleConfirmDelete = async () => {
-    const interview = confirmDialog.interview;
+    const { interview } = confirmDialog;
     if (!interview) return;
 
     try {
       const toastId = ToastService.loading("Deleting interview...");
-      let deleteEndpoint;
-      if (interview.candidateId && interview.jobId) {
-        deleteEndpoint = `/candidate/deleteinterview/${interview.candidateId}/${interview.jobId}`;
-      } else {
-        deleteEndpoint = `/interview/${interview.interviewId}`;
-      }
+      const deleteEndpoint =
+        interview.candidateId && interview.jobId
+          ? `/candidate/deleteinterview/${interview.candidateId}/${interview.jobId}`
+          : `/interview/${interview.interviewId}`;
 
       await httpService.delete(deleteEndpoint);
+
       if (showCoordinatorView) {
         await fetchCoordinatorInterviews();
       } else {
-        await fetchInterviews();
+        await fetchInterviews(page, rowsPerPage, searchQuery);
       }
       ToastService.update(toastId, "Interview deleted successfully", "success");
     } catch (error) {
@@ -220,21 +335,13 @@ const BDMInterviews = () => {
     }
   };
 
-
-
   const handleOpenFeedbackDialog = (interview) => {
-    setFeedbackDialog({
-      open: true,
-      interview: interview,
-    });
+    setFeedbackDialog({ open: true, interview });
     setFeedback(interview.internalFeedback || "");
   };
 
   const handleCloseFeedbackDialog = () => {
-    setFeedbackDialog({
-      open: false,
-      interview: null,
-    });
+    setFeedbackDialog({ open: false, interview: null });
     setFeedback("");
     setIsSubmittingFeedback(false);
   };
@@ -246,16 +353,14 @@ const BDMInterviews = () => {
     }
 
     setIsSubmittingFeedback(true);
-
     try {
       const { interview } = feedbackDialog;
-      if (!interview || !interview.interviewId) {
+      if (!interview || !interview.interviewId)
         throw new Error("Missing interview data");
-      }
 
       const response = await httpService.put(
         `/candidate/updateInterviewByCoordinator/${userId}/${interview.interviewId}`,
-        { internalFeedBack: feedback }
+        { internalFeedBack: feedback },
       );
 
       if (response.data.success) {
@@ -264,7 +369,7 @@ const BDMInterviews = () => {
         if (showCoordinatorView) {
           fetchCoordinatorInterviews();
         } else {
-          fetchInterviews();
+          fetchInterviews(page, rowsPerPage, searchQuery);
         }
       } else {
         throw new Error(response.data.message || "Failed to submit feedback");
@@ -277,8 +382,60 @@ const BDMInterviews = () => {
     }
   };
 
+  // ─── Pagination / search handlers ────────────────────────────────────────────
+  const handlePageChange = (newPage, newRowsPerPage) => {
+    const validPage = validatePage(newPage);
+    setPage(validPage);
 
+    if (filteredData !== null) {
+      fetchFilteredInterviews(
+        filterStartDate,
+        filterEndDate,
+        validPage,
+        newRowsPerPage ?? rowsPerPage,
+        searchQuery,
+      );
+    } else {
+      fetchInterviews(validPage, newRowsPerPage ?? rowsPerPage, searchQuery);
+    }
+  };
 
+  const handleRowsPerPageChange = (newSize) => {
+    const validSize = validateSize(newSize);
+    setRowsPerPage(validSize);
+    setPage(0);
+
+    if (filteredData !== null) {
+      fetchFilteredInterviews(
+        filterStartDate,
+        filterEndDate,
+        0,
+        validSize,
+        searchQuery,
+      );
+    } else {
+      fetchInterviews(0, validSize, searchQuery);
+    }
+  };
+
+  const handleSearchChange = (value, newPage = 0, newSize = rowsPerPage) => {
+    setSearchQuery(value);
+    setPage(newPage);
+
+    if (filteredData !== null) {
+      fetchFilteredInterviews(
+        filterStartDate,
+        filterEndDate,
+        newPage,
+        newSize,
+        value,
+      );
+    } else {
+      fetchInterviews(newPage, newSize, value);
+    }
+  };
+
+  // ─── Columns ──────────────────────────────────────────────────────────────────
   const getColumns = () => {
     const baseColumns = [
       {
@@ -339,8 +496,12 @@ const BDMInterviews = () => {
         width: 200,
         render: (row) => formatDateTime(row.interviewDateTime),
       },
-      { key: "duration", label: "Duration (min)", width: 120, align: "center" },
-
+      {
+        key: "duration",
+        label: "Duration (min)",
+        width: 120,
+        align: "center",
+      },
       {
         key: "moveToBench",
         label: "Move to Bench",
@@ -389,7 +550,7 @@ const BDMInterviews = () => {
               type="feedback"
             />
           ),
-        }
+        },
       );
     } else {
       baseColumns.push({
@@ -411,7 +572,8 @@ const BDMInterviews = () => {
   const getActionButtons = (row) => {
     const status = row.latestInterviewStatus?.toUpperCase();
     const showReschedule =
-      ["CANCELLED", "NO_SHOW","RESCHEDULED"].includes(status) && !showCoordinatorView;
+      ["CANCELLED", "NO_SHOW", "RESCHEDULED"].includes(status) &&
+      !showCoordinatorView;
 
     const getButtonText = () => {
       switch (status) {
@@ -428,8 +590,6 @@ const BDMInterviews = () => {
 
     return (
       <Box sx={{ display: "flex", gap: 1 }}>
-       
-
         <IconButton
           onClick={() => handleEdit(row)}
           color="primary"
@@ -447,16 +607,14 @@ const BDMInterviews = () => {
         />
 
         {!showCoordinatorView && (
-          <>
-            <IconButton
-              onClick={() => handleDelete(row)}
-              color="error"
-              size="small"
-              title="Delete Interview"
-            >
-              <DeleteIcon fontSize="small" />
-            </IconButton>
-          </>
+          <IconButton
+            onClick={() => handleDelete(row)}
+            color="error"
+            size="small"
+            title="Delete Interview"
+          >
+            <DeleteIcon fontSize="small" />
+          </IconButton>
         )}
 
         {showReschedule && (
@@ -483,20 +641,26 @@ const BDMInterviews = () => {
     },
   ];
 
+  // ─── Display data resolution ──────────────────────────────────────────────────
   const getDisplayData = () => {
-    const data = showCoordinatorView ? coordinatorInterviews : interviews;
+    let data;
+    if (showCoordinatorView) {
+      data = coordinatorInterviews;
+    } else {
+      // Use filteredData when a date-range filter is active, otherwise raw interviews
+      data = filteredData !== null ? filteredData : interviews;
+    }
     return filterInterviewsByLevel(data);
   };
 
-  const processedData =
+  const isTableLoading =
     (loading && !showCoordinatorView) ||
-    (coordinatorLoading && showCoordinatorView)
-      ? []
-      : getDisplayData().map((row) => ({
-          ...row,
-        
-        }));
+    (coordinatorLoading && showCoordinatorView) ||
+    filterLoading;
 
+  const processedData = isTableLoading ? [] : getDisplayData();
+
+  // ─── Render ───────────────────────────────────────────────────────────────────
   return (
     <Box sx={{ p: 1 }}>
       {(loading && interviews.length === 0 && !showCoordinatorView) ||
@@ -527,6 +691,7 @@ const BDMInterviews = () => {
         </Box>
       ) : (
         <>
+          {/* ── Header bar ── */}
           <Stack
             direction="row"
             alignItems="center"
@@ -567,70 +732,67 @@ const BDMInterviews = () => {
               >
                 {showCoordinatorView ? "Regular View" : "Coordinator View"}
               </Button>
-              <DateRangeFilter component="InterviewsForRecruiter" />
+
+              {/* ── DateRangeFilterUtil wired with callbacks (same as AllInterviews) ── */}
+              <DateRangeFilterUtil
+                onDateChange={handleDateChange}
+                onClearFilter={handleClearDateFilter}
+              />
             </Box>
           </Stack>
+
+          {/* ── Level filter toggle ── */}
           {!showCoordinatorView && (
-            <>
-              <Box sx={{ mb: 2, display: "flex", justifyContent: "start" }}>
-                <ToggleButtonGroup
-                  value={levelFilter}
-                  exclusive
-                  onChange={handleLevelFilterChange}
-                  aria-label="interview level filter"
-                  sx={{
-                    flexWrap: "wrap",
-                    justifyContent: "center",
-                    gap: 1,
-                    "& .MuiToggleButton-root": {
-                      px: 2,
-                      py: 1,
-                      borderRadius: 1,
-                      border: "1px solid rgba(25, 118, 210, 0.5)",
-                      "&.Mui-selected": {
-                        backgroundColor: "#1976d2",
-                        color: "white",
-                        "&:hover": {
-                          backgroundColor: "#1565c0",
-                        },
-                      },
-                      "&:hover": {
-                        backgroundColor: "rgba(25, 118, 210, 0.08)",
-                      },
+            <Box sx={{ mb: 2, display: "flex", justifyContent: "start" }}>
+              <ToggleButtonGroup
+                value={levelFilter}
+                exclusive
+                onChange={handleLevelFilterChange}
+                aria-label="interview level filter"
+                sx={{
+                  flexWrap: "wrap",
+                  justifyContent: "center",
+                  gap: 1,
+                  "& .MuiToggleButton-root": {
+                    px: 2,
+                    py: 1,
+                    borderRadius: 1,
+                    border: "1px solid rgba(25, 118, 210, 0.5)",
+                    "&.Mui-selected": {
+                      backgroundColor: "#1976d2",
+                      color: "white",
+                      "&:hover": { backgroundColor: "#1565c0" },
                     },
-                  }}
-                >
-                  <ToggleButton value="ALL" aria-label="all interviews">
-                    ALL
-                  </ToggleButton>
-                  <ToggleButton
-                    value="INTERNAL"
-                    aria-label="internal interviews"
-                  >
-                    INTERNAL
-                  </ToggleButton>
-                  <ToggleButton
-                    value="EXTERNAL"
-                    aria-label="external interviews"
-                  >
-                    EXTERNAL
-                  </ToggleButton>
-                </ToggleButtonGroup>
-              </Box>
-            </>
+                    "&:hover": {
+                      backgroundColor: "rgba(25, 118, 210, 0.08)",
+                    },
+                  },
+                }}
+              >
+                <ToggleButton value="ALL" aria-label="all interviews">
+                  ALL
+                </ToggleButton>
+                <ToggleButton value="INTERNAL" aria-label="internal interviews">
+                  INTERNAL
+                </ToggleButton>
+                <ToggleButton value="EXTERNAL" aria-label="external interviews">
+                  EXTERNAL
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
           )}
 
-          <DataTable
-            data={processedData || []}
+          <DataTablePaginated
+            data={processedData}
             columns={columns}
             title={
               showCoordinatorView
                 ? "Coordinator Interviews"
                 : levelFilter === "INTERNAL"
-                ? "Internal Interviews"
-                : levelFilter === "EXTERNAL"
-                ? "External Interviews"
-                : "Interviews"
+                  ? "Internal Interviews"
+                  : levelFilter === "EXTERNAL"
+                    ? "External Interviews"
+                    : "Interviews"
             }
             enableSelection={false}
             defaultSortColumn="interviewDateTime"
@@ -646,9 +808,16 @@ const BDMInterviews = () => {
               rowHover: "#f5f5f5",
               selectedRow: "#e3f2fd",
             }}
-           
+            serverSide={true}
+            totalCount={totalCount}
+            page={page}
+            rowsPerPage={rowsPerPage}
+            onPageChange={handlePageChange}
+            onRowsPerPageChange={handleRowsPerPageChange}
+            onSearchChange={handleSearchChange}
           />
 
+          {/* ── Edit / reschedule drawer ── */}
           <Drawer
             anchor="right"
             open={editDrawer.open}
@@ -668,6 +837,7 @@ const BDMInterviews = () => {
             )}
           </Drawer>
 
+          {/* ── Delete confirm dialog ── */}
           <ConfirmDialog
             open={confirmDialog.open}
             title="Delete Interview?"
@@ -680,6 +850,7 @@ const BDMInterviews = () => {
             onConfirm={handleConfirmDelete}
           />
 
+          {/* ── Feedback dialog ── */}
           <Dialog
             open={feedbackDialog.open}
             onClose={handleCloseFeedbackDialog}
