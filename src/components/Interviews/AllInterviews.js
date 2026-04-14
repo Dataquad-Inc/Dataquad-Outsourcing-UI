@@ -42,6 +42,7 @@ import InterviewFormWrapper from "./InterviewFormWrapper";
 import DateRangeFilterUtil from "../muiComponents/DateRangeFilterUtil";
 import CustomDataTable from "../../ui-lib/CustomDataTable"; // ← new table
 
+//superadmin interviews
 const AllInterviews = () => {
   const [filteredData, setFilteredData] = useState(null);
   const [filterLoading, setFilterLoading] = useState(false);
