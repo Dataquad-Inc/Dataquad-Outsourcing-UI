@@ -54,7 +54,7 @@ const componentToActionMap = {
   Clients: filterClientsByDateRange,
   placements: filterPlacementByDateRange,
   allSubmissions: filterSubmissionsByDateRange,
-  allInterviews: filterInterviewsByDateRange,
+  // allInterviews: filterInterviewsByDateRange,
   TeamMetrics: filterTeamMetricsByDateRange,
   InProgress: filterInProgressDataByDateRange,
 };
