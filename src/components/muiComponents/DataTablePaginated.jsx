@@ -185,33 +185,6 @@ const DataTablePaginated = ({
     }
   }, [searchValue]);
 
-   const debouncedSearch = useCallback(
-    (value) => {
-      if (serverSide && onSearchChange && !enableLocalFiltering) {
-        setSearchQuery(value);
-        onSearchChange(
-          value,
-          0,
-          externalRowsPerPage || defaultRowsPerPage,
-          orderBy,
-          order,
-        );
-      }
-    },
-    [serverSide, onSearchChange, enableLocalFiltering, externalRowsPerPage, defaultRowsPerPage, orderBy, order]
-  );
-
-  useEffect(() => {
-    if (!serverSide || !onSearchChange || enableLocalFiltering) return;
-    
-    const timer = setTimeout(() => {
-      const trimmedSearch = searchInput.trim();
-      debouncedSearch(trimmedSearch);
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [searchInput, debouncedSearch, serverSide, onSearchChange, enableLocalFiltering]);
-
   useEffect(() => {
     setData(initialData);
     if (!serverSide || enableLocalFiltering) {
@@ -287,6 +260,18 @@ const DataTablePaginated = ({
     const value = event.target.value;
     setSearchInput(value);
     
+    // For real-time search (without debounce)
+    if (serverSide && onSearchChange && !enableLocalFiltering) {
+      // Call search immediately for server-side
+      setSearchQuery(value);
+      onSearchChange(
+        value,
+        0, // Reset to first page when searching
+        externalRowsPerPage || defaultRowsPerPage,
+        orderBy,
+        order,
+      );
+    }
   };
 
   const handleSearchClick = () => {
