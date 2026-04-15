@@ -135,7 +135,7 @@ const EditJobRequirement = () => {
           assignedUsers: assignedUsersArray,
           teamsLeadIds: teamLeadUsersArray,
           jobDescription: data.jobDescription || "",
-          assignedBy: data.assignedByName || userName,
+          assignedBy: data.assignedByName || "",
           remarks: data.remarks || "",
           jobDescriptionFile: null, // Will handle file separately
         };
@@ -390,8 +390,8 @@ const EditJobRequirement = () => {
         noOfPositions: parseInt(values.noOfPositions) || 1,
         status: values.status || "OPEN",
         visaType: (values.visaType || []).join(","), // Convert array to comma-separated string
-        assignedById: userId,
-        assignedByName: userName,
+        assignedById: values.assignedById || "",
+        assignedByName: values.assignedBy || "",
         remarks: values.remarks || "",
         assignedUsers: (values.assignedUsers || []).join(","),
         teamsLeadIds: (values.teamsLeadIds || []).join(","),
