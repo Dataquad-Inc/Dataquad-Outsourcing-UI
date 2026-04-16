@@ -36,7 +36,7 @@ export const sendingUsersData = createAsyncThunk(
     async ({ userId, data }, { rejectWithValue }) => {
         try {
             // Send both userId and the filtered data in the request body
-            const response = await httpService.post(`/requirements/sendInprogressEmail/${userId}`,data);
+            const response = await httpService.post(`/requirements/sendInprogressEmail/${userId}`, data);
             return response.data
         }
         catch (error) {
@@ -58,35 +58,35 @@ const InProgressSlice = createSlice({
         isFiltered: false,
         searchQuery: '',
         pagination: {
-        currentPage: 0,
-        rowsPerPage: 20,
-        totalCount: 0,
-        activeDateRange: { startDate: null, endDate: null },
-    }
+            currentPage: 0,
+            rowsPerPage: 20,
+            totalCount: 0,
+            activeDateRange: { startDate: null, endDate: null },
+        }
     },
     reducers: {
         clearFilterData: (state) => {
             state.filterinProgressByDateRange = [];
             state.isFiltered = false;
             state.loading = false;
-            state.activeDateRange = { startDate: null, endDate: null };
+            state.pagination.activeDateRange = { startDate: null, endDate: null };
         },
         clearEmailStatus: (state) => {
             state.emailStatus = null;
         },
         setPage: (state, action) => {
-        state.pagination.currentPage = action.payload;
-    },
-    setRowsPerPage: (state, action) => {
-        state.pagination.rowsPerPage = action.payload;
-        state.pagination.currentPage = 0; 
-    },
-    setSearchQuery: (state, action) => {   
-        state.searchQuery = action.payload;
-    },
-    setActiveDateRange: (state, action) => {
-    state.activeDateRange = action.payload;
-    },
+            state.pagination.currentPage = action.payload;
+        },
+        setRowsPerPage: (state, action) => {
+            state.pagination.rowsPerPage = action.payload;
+            state.pagination.currentPage = 0;
+        },
+        setSearchQuery: (state, action) => {
+            state.searchQuery = action.payload;
+        },
+        setActiveDateRange: (state, action) => {
+            state.pagination.activeDateRange = action.payload;
+        },
     },
     extraReducers: (builder) => {
         builder
@@ -97,11 +97,10 @@ const InProgressSlice = createSlice({
             .addCase(fetchInProgressData.fulfilled, (state, action) => {
                 state.loading = false;
 
-                // Remove exact duplicates (based on deep equality)
                 const unique = [];
                 const seen = new Set();
 
-                for (const item of action.payload) {
+                for (const item of action.payload.content) {
                     const key = JSON.stringify(item);
                     if (!seen.has(key)) {
                         seen.add(key);
@@ -109,8 +108,8 @@ const InProgressSlice = createSlice({
                     }
                 }
 
-                state.inProgress = action.payload.content ?? action.payload;
-                state.pagination.totalCount = action.payload.totalElements ?? (action.payload.content ?? action.payload).length; 
+                state.inProgress = unique;
+                state.pagination.totalCount = action.payload.totalElements ?? unique.length;
             })
             .addCase(fetchInProgressData.rejected, (state, action) => {
                 state.loading = false;
@@ -123,10 +122,13 @@ const InProgressSlice = createSlice({
             })
             .addCase(filterInProgressDataByDateRange.fulfilled, (state, action) => {
                 state.loading = false;
-                state.filterinProgressByDateRange = action.payload;
+                state.filterinProgressByDateRange = action.payload.content;
                 state.isFiltered = true;
-                state.pagination.totalCount = action.payload.length;
-                state.activeDateRange = {startDate: action.meta.arg.startDate,endDate: action.meta.arg.endDate}; 
+                state.pagination.totalCount = action.payload.totalElements;
+                state.pagination.activeDateRange = {
+                    startDate: action.meta.arg.startDate,
+                    endDate: action.meta.arg.endDate,
+                };
             })
             .addCase(filterInProgressDataByDateRange.rejected, (state, action) => {
                 state.loading = false;
