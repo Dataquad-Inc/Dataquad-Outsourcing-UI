@@ -146,11 +146,12 @@ const CoordinatorInterviews = () => {
       }
       
       const response = await httpService.get(url);
-      const teamInterviews = response.data?.teamInterviews || [];
-      
+      const responseData = response.data;
+      const teamInterviews = responseData?.teamInterviews || [];
+
       if (fetchId === currentFetchId.current) {
         setInterviews(processInterviewData(teamInterviews));
-        setTotalCount(teamInterviews.length);
+        setTotalCount(responseData?.teamTotalElements || 0); 
         setError(null);
       }
     } catch (err) {
@@ -183,10 +184,10 @@ const CoordinatorInterviews = () => {
       }
       
       const response = await httpService.get(url);
-      const responseData = response?.data?.data;
+      const responseData = response.data;
       
       if (fetchId === currentFetchId.current) {
-        setCoordinatorInterviews(processInterviewData(responseData?.content || []));
+        setCoordinatorInterviews(processInterviewData(responseData?.content ||[]));
         setTotalCount(responseData?.totalElements || 0);
         setError(null);
       }

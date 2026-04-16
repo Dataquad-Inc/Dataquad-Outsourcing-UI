@@ -132,7 +132,8 @@ const TeamLeadInterviews = () => {
   // Derived: is date range active?
   const isDateFiltered = !!(startDate && endDate);
 
-  const fetchInterviews = useCallback(async (pageNo, size, search, forceFetch = false) => {
+  const fetchInterviews = useCallback(
+  async (pageNo = 0, size = 10, search = "", forceFetch = false) => {
     if (isFetching.current && !forceFetch) return;
 
     const fetchId = ++currentFetchId.current;
@@ -140,32 +141,34 @@ const TeamLeadInterviews = () => {
 
     try {
       setLoading(true);
-      const result = await dispatch(fetchInterviewsTeamLead()).unwrap();
-      
+
+      const result = await dispatch(
+        fetchInterviewsTeamLead({
+          page: pageNo,
+          size: size,
+          search: search,
+        })
+      ).unwrap();
+
       if (fetchId === currentFetchId.current) {
         const selfData = processInterviewData(result?.selfInterviews || []);
         const teamData = processInterviewData(result?.teamInterviews || []);
-        
-        // Apply client-side pagination for now (until API supports pagination)
-        const start = pageNo * size;
-        const end = start + size;
-        
-        setSelfTotalCount(selfData.length);
-        setTeamTotalCount(teamData.length);
-        
-        // Update Redux with full data
-        dispatch({
-          type: 'interviews/teamlead/fulfilled',
-          payload: result
-        });
-        
+
+        // ❗ FIX: use correct keys from API
+        setSelfTotalCount(
+          result?.selfInterviews?.totalElements || result?.selfTotalElements || 0
+        );
+
+        setTeamTotalCount(
+          result?.teamInterviews?.totalElements || result?.teamTotalElements || 0
+        );
+
         setError(null);
       }
     } catch (err) {
       if (fetchId === currentFetchId.current) {
         setError("Failed to fetch interview data");
         console.error("Error fetching interviews:", err);
-        ToastService.error("Failed to load interviews");
       }
     } finally {
       if (fetchId === currentFetchId.current) {
@@ -173,7 +176,10 @@ const TeamLeadInterviews = () => {
         isFetching.current = false;
       }
     }
-  }, [dispatch]);
+  },
+  [dispatch]
+);
+
 
   const fetchCoordinatorInterviews = useCallback(async (pageNo, size, search, forceFetch = false) => {
     if (isFetching.current && !forceFetch) return;

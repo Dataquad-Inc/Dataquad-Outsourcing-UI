@@ -134,8 +134,8 @@ const AllInterviews = () => {
       // Only update state if this is the latest fetch
       if (fetchId === currentFetchId.current) {
         const responseData = response.data;
-        setInterviews(processInterviewData(responseData));
-        setTotalCount(responseData.length);
+        setInterviews(processInterviewData(responseData.content));
+        setTotalCount(responseData?.totalElements);
         setError(null);
       }
     } catch (error) {
@@ -180,8 +180,8 @@ const AllInterviews = () => {
       // Only update state if this is the latest fetch
       if (fetchId === currentFetchId.current) {
         const responseData = response?.data?.data;
-        setCoordinatorInterviews(processInterviewData(responseData.content || []));
-        setTotalCount(responseData.length);
+        setCoordinatorInterviews(processInterviewData(responseData.content));
+        setTotalCount(responseData.totalElements);
         setError(null);
       }
     } catch (error) {

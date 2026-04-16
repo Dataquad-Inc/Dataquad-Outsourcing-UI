@@ -208,24 +208,22 @@ const interviewSlice = createSlice({
       .addCase(fetchInterviewsTeamLead.fulfilled, (state, action) => {
         state.loading = false;
         const payload = action.payload;
-        
-        // Handle paginated response for self interviews
-        if (payload?.selfInterviews?.content) {
-          state.selfInterviewsTL = payload.selfInterviews.content;
-          state.selfInterviewsTLTotalCount = payload.selfInterviews.totalElements || 0;
-        } else {
-          state.selfInterviewsTL = Array.isArray(payload?.selfInterviews) ? payload.selfInterviews : [];
-          state.selfInterviewsTLTotalCount = state.selfInterviewsTL.length;
-        }
-        
-        // Handle paginated response for team interviews
-        if (payload?.teamInterviews?.content) {
-          state.teamInterviewsTL = payload.teamInterviews.content;
-          state.teamInterviewsTLTotalCount = payload.teamInterviews.totalElements || 0;
-        } else {
-          state.teamInterviewsTL = Array.isArray(payload?.teamInterviews) ? payload.teamInterviews : [];
-          state.teamInterviewsTLTotalCount = state.teamInterviewsTL.length;
-        }
+
+        // Self Interviews
+        state.selfInterviewsTL = Array.isArray(payload?.selfInterviews)
+          ? payload.selfInterviews
+          : [];
+
+        state.selfInterviewsTLTotalCount =
+          payload?.selfTotalElements ?? state.selfInterviewsTL.length;
+
+        // Team Interviews
+        state.teamInterviewsTL = Array.isArray(payload?.teamInterviews)
+          ? payload.teamInterviews
+          : [];
+
+        state.teamInterviewsTLTotalCount =
+          payload?.teamTotalElements ?? state.teamInterviewsTL.length;
       })
       .addCase(fetchInterviewsTeamLead.rejected, (state, action) => {
         state.loading = false;

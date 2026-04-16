@@ -123,8 +123,8 @@ const BDMInterviews = () => {
       const responseData = response.data;
 
       if (fetchId === currentFetchId.current) {
-        setInterviews(processInterviewData(responseData));
-        setTotalCount(responseData.length);
+        setInterviews(processInterviewData(responseData.content));
+        setTotalCount(responseData.totalElements);
         setError(null);
       }
     } catch (error) {
