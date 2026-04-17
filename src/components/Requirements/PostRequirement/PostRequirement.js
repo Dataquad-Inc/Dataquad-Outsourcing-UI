@@ -73,7 +73,7 @@ const PostRequirement = ({onClose}) => {
       ?.filter(
         (emp) =>
           (emp.roles === "TEAMLEAD" || emp.roles === "EMPLOYEE") &&
-          emp.status === "ACTIVE"
+          emp.status === "ACTIVE" || emp.employeeId === userId 
       )
       ?.map((emp) => ({
         label: `${emp.userName} (${emp.employeeId})`,
@@ -279,7 +279,7 @@ const PostRequirement = ({onClose}) => {
           if (selected.length <= 2) {
             return selected
               .map((id) => {
-                const recruiter = recruiterOptions.find((r) => r.value === id);
+                const recruiter = recruiterOptions.find((r) => r.value === id );
                 return recruiter?.label.split(" (")[0] || id;
               })
               .join(", ");
