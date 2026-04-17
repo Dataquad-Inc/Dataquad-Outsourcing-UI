@@ -207,7 +207,7 @@ const DataTablePaginated = ({
     const timer = setTimeout(() => {
       const trimmedSearch = searchInput.trim();
       debouncedSearch(trimmedSearch);
-    }, 1000);
+    }, 500);
 
     return () => clearTimeout(timer);
   }, [searchInput]);
