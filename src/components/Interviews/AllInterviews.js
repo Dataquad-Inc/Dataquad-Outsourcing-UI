@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   Box,
   IconButton,
@@ -26,13 +26,11 @@ import {
   Refresh as RefreshIcon,
   SupervisorAccount as CoordinatorIcon,
 } from "@mui/icons-material";
-import DataTable from "../muiComponents/DataTabel";
 import httpService from "../../Services/httpService";
 import ToastService from "../../Services/toastService";
 import { useSelector, useDispatch } from "react-redux";
 import { getStatusChip, getInterviewLevelChip } from "../../utils/statusUtils";
 import ConfirmDialog from "../muiComponents/ConfirmDialog";
-import EditInterviewForm from "./EditInterviewForm";
 import { filterInterviewsByDateRange } from "../../redux/interviewSlice";
 import { formatDateTime } from "../../utils/dateformate";
 import { showToast } from "../../utils/ToastNotification";
@@ -43,9 +41,18 @@ import DownloadResume from "../../utils/DownloadResume";
 import { API_BASE_URL } from "../../Services/httpService";
 import InterviewFormWrapper from "./InterviewFormWrapper";
 import DateRangeFilter from "../muiComponents/DateRangeFilter";
-
+import DataTablePaginated from "../muiComponents/DataTablePaginated";
 
 const AllInterviews = () => {
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
+  const [searchText, setSearchText] = useState("");
+
+  // ── Date filter state (mirrors Requirements.jsx pattern) ─────────────────
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
+
   const [interviews, setInterviews] = useState([]);
   const [coordinatorInterviews, setCoordinatorInterviews] = useState([]);
   const [showCoordinatorView, setShowCoordinatorView] = useState(false);
@@ -69,13 +76,22 @@ const AllInterviews = () => {
   const dispatch = useDispatch();
   const { userId, role } = useSelector((state) => state.auth);
   const { isFilteredDataRequested } = useSelector((state) => state.bench);
-  const { filteredInterviewList } = useSelector((state) => state.interview);
+  // ── Pull filteredTotalCount alongside filteredInterviewList ───────────────
+  const { filteredInterviewList, filteredTotalCount } = useSelector((state) => state.interview);
 
   const [levelFilter, setLevelFilter] = useState(
     role === "COORDINATOR" ? "INTERNAL" : "ALL"
   );
 
   const navigate = useNavigate();
+  
+  // Use refs to track if initial load is done and prevent multiple calls
+  const initialLoadDone = useRef(false);
+  const isFetching = useRef(false);
+  const currentFetchId = useRef(0);
+
+  // ── Derived: is a date range currently active? ────────────────────────────
+  const isDateFiltered = !!(startDate && endDate);
 
   const processInterviewData = (data) =>
     data.map((interview) => ({
@@ -90,43 +106,202 @@ const AllInterviews = () => {
         "SCHEDULED",
     }));
 
-  const fetchInterviews = async () => {
+  const fetchInterviews = useCallback(async (
+    pageNo,
+    size,
+    search,
+    forceFetch = false
+  ) => {
+    // Prevent concurrent fetches
+    if (isFetching.current && !forceFetch) {
+      return;
+    }
+
+    const fetchId = ++currentFetchId.current;
+    isFetching.current = true;
+
     try {
       setLoading(true);
-      const response = await httpService.get(
-        `/candidate/interviews/interviewsByUserId/${userId}`
-      );
-      setInterviews(
-        processInterviewData(response.data.data || response.data || [])
-      );
-      setError(null);
-    } catch (error) {
-      console.error("Error fetching interviews:", error);
-      setError("Failed to load interviews");
-      ToastService.error("Failed to load interviews");
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const fetchCoordinatorInterviews = async () => {
+      let url = `/candidate/interviews/interviewsByUserId/${userId}?page=${pageNo}&size=${size}`;
+      
+      if (search && search.trim() !== "") {
+        url += `&search=${encodeURIComponent(search.trim())}`;
+      }
+
+      const response = await httpService.get(url);
+
+      // Only update state if this is the latest fetch
+      if (fetchId === currentFetchId.current) {
+        const responseData = response.data;
+        setInterviews(processInterviewData(responseData.content));
+        setTotalCount(responseData?.totalElements);
+        setError(null);
+      }
+    } catch (error) {
+      if (fetchId === currentFetchId.current) {
+        console.error("Error fetching interviews:", error);
+        setError("Failed to load interviews");
+        ToastService.error("Failed to load interviews");
+      }
+    } finally {
+      if (fetchId === currentFetchId.current) {
+        setLoading(false);
+        isFetching.current = false;
+      }
+    }
+  }, [userId]);
+
+  const fetchCoordinatorInterviews = useCallback(async (
+    pageNo,
+    size,
+    search,
+    forceFetch = false
+  ) => {
+    // Prevent concurrent fetches
+    if (isFetching.current && !forceFetch) {
+      return;
+    }
+
+    const fetchId = ++currentFetchId.current;
+    isFetching.current = true;
+
     try {
       setCoordinatorLoading(true);
-      const response = await httpService.get(
-        `/candidate/interviews/interviewsByUserId/${userId}?coordinator=true`
-      );
-      setCoordinatorInterviews(
-        processInterviewData(response.data.data || response.data || [])
-      );
-      setError(null);
+
+      let url = `/candidate/interviews/interviewsByUserId/${userId}?coordinator=true&page=${pageNo}&size=${size}`;
+      
+      if (search && search.trim() !== "") {
+        url += `&search=${encodeURIComponent(search.trim())}`;
+      }
+
+      const response = await httpService.get(url);
+
+      // Only update state if this is the latest fetch
+      if (fetchId === currentFetchId.current) {
+        const responseData = response?.data?.data;
+        setCoordinatorInterviews(processInterviewData(responseData.content));
+        setTotalCount(responseData.totalElements);
+        setError(null);
+      }
     } catch (error) {
-      console.error("Error fetching coordinator interviews:", error);
-      setError("Failed to load coordinator interviews");
-      ToastService.error("Failed to load coordinator interviews");
+      if (fetchId === currentFetchId.current) {
+        console.error("Error fetching coordinator interviews:", error);
+        setError("Failed to load coordinator interviews");
+        ToastService.error("Failed to load coordinator interviews");
+      }
     } finally {
-      setCoordinatorLoading(false);
+      if (fetchId === currentFetchId.current) {
+        setCoordinatorLoading(false);
+        isFetching.current = false;
+      }
     }
-  };
+  }, [userId]);
+
+  // ── Standard paginated fetch (skips when date filter is active) ───────────
+  useEffect(() => {
+    if (!initialLoadDone.current) {
+      return;
+    }
+
+    // When date filter is active, the date-range effect below handles fetching
+    if (isDateFiltered) return;
+
+    const timeoutId = setTimeout(() => {
+      if (showCoordinatorView) {
+        fetchCoordinatorInterviews(page, rowsPerPage, searchText);
+      } else {
+        fetchInterviews(page, rowsPerPage, searchText);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [page, rowsPerPage, searchText, showCoordinatorView, fetchInterviews, fetchCoordinatorInterviews, isDateFiltered]);
+
+  // Initial load only once
+  useEffect(() => {
+    const loadInitialData = async () => {
+      await fetchInterviews(0, 10, "");
+      initialLoadDone.current = true;
+    };
+    
+    loadInitialData();
+  }, [fetchInterviews]);
+
+  // ── Date-range filtered fetch with pagination + search ────────────────────
+  // Mirrors the pattern in Requirements.jsx exactly.
+  useEffect(() => {
+    if (!startDate || !endDate) return;
+
+    setLoading(true);
+    dispatch(
+      filterInterviewsByDateRange({
+        startDate,
+        endDate,
+        page,
+        size: rowsPerPage,
+        ...(searchText && { search: searchText }),
+      })
+    ).finally(() => setLoading(false));
+  }, [startDate, endDate, page, rowsPerPage, searchText, dispatch]);
+
+  // Reset to page 0 whenever the date range itself changes
+  useEffect(() => {
+    setPage(0);
+  }, [startDate, endDate]);
+
+  const handlePageChange = useCallback((newPage, newRowsPerPage) => {
+    if (newRowsPerPage !== rowsPerPage) {
+      setRowsPerPage(newRowsPerPage);
+    }
+    setPage(newPage);
+  }, [rowsPerPage]);
+
+  const handleRowsPerPageChange = useCallback((newRowsPerPage) => {
+    setRowsPerPage(newRowsPerPage);
+    setPage(0);
+  }, []);
+
+  const handleSearchChange = useCallback((searchValue, newPage, newRowsPerPage) => {
+    setSearchText(searchValue);
+    setPage(newPage || 0);
+    if (newRowsPerPage) {
+      setRowsPerPage(newRowsPerPage);
+    }
+  }, []);
+
+  // ── Date filter handlers ──────────────────────────────────────────────────
+  const handleDateChange = useCallback((start, end) => {
+    setStartDate(start);
+    setEndDate(end);
+    setPage(0);
+  }, []);
+
+  const handleClearDateFilter = useCallback(() => {
+    setStartDate(null);
+    setEndDate(null);
+    setPage(0);
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    if (isDateFiltered) {
+      dispatch(
+        filterInterviewsByDateRange({
+          startDate,
+          endDate,
+          page,
+          size: rowsPerPage,
+          ...(searchText && { search: searchText }),
+        })
+      );
+      return;
+    }
+    if (showCoordinatorView) {
+      fetchCoordinatorInterviews(page, rowsPerPage, searchText, true);
+    } else {
+      fetchInterviews(page, rowsPerPage, searchText, true);
+    }
+  }, [isDateFiltered, startDate, endDate, showCoordinatorView, fetchCoordinatorInterviews, fetchInterviews, page, rowsPerPage, searchText, dispatch]);
 
   const handleOpenFeedbackDialog = (interview) => {
     setFeedbackDialog({
@@ -167,11 +342,7 @@ const AllInterviews = () => {
       if (response.data.success) {
         showToast("Feedback submitted successfully!", "success");
         handleCloseFeedbackDialog();
-        if (showCoordinatorView) {
-          fetchCoordinatorInterviews();
-        } else {
-          fetchInterviews();
-        }
+        handleRefresh();
       } else {
         throw new Error(response.data.message || "Failed to submit feedback");
       }
@@ -233,11 +404,7 @@ const AllInterviews = () => {
     setEditDrawer({ open: false, data: null });
 
   const handleInterviewUpdated = () => {
-    if (showCoordinatorView) {
-      fetchCoordinatorInterviews();
-    } else {
-      fetchInterviews();
-    }
+    handleRefresh();
     handleCloseEditDrawer();
   };
 
@@ -262,11 +429,7 @@ const AllInterviews = () => {
           : `/interview/${interview.interviewId}`;
 
       await httpService.delete(deleteEndpoint);
-      if (showCoordinatorView) {
-        await fetchCoordinatorInterviews();
-      } else {
-        await fetchInterviews();
-      }
+      handleRefresh();
       ToastService.update(toastId, "Interview deleted successfully", "success");
     } catch (error) {
       ToastService.error("Failed to delete interview");
@@ -509,8 +672,7 @@ const AllInterviews = () => {
               type="feedback"
             />
           ),
-      }
-    );
+      });
     } else {
       baseColumns.push(
         {
@@ -639,12 +801,13 @@ const AllInterviews = () => {
     return baseColumns;
   };
 
+  // ── Display data: date-filtered list takes priority over live-fetched data ─
   const getDisplayData = () => {
     let data;
     if (showCoordinatorView) {
       data = coordinatorInterviews;
     } else {
-      data = isFilteredDataRequested ? filteredInterviewList : interviews;
+      data = isDateFiltered ? filteredInterviewList : interviews;
     }
     return filterInterviewsByLevel(data);
   };
@@ -653,14 +816,9 @@ const AllInterviews = () => {
 
   const handleCoordinatorViewToggle = () => {
     setShowCoordinatorView(!showCoordinatorView);
-    if (!showCoordinatorView && coordinatorInterviews.length === 0) {
-      fetchCoordinatorInterviews();
-    }
+    setPage(0);
+    setSearchText("");
   };
-
-  useEffect(() => {
-    fetchInterviews();
-  }, []);
 
   return (
     <>
@@ -700,7 +858,12 @@ const AllInterviews = () => {
           >
             {showCoordinatorView ? "Regular View" : "Coordinator View"}
           </Button>
-          <DateRangeFilter component="allInterviews" />
+          {/* ── DateRangeFilter now receives callbacks for paginated date filtering ── */}
+          <DateRangeFilter
+            component="allInterviews"
+            onDateChange={handleDateChange}
+            onClearFilter={handleClearDateFilter}
+          />
         </Box>
       </Stack>
 
@@ -733,7 +896,7 @@ const AllInterviews = () => {
               },
             }}
           >
-            <ToggleButton value="ALL" aria-label="all interviews" >
+            <ToggleButton value="ALL" aria-label="all interviews">
               ALL
             </ToggleButton>
             <ToggleButton value="INTERNAL" aria-label="internal interviews">
@@ -757,9 +920,7 @@ const AllInterviews = () => {
           <Button
             variant="outlined"
             startIcon={<RefreshIcon />}
-            onClick={
-              showCoordinatorView ? fetchCoordinatorInterviews : fetchInterviews
-            }
+            onClick={handleRefresh}
             sx={{
               mt: 2,
               color: "#1976d2",
@@ -772,27 +933,34 @@ const AllInterviews = () => {
         </Box>
       ) : (
         <>
-          <DataTable
+          <DataTablePaginated
             data={processedData}
             columns={getTableColumns()}
-            title={showCoordinatorView ? "Coordinator Interviews" : levelFilter === "INTERNAL" ? "Internal Interviews" : levelFilter === "EXTERNAL" 
-              ? "External Interviews" : "Interviews"}
+            title={
+              showCoordinatorView
+                ? "Coordinator Interviews"
+                : levelFilter === "INTERNAL"
+                ? "Internal Interviews"
+                : levelFilter === "EXTERNAL"
+                ? "External Interviews"
+                : "Interviews"
+            }
             loading={loading || coordinatorLoading}
             enableSelection={false}
+            serverSide={true}
+            // ── totalCount switches between filtered and standard count ──────
+            totalCount={isDateFiltered ? filteredTotalCount : totalCount}
+            page={page}
+            rowsPerPage={rowsPerPage}
+            onPageChange={handlePageChange}
+            onRowsPerPageChange={handleRowsPerPageChange}
+            onSearchChange={handleSearchChange}
+            refreshData={handleRefresh}
+            searchValue={searchText}
             defaultSortColumn="interviewDateTime"
             defaultSortDirection="desc"
-            defaultRowsPerPage={10}
-            refreshData={
-              showCoordinatorView ? fetchCoordinatorInterviews : fetchInterviews
-            }
             primaryColor="#1976d2"
             secondaryColor="#e3f2fd"
-            customStyles={{
-              headerBackground: "#1976d2",
-              rowHover: "#f5f5f5",
-              selectedRow: "#e3f2fd",
-            }}
-           
           />
 
           <Drawer
