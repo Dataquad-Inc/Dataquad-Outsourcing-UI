@@ -17,10 +17,9 @@ const InProgress = () => {
         isFiltered,
         searchQuery,
         pagination,
-        activeDateRange
     } = useSelector((state) => state.inProgress);
 
-    const { currentPage, rowsPerPage, totalCount } = pagination;
+    const { currentPage, rowsPerPage, totalCount, activeDateRange } = pagination;
     const { userName, userId } = useSelector((state) => state.auth);
     const isUpdating = useRef(false);
 
