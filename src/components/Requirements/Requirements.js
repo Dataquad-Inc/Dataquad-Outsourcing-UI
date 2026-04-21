@@ -42,7 +42,7 @@ import LoadingSkeleton from "../muiComponents/LoadingSkeleton"; // Import Loadin
 import { DateRangeIcon } from "@mui/x-date-pickers";
 import DateRangeFilter from "../muiComponents/DateRangeFilter";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchAllRequirementsBDM, fetchRequirementsBdmSelf, setFilteredReqDataRequested, filterRequirementsByDateRange } from "../../redux/requirementSlice";
+import { fetchAllRequirementsBDM, fetchRequirementsBdmSelf, setFilteredReqDataRequested, filterRequirementsByDateRange, filterRequirementsByDateRangeForBDMSelf } from "../../redux/requirementSlice";
 import { Send } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -78,7 +78,7 @@ const Requirements = () => {
   });
   const [expandedRowId, setExpandedRowId] = useState(null);
 
-  const { filteredRequirementList, filteredTotalCount } = useSelector((state) => state.requirement);
+  const { filteredRequirementList, filteredTotalCount, filteredRequirementListForBDMSelf } = useSelector((state) => state.requirement);
   const { isFilteredDataRequested } = useSelector((state) => state.bench);
   const { role, userId } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
@@ -165,21 +165,33 @@ useEffect(() => {
 }, [refreshTrigger, role, userId, page, rowsPerPage, isAllData, searchKeyword]);
 
 
-useEffect(() => {
-  if (!startDate || !endDate) return; // no dates → Effect 1 handles it
+  useEffect(() => {
+  if (!startDate || !endDate) return;
 
   setLoading(true);
-  dispatch(
-    filterRequirementsByDateRange({
-      startDate,
-      endDate,
-      page,
-      size: rowsPerPage,
-      ...(searchKeyword && { search: searchKeyword }),
-    })
-  ).finally(() => setLoading(false));
 
-}, [startDate, endDate, page, rowsPerPage, searchKeyword, dispatch]);
+  if (isAllData) {
+    dispatch(
+      filterRequirementsByDateRange({
+        startDate,
+        endDate,
+        page,
+        size: rowsPerPage,
+        ...(searchKeyword && { search: searchKeyword }),
+      })
+    ).finally(() => setLoading(false));
+  } else {
+    dispatch(
+      filterRequirementsByDateRangeForBDMSelf({
+        startDate,
+        endDate,
+        page,
+        size: rowsPerPage,
+        ...(searchKeyword && { search: searchKeyword }),
+      })
+    ).finally(() => setLoading(false));
+  }
+    }, [startDate, endDate, page, rowsPerPage, searchKeyword, isAllData, dispatch,refreshTrigger]);
 
   useEffect(() => {
   setPage(0);
@@ -894,7 +906,7 @@ useEffect(() => {
   const isDateFiltered = !!(startDate && endDate);
 
   const tableData = isDateFiltered
-  ? filteredRequirementList.map((row) => ({
+  ? (isAllData ? filteredRequirementList : filteredRequirementListForBDMSelf).map((row) => ({
       ...row,
       expandContent: renderExpandedContent,
       expanded: row.jobId === expandedRowId,

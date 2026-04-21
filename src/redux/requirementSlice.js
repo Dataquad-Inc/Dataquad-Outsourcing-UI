@@ -51,6 +51,27 @@ export const filterRequirementsByDateRange = createAsyncThunk(
   }
 )
 
+export const filterRequirementsByDateRangeForBDMSelf = createAsyncThunk(
+    'requirements/filterByDateRangeForBDMSelf',
+      async ({ startDate, endDate, page, size, search }, { rejectWithValue, getState }) => {
+    try {
+      const state = getState();
+      const userId = state.auth.userId;
+      const params = {
+        startDate,
+        endDate,
+        page,
+        size,
+        ...(search && { search }),
+      };
+      const response = await httpService.get(`/requirements/bdmrequirements/${userId}`, params);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error);
+    }
+  }
+)
+
 // Filter requirements for employee
 export const filterRequirementsByRecruiter = createAsyncThunk(
   'recruiter/requirements/filterByDateRange',
@@ -105,6 +126,7 @@ const requirementSlice =  createSlice({
     initialState: {
         loading: false,
         filteredRequirementList: [],
+        filteredRequirementListForBDMSelf: [],
         assignedJobs: [],
         filterAssignedRequirements: [],
         filteredTeamLeadRequirements: [],
@@ -160,6 +182,20 @@ const requirementSlice =  createSlice({
           state.filteredTotalCount = Array.isArray(action.payload) ? action.payload.length : action.payload.totalElements ?? 0;
         })
         .addCase(filterRequirementsByDateRange.rejected, (state, action) => {
+         state.loading = false;
+         state.error = action.payload;
+        })
+          // Filter Requirement List By date Range for BDM self
+         .addCase(filterRequirementsByDateRangeForBDMSelf.pending, (state) => {
+          state.loading = true;
+          state.error = null;
+        })
+        .addCase(filterRequirementsByDateRangeForBDMSelf.fulfilled, (state, action) => {
+          state.loading = false;
+          state.filteredRequirementListForBDMSelf = Array.isArray(action.payload)? action.payload : action.payload.content ?? [];
+          state.filteredTotalCount = Array.isArray(action.payload) ? action.payload.length : action.payload.totalElements ?? 0;
+        })
+        .addCase(filterRequirementsByDateRangeForBDMSelf.rejected, (state, action) => {
          state.loading = false;
          state.error = action.payload;
         })
