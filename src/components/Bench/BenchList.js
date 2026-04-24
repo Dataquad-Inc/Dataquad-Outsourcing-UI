@@ -17,6 +17,7 @@ import {
   Skeleton,
   Chip,
   Stack,
+  CircularProgress,
 } from '@mui/material';
 import {
   Edit,
@@ -24,6 +25,8 @@ import {
   Visibility,
   Add,
 } from '@mui/icons-material';
+import HowToRegIcon from '@mui/icons-material/HowToReg';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import ToastService from '../../Services/toastService';
 import BenchCandidateForm from './BenchForm';
 import CandidateDetails from './CandidateDetails';
@@ -40,6 +43,7 @@ const BenchList = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [candidateToDelete, setCandidateToDelete] = useState(null);
   const [downloadingResume, setDownloadingResume] = useState(false);
+  const [loadingBenchRegister, setLoadingBenchRegister] = useState(null);
 
   // Form handling states
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -193,51 +197,140 @@ const BenchList = () => {
     setPage(0); // Reset to first page on new search
   };
 
+const handleBenchCandidate = async (candidate) => {
+  let toastId;
+
+  try {
+    const payload = {
+      email: candidate.email,
+      fullName: candidate.fullName,
+      phone: candidate.contactNumber,
+      status: "ACTIVE",
+      role: "BENCH",
+    };
+
+    setLoadingBenchRegister(candidate.id);
+
+    // Show loading toast
+    toastId = ToastService.loading("Sending register request...");
+
+    // Delay for checking loading state
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    const response = await httpService.post(
+      "/candidate/register",
+      payload
+    );
+
+    // Update loading toast to success
+    ToastService.update(
+      toastId,
+      "Register request sent successfully",
+      "success"
+    );
+
+    fetchBenchList(page, rowsPerPage, searchKeyword);
+
+    console.log("API Response:", response?.data);
+
+  } catch (error) {
+    // Update loading toast to error
+    ToastService.update(
+      toastId,
+      error?.response?.data?.error?.errorMessage ||
+      error?.response?.data?.message ||
+      "Failed to send register request",
+      "error",
+      { autoClose: 5000 }
+    );
+
+  } finally {
+    setLoadingBenchRegister(null);
+  }
+};
+
   const generateColumns = (loading = false) => [
     {
-      key: 'id',
-      label: 'Bench ID',
-      type: 'text',
+      key: "id",
+      label: "Bench ID",
+      type: "text",
       sortable: true,
       filterable: true,
       width: 120,
-      render: loading ? () => <Skeleton variant="text" width={80} height={24} /> : undefined
+      render: loading
+        ? () => <Skeleton variant="text" width={80} height={24} />
+        : undefined,
     },
     {
-      key: 'fullName',
-      label: 'Full Name',
-      type: 'text',
+      key: "fullName",
+      label: "Full Name",
+      type: "text",
       sortable: true,
       filterable: true,
       width: 180,
-      render: loading ? () => <Skeleton variant="text" width={140} height={24} /> : undefined
+      render: loading
+        ? () => <Skeleton variant="text" width={140} height={24} />
+        : (row) => (
+            <Box display="flex" alignItems="center" gap={1}>
+              <Tooltip
+                title={
+                  row.isRegistered
+                    ? "Already Registered"
+                    : "Send Register Request"
+                }
+              >
+                <span>
+                  <IconButton
+                    size="small"
+                    color={row.isRegistered ? "success" : "primary"}
+                    onClick={() => handleBenchCandidate(row)}
+                    disabled={
+                      loadingBenchRegister === row.id || row.isRegistered
+                    }
+                  >
+                    {loadingBenchRegister === row.id ? (
+                      <CircularProgress size={16} color="info" />
+                    ) : row.isRegistered ? (
+                      <HowToRegIcon fontSize="small" color="success" />
+                    ) : (
+                      <PersonAddIcon fontSize="small" />
+                    )}
+                  </IconButton>
+                </span>
+              </Tooltip>
+
+              {row.fullName}
+            </Box>
+          ),
     },
     {
-      key: 'technology',
-      label: 'Technology',
-      type: 'text',
+      key: "technology",
+      label: "Technology",
+      type: "text",
       sortable: true,
       filterable: true,
       width: 180,
-      render: loading ? () => <Skeleton variant="text" width={140} height={24} /> : undefined
+      render: loading
+        ? () => <Skeleton variant="text" width={140} height={24} />
+        : undefined,
     },
     {
-      key: 'skills',
-      label: 'Skills',
-      type: 'text',
+      key: "skills",
+      label: "Skills",
+      type: "text",
       sortable: true,
       filterable: true,
       width: 250,
       render: (row) =>
         loading ? (
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box sx={{ display: "flex", gap: 1 }}>
             <Skeleton variant="rounded" width={60} height={24} />
             <Skeleton variant="rounded" width={80} height={24} />
           </Box>
         ) : !row.skills || row.skills.length === 0 ? (
           "N/A"
         ) : Array.isArray(row.skills) ? (
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
             {row.skills.slice(0, 3).map((skill, index) => (
               <Chip key={index} label={skill} size="small" />
             ))}
@@ -247,150 +340,170 @@ const BenchList = () => {
           </Box>
         ) : (
           "Invalid Data"
-        )
+        ),
     },
     {
-      key: 'email',
-      label: 'Email',
-      type: 'text',
+      key: "email",
+      label: "Email",
+      type: "text",
       sortable: true,
       filterable: true,
       width: 220,
-      render: loading ? () => <Skeleton variant="text" width={180} height={24} /> : undefined
+      render: loading
+        ? () => <Skeleton variant="text" width={180} height={24} />
+        : undefined,
     },
     {
-      key: 'contactNumber',
-      label: 'Contact Number',
-      type: 'text',
+      key: "contactNumber",
+      label: "Contact Number",
+      type: "text",
       sortable: true,
       filterable: true,
       width: 150,
-      render: loading ? () => <Skeleton variant="text" width={100} height={24} /> : undefined
+      render: loading
+        ? () => <Skeleton variant="text" width={100} height={24} />
+        : undefined,
     },
     {
-      key: 'referredBy',
-      label: 'Referred By',
-      type: 'text',
+      key: "referredBy",
+      label: "Referred By",
+      type: "text",
       sortable: true,
       filterable: true,
       width: 180,
-      render: loading ? () => <Skeleton variant="text" width={120} height={24} /> : undefined
+      render: loading
+        ? () => <Skeleton variant="text" width={120} height={24} />
+        : undefined,
     },
     {
-      key: 'tags',
-      label: 'Tag',
-      type: 'text',
+      key: "tags",
+      label: "Tag",
+      type: "text",
       sortable: true,
       filterable: true,
       width: 150,
       render: (row) =>
         loading ? (
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box sx={{ display: "flex", gap: 1 }}>
             <Skeleton variant="rounded" width={60} height={24} />
             <Skeleton variant="rounded" width={60} height={24} />
           </Box>
-        ) : !row.tags || (Array.isArray(row.tags) ? row.tags.length === 0 : !row.tags) ? (
-          'N/A'
+        ) : !row.tags ||
+          (Array.isArray(row.tags) ? row.tags.length === 0 : !row.tags) ? (
+          "N/A"
         ) : Array.isArray(row.tags) ? (
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
             {row.tags.map((tag, index) => (
-              <Chip key={index} label={tag} size="small" color="info" variant="outlined" />
+              <Chip
+                key={index}
+                label={tag}
+                size="small"
+                color="info"
+                variant="outlined"
+              />
             ))}
           </Box>
         ) : (
           <Chip label={row.tags} size="small" color="info" variant="outlined" />
-        )
+        ),
     },
     {
-      key: 'totalExperience',
-      label: 'Total Exp (Yrs)',
-      type: 'text',
+      key: "totalExperience",
+      label: "Total Exp (Yrs)",
+      type: "text",
       sortable: true,
       filterable: true,
       width: 150,
-      render: loading ? () => <Skeleton variant="text" width={80} height={24} /> : (row) => (
-        <Chip
-          label={`${row.totalExperience || 'N/A'}`}
-          size="small"
-          color="primary"
-          variant="outlined"
-        />
-      )
+      render: loading
+        ? () => <Skeleton variant="text" width={80} height={24} />
+        : (row) => row.totalExperience || "N/A",
     },
     {
-      key: 'relevantExperience',
-      label: 'Rel Exp (Yrs)',
-      type: 'text',
+      key: "relevantExperience",
+      label: "Rel Exp (Yrs)",
+      type: "text",
       sortable: true,
       filterable: true,
       width: 150,
-      render: loading ? () => <Skeleton variant="text" width={80} height={24} /> : (row) => (
-        <Chip
-          label={`${row.relevantExperience || 'N/A'}`}
-          size="small"
-          color="secondary"
-          variant="outlined"
-        />
-      )
+      render: loading
+        ? () => <Skeleton variant="text" width={80} height={24} />
+        : (row) => row.relevantExperience || "N/A",
     },
     {
-      key: 'remarks',
-      label: 'Remarks',
-      type: 'text',
-      align: 'center',
+      key: "remarks",
+      label: "Remarks",
+      type: "text",
+      align: "center",
       render: (row) => (
-        <InternalFeedbackCell value={row.remarks} type='remarks' />
+        <InternalFeedbackCell value={row.remarks} type="remarks" />
       ),
       sortable: true,
       filterable: true,
       width: 150,
     },
     {
-      key: 'actions',
-      label: 'Actions',
+      key: "actions",
+      label: "Actions",
       sortable: false,
       filterable: false,
       width: 200,
-      align: 'center',
-      render: loading ? () => (
-        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
-          <Skeleton variant="circular" width={32} height={32} />
-          <Skeleton variant="circular" width={32} height={32} />
-          <Skeleton variant="circular" width={32} height={32} />
-          <Skeleton variant="circular" width={32} height={32} />
-        </Box>
-      ) : (row) => (
-        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }} onClick={(e) => e.stopPropagation()}>
-          <Tooltip title="View">
-            <IconButton color="info" size="small" onClick={() => handleView(row)}>
-              <Visibility fontSize="small" />
-            </IconButton>
-          </Tooltip>
+      align: "center",
+      render: loading
+        ? () => (
+            <Box sx={{ display: "flex", justifyContent: "center", gap: 1 }}>
+              <Skeleton variant="circular" width={32} height={32} />
+              <Skeleton variant="circular" width={32} height={32} />
+              <Skeleton variant="circular" width={32} height={32} />
+              <Skeleton variant="circular" width={32} height={32} />
+            </Box>
+          )
+        : (row) => (
+            <Box
+              sx={{ display: "flex", justifyContent: "center", gap: 1 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Tooltip title="View">
+                <IconButton
+                  color="info"
+                  size="small"
+                  onClick={() => handleView(row)}
+                >
+                  <Visibility fontSize="small" />
+                </IconButton>
+              </Tooltip>
 
-          <Tooltip title="Edit">
-            <IconButton color="primary" size="small" onClick={() => handleEdit(row)}>
-              <Edit fontSize="small" />
-            </IconButton>
-          </Tooltip>
+              <Tooltip title="Edit">
+                <IconButton
+                  color="primary"
+                  size="small"
+                  onClick={() => handleEdit(row)}
+                >
+                  <Edit fontSize="small" />
+                </IconButton>
+              </Tooltip>
 
-          <Tooltip title="Delete">
-            <IconButton color="error" size="small" onClick={() => handleDelete(row)}>
-              <Delete fontSize="small" />
-            </IconButton>
-          </Tooltip>
+              <Tooltip title="Delete">
+                <IconButton
+                  color="error"
+                  size="small"
+                  onClick={() => handleDelete(row)}
+                >
+                  <Delete fontSize="small" />
+                </IconButton>
+              </Tooltip>
 
-          <DownloadResume
-            candidate={{
-              candidateId: row?.id ?? 'NO_ID',
-              jobId: row?.jobId ?? 'NO_JOB_ID',
-              fullName: row?.fullName ?? 'NO_NAME',
-            }}
-            getDownloadUrl={(candidate, format) => {
-              return `${API_BASE_URL}/candidate/bench/download/${candidate.candidateId}?format=${format}`;
-            }}
-          />
-        </Box>
-      ),
+              <DownloadResume
+                candidate={{
+                  candidateId: row?.id ?? "NO_ID",
+                  jobId: row?.jobId ?? "NO_JOB_ID",
+                  fullName: row?.fullName ?? "NO_NAME",
+                }}
+                getDownloadUrl={(candidate, format) => {
+                  return `${API_BASE_URL}/candidate/bench/download/${candidate.candidateId}?format=${format}`;
+                }}
+              />
+            </Box>
+          ),
     },
   ];
 
