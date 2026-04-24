@@ -14,6 +14,7 @@ import {
   DialogTitle,
   IconButton,
   MenuItem,
+  Stack,
 } from "@mui/material";
 import { Close } from "@mui/icons-material";
 import httpService from "../../Services/httpService";
@@ -32,6 +33,34 @@ const BenchCandidateForm = ({
   const [inputValue, setInputValue] = useState("");
   const [resumeFileName, setResumeFileName] = useState("");
   const [errors, setErrors] = useState({});
+  const [tagSelection, setTagSelection] = useState("");
+  const [customTagInput, setCustomTagInput] = useState("");
+
+  const PRESET_TAGS = ["Full Stack Java Dev", "Backend Java Dev"];
+
+  const applyTagFromValue = (tagValue) => {
+    if (!tagValue) {
+      setTagSelection("");
+      setCustomTagInput("");
+    } else if (PRESET_TAGS.includes(tagValue)) {
+      setTagSelection(tagValue);
+      setCustomTagInput("");
+    } else {
+      setTagSelection("Custom");
+      setCustomTagInput(tagValue);
+    }
+  };
+
+  const handleTagSelectionChange = (e) => {
+    const value = e.target.value;
+    setTagSelection(value);
+    if (value !== "Custom") {
+      setFormValues((prev) => ({ ...prev, tags: value }));
+      setCustomTagInput("");
+    } else {
+      setFormValues((prev) => ({ ...prev, tags: "" }));
+    }
+  };
   
 
 
@@ -47,7 +76,8 @@ const BenchCandidateForm = ({
     referredBy: "",
     resumeFile: null,
     technology: "",
-    resumeAvailable: false
+    resumeAvailable: false,
+    tags: "",
   };
 
   const [formValues, setFormValues] = useState(formInitialValues);
@@ -84,8 +114,10 @@ const BenchCandidateForm = ({
         referredBy: initialData.referredBy || "",
         resumeFile: null,
         technology: initialData.technology || "",
-        resumeAvailable: initialData.resumeAvailable || false
+        resumeAvailable: initialData.resumeAvailable || false,
+        tags: initialData.tags || "",
       });
+      applyTagFromValue(initialData.tags || "");
       setLoading(false);
     } else if (!isEditMode) {
       // For new entry, reset to initial values
@@ -115,8 +147,10 @@ const BenchCandidateForm = ({
             referredBy: candidateData.referredBy || "",
             resumeFile: null,
             technology: candidateData.technology || "",
-            resumeAvailable: candidateData.resumeAvailable || false
+            resumeAvailable: candidateData.resumeAvailable || false,
+            tags: candidateData.tags || "",
           });
+          applyTagFromValue(candidateData.tags || "");
           
           ToastService.success(`Ready to edit ${candidateData.fullName}`);
         } catch (error) {
@@ -371,6 +405,7 @@ const BenchCandidateForm = ({
       formData.append("referredBy", formValues.referredBy || "");
       formData.append("skills", JSON.stringify(formValues.skills));
       formData.append("technology", formValues.technology);
+      formData.append("tags", formValues.tags || "");
 
       if (formValues.resumeFile) {
         formData.append("resumeFiles", formValues.resumeFile);
@@ -581,17 +616,45 @@ const BenchCandidateForm = ({
           </Grid>
 
           <Grid item xs={12} sm={6}>
-            <TextField
-              name="linkedin"
-              label="LinkedIn Profile URL"
-              value={formValues.linkedin}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              fullWidth
-              error={!!errors.linkedin}
-              helperText={errors.linkedin}
-              disabled={submitting}
-            />
+            <Stack spacing={2}>
+              <TextField
+                name="linkedin"
+                label="LinkedIn Profile URL"
+                value={formValues.linkedin}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                fullWidth
+                error={!!errors.linkedin}
+                helperText={errors.linkedin}
+                disabled={submitting}
+              />
+              <TextField
+                select
+                label="Tag"
+                value={tagSelection}
+                onChange={handleTagSelectionChange}
+                fullWidth
+                disabled={submitting}
+              >
+                {PRESET_TAGS.map((tag) => (
+                  <MenuItem key={tag} value={tag}>{tag}</MenuItem>
+                ))}
+                <MenuItem value="Custom">Custom</MenuItem>
+              </TextField>
+              {tagSelection === "Custom" && (
+                <TextField
+                  label="Custom Tag"
+                  value={customTagInput}
+                  onChange={(e) => {
+                    setCustomTagInput(e.target.value);
+                    setFormValues((prev) => ({ ...prev, tags: e.target.value }));
+                  }}
+                  fullWidth
+                  placeholder="Enter custom tag"
+                  disabled={submitting}
+                />
+              )}
+            </Stack>
           </Grid>
           <Grid item xs={12} sm={6}>
             <TextField

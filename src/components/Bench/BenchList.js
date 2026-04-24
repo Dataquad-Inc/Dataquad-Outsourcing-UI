@@ -79,8 +79,9 @@ const BenchList = () => {
       
       const response = await httpService.get('/candidate/bench/getBenchList', params);
 
-      const data = response.data.data || [];
-      const total = response.data.totalItems || 0;
+      const responseData = response.data;
+      const data = Array.isArray(responseData) ? responseData : (responseData.data || []);
+      const total = Array.isArray(responseData) ? responseData.length : (responseData.totalItems || 0);
 
       
 
@@ -274,6 +275,31 @@ const BenchList = () => {
       filterable: true,
       width: 180,
       render: loading ? () => <Skeleton variant="text" width={120} height={24} /> : undefined
+    },
+    {
+      key: 'tags',
+      label: 'Tag',
+      type: 'text',
+      sortable: true,
+      filterable: true,
+      width: 150,
+      render: (row) =>
+        loading ? (
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Skeleton variant="rounded" width={60} height={24} />
+            <Skeleton variant="rounded" width={60} height={24} />
+          </Box>
+        ) : !row.tags || (Array.isArray(row.tags) ? row.tags.length === 0 : !row.tags) ? (
+          'N/A'
+        ) : Array.isArray(row.tags) ? (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+            {row.tags.map((tag, index) => (
+              <Chip key={index} label={tag} size="small" color="info" variant="outlined" />
+            ))}
+          </Box>
+        ) : (
+          <Chip label={row.tags} size="small" color="info" variant="outlined" />
+        )
     },
     {
       key: 'totalExperience',
