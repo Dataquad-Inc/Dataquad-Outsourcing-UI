@@ -124,6 +124,7 @@ const Dashboard = () => {
             p:1,
             height: "100%",
             overflowY: "auto",
+            overflowX: "auto",
             backgroundColor:
               theme.palette.mode === "dark"
                 ? theme.palette.background.default
