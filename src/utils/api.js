@@ -5,6 +5,8 @@ import axios from "axios";
 const BASE_URL = "https://mymulya.com";
 console.log("API URL:", BASE_URL);
 
+
+
 // Create axios instance
 const api = axios.create({
   baseURL: BASE_URL,
