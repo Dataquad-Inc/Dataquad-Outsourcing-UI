@@ -36,7 +36,29 @@ const BenchCandidateForm = ({
   const [tagSelection, setTagSelection] = useState("");
   const [customTagInput, setCustomTagInput] = useState("");
 
-  const PRESET_TAGS = ["Full Stack Java Dev", "Backend Java Dev"];
+ const PRESET_TAGS = [
+  "Java Full Stack Dev",
+  "Java Backend Dev",
+  "Java Frontend Dev",
+  "AI/ML",
+  "Cybersecurity",
+  "Data Science & Big Data",
+  "DevOps & Platform Engineering",
+  "Quantum Computing",
+  "Salesforce Developer",
+  "Mulesoft Developer",
+  ".Net Developer",
+  "Python Developer",
+  "QA Engineer",
+  "UI Developer",
+  "Business Analyst",
+  "MERN Stack Developer",
+  "Oracle Tech",
+  "Data Engineer",
+  "SAP Consultants",
+  "Scrum Master",
+  "M365 Dynamics"
+];
 
   const applyTagFromValue = (tagValue) => {
     if (!tagValue) {
@@ -211,7 +233,6 @@ const BenchCandidateForm = ({
       .nullable()
       .transform((value) => (value === "" ? null : value)),
     referredBy: Yup.string().nullable(),
-    resumeFile: fileValidation,
   });
 
   const handleChange = (e) => {
