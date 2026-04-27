@@ -170,29 +170,27 @@ useEffect(() => {
 
   setLoading(true);
 
-  const useBDMSelf = role === "BDM" && !isAllData;
-
-if (useBDMSelf) {
-  dispatch(
-    filterRequirementsByDateRangeForBDMSelf({
-      startDate,
-      endDate,
-      page,
-      size: rowsPerPage,
-      ...(searchKeyword && { search: searchKeyword }),
-    })
-  ).finally(() => setLoading(false));
-} else {
-  dispatch(
-    filterRequirementsByDateRange({
-      startDate,
-      endDate,
-      page,
-      size: rowsPerPage,
-      ...(searchKeyword && { search: searchKeyword }),
-    })
-  ).finally(() => setLoading(false));
-}
+  if (isAllData) {
+    dispatch(
+      filterRequirementsByDateRange({
+        startDate,
+        endDate,
+        page,
+        size: rowsPerPage,
+        ...(searchKeyword && { search: searchKeyword }),
+      })
+    ).finally(() => setLoading(false));
+  } else {
+    dispatch(
+      filterRequirementsByDateRangeForBDMSelf({
+        startDate,
+        endDate,
+        page,
+        size: rowsPerPage,
+        ...(searchKeyword && { search: searchKeyword }),
+      })
+    ).finally(() => setLoading(false));
+  }
     }, [startDate, endDate, page, rowsPerPage, searchKeyword, isAllData, dispatch,refreshTrigger]);
 
   useEffect(() => {
@@ -908,7 +906,7 @@ if (useBDMSelf) {
   const isDateFiltered = !!(startDate && endDate);
 
   const tableData = isDateFiltered
-  ? (role === "BDM" && !isAllData ? filteredRequirementListForBDMSelf : filteredRequirementList).map((row) => ({
+  ? (isAllData ? filteredRequirementList : filteredRequirementListForBDMSelf).map((row) => ({
       ...row,
       expandContent: renderExpandedContent,
       expanded: row.jobId === expandedRowId,
