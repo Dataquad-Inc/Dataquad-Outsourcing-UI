@@ -22,6 +22,7 @@ const UsEmployees = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [search, setSearch] = useState("");
+  const [selectedFilter, setSelectedFilter] = useState("all");
 
   const BASE_URL = "https://mymulya.com";
 
@@ -30,9 +31,15 @@ const UsEmployees = () => {
     try {
       setLoading(true);
       const apiPage = Math.max(page, 0);
+      const categoryQuery =
+        selectedFilter && selectedFilter !== "all"
+          ? `&category=${encodeURIComponent(selectedFilter)}`
+          : "";
 
       const response = await fetch(
-        `${BASE_URL}/hotlist/user/allUsers?page=${apiPage}&size=${rowsPerPage}&search=${search}`
+        `${BASE_URL}/hotlist/user/allUsers?page=${apiPage}&size=${rowsPerPage}&search=${encodeURIComponent(
+          search
+        )}${categoryQuery}`
       );
 
       if (!response.ok) {
@@ -53,7 +60,7 @@ const UsEmployees = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, search]);
+  }, [page, rowsPerPage, search, selectedFilter]);
 
   React.useEffect(() => {
     fetchData();
@@ -87,6 +94,12 @@ const UsEmployees = () => {
   /** ---------------- Create ---------------- */
   const handleCreateNew = () => {
     showInfoToast("Create new employee clicked");
+  };
+
+  const handleCategoryFilterChange = (filterKey) => {
+    setSelectedFilter(filterKey);
+    setPage(0);
+    setRefreshKey((prev) => prev + 1);
   };
 
   /** ---------------- Edit ---------------- */
@@ -141,6 +154,26 @@ const UsEmployees = () => {
   /** ---------------- Render ---------------- */
   return (
     <>
+      <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 2 }} marginTop={1}>
+        {[
+          { key: "all", label: "All" },
+          { key: "active", label: "Active" },
+          { key: "inactive", label: "In-Active" },
+          { key: "internal", label: "Internal" },
+          { key: "external", label: "External" },
+          // { key: "external-placed", label: "External Placed" },
+        ].map((filter) => (
+          <Button
+            key={filter.key}
+            variant={selectedFilter === filter.key ? "contained" : "outlined"}
+            onClick={() => handleCategoryFilterChange(filter.key)}
+            sx={{ textTransform: "none", minWidth: 150 }}
+          >
+            {filter.label}
+          </Button>
+        ))}
+      </Stack>
+
       <CustomDataTable
         title="US Employees"
         columns={columns}
