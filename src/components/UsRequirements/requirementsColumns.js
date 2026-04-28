@@ -18,6 +18,7 @@ import {
 import { formatDateTime } from "../../utils/dateformate";
 import CustomChip from "../../ui-lib/CustomChip";
 import DialogValueViewer from "../../ui-lib/DialogValueViewer";
+import { renderStatus } from "../../utils/requirementsStatusChip";
 
 const renderValue = (value) => value || "-";
 
@@ -94,6 +95,21 @@ const getRequirementsColumns = ({
       ) : (
         "-"
       ),
+  },
+  {
+    id: "status",
+    label: "Status",
+    applyFilter: true,
+    filterType: "select",
+    align: "center",
+    filterOptions: [
+      { label: "Open", value: "Open" },
+      { label: "In Progress", value: "In Progress" },
+      { label: "Closed", value: "Closed" },
+      { label: "On Hold", value: "On Hold" },
+      { label: "Cancelled", value: "Cancelled" },
+    ],
+    render: (v) => renderStatus(v),
   },
   {
     id: "jobDescription",
@@ -259,21 +275,6 @@ const getRequirementsColumns = ({
       ) : (
         "-"
       ),
-  },
-  {
-    id: "status",
-    label: "Status",
-    applyFilter: true,
-    filterType: "select",
-    align: "center",
-    filterOptions: [
-      { label: "Open", value: "Open" },
-      { label: "In Progress", value: "IN PROGRESS" },
-      { label: "Closed", value: "Closed" },
-      { label: "On Hold", value: "On_Hold" },
-      { label: "Cancelled", value: "Cancelled" },
-    ],
-    render: (v) => (v ? <Chip label={v} size="small" /> : "-"),
   },
   {
     id: "experienceRequired",
