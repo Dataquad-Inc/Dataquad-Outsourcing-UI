@@ -56,6 +56,7 @@ const BaseSubmission = ({
   onSortChange,
   onFilterChange,
   onSearchChange,
+  searchValue: externalSearchValue,
   enableServerSideFiltering = false,
   role,
   // NEW PROPS for date range integration
@@ -73,7 +74,7 @@ const BaseSubmission = ({
   const [moveToBenchDialogOpen, setMoveToBenchDialogOpen] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [remarks, setRemarks] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(externalSearchValue ||"");
   const [filters, setFilters] = useState({});
 
   const { isFilteredDataRequested } = useSelector((state) => state.bench);
@@ -91,6 +92,12 @@ const BaseSubmission = ({
       isMountedRef.current = false;
     };
   }, []);
+
+   useEffect(() => {
+    if (externalSearchValue !== undefined) {
+      setSearchQuery(externalSearchValue);
+    }
+  }, [externalSearchValue]);
 
   const handleTabChange = useCallback(
     (event, newValue) => {
@@ -336,13 +343,12 @@ const BaseSubmission = ({
     [onFilterChange],
   );
 
-  const handleSearchChangeCallback = useCallback(
-    (searchQuery, page, rowsPerPage, orderBy, order) => {
-      setSearchQuery(searchQuery);
-      onSearchChange?.(searchQuery, page, rowsPerPage, orderBy, order);
-    },
-    [onSearchChange],
-  );
+  const handleSearchChangeCallback = useCallback((keyword) => {
+    setSearchQuery(keyword);
+    if (enableServerSideFiltering && onSearchChange) {
+      onSearchChange(keyword);
+    }
+  }, [enableServerSideFiltering, onSearchChange]);
 
   const handlePageChangeCallback = useCallback(
     (newPage, rowsPerPage) => {
@@ -539,7 +545,7 @@ const BaseSubmission = ({
         onFilterChange={handleFilterChangeCallback}
         onSearchChange={handleSearchChangeCallback}
         enableLocalFiltering={false}
-        enableServerSideFiltering={enableServerSideFiltering}
+        enableServerSideFiltering={true}
         searchValue={searchQuery}
       />
 
