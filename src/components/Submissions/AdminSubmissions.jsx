@@ -21,6 +21,7 @@ const AdminSubmissions = () => {
     startDate: null,
     endDate: null
   });
+  const [initialLoading, setInitialLoading] = useState(true);
 
   const { role } = useSelector((state) => state.auth);
   const { filteredSubmissionsList, filteredSubmissionsPagination, isFiltered } = useSelector((state) => state.submission);
@@ -118,6 +119,7 @@ const AdminSubmissions = () => {
         setData([]);
       } finally {
         setLoading(false);
+        setInitialLoading(false);
         controllerRef.current = null;
       }
     },
@@ -165,16 +167,15 @@ const AdminSubmissions = () => {
 
   // Handle when filtered data is available from Redux
   useEffect(() => {
-    if (isFiltered && filteredSubmissionsList && filteredSubmissionsList.length > 0) {
-      setData(filteredSubmissionsList);
-      if (filteredSubmissionsPagination) {
-        setPagination(filteredSubmissionsPagination);
-      }
-    } else if (!isFiltered && filteredSubmissionsList && filteredSubmissionsList.length === 0) {
-      // If no filtered data, fetch fresh data
-      fetchData();
+  if (!isFiltered) return; // only act when a filter is actually active
+  
+  if (filteredSubmissionsList?.length > 0) {
+    setData(filteredSubmissionsList);
+    if (filteredSubmissionsPagination) {
+      setPagination(filteredSubmissionsPagination);
     }
-  }, [isFiltered, filteredSubmissionsList, filteredSubmissionsPagination, fetchData]);
+  }
+}, [isFiltered, filteredSubmissionsList, filteredSubmissionsPagination]);
 
   // Pagination handlers
   const handlePageChange = useCallback(
@@ -240,26 +241,28 @@ const AdminSubmissions = () => {
     [fetchData, dateRange, globalSearch, pagination.pageSize, dispatch],
   );
 
-  // ✅ Global Search handler
-  const handleSearchChange = useCallback(
-    (searchValue, page, rowsPerPage) => {
-      setGlobalSearch(searchValue);
-      
-      if (dateRange.startDate && dateRange.endDate) {
-        dispatch(filterSubmissionsByDateRange({
-          startDate: dateRange.startDate,
-          endDate: dateRange.endDate,
-          page: page || 0,
-          size: rowsPerPage || pagination.pageSize,
-          globalSearch: searchValue,
-          ...filters
-        }));
-      } else {
-        fetchData(page || 0, rowsPerPage || pagination.pageSize, searchValue, filters);
-      }
-    },
-    [fetchData, dateRange, filters, pagination.pageSize, dispatch],
-  );
+const handleSearchChange = useCallback((value) => {
+  setGlobalSearch(value);
+}, []);
+
+
+useEffect(() => {
+  if (!hasFetchedRef.current && !globalSearch) return;
+  
+  if (dateRange.startDate && dateRange.endDate) {
+    dispatch(filterSubmissionsByDateRange({
+      startDate: dateRange.startDate,
+      endDate: dateRange.endDate,
+      page: 0,
+      size: pagination.pageSize,
+      globalSearch: globalSearch,
+      ...filters
+    }));
+  } else {
+    fetchData(0, pagination.pageSize, globalSearch, filters);
+  }
+}, [globalSearch]); 
+
 
   // Refresh handler
   const handleRefresh = useCallback(() => {
@@ -293,7 +296,7 @@ const AdminSubmissions = () => {
   return (
     <BaseSubmission
       data={data}
-      loading={loading}
+      loading={initialLoading}
       componentName="AdminSubmissions"
       title="All Submissions"
       refreshData={handleRefresh}
@@ -303,10 +306,11 @@ const AdminSubmissions = () => {
       onSortChange={handleSortChange} 
       onFilterChange={handleFilterChange}
       onSearchChange={handleSearchChange}
+      searchValue={globalSearch}
       role={role}
       enableServerSideFiltering={true}
       onDateRangeChange={handleDateRangeChange}
-      isFiltered={isFiltered}
+      isFiltered={isFiltered}      
     />
   );
 };

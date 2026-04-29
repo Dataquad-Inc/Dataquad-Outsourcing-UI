@@ -13,6 +13,7 @@ import { setFilteredDataRequested } from "../../redux/benchSlice";
 const RecruiterSubmissions = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const[initialLoading, setInitialLoading] = useState(true);
   const [pagination, setPagination] = useState({
     totalElements: 0,
     totalPages: 0,
@@ -32,10 +33,8 @@ const RecruiterSubmissions = () => {
     filteredSubmissionsForRecruiter,
     filteredRecruiterPagination 
   } = useSelector((state) => state.submission);
-  const { isFilteredDataRequested } = useSelector((state) => state.bench);
 
   const dispatch = useDispatch();
-  const hasFetchedRef = useRef(false);
   const controllerRef = useRef(null);
 
   // Fetch data function - REMOVED dateRange from dependencies
@@ -44,7 +43,6 @@ const RecruiterSubmissions = () => {
       if (controllerRef.current) {
         controllerRef.current.abort();
       }
-
       controllerRef.current = new AbortController();
 
       try {
@@ -55,30 +53,23 @@ const RecruiterSubmissions = () => {
           size,
         };
 
-        // ✅ Global Search
-        if (searchValue && searchValue.trim() !== "") {
+        if (searchValue?.trim()) {
           params.globalSearch = searchValue.trim();
         }
 
-        // ✅ Date Range Filter - use passed date range or state
-        const dateToUse = currentDateRange || dateRange;
-        if (dateToUse?.startDate && dateToUse?.endDate) {
-          params.startDate = dateToUse.startDate;
-          params.endDate = dateToUse.endDate;
+        if (currentDateRange?.startDate && currentDateRange?.endDate) {
+          params.startDate = currentDateRange.startDate;
+          params.endDate = currentDateRange.endDate;
         }
 
-        // ✅ Filters
-        Object.keys(filterParams).forEach((key) => {
-          if (filterParams[key] && filterParams[key] !== "") {
-            params[key] = filterParams[key];
-          }
+        Object.entries(filterParams).forEach(([key, value]) => {
+          if (value && value !== "") params[key] = value;
         });
 
         const response = await axios.get(
           `https://mymulya.com/candidate/submissionsByUserId/${userId}`,
           {
             signal: controllerRef.current.signal,
-            timeout: 30000,
             params,
           }
         );
@@ -108,196 +99,177 @@ const RecruiterSubmissions = () => {
 
         setData(submissions);
         setPagination(paginationData);
-        hasFetchedRef.current = true;
 
         if (submissions.length === 0) {
           showToast("No submissions found", "info");
         }
       } catch (error) {
         if (axios.isCancel(error)) return;
-
         console.error("Error fetching recruiter submissions:", error);
-
-        if (error.response) {
-          showToast(error.response.data?.message || "Server error", "error");
-        } else {
-          showToast("Network error", "error");
-        }
-
+        showToast(error.response?.data?.message || "Network error", "error");
         setData([]);
       } finally {
         setLoading(false);
+        setInitialLoading(false);
         controllerRef.current = null;
       }
     },
-    [userId], // REMOVED dateRange from dependencies
+    [userId]
   );
 
+  // ✅ FIX: Always fetch on mount, no hasFetchedRef guard
   useEffect(() => {
-    if (!hasFetchedRef.current) {
-      fetchData();
-    }
-
-    return () => {
-      if (controllerRef.current) {
-        controllerRef.current.abort();
-      }
-    };
+    fetchData();
+    return () => controllerRef.current?.abort();
   }, [fetchData]);
 
-  // Handle date range changes
-  const handleDateRangeChange = useCallback((startDate, endDate) => {
-    if (startDate && endDate) {
-      setDateRange({ startDate, endDate });
-      dispatch(setFilteredDataRequested(true));
-      dispatch(setRecruiterFilteredFlag(true));
-      
-      // Dispatch the filter action
-      dispatch(filterSubmissionsByRecruiter({
-        startDate,
-        endDate,
-        page: 0,
-        size: pagination.pageSize,
-        globalSearch,
-        ...filters
-      }));
-    } else {
-      // Clear date range filter
-      setDateRange({ startDate: null, endDate: null });
-      dispatch(setFilteredDataRequested(false));
-      dispatch(setRecruiterFilteredFlag(false));
-      dispatch(resetRecruiterFilteredSubmissions());
-      
-      // Fetch without date filter - explicitly pass null
-      fetchData(0, pagination.pageSize, globalSearch, filters, { startDate: null, endDate: null });
-    }
-  }, [dispatch, fetchData, pagination.pageSize, globalSearch, filters]);
-
-  // Handle when filtered data is available from Redux
+  // ✅ FIX: Only sync Redux filtered results into local state — no fetchData calls here
   useEffect(() => {
-    if (isRecruiterFiltered && filteredSubmissionsForRecruiter && filteredSubmissionsForRecruiter.length > 0) {
-      setData(filteredSubmissionsForRecruiter);
+    if (isRecruiterFiltered && filteredSubmissionsForRecruiter) {
+      setData([...filteredSubmissionsForRecruiter]);
       if (filteredRecruiterPagination) {
-        setPagination(filteredRecruiterPagination);
+        setPagination({ ...filteredRecruiterPagination });
       }
-    } else if (!isRecruiterFiltered && filteredSubmissionsForRecruiter && filteredSubmissionsForRecruiter.length === 0) {
-      // If no filtered data, fetch fresh data
-      fetchData(0, pagination.pageSize, globalSearch, filters);
     }
-  }, [isRecruiterFiltered, filteredSubmissionsForRecruiter, filteredRecruiterPagination, fetchData, pagination.pageSize, globalSearch, filters]);
+  }, [isRecruiterFiltered, filteredSubmissionsForRecruiter, filteredRecruiterPagination]);
 
-  // Pagination handlers
+  // ✅ FIX: Debounced search with full deps
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (dateRange.startDate && dateRange.endDate) {
+        dispatch(
+          filterSubmissionsByRecruiter({
+            startDate: dateRange.startDate,
+            endDate: dateRange.endDate,
+            page: 0,
+            size: pagination.pageSize,
+            globalSearch,
+            ...filters,
+          })
+        );
+      } else {
+        fetchData(0, pagination.pageSize, globalSearch, filters);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [globalSearch]); // Intentionally only globalSearch — debounce on typing only
+
+  const handleDateRangeChange = useCallback(
+    (startDate, endDate) => {
+      if (startDate && endDate) {
+        const newRange = { startDate, endDate };
+        setDateRange(newRange);
+        dispatch(setFilteredDataRequested(true));
+        dispatch(setRecruiterFilteredFlag(true));
+        dispatch(
+          filterSubmissionsByRecruiter({
+            startDate,
+            endDate,
+            page: 0,
+            size: pagination.pageSize,
+            globalSearch,
+            ...filters,
+          })
+        );
+      } else {
+        setDateRange({ startDate: null, endDate: null });
+        dispatch(setFilteredDataRequested(false));
+        dispatch(setRecruiterFilteredFlag(false));
+        dispatch(resetRecruiterFilteredSubmissions());
+        fetchData(0, pagination.pageSize, globalSearch, filters);
+      }
+    },
+    [dispatch, fetchData, pagination.pageSize, globalSearch, filters]
+  );
+
   const handlePageChange = useCallback(
     (newPage, newSize) => {
       if (dateRange.startDate && dateRange.endDate) {
-        dispatch(filterSubmissionsByRecruiter({
-          startDate: dateRange.startDate,
-          endDate: dateRange.endDate,
-          page: newPage,
-          size: newSize,
-          globalSearch,
-          ...filters
-        }));
+        dispatch(
+          filterSubmissionsByRecruiter({
+            startDate: dateRange.startDate,
+            endDate: dateRange.endDate,
+            page: newPage,
+            size: newSize,
+            globalSearch,
+            ...filters,
+          })
+        );
       } else {
         fetchData(newPage, newSize, globalSearch, filters);
       }
     },
-    [fetchData, dateRange, globalSearch, filters, dispatch],
+    [fetchData, dateRange, globalSearch, filters, dispatch]
   );
 
   const handleRowsPerPageChange = useCallback(
     (newSize) => {
       if (dateRange.startDate && dateRange.endDate) {
-        dispatch(filterSubmissionsByRecruiter({
-          startDate: dateRange.startDate,
-          endDate: dateRange.endDate,
-          page: 0,
-          size: newSize,
-          globalSearch,
-          ...filters
-        }));
+        dispatch(
+          filterSubmissionsByRecruiter({
+            startDate: dateRange.startDate,
+            endDate: dateRange.endDate,
+            page: 0,
+            size: newSize,
+            globalSearch,
+            ...filters,
+          })
+        );
       } else {
         fetchData(0, newSize, globalSearch, filters);
       }
     },
-    [fetchData, dateRange, globalSearch, filters, dispatch],
+    [fetchData, dateRange, globalSearch, filters, dispatch]
   );
 
-  // Filters handler
   const handleFilterChange = useCallback(
     (newFilters, page, rowsPerPage) => {
       setFilters(newFilters);
-      
       if (dateRange.startDate && dateRange.endDate) {
-        dispatch(filterSubmissionsByRecruiter({
-          startDate: dateRange.startDate,
-          endDate: dateRange.endDate,
-          page: page || 0,
-          size: rowsPerPage || pagination.pageSize,
-          globalSearch,
-          ...newFilters
-        }));
+        dispatch(
+          filterSubmissionsByRecruiter({
+            startDate: dateRange.startDate,
+            endDate: dateRange.endDate,
+            page: page || 0,
+            size: rowsPerPage || pagination.pageSize,
+            globalSearch,
+            ...newFilters,
+          })
+        );
       } else {
         fetchData(page || 0, rowsPerPage || pagination.pageSize, globalSearch, newFilters);
       }
     },
-    [fetchData, dateRange, globalSearch, pagination.pageSize, dispatch],
+    [fetchData, dateRange, globalSearch, pagination.pageSize, dispatch]
   );
 
-  // Global Search handler
-  const handleSearchChange = useCallback(
-    (searchValue, page, rowsPerPage) => {
-      setGlobalSearch(searchValue);
-      
-      if (dateRange.startDate && dateRange.endDate) {
-        dispatch(filterSubmissionsByRecruiter({
-          startDate: dateRange.startDate,
-          endDate: dateRange.endDate,
-          page: page || 0,
-          size: rowsPerPage || pagination.pageSize,
-          globalSearch: searchValue,
-          ...filters
-        }));
-      } else {
-        fetchData(page || 0, rowsPerPage || pagination.pageSize, searchValue, filters);
-      }
-    },
-    [fetchData, dateRange, filters, pagination.pageSize, dispatch],
-  );
+  const handleSearchChange = useCallback((value) => {
+    setGlobalSearch(value);
+  }, []);
 
-  // Refresh handler
   const handleRefresh = useCallback(() => {
     if (dateRange.startDate && dateRange.endDate) {
-      dispatch(filterSubmissionsByRecruiter({
-        startDate: dateRange.startDate,
-        endDate: dateRange.endDate,
-        page: pagination.currentPage,
-        size: pagination.pageSize,
-        globalSearch,
-        ...filters
-      }));
-    } else {
-      fetchData(
-        pagination.currentPage,
-        pagination.pageSize,
-        globalSearch,
-        filters
+      dispatch(
+        filterSubmissionsByRecruiter({
+          startDate: dateRange.startDate,
+          endDate: dateRange.endDate,
+          page: pagination.currentPage,
+          size: pagination.pageSize,
+          globalSearch,
+          ...filters,
+        })
       );
+    } else {
+      fetchData(pagination.currentPage, pagination.pageSize, globalSearch, filters);
     }
-  }, [
-    fetchData,
-    dateRange,
-    pagination.currentPage,
-    pagination.pageSize,
-    globalSearch,
-    filters,
-    dispatch,
-  ]);
+  }, [fetchData, dateRange, pagination, globalSearch, filters, dispatch]);
 
   return (
     <BaseSubmission
       data={data}
-      loading={loading}
+      loading={initialLoading}
       componentName="RecruiterSubmissions"
       title="My Submissions"
       refreshData={handleRefresh}
@@ -306,6 +278,7 @@ const RecruiterSubmissions = () => {
       onRowsPerPageChange={handleRowsPerPageChange}
       onFilterChange={handleFilterChange}
       onSearchChange={handleSearchChange}
+      searchValue={globalSearch}
       role={role}
       enableServerSideFiltering
       onDateRangeChange={handleDateRangeChange}
