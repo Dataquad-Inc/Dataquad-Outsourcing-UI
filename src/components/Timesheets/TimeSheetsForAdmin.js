@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
-import DataTable from '../muiComponents/DataTabel';
+import DataTablePaginated from '../muiComponents/DataTablePaginated';
 import {
   FormControl,
   InputLabel,
@@ -86,17 +86,23 @@ const TimesheetList = () => {
   const theme = useTheme();
   const navigate = useNavigate();
 
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [totalCount, setTotalCount] = useState(0);
+
   const { role } = useSelector((state) => state.auth);
   const { externalActive } = useSelector((state) => state.employee);
 
   const dispatch = useDispatch();
+  const isFetching = useRef(false);
 
   // Fetch active external users
   useEffect(() => {
     dispatch(activeExternalUsers());
   }, []);
 
-  console.log("Active external users:", externalActive);
+
 
   // Check if we should restore month/year from navigation state
   useEffect(() => {
@@ -127,22 +133,34 @@ const TimesheetList = () => {
     .endOf('month')
     .format('YYYY-MM-DD');
 
-  const fetchTimesheetData = async (start, end) => {
+  const fetchTimesheetData = async (start, end, pageNum = page, size = rowsPerPage, search = searchQuery) => {
     setLoading(true);
     setError(null);
     try {
-      const url = `/timesheet/monthly-timesheets?monthStart=${start}&monthEnd=${end}`;
-      console.log('Fetching timesheet data with URL:', url);
+      const params = new URLSearchParams({
+      monthStart: start,
+      monthEnd: end,
+      page: pageNum,
+      size: size,
+      ...(search && { search }),
+    });
+      const url = `/timesheet/monthly-timesheets?${params.toString()}`;
+      
       const response = await httpService.get(url);
 
       const rows = Array.isArray(response.data)
         ? response.data
-        : response.data?.data || [];
+        : response.data.content??[];
 
-      console.log('Received timesheet data:', rows.length, 'rows');
+      const count = Array.isArray(response.data)
+          ? response.data.length
+          : response.data.totalElements ?? rows.length;
+
+      
       setTotalTimesheetData(rows);
+      setTotalCount(count);
     } catch (err) {
-      console.error('Error fetching timesheet data:', err);
+      
       setError('Failed to fetch timesheet data');
       ToastService.error('Failed to fetch timesheet data', { type: 'error' });
     } finally {
@@ -152,13 +170,33 @@ const TimesheetList = () => {
 
   // Fetch data whenever month/year changes
   useEffect(() => {
-    fetchTimesheetData(monthStart, monthEnd);
+    if (isFetching.current) return;
+    isFetching.current = true;
+    setTimeout(() => { isFetching.current = false; }, 0);
+    fetchTimesheetData(monthStart, monthEnd, 0, rowsPerPage, searchQuery);
   }, [selectedMonth, selectedYear]);
+
+
+  const handlePageChange = (newPage, newRowsPerPage) => {
+    setPage(newPage);
+    fetchTimesheetData(monthStart, monthEnd, newPage, newRowsPerPage, searchQuery);
+  };
+
+  const handleRowsPerPageChange = (newRowsPerPage) => {
+    setRowsPerPage(newRowsPerPage);
+    setPage(0);
+  };
+
+  const handleSearchChange = (value, newPage, newRowsPerPage) => {
+    setSearchQuery(value);
+    setPage(newPage);
+    fetchTimesheetData(monthStart, monthEnd, newPage, newRowsPerPage ?? rowsPerPage, value);
+  };
 
   // Filter timesheet data to only include active external users
   const filteredTimesheetData = useMemo(() => {
     if (!externalActive || externalActive.length === 0) {
-      console.log('No active external users data available');
+      
       return [];
     }
 
@@ -169,39 +207,37 @@ const TimesheetList = () => {
         .map(emp => emp.userName?.toLowerCase().trim()) // Normalize names for comparison
     );
 
-    console.log('Active employee names:', Array.from(activeEmployeeNames));
+    
 
     // Filter timesheet data to only include employees whose names are in the active set
     const filtered = totalTimesheetData.filter(row => {
       const employeeName = row.employeeName?.toLowerCase().trim();
       const isActive = activeEmployeeNames.has(employeeName);
-      
-      if (!isActive) {
-        console.log(`Filtering out inactive employee: ${row.employeeName}`);
-      }
-      
+
+
+
       return isActive;
     });
 
-    console.log(`Filtered from ${totalTimesheetData.length} to ${filtered.length} active employees`);
+    
     return filtered;
   }, [totalTimesheetData, externalActive]);
 
   const handleMonthChange = (event) => {
     const newMonth = event.target.value;
-    console.log('Month changed to:', newMonth);
+  
     setSelectedMonth(newMonth);
   };
 
   const handleYearChange = (event) => {
     const newYear = event.target.value;
-    console.log('Year changed to:', newYear);
+    
     setSelectedYear(newYear);
   };
 
   const handleEmployeeClick = (row) => {
     try {
-      console.log('Employee click handler called with:', { row, role, selectedMonth, selectedYear });
+      
 
       if (!handleEmployeeNameClick) {
         console.error('handleEmployeeNameClick is not available');
@@ -690,13 +726,20 @@ const TimesheetList = () => {
       >
         <CardContent sx={{ p: 0 }}>
           <Box sx={{ overflow: 'auto' }}>
-            <DataTable
+            <DataTablePaginated
               title="Timesheets"
-              data={filteredTimesheetData} // Use filtered data instead of totalTimesheetData
+              data={filteredTimesheetData}
               columns={columns}
               enableSelection={false}
-              refreshData={() => { fetchTimesheetData(monthStart, monthEnd) }}
+              refreshData={() => fetchTimesheetData(monthStart, monthEnd, page, rowsPerPage, searchQuery)}
               loading={loading}
+              serverSide={true}
+              totalCount={totalCount}
+              page={page}
+              rowsPerPage={rowsPerPage}
+              onPageChange={handlePageChange}
+              onRowsPerPageChange={handleRowsPerPageChange}
+              onSearchChange={handleSearchChange}
               sx={{
                 '& .MuiTableCell-head': {
                   backgroundColor: alpha(theme.palette.primary.main, 0.05),
