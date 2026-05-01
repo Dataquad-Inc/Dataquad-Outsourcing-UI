@@ -15,6 +15,9 @@ import {
   Stack,
   Badge,
   ButtonGroup,
+  Menu,
+  MenuItem,
+  ListItemIcon,
 } from "@mui/material";
 import {
   Edit,
@@ -26,6 +29,8 @@ import {
   HowToRegRounded,
   FilterList,
   Clear,
+  FileDownload,
+  CloudDownload,
 } from "@mui/icons-material";
 import { useDispatch, useSelector } from "react-redux";
 
@@ -43,6 +48,7 @@ import DateRangeFilter from "../muiComponents/DateRangeFilter";
 import CryptoJS from "crypto-js";
 import httpService from "../../Services/httpService";
 import ToastService from "../../Services/toastService";
+import { exportFile } from "../../utils/exportFile";
 
 const PlacementsList = () => {
   const dispatch = useDispatch();
@@ -57,9 +63,11 @@ const PlacementsList = () => {
   const [placementToDelete, setPlacementToDelete] = useState(null);
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [exportMenuAnchor, setExportMenuAnchor] = useState(null);
+  const [exporting, setExporting] = useState(false);
 
   // Filter states
-  const [activeFilter, setActiveFilter] = useState("all"); // "all", "active", "inactive", "fulltime"
+  const [activeFilter, setActiveFilter] = useState("all");
   const [filteredPlacements, setFilteredPlacements] = useState([]);
 
   const decoded = atob(encryptionKey);
@@ -83,7 +91,6 @@ const PlacementsList = () => {
 
   // Process placements data to decrypt financial fields
   const processedPlacements = React.useMemo(() => {
-    // Check if placements is an array before calling map
     if (!Array.isArray(placements)) {
       console.error("placements is not an array:", placements);
       return [];
@@ -112,7 +119,6 @@ const PlacementsList = () => {
 
     switch (activeFilter) {
       case "active":
-        // Filter only active status placements, exclude full-time employment type
         filtered = processedPlacements.filter(
           (placement) =>
             placement.status === "Active" &&
@@ -120,7 +126,6 @@ const PlacementsList = () => {
         );
         break;
       case "inactive":
-        // Filter inactive status placements (all statuses except Active), exclude full-time
         filtered = processedPlacements.filter(
           (placement) =>
             placement.status !== "Active" &&
@@ -128,13 +133,11 @@ const PlacementsList = () => {
         );
         break;
       case "fulltime":
-        // Filter all full-time placements regardless of status
         filtered = processedPlacements.filter(
           (placement) => placement.employmentType === "Full-time"
         );
         break;
       default:
-        // Show all placements
         filtered = processedPlacements;
         break;
     }
@@ -228,7 +231,6 @@ const PlacementsList = () => {
     setIsLoading(true);
 
     try {
-      // ✅ Show loading toast ONLY when loading starts
       ToastService.loading("Sending Link...", {
         toastId: "sendLink",
         autoClose: false,
@@ -243,17 +245,13 @@ const PlacementsList = () => {
           )
         );
 
-        // ✅ Stop loading toast BEFORE showing success
         ToastService.dismiss("sendLink");
-
         ToastService.success("Link has been sent to email.", {
           autoClose: 4000,
         });
       }
     } catch (error) {
-      // ✅ Stop loading toast BEFORE showing error
       ToastService.dismiss("sendLink");
-
       ToastService.error(
         error?.response?.data?.message ||
         "Failed to send Link. Please try again.",
@@ -264,6 +262,147 @@ const PlacementsList = () => {
     }
   };
 
+  // Export Menu Handlers
+  const handleExportMenuOpen = (event) => {
+    setExportMenuAnchor(event.currentTarget);
+  };
+
+  const handleExportMenuClose = () => {
+    setExportMenuAnchor(null);
+  };
+
+  // Export Data Function
+  const handleExportData = async (format) => {
+    if (exporting) return;
+
+    try {
+      setExporting(true);
+      handleExportMenuClose();
+
+      const endpoint = "/placements/export"; // Update with your actual endpoint
+      
+      // Prepare export data based on current filter
+      const exportParams = {
+        format: format,
+        filter: activeFilter,
+        data: filteredPlacements.map(placement => ({
+          id: placement.id,
+          candidateFullName: placement.candidateFullName,
+          candidateEmailId: placement.candidateEmailId,
+          candidateContactNo: placement.candidateContactNo,
+          technology: placement.technology,
+          sales: placement.sales,
+          recruiterName: placement.recruiterName,
+          clientName: placement.clientName,
+          vendorName: placement.vendorName,
+          startDate: placement.startDate,
+          endDate: placement.endDate,
+          billRate: placement.billRate,
+          payRate: placement.payRate,
+          grossProfit: placement.grossProfit,
+          employmentType: placement.employmentType,
+          status: placement.status,
+        }))
+      };
+
+      const fileName = `placements_${activeFilter}_${new Date().toISOString().split("T")[0]}`;
+
+      const toastId = ToastService.loading(
+        `Exporting placements to ${format.toUpperCase()}...`
+      );
+
+      // Use the existing exportFile utility or create custom export
+      if (format === 'csv') {
+        await exportToCsv(exportParams.data, fileName);
+      } else {
+        await exportToExcel(exportParams.data, fileName);
+      }
+
+      ToastService.update(
+        toastId,
+        `Placements exported successfully as ${format.toUpperCase()}`,
+        "success"
+      );
+    } catch (error) {
+      console.error("Export error:", error);
+      ToastService.error(error?.message || "Failed to export placements");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  // CSV Export Function
+  const exportToCsv = (data, fileName) => {
+    return new Promise((resolve, reject) => {
+      try {
+        if (!data || data.length === 0) {
+          reject(new Error("No data to export"));
+          return;
+        }
+
+        const headers = Object.keys(data[0]);
+        const csvRows = [];
+
+        // Add headers
+        csvRows.push(headers.join(','));
+
+        // Add data rows
+        for (const row of data) {
+          const values = headers.map(header => {
+            const value = row[header] || '';
+            // Escape quotes and wrap in quotes if contains comma
+            const escapedValue = String(value).replace(/"/g, '""');
+            return `"${escapedValue}"`;
+          });
+          csvRows.push(values.join(','));
+        }
+
+        const csvContent = csvRows.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `${fileName}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        resolve();
+      } catch (error) {
+        reject(error);
+      }
+    });
+  };
+
+  // Excel Export Function
+  const exportToExcel = (data, fileName) => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        if (!data || data.length === 0) {
+          reject(new Error("No data to export"));
+          return;
+        }
+
+        // Use existing exportFile utility or implement with XLSX
+        const XLSX = await import('xlsx');
+        
+        const worksheet = XLSX.utils.json_to_sheet(data);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Placements");
+        
+        // Auto-size columns
+        const maxWidth = 50;
+        const wscols = Object.keys(data[0] || {}).map(() => ({ wch: 15 }));
+        worksheet['!cols'] = wscols;
+        
+        XLSX.writeFile(workbook, `${fileName}.xlsx`);
+        resolve();
+      } catch (error) {
+        reject(error);
+      }
+    });
+  };
 
   const getColor = (status) => {
     switch (status) {
@@ -301,7 +440,6 @@ const PlacementsList = () => {
     }
   };
 
-  // Always show financial data without OTP verification
   const renderFinancialField = (row, fieldName) => {
     const value = row[fieldName];
     if (typeof value === "number" && !isNaN(value)) {
@@ -334,10 +472,12 @@ const PlacementsList = () => {
           <Tooltip title="Register">
             <span>
               <IconButton
-                disabled={row.isRegister === true} // disable if already registered
+                disabled={row.isRegister === true || isLoading}
                 onClick={() => handleRegisterUser(row.id)}
               >
-                {row.login ? (
+                {isLoading ? (
+                  <CircularProgress size={20} />
+                ) : row.login ? (
                   <HowToRegRounded sx={{ color: "blue" }} />
                 ) : row.isRegister ? (
                   <HowToRegRounded sx={{ color: "green" }} />
@@ -571,6 +711,66 @@ const PlacementsList = () => {
           sx={{ ml: "auto" }}
         >
           <DateRangeFilter component="placements" />
+          
+          {/* Export Button with Loading State */}
+          <Tooltip title="Export Data">
+            <Button
+              variant="contained"
+              startIcon={exporting ? <CircularProgress size={20} color="inherit" /> : <FileDownload />}
+              onClick={handleExportMenuOpen}
+              disabled={exporting || filteredPlacements.length === 0}
+              sx={{
+                backgroundColor: "#1976d2",
+                "&:hover": {
+                  backgroundColor: "#1565c0",
+                },
+                textTransform: "none",
+              }}
+            >
+              {exporting ? "Exporting..." : "Export"}
+            </Button>
+          </Tooltip>
+
+          {/* Export Menu */}
+          <Menu
+            anchorEl={exportMenuAnchor}
+            open={Boolean(exportMenuAnchor)}
+            onClose={handleExportMenuClose}
+            PaperProps={{
+              sx: {
+                width: 180,
+                borderRadius: 2,
+              },
+            }}
+          >
+            <MenuItem
+              onClick={() => handleExportData("csv")}
+              disabled={exporting}
+            >
+              <ListItemIcon>
+                {exporting ? (
+                  <CircularProgress size={16} />
+                ) : (
+                  <CloudDownload fontSize="small" />
+                )}
+              </ListItemIcon>
+              Export to CSV
+            </MenuItem>
+            <MenuItem
+              onClick={() => handleExportData("excel")}
+              disabled={exporting}
+            >
+              <ListItemIcon>
+                {exporting ? (
+                  <CircularProgress size={16} />
+                ) : (
+                  <CloudDownload fontSize="small" />
+                )}
+              </ListItemIcon>
+              Export to Excel
+            </MenuItem>
+          </Menu>
+
           <Button
             variant="contained"
             color="primary"

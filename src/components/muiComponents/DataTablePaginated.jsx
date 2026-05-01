@@ -37,6 +37,7 @@ import {
   LightMode,
   CloudDownload,
   Send,
+  FileDownload,
 } from "@mui/icons-material";
 import * as XLSX from "xlsx";
 
@@ -125,9 +126,9 @@ const DataTablePaginated = ({
   userFilteredDataCount,
   enableLocalFiltering = false,
   onExportData,
+  enableExport = false,
   onRowsPerPageChange,
   enableServerSideFiltering = false,
-  // New prop for external search value
   searchValue = "",
 }) => {
   const processedColumns = useMemo(() => {
@@ -156,6 +157,8 @@ const DataTablePaginated = ({
   const [selectedRows, setSelectedRows] = useState([]);
   const [columnVisibilityMenu, setColumnVisibilityMenu] = useState(null);
   const [optionsMenu, setOptionsMenu] = useState(null);
+  const [exportMenu, setExportMenu] = useState(null);
+  const [exporting, setExporting] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [densePadding, setDensePadding] = useState(false);
   const [expandedRow, setExpandedRow] = useState(null);
@@ -177,7 +180,6 @@ const DataTablePaginated = ({
     ...customStyles,
   };
 
-  // Sync search input with external searchValue prop
   useEffect(() => {
     if (searchValue !== undefined) {
       setSearchInput(searchValue);
@@ -224,10 +226,6 @@ const DataTablePaginated = ({
   }, [processedColumns]);
 
   const handleChangePage = (event, newPage) => {
-    console.log(
-      `handleChangePage: newPage=${newPage}, currentRowsPerPage=${externalRowsPerPage || defaultRowsPerPage}`,
-    );
-
     if (serverSide && onPageChange) {
       onPageChange(newPage, externalRowsPerPage || defaultRowsPerPage);
     }
@@ -235,7 +233,6 @@ const DataTablePaginated = ({
 
   const handleChangeRowsPerPage = (event) => {
     const newRowsPerPage = parseInt(event.target.value, 10);
-    console.log(`handleChangeRowsPerPage: newRowsPerPage=${newRowsPerPage}`);
 
     if (serverSide) {
       if (onRowsPerPageChange) {
@@ -297,7 +294,7 @@ const DataTablePaginated = ({
     if (serverSide && onSearchChange) {
       onSearchChange(
         trimmedSearch,
-        0, // Reset to first page when searching
+        0,
         externalRowsPerPage || defaultRowsPerPage,
         orderBy,
         order,
@@ -315,7 +312,7 @@ const DataTablePaginated = ({
     const emptyValue = "";
     setSearchInput(emptyValue);
     setSearchQuery(emptyValue);
-    
+
     if (serverSide && onSearchChange) {
       onSearchChange(
         emptyValue,
@@ -408,6 +405,14 @@ const DataTablePaginated = ({
     setOptionsMenu(null);
   };
 
+  const handleExportMenuOpen = (event) => {
+    setExportMenu(event.currentTarget);
+  };
+
+  const handleExportMenuClose = () => {
+    setExportMenu(null);
+  };
+
   const toggleColumnVisibility = (columnKey) => {
     setColumns(
       columns.map((col) =>
@@ -424,7 +429,9 @@ const DataTablePaginated = ({
     setDensePadding(!densePadding);
   };
 
-  const handleExportData = (format = "csv") => {
+  const handleExportData = async (format = "csv") => {
+    if (exporting) return;
+
     if (enableFinancialValidation && !isFinancialVerified) {
       onRequestOtpVerification(() => {
         performExport(format);
@@ -432,33 +439,46 @@ const DataTablePaginated = ({
       return;
     }
 
-    performExport(format);
+    await performExport(format);
+    handleExportMenuClose();
   };
 
-  const performExport = (format) => {
-    if (serverSide && onExportData) {
-      onExportData(format, {
-        page: externalPage || 0,
-        rowsPerPage: externalRowsPerPage || defaultRowsPerPage,
-        orderBy,
-        order,
-        filters,
-        searchQuery,
-      });
-      handleOptionsMenuClose();
-      return;
+  const performExport = async (format) => {
+    try {
+      setExporting(true);
+
+      if (serverSide && onExportData) {
+        const visibleColumnsList = columns
+          .filter(col => col.visible !== false && col.key !== 'actions')
+          .map(col => col.key);
+
+        await onExportData(format, {
+          page: externalPage || 0,
+          rowsPerPage: externalRowsPerPage || defaultRowsPerPage,
+          orderBy,
+          order,
+          filters,
+          searchQuery,
+          selectedColumns: visibleColumnsList,
+          allColumns: columns
+        });
+      } else {
+        const visibleColumns = columns.filter((col) => col.visible !== false);
+        const dataToExport = serverSide ? data : filteredData;
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        if (format === "csv") {
+          exportToCsv(dataToExport, visibleColumns);
+        } else {
+          exportToExcel(dataToExport, visibleColumns);
+        }
+      }
+    } catch (error) {
+      console.error("Export error:", error);
+    } finally {
+      setExporting(false);
     }
-
-    const visibleColumns = columns.filter((col) => col.visible !== false);
-    const dataToExport = serverSide ? data : filteredData;
-
-    if (format === "csv") {
-      exportToCsv(dataToExport, visibleColumns);
-    } else {
-      exportToExcel(dataToExport, visibleColumns);
-    }
-
-    handleOptionsMenuClose();
   };
 
   const handleRowExpand = (id) => {
@@ -482,8 +502,7 @@ const DataTablePaginated = ({
     if (serverSide && onPageChange) {
       onPageChange(0, defaultRowsPerPage);
     }
-    
-    // Call external reset if needed
+
     if (serverSide && onSearchChange) {
       onSearchChange(
         emptyValue,
@@ -574,14 +593,12 @@ const DataTablePaginated = ({
   ]);
 
   const totalRowCount = serverSide ? totalCount : filteredData.length;
-
   const visibleColumns = columns.filter((column) => column.visible !== false);
-
   const shouldShowFilters =
     !serverSide || enableLocalFiltering || enableServerSideFiltering;
 
   return (
-    <Box sx={{ width: tableWidth }}>
+    <Box sx={{ width: customTableWidth || "100%" }}>
       <Paper
         elevation={3}
         sx={{
@@ -680,6 +697,68 @@ const DataTablePaginated = ({
               placeholder="Search..."
               disabled={serverSide && !onSearchChange}
             />
+
+            {enableExport && (
+              <Tooltip title="Export Data">
+                <Button
+                  variant="contained"
+                  startIcon={exporting ? <CircularProgress size={20} color="inherit" /> : <FileDownload />}
+                  onClick={handleExportMenuOpen}
+                  disabled={exporting}
+                  sx={{
+                    backgroundColor: primaryColor,
+                    "&:hover": {
+                      backgroundColor: alpha(primaryColor, 0.8),
+                    },
+                    textTransform: "none",
+                  }}
+                >
+                  {exporting ? "Exporting..." : "Export"}
+                </Button>
+              </Tooltip>
+            )}
+
+            {enableExport && (
+              <Menu
+                anchorEl={exportMenu}
+                open={Boolean(exportMenu)}
+                onClose={handleExportMenuClose}
+                PaperProps={{
+                  sx: {
+                    width: 180,
+                    backgroundColor: darkMode ? "#444" : "#fff",
+                    color: darkMode ? "#fff" : "#333",
+                  },
+                }}
+              >
+                <MenuItem
+                  onClick={() => handleExportData("csv")}
+                  disabled={(enableFinancialValidation && !isFinancialVerified) || exporting}
+                >
+                  <ListItemIcon>
+                    {exporting ? (
+                      <CircularProgress size={16} />
+                    ) : (
+                      <CloudDownload fontSize="small" />
+                    )}
+                  </ListItemIcon>
+                  Export to CSV
+                </MenuItem>
+                <MenuItem
+                  onClick={() => handleExportData("excel")}
+                  disabled={(enableFinancialValidation && !isFinancialVerified) || exporting}
+                >
+                  <ListItemIcon>
+                    {exporting ? (
+                      <CircularProgress size={16} />
+                    ) : (
+                      <CloudDownload fontSize="small" />
+                    )}
+                  </ListItemIcon>
+                  Export to Excel
+                </MenuItem>
+              </Menu>
+            )}
 
             {shouldShowFilters && (
               <Tooltip title="Show/Hide Filters">
@@ -838,19 +917,27 @@ const DataTablePaginated = ({
               <Divider />
               <MenuItem
                 onClick={() => handleExportData("csv")}
-                disabled={enableFinancialValidation && !isFinancialVerified}
+                disabled={(enableFinancialValidation && !isFinancialVerified) || exporting}
               >
                 <ListItemIcon>
-                  <CloudDownload fontSize="small" />
+                  {exporting ? (
+                    <CircularProgress size={16} />
+                  ) : (
+                    <CloudDownload fontSize="small" sx={{ color: darkMode ? "#fff" : "#333" }} />
+                  )}
                 </ListItemIcon>
                 Export to CSV
               </MenuItem>
               <MenuItem
                 onClick={() => handleExportData("excel")}
-                disabled={enableFinancialValidation && !isFinancialVerified}
+                disabled={(enableFinancialValidation && !isFinancialVerified) || exporting}
               >
                 <ListItemIcon>
-                  <CloudDownload fontSize="small" />
+                  {exporting ? (
+                    <CircularProgress size={16} />
+                  ) : (
+                    <CloudDownload fontSize="small" sx={{ color: darkMode ? "#fff" : "#333" }} />
+                  )}
                 </ListItemIcon>
                 Export to Excel
               </MenuItem>
@@ -869,10 +956,37 @@ const DataTablePaginated = ({
           </Box>
         </Toolbar>
 
+        {showFilters && shouldShowFilters && (
+          <Box sx={{ p: 2, borderTop: `1px solid ${alpha(tableStyles.paper.color, 0.1)}` }}>
+            <Typography variant="subtitle2" gutterBottom>
+              Filters
+            </Typography>
+            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, alignItems: "center" }}>
+              {visibleColumns
+                .filter((col) => col.filterable)
+                .map((column) => (
+                  <TextField
+                    key={column.key}
+                    label={column.label}
+                    size="small"
+                    value={filters[column.key] || ""}
+                    onChange={(e) => handleFilterChange(column.key, e.target.value)}
+                    sx={{ minWidth: 150 }}
+                  />
+                ))}
+              {Object.keys(filters).length > 0 && (
+                <Button size="small" onClick={clearAllFilters}>
+                  Clear All
+                </Button>
+              )}
+            </Box>
+          </Box>
+        )}
+
         <TableContainer
           sx={{
             height: tableHeight,
-            width: tableWidth,
+            width: "100%",
             overflow: "auto",
             position: "relative",
             maxHeight: "calc(100vh - 70px)",
@@ -949,9 +1063,16 @@ const DataTablePaginated = ({
                     sx={{
                       color: tableStyles.headerText,
                       whiteSpace: "nowrap",
+                      cursor: column.sortable ? "pointer" : "default",
                     }}
+                    onClick={() => column.sortable && handleSort(column.key)}
                   >
                     {column.label}
+                    {column.sortable && orderBy === column.key && (
+                      <span style={{ marginLeft: 4 }}>
+                        {order === "asc" ? "↑" : "↓"}
+                      </span>
+                    )}
                   </TableCell>
                 ))}
               </TableRow>
@@ -982,14 +1103,14 @@ const DataTablePaginated = ({
                         hover
                         onClick={(event) => {
                           if (onRowClick) onRowClick(row);
-                          handleRowExpand(rowId);
+                          if (row.expandContent) handleRowExpand(rowId);
                         }}
                         role="checkbox"
                         aria-checked={isItemSelected}
                         tabIndex={-1}
                         selected={isItemSelected}
                         sx={{
-                          cursor: "pointer",
+                          cursor: row.expandContent ? "pointer" : "default",
                           "&.MuiTableRow-root.Mui-selected": {
                             backgroundColor: tableStyles.selectedRow,
                           },

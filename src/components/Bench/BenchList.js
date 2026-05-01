@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import httpService, { API_BASE_URL } from '../../Services/httpService';
 import DataTablePaginated from '../muiComponents/DataTablePaginated';
 import DownloadResume from '../../utils/DownloadResume';
+import { exportFile } from '../../utils/exportFile';
 
 import {
   Box,
@@ -30,8 +31,6 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import ToastService from '../../Services/toastService';
 import BenchCandidateForm from './BenchForm';
 import CandidateDetails from './CandidateDetails';
-import { useDispatch, useSelector } from 'react-redux';
-import { filterBenchListByDateRange, setFilteredDataRequested } from '../../redux/benchSlice';
 import { User2Icon } from 'lucide-react';
 import InternalFeedbackCell from '../Interviews/FeedBack';
 
@@ -44,6 +43,7 @@ const BenchList = () => {
   const [candidateToDelete, setCandidateToDelete] = useState(null);
   const [downloadingResume, setDownloadingResume] = useState(false);
   const [loadingBenchRegister, setLoadingBenchRegister] = useState(null);
+  const [exportingBench, setExportingBench] = useState(false);
 
   // Form handling states
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -56,16 +56,12 @@ const BenchList = () => {
 
   // Search state
   const [searchKeyword, setSearchKeyword] = useState('');
+  
+  // Date filter states for export
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
 
-  const { isFilteredDataRequested, filteredBenchList } = useSelector((state) => state.bench);
-
-  const [anchorEl, setAnchorEl] = useState(null);
-  const handleMenuOpen = (event) => setAnchorEl(event.currentTarget);
-  const handleMenuClose = () => setAnchorEl(null);
-
-  const dispatch = useDispatch();
   const isUpdating = useRef(false);
-
 
   const fetchBenchList = useCallback(async (currentPage, currentRowsPerPage, search) => {
     try {
@@ -80,18 +76,14 @@ const BenchList = () => {
         params.search = search.trim();
       }
 
-      
       const response = await httpService.get('/candidate/bench/getBenchList', params);
 
       const responseData = response.data;
       const data = Array.isArray(responseData) ? responseData : (responseData.data || []);
       const total = Array.isArray(responseData) ? responseData.length : (responseData.totalItems || 0);
 
-      
-
       setBenchData(data);
       setTotalCount(total);
-      ToastService.success(`Loaded ${data?.length || 0} bench candidates (Total: ${total})`);
     } catch (error) {
       console.error('Failed to fetch bench list:', error);
       ToastService.error('Failed to load bench candidates');
@@ -112,7 +104,7 @@ const BenchList = () => {
     setTimeout(() => {
       isUpdating.current = false;
     }, 0);
-  }, [page, rowsPerPage, searchKeyword]);
+  }, [page, rowsPerPage, searchKeyword, fetchBenchList]);
 
   const handleView = (row) => {
     setSelectedCandidate({
@@ -128,18 +120,6 @@ const BenchList = () => {
     });
     setIsViewModalOpen(true);
     ToastService.info(`Viewing details for ${row.fullName}`);
-  };
-
-  const toggleFilter = (filterKey) => {
-    if (selectedCandidate) {
-      setSelectedCandidate({
-        ...selectedCandidate,
-        filterCriteria: {
-          ...selectedCandidate.filterCriteria,
-          [filterKey]: !selectedCandidate.filterCriteria[filterKey]
-        }
-      });
-    }
   };
 
   const handleAdd = () => {
@@ -189,65 +169,58 @@ const BenchList = () => {
 
   const handleRowsPerPageChange = (newRowsPerPage) => { 
     setRowsPerPage(newRowsPerPage);
-    setPage(0); // Reset to first page on rows-per-page change
+    setPage(0);
   };
 
   const handleSearch = (keyword) => {
     setSearchKeyword(keyword);
-    setPage(0); // Reset to first page on new search
+    setPage(0);
   };
 
-const handleBenchCandidate = async (candidate) => {
-  let toastId;
+  const handleBenchCandidate = async (candidate) => {
+    let toastId;
 
-  try {
-    const payload = {
-      email: candidate.email,
-      fullName: candidate.fullName,
-      phone: candidate.contactNumber,
-      status: "ACTIVE",
-      role: "BENCH",
-    };
+    try {
+      const payload = {
+        email: candidate.email,
+        fullName: candidate.fullName,
+        phone: candidate.contactNumber,
+        status: "ACTIVE",
+        role: "BENCH",
+      };
 
-    setLoadingBenchRegister(candidate.id);
+      setLoadingBenchRegister(candidate.id);
 
-    // Show loading toast
-    toastId = ToastService.loading("Sending register request...");
+      toastId = ToastService.loading("Sending register request...");
 
-    // Delay for checking loading state
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    const response = await httpService.post(
-      "/candidate/register",
-      payload
-    );
+      const response = await httpService.post("/candidate/register", payload);
 
-    // Update loading toast to success
-    ToastService.update(
-      toastId,
-      "Register request sent successfully",
-      "success"
-    );
+      ToastService.update(
+        toastId,
+        "Register request sent successfully",
+        "success"
+      );
 
-    fetchBenchList(page, rowsPerPage, searchKeyword);
+      fetchBenchList(page, rowsPerPage, searchKeyword);
 
-    console.log("API Response:", response?.data);
+      console.log("API Response:", response?.data);
 
-  } catch (error) {
-    // Update loading toast to error
-    ToastService.update(
-      toastId,
-      error?.response?.data?.error?.errorMessage ||
-      error?.response?.data?.message ||
-      "Failed to send register request",
-      "error",
-      { autoClose: 5000 }
-    );
+    } catch (error) {
+      ToastService.update(
+        toastId,
+        error?.response?.data?.error?.errorMessage ||
+        error?.response?.data?.message ||
+        "Failed to send register request",
+        "error",
+        { autoClose: 5000 }
+      );
 
-  } finally {
-    setLoadingBenchRegister(null);
-  }
-};
+    } finally {
+      setLoadingBenchRegister(null);
+    }
+  };
 
   const generateColumns = (loading = false) => [
     {
@@ -507,6 +480,46 @@ const handleBenchCandidate = async (candidate) => {
     },
   ];
 
+  const handleExportBenchData = async (format, exportParams) => {
+    if (exportingBench) return;
+
+    try {
+      setExportingBench(true);
+
+      const endpoint = "/candidate/bench/getBenchList";
+      const params = {
+        page: 0,
+        size: totalCount,
+        ...(exportParams?.searchQuery && { search: exportParams.searchQuery }),
+      };
+
+      if (startDate) {
+        params.startDate = startDate.toISOString();
+      }
+
+      if (endDate) {
+        params.endDate = endDate.toISOString();
+      }
+
+      const fileName = `bench_candidates_${new Date().toISOString().split("T")[0]}`;
+
+      await exportFile(
+        endpoint,
+        fileName,
+        format,
+        params,
+        exportParams?.selectedColumns,
+      );
+    } catch (error) {
+      console.error("Bench export error:", error);
+      ToastService.error(
+        error?.response?.data?.message || "Failed to export bench data",
+      );
+    } finally {
+      setExportingBench(false);
+    }
+  };
+  
   return (
     <>
       <Stack
@@ -556,9 +569,10 @@ const handleBenchCandidate = async (candidate) => {
         searchValue={searchKeyword}
         enableLocalFiltering={false}
         enableServerSideFiltering={false}
+        enableExport={true} 
+        onExportData={handleExportBenchData} 
       />
 
-      {/* Add / Edit Form */}
       <BenchCandidateForm
         open={isFormOpen}
         onClose={handleFormClose}
@@ -569,7 +583,6 @@ const handleBenchCandidate = async (candidate) => {
         }
       />
 
-      {/* View Modal */}
       <Dialog
         open={isViewModalOpen}
         onClose={() => {
@@ -602,7 +615,6 @@ const handleBenchCandidate = async (candidate) => {
         </DialogActions>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
       <Dialog
         open={deleteDialogOpen}
         onClose={() => setDeleteDialogOpen(false)}

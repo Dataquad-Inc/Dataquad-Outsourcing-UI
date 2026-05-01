@@ -45,6 +45,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { fetchAllRequirementsBDM, fetchRequirementsBdmSelf, setFilteredReqDataRequested, filterRequirementsByDateRange, filterRequirementsByDateRangeForBDMSelf } from "../../redux/requirementSlice";
 import { Send } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { exportFile } from "../../utils/exportFile";
 
 const Requirements = () => {
   const [data, setData] = useState([]);
@@ -913,6 +914,56 @@ useEffect(() => {
     }))
   : processedData;
 
+const handleExportData = (format, exportParams) => {
+  let endpoint = '';
+  
+  // Determine endpoint based on role
+  if (role === "SUPERADMIN") {
+    endpoint = "/requirements/getAssignments";
+  } else if (role === "TEAMLEAD") {
+    endpoint = `/requirements/teamleadrequirements/${userId}`;
+  } else if (role === "COORDINATOR") {
+    endpoint = `/requirements/coordinatorRequirements/${userId}`;
+  } else if (role === "BDM") {
+    endpoint = isAllData
+      ? "/requirements/getAssignments"
+      : `/requirements/bdmrequirements/${userId}`;
+  } else {
+    ToastService.error("Unauthorized role for export");
+    return;
+  }
+
+  // Build params for export - get ALL records
+  const params = {
+    page: 0,
+    size: totalCount, 
+    ...(exportParams.searchQuery && { search: exportParams.searchQuery }),
+  };
+
+  // Add date filters if applied
+  if (startDate) {
+    params.startDate = startDate.toISOString();
+  }
+  if (endDate) {
+    params.endDate = endDate.toISOString();
+  }
+
+  const fileName = `requirements_${new Date().toISOString().split('T')[0]}`;
+  
+  // Show loading toast
+  const toastId = ToastService.loading(`Exporting to ${format.toUpperCase()}...`);
+  
+  // Call export utility with selected columns
+  exportFile(endpoint, fileName, format, params, exportParams.selectedColumns)
+    .then(() => {
+      ToastService.update(toastId, "Export completed successfully", "success");
+    })
+    .catch((error) => {
+      console.error("Export error:", error);
+      ToastService.update(toastId, "Export failed", "error");
+    });
+};
+
   return (
     <>
       <ToastContainer />
@@ -1001,6 +1052,9 @@ useEffect(() => {
           onSearchChange={handleSearch}
           searchValue={searchKeyword}
           enableServerSideFiltering={true}
+          //--exporting data 
+          enableExport={true} 
+          onExportData={handleExportData}
         />
       )}
 
