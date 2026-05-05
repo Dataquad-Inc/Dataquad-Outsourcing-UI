@@ -69,6 +69,9 @@ const OnBoardClient = lazy(() => import("../components/Clients/OnBoardClient"));
 const PlacementsList = lazy(
   () => import("../components/Placements/PlacementList"),
 );
+const UsPlacementsList = lazy(
+  () => import("../components/UsPlacements/PlacementList"),
+);
 const BenchList = lazy(() => import("../components/Bench/BenchList"));
 const TeamMetrices = lazy(
   () => import("../components/TeamMetrics/TeamMetrices"),
@@ -501,6 +504,21 @@ const routeConfig = [
               />
             ),
             children: [{ index: true, element: Loadable(PlacementsList) }],
+          },
+
+          
+          // PLACEMENTS (US)
+          {
+            path: "us-placements",
+            element: (
+              <ProtectedRoute
+                allowedRoles={[
+                  "SUPERADMIN",
+                ]}
+                allowedEntities={["US"]}
+              />
+            ),
+            children: [{ index: true, element: Loadable(UsPlacementsList) }],
           },
 
           // IN PROGRESS (IN)

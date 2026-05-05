@@ -85,4 +85,11 @@ export const usNavItems = (role) => [
     icon: <EventNoteIcon />,
     roles: ["SUPERADMIN", "SALESEXECUTIVE", "TEAMLEAD"],
   },
+  
+  {
+    text: "Placements",
+    path: "us-placements", // Fixed path
+    icon: <PersonAddIcon />,
+    roles: ["SUPERADMIN"],
+  },
 ];

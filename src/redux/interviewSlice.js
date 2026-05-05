@@ -1,5 +1,20 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import httpService from "../Services/httpService";
+import { interviewsAPI } from "../utils/api";
+
+export const fetchRTRInterviews = createAsyncThunk(
+  "interviews/fetchRTRInterviews",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await interviewsAPI.getAllInterviews();
+      console.log("RTR Interviews API response: intrvwslice", response);
+      return response.data?.content || response?.data || [];
+    } catch (error) {
+      console.log(error,"err in rtrintslice");
+      return rejectWithValue(error.response?.data?.message || "Failed to fetch RTR interviews");
+    }
+  }
+);
 
 export const fetchInterviewsTeamLead = createAsyncThunk(
   "interviews/teamlead",
@@ -95,6 +110,7 @@ const interviewSlice = createSlice({
   name: "interview",
   initialState: {
     loading: false,
+    rtrInterviews: [],
     selfInterviewsTL: [],
     teamInterviewsTL: [],
     filteredInterviewList: [],
@@ -165,6 +181,21 @@ const interviewSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // Fetch RTR Interviews
+      .addCase(fetchRTRInterviews.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchRTRInterviews.fulfilled, (state, action) => {
+        console.log("RTR Interviews fetched successfully: ", action.payload);
+        state.loading = false;
+        state.rtrInterviews = Array.isArray(action.payload) ? action.payload : [];
+      })
+      .addCase(fetchRTRInterviews.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || "Failed to fetch RTR interviews";
+      })
+
       // Teamlead interviews
       .addCase(fetchInterviewsTeamLead.pending, (state) => {
         state.loading = true;
