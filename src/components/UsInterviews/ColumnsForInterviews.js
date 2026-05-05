@@ -1,4 +1,5 @@
 import React from 'react';
+import { useDispatch } from 'react-redux';
 import {
   Link,
   Chip,
@@ -10,6 +11,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon
 } from '@mui/icons-material';
+import { getStatusChip } from '../../utils/statusUtils';
 
 const ColumnsForInterviews = ({ onEdit, onDelete, userRole = 'all', showActions = true } = {}) => {
   const safeOnEdit = onEdit || (() => console.log('Edit function not provided'));
@@ -104,18 +106,7 @@ const ColumnsForInterviews = ({ onEdit, onDelete, userRole = 'all', showActions 
         { value: 'Rescheduled', label: 'Rescheduled' },
         { value: 'Rejected', label: 'Rejected' },
       ],
-      render: (value) => (
-        <Chip
-          label={value}
-          color={
-            value === 'Completed' ? 'success' :
-              value === 'Scheduled' ? 'primary' :
-                value === ('Cancelled' || 'Rejected') ? 'error' :
-                  value === 'Rescheduled' ? 'warning' : 'default'                  
-          }
-          variant="outlined"
-          size="small"
-        />
+      render: (_,row) => ( getStatusChip(row.interviewStatus, row, "us")
       ),
     },
     {

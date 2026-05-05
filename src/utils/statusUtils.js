@@ -26,7 +26,7 @@ export const getStatusColor = (status) => {
 };
 
 // Create a separate component for the status chip that can use hooks
-const StatusChipWithDispatch = ({ status, row }) => {
+const StatusChipWithDispatch = ({ status, row, isUs }) => {
   const dispatch = useDispatch();
   const normalized = status?.trim().toUpperCase();
   const isMovedToPlacement = row.isPlaced || row.placed;
@@ -65,7 +65,7 @@ const StatusChipWithDispatch = ({ status, row }) => {
     return (
       <Button 
         variant="contained" 
-        onClick={() => validateIfPlaced(status, row, dispatch)}
+        onClick={() => validateIfPlaced(status, row, dispatch, isUs)}
       >
         Add to Placement
       </Button>
@@ -93,9 +93,9 @@ const StatusChipWithDispatch = ({ status, row }) => {
   );
 };
 
-export const getStatusChip = (status, row) => {
+export const getStatusChip = (status, row, isUs) => {
   // Remove dispatch parameter and use the component instead
-  return <StatusChipWithDispatch status={status} row={row} />;
+  return <StatusChipWithDispatch status={status} row={row} isUs={isUs} />;
 };
 
 // interview levels and other functions remain the same...

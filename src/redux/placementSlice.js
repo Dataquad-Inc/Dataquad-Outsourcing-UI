@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import httpService from "../Services/httpService";
 import ToastService from "../Services/toastService";
+import { fetchRTRInterviews } from "./interviewSlice";
 
 const formatDateForAPI = (dateStr) => {
   if (!dateStr) return null;
@@ -107,6 +108,31 @@ export const fetchPlacements = createAsyncThunk(
   }
 );
 
+
+export const fetchUsPlacements = createAsyncThunk(
+  "placement/fetchUsPlacements",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await httpService.get(
+        "/candidate/us-placement/placements-list"
+      );
+      const rawData = response?.data?.data || response?.data || [];
+      const formattedData = rawData.map((item) => ({
+        ...item,
+        startDate: item.startDate ? formatDateForUI(item.startDate) : "",
+        endDate: item.endDate ? formatDateForUI(item.endDate) : "",
+      }));
+
+      return formattedData;
+    } catch (error) {
+      ToastService.error("Failed to load placement data. Please try again.");
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch placements"
+      );
+    }
+  }
+);
+
 // Async thunk to create a new placement
 export const createPlacement = createAsyncThunk(
   "placement/createPlacement",
@@ -194,6 +220,97 @@ export const updatePlacement = createAsyncThunk(
   }
 );
 
+// Async thunk to create a US placement
+export const createUsPlacement = createAsyncThunk(
+  "placement/createUsPlacement",
+  async (placementData, { rejectWithValue, dispatch, getState }) => {
+    try {
+      const state = getState();
+      const userId = state.auth.userId;
+      const submissionValues = {
+        ...placementData,
+        startDate: placementData.startDate
+          ? formatDateForAPI(placementData.startDate)
+          : null,
+        endDate: placementData.endDate
+          ? formatDateForAPI(placementData.endDate)
+          : null,
+      };
+
+      const response = await httpService.post(
+        `/candidate/us-placement/create-placement/${userId}`,
+        submissionValues
+      );
+
+      if (response.data.success) {
+        ToastService.success("New US placement created successfully!");
+        // Refetch US placements after creating a new one
+        dispatch(fetchUsPlacements());
+        
+        // Fetch RTR interviews from hotlist/rtrInterviews-list
+        dispatch(fetchRTRInterviews());
+        
+        return response.data;
+      } else {
+        throw new Error(response.data.error || "Failed to create US placement");
+      }
+    } catch (error) {
+      ToastService.error(
+        error.response?.data?.message ||
+          "Failed to create US placement. Please try again."
+      );
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to create US placement"
+      );
+    }
+  }
+);
+
+// Async thunk to update a US placement
+export const updateUsPlacement = createAsyncThunk(
+  "placement/updateUsPlacement",
+  async ({ id, placementData }, { rejectWithValue, dispatch, getState }) => {
+    try {
+      const submissionValues = {
+        ...placementData,
+        startDate: placementData.startDate
+          ? formatDateForAPI(placementData.startDate)
+          : null,
+        endDate: placementData.endDate
+          ? formatDateForAPI(placementData.endDate)
+          : null,
+      };
+      
+      const state = getState();
+      const userId = state.auth.userId;
+      const response = await httpService.put(
+        `/candidate/us-placement/update-placement/${id}/${userId}`,
+        submissionValues
+      );
+
+      if (response.success || response.data?.success) {
+        const { message, data } = response.data || response;
+        ToastService.success(
+          `${message}! Candidate ID: ${data.id}, Name: ${data.candidateFullName}`
+        );
+        // Refetch US placements after updating
+        dispatch(fetchUsPlacements());
+        return response;
+      } else {
+        throw new Error(response.data.error || "Failed to update US placement");
+      }
+    } catch (error) {
+      ToastService.error(
+        error.response?.message ||
+          "Failed to update US placement. Please try again."
+      );
+      return rejectWithValue(
+        error.response?.message || "Failed to update US placement"
+      );
+    }
+  }
+);
+
 // Async thunk to delete a placement
 export const deletePlacement = createAsyncThunk(
   "placement/deletePlacement",
@@ -218,6 +335,35 @@ export const deletePlacement = createAsyncThunk(
       );
       return rejectWithValue(
         error.response?.data?.message || "Failed to delete placement"
+      );
+    }
+  }
+);
+
+// Async thunk to delete a US placement
+export const deleteUsPlacement = createAsyncThunk(
+  "placement/deleteUsPlacement",
+  async (id, { rejectWithValue, dispatch }) => {
+    try {
+      const response = await httpService.delete(
+        `/candidate/us-placement/delete-placement/${id}`
+      );
+
+      if (response.success || response.data?.success) {
+        ToastService.success("US Placement deleted successfully!");
+        // Refetch US placements after deleting
+        dispatch(fetchUsPlacements());
+        return response;
+      } else {
+        throw new Error(response.error || "Failed to delete US placement");
+      }
+    } catch (error) {
+      ToastService.error(
+        error.response?.message ||
+          "Failed to delete US placement. Please try again."
+      );
+      return rejectWithValue(
+        error.response?.message || "Failed to delete US placement"
       );
     }
   }
@@ -252,6 +398,7 @@ export const filterPlacementByDateRange = createAsyncThunk(
 
 const initialState = {
   placements: [],
+  usPlacements: [],
   loading: false,
   error: null,
   success: false,
@@ -324,6 +471,23 @@ const placementSlice = createSlice({
         state.actionType = null;
       })
 
+        .addCase(fetchUsPlacements.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+        state.actionType = "fetch";
+      })
+      .addCase(fetchUsPlacements.fulfilled, (state, action) => {
+        state.loading = false;
+        state.usPlacements = action.payload;
+        state.actionType = null;
+        state.isFiltered = false; // Reset filter state when fetching all data
+      })
+      .addCase(fetchUsPlacements.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+        state.actionType = null;
+      })
+
       // Create placement
       .addCase(createPlacement.pending, (state) => {
         state.loading = true;
@@ -363,6 +527,45 @@ const placementSlice = createSlice({
         state.actionType = null;
       })
 
+      // Create US placement
+      .addCase(createUsPlacement.pending, (state) => {
+        state.loading = true;
+        state.success = false;
+        state.error = null;
+        state.actionType = "create";
+      })
+      .addCase(createUsPlacement.fulfilled, (state) => {
+        state.loading = false;
+        state.success = true;
+        state.actionType = null;
+      })
+      .addCase(createUsPlacement.rejected, (state, action) => {
+        state.loading = false;
+        state.success = false;
+        state.error = action.payload;
+        state.actionType = null;
+      })
+
+      // Update US placement
+      .addCase(updateUsPlacement.pending, (state) => {
+        state.loading = true;
+        state.success = false;
+        state.error = null;
+        state.actionType = "update";
+      })
+      .addCase(updateUsPlacement.fulfilled, (state) => {
+        state.loading = false;
+        state.success = true;
+        state.actionType = null;
+        state.selectedPlacement = null;
+      })
+      .addCase(updateUsPlacement.rejected, (state, action) => {
+        state.loading = false;
+        state.success = false;
+        state.error = action.payload;
+        state.actionType = null;
+      })
+
       // Delete placement
       .addCase(deletePlacement.pending, (state) => {
         state.loading = true;
@@ -376,6 +579,25 @@ const placementSlice = createSlice({
         state.actionType = null;
       })
       .addCase(deletePlacement.rejected, (state, action) => {
+        state.loading = false;
+        state.success = false;
+        state.error = action.payload;
+        state.actionType = null;
+      })
+
+      // Delete US placement
+      .addCase(deleteUsPlacement.pending, (state) => {
+        state.loading = true;
+        state.success = false;
+        state.error = null;
+        state.actionType = "delete";
+      })
+      .addCase(deleteUsPlacement.fulfilled, (state) => {
+        state.loading = false;
+        state.success = true;
+        state.actionType = null;
+      })
+      .addCase(deleteUsPlacement.rejected, (state, action) => {
         state.loading = false;
         state.success = false;
         state.error = action.payload;
