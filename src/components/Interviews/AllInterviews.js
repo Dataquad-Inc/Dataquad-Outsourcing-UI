@@ -43,6 +43,7 @@ import DownloadResume from "../../utils/DownloadResume";
 import { API_BASE_URL } from "../../Services/httpService";
 import InterviewFormWrapper from "./InterviewFormWrapper";
 import DateRangeFilter from "../muiComponents/DateRangeFilter";
+import ExportButton from "../../utils/ExportButton";
 
 
 const AllInterviews = () => {
@@ -665,44 +666,61 @@ const AllInterviews = () => {
   return (
     <>
       <Stack
-        direction="row"
-        alignItems="center"
-        spacing={2}
-        sx={{
-          flexWrap: "wrap",
-          mb: 3,
-          justifyContent: "space-between",
-          p: 2,
-          backgroundColor: "#f9f9f9",
-          borderRadius: 2,
-          boxShadow: 1,
-        }}
-      >
-        <Typography variant="h6" color="primary">
-          {showCoordinatorView
-            ? "Coordinator Interviews"
-            : "Interviews Management"}
-        </Typography>
-        <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-          <Button
-            variant={showCoordinatorView ? "contained" : "outlined"}
-            startIcon={<CoordinatorIcon />}
-            onClick={handleCoordinatorViewToggle}
-            sx={{
-              color: showCoordinatorView ? "white" : "#1976d2",
-              borderColor: "#1976d2",
-              backgroundColor: showCoordinatorView ? "#1976d2" : "transparent",
-              "&:hover": {
-                borderColor: "#1565c0",
-                backgroundColor: showCoordinatorView ? "#1565c0" : "#e3f2fd",
-              },
-            }}
-          >
-            {showCoordinatorView ? "Regular View" : "Coordinator View"}
-          </Button>
-          <DateRangeFilter component="allInterviews" />
-        </Box>
-      </Stack>
+  direction="row"
+  alignItems="center"
+  justifyContent="space-between"
+  spacing={2}
+  sx={{
+    flexWrap: "wrap",
+    mb: 3,
+    p: 2,
+    backgroundColor: "#f9f9f9",
+    borderRadius: 2,
+    boxShadow: 1,
+    gap: 2,
+  }}
+>
+  {/* Left: Title */}
+  <Typography variant="h6" color="primary">
+    {showCoordinatorView
+      ? "Coordinator Interviews"
+      : "Interviews Management"}
+  </Typography>
+
+  {/* Right: Actions */}
+  <Box
+    sx={{
+      display: "flex",
+      gap: 2,
+      alignItems: "center",
+      flexWrap: "wrap",
+    }}
+  >
+    <ExportButton
+      apiUrl={`/candidate/interviews/interviewsByUserId/${userId}`}
+      fileName="allinterviews"
+    />
+
+    <Button
+      variant={showCoordinatorView ? "contained" : "outlined"}
+      startIcon={<CoordinatorIcon />}
+      onClick={handleCoordinatorViewToggle}
+      sx={{
+        color: showCoordinatorView ? "#fff" : "#1976d2",
+        borderColor: "#1976d2",
+        backgroundColor: showCoordinatorView ? "#1976d2" : "transparent",
+        "&:hover": {
+          borderColor: "#1565c0",
+          backgroundColor: showCoordinatorView ? "#1565c0" : "#e3f2fd",
+        },
+      }}
+    >
+      {showCoordinatorView ? "Regular View" : "Coordinator View"}
+    </Button>
+
+    <DateRangeFilter component="allInterviews" />
+  </Box>
+</Stack>
 
       {!showCoordinatorView && (
         <Box sx={{ mb: 2, display: "flex", justifyContent: "start" }}>
@@ -733,7 +751,7 @@ const AllInterviews = () => {
               },
             }}
           >
-            <ToggleButton value="ALL" aria-label="all interviews" >
+            <ToggleButton value="ALL" aria-label="all interviews">
               ALL
             </ToggleButton>
             <ToggleButton value="INTERNAL" aria-label="internal interviews">
@@ -775,8 +793,15 @@ const AllInterviews = () => {
           <DataTable
             data={processedData}
             columns={getTableColumns()}
-            title={showCoordinatorView ? "Coordinator Interviews" : levelFilter === "INTERNAL" ? "Internal Interviews" : levelFilter === "EXTERNAL" 
-              ? "External Interviews" : "Interviews"}
+            title={
+              showCoordinatorView
+                ? "Coordinator Interviews"
+                : levelFilter === "INTERNAL"
+                  ? "Internal Interviews"
+                  : levelFilter === "EXTERNAL"
+                    ? "External Interviews"
+                    : "Interviews"
+            }
             loading={loading || coordinatorLoading}
             enableSelection={false}
             defaultSortColumn="interviewDateTime"
@@ -792,7 +817,6 @@ const AllInterviews = () => {
               rowHover: "#f5f5f5",
               selectedRow: "#e3f2fd",
             }}
-           
           />
 
           <Drawer

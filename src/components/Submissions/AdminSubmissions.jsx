@@ -5,6 +5,8 @@ import { showToast } from "../../utils/ToastNotification";
 import BaseSubmission from "./BaseSubmission";
 import { filterSubmissionsByDateRange, setFilteredFlag } from "../../redux/submissionSlice";
 import { setFilteredDataRequested } from "../../redux/benchSlice";
+import { exportFile } from "../../utils/exportFile";
+
 
 const AdminSubmissions = () => {
   const [data, setData] = useState([]);
@@ -22,6 +24,7 @@ const AdminSubmissions = () => {
     endDate: null
   });
   const [initialLoading, setInitialLoading] = useState(true);
+  const [exportLoading, setExportLoading] = useState(false);
 
   const { role } = useSelector((state) => state.auth);
   const { filteredSubmissionsList, filteredSubmissionsPagination, isFiltered } = useSelector((state) => state.submission);
@@ -266,32 +269,80 @@ useEffect(() => {
 
   // Refresh handler
   const handleRefresh = useCallback(() => {
-    if (dateRange.startDate && dateRange.endDate) {
-      dispatch(filterSubmissionsByDateRange({
-        startDate: dateRange.startDate,
-        endDate: dateRange.endDate,
-        page: pagination.currentPage,
-        size: pagination.pageSize,
-        globalSearch,
-        ...filters
-      }));
-    } else {
-      fetchData(
-        pagination.currentPage,
-        pagination.pageSize,
-        globalSearch,
-        filters,
-      );
+  if (dateRange.startDate && dateRange.endDate) {
+    dispatch(filterSubmissionsByDateRange({
+      startDate: dateRange.startDate,
+      endDate: dateRange.endDate,
+      page: pagination.currentPage,
+      size: pagination.pageSize,
+      globalSearch,
+      ...filters
+    }));
+  } else {
+    fetchData(
+      pagination.currentPage,
+      pagination.pageSize,
+      globalSearch,
+      filters,
+    );
+  }
+}, [
+  fetchData,
+  pagination.currentPage,
+  pagination.pageSize,
+  globalSearch,
+  filters,
+  dateRange,
+  dispatch,
+]);
+
+const handleExportData = useCallback(async (format, exportParams) => {
+  if (exportLoading) return;
+  
+  setExportLoading(true);
+  const endpoint = "/candidate/submissions";
+  
+  // Build params for export - get ALL records
+  const params = {
+    page: 0,
+    size: pagination.totalElements || 1000,
+  };
+
+  // Add search query if present
+  if (exportParams?.searchQuery && exportParams.searchQuery.trim() !== "") {
+    params.globalSearch = exportParams.searchQuery.trim();
+  } else if (globalSearch && globalSearch.trim() !== "") {
+    params.globalSearch = globalSearch.trim();
+  }
+
+  // Add existing filters
+  Object.keys(filters).forEach((key) => {
+    if (filters[key] && filters[key] !== "") {
+      params[key] = filters[key];
     }
-  }, [
-    fetchData,
-    pagination.currentPage,
-    pagination.pageSize,
-    globalSearch,
-    filters,
-    dateRange,
-    dispatch,
-  ]);
+  });
+
+  // Add date range if applied
+  if (dateRange.startDate && dateRange.endDate) {
+    params.startDate = dateRange.startDate;
+    params.endDate = dateRange.endDate;
+  }
+
+  const fileName = `submissions_${new Date().toISOString().split('T')[0]}`;
+  
+  // Show loading toast
+  showToast(`Exporting to ${format.toUpperCase()}...`, "info");
+  
+  try {
+    await exportFile(endpoint, fileName, format, params, exportParams?.selectedColumns);
+    showToast("Export completed successfully", "success");
+  } catch (error) {
+    console.error("Export error:", error);
+    showToast(`Export failed: ${error.response?.data?.message || error.message}`, "error");
+  } finally {
+    setExportLoading(false);
+  }
+}, [filters, dateRange, pagination.totalElements, globalSearch, exportLoading]);
 
   return (
     <BaseSubmission
@@ -310,7 +361,9 @@ useEffect(() => {
       role={role}
       enableServerSideFiltering={true}
       onDateRangeChange={handleDateRangeChange}
-      isFiltered={isFiltered}      
+      isFiltered={isFiltered}   
+       enableExport={true}
+      onExportData={handleExportData}   
     />
   );
 };
