@@ -114,16 +114,10 @@ const ExportButton = ({
         transformOrigin={{ vertical: "top", horizontal: "right" }}
       >
         <MenuItem onClick={() => handleExport("csv")}>
-          <ListItemIcon>
-            <TableView fontSize="small" />
-          </ListItemIcon>
           <ListItemText primary="Download CSV" />
         </MenuItem>
 
         <MenuItem onClick={() => handleExport("xlsx")}>
-          <ListItemIcon>
-            <GridOn fontSize="small" />
-          </ListItemIcon>
           <ListItemText primary="Download Excel" />
         </MenuItem>
       </Menu>
