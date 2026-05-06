@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchInProgressData, clearFilterData, sendingUsersData, setPage, setRowsPerPage, setSearchQuery, filterInProgressDataByDateRange } from '../../redux/inProgressSlice';
 import DataTablePaginated from '../muiComponents/DataTablePaginated';
 import DateRangeFilter from '../muiComponents/DateRangeFilter';
-import { Stack, Typography, Alert, Snackbar,Link} from '@mui/material';
+import { Stack, Typography, Alert, Snackbar, Link, Chip } from '@mui/material';
 import { formatDateTime } from '../../utils/dateformate';
 import { useNavigate } from 'react-router-dom';
 
@@ -172,6 +172,25 @@ const processedData = useMemo(() => {
   });
 };
 
+    // Check if last login is today
+    const isLoggedInToday = (lastLoginTime) => {
+        if (!lastLoginTime) return false;
+        
+        try {
+            const lastLogin = new Date(lastLoginTime);
+            const today = new Date();
+            
+            return (
+                lastLogin.getFullYear() === today.getFullYear() &&
+                lastLogin.getMonth() === today.getMonth() &&
+                lastLogin.getDate() === today.getDate()
+            );
+        } catch (error) {
+            console.error('Error checking login date:', error);
+            return false;
+        }
+    };
+
     const handleSort = (key) => {
         setSortConfig((prev) => {
             if (prev.key === key) {
@@ -206,6 +225,25 @@ const processedData = useMemo(() => {
             isSorted: sortConfig.key === 'recruiterName',
             isSortedDesc: sortConfig.key === 'recruiterName' && sortConfig.direction === 'desc',
             onSort: () => handleSort('recruiterName')
+        },
+        {
+            key: "last_login_time",
+            label: "Is Logged In",
+            type: "text",
+            render: (row) => {
+                const loggedIn = isLoggedInToday(row.last_login_time);
+                return (
+                    <Chip
+                        label={loggedIn ? "Logged In" : "Leave"}
+                        color={loggedIn ? "success" : "error"}
+                        variant="filled"
+                        size="small"
+                    />
+                );
+            },
+            sortable: true,
+            filterable: true,
+            width: 120
         },
         {
             key: "teamlead",

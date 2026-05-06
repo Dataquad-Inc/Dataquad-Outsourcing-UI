@@ -100,7 +100,7 @@ const InProgressSlice = createSlice({
                 const unique = [];
                 const seen = new Set();
 
-                for (const item of action.payload.content) {
+                for (const item of action?.payload?.content) {
                     const key = JSON.stringify(item);
                     if (!seen.has(key)) {
                         seen.add(key);
