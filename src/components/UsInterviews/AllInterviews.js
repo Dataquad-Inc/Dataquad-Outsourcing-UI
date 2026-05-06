@@ -49,6 +49,9 @@ const AllInterviews = () => {
 
   const { userId } = useSelector(state => state.auth);
 
+    const {rtrInterviews = []} = useSelector(state => state.interview);
+ 
+
   // Initialize filters from localStorage like RtrList
   const [filters, setFilters] = useState(() => {
     try {
@@ -63,8 +66,16 @@ const AllInterviews = () => {
   const columns = ColumnsForInterviews({
     onEdit: setEditingInterview,
     onDelete: setDeleteConfirm,
-    showActions: true
+    showActions: true,
   });
+
+   useEffect(() => {
+    console.log('Updated interviews from Redux:', rtrInterviews);
+    if (rtrInterviews.length > 0) {
+      setInterviews(rtrInterviews);
+      // setTotal(rtrInterviews.length);
+    }
+  }, [rtrInterviews]);
 
   const fetchInterviews = useCallback(async () => {
     setLoading(true);
