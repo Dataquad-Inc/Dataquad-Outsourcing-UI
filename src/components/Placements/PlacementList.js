@@ -575,12 +575,8 @@ const PlacementsList = () => {
 
           {/* ✅ Export Button — CSV or XLSX */}
           <ExportButton
-            apiUrl="/candidate/placement/placements-list" // ← point to your real export endpoint
+            apiUrl="/candidate/placement/placements-list" 
             fileName="placements"
-            // Optional: only export specific columns
-            // selectedColumns={["id", "candidateFullName", "clientName", "status", "startDate", "endDate", "billRate", "payRate", "grossProfit"]}
-            // Optional: pass active filter as a query param
-            // params={{ status: activeFilter !== "all" ? activeFilter : undefined }}
           />
 
           <Button
