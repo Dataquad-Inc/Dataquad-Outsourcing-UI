@@ -37,6 +37,7 @@ import ToastNotification from "../../utils/ToastNotification";
 import OnBoardClient from "./OnBoardClient";
 import DateRangeFilter from "../muiComponents/DateRangeFilter";
 import InternalFeedbackCell from "../Interviews/FeedBack";
+import ExportButton from "../../utils/ExportButton";
 
 // ─── Helper selectors ─────────────────────────────────────────────────────────
 const selectUserId = (state) =>
@@ -638,6 +639,10 @@ const ClientList = () => {
           spacing={2}
           sx={{ ml: "auto" }}
         >
+          <ExportButton
+          apiUrl="/requirements/bdm/getAll" // ← point to your real export endpoint
+          fileName="clients"
+        />
           <DateRangeFilter component="Clients" />
           <Button
             variant="contained"
@@ -647,6 +652,7 @@ const ClientList = () => {
             Add New Client
           </Button>
         </Stack>
+        
       </Stack>
 
       {error && (

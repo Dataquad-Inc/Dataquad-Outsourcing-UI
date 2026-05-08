@@ -43,6 +43,7 @@ import DateRangeFilter from "../muiComponents/DateRangeFilter";
 import CryptoJS from "crypto-js";
 import httpService from "../../Services/httpService";
 import ToastService from "../../Services/toastService";
+import ExportButton from "../../utils/ExportButton";
 
 const PlacementsList = () => {
   const dispatch = useDispatch();
@@ -571,6 +572,13 @@ const PlacementsList = () => {
           sx={{ ml: "auto" }}
         >
           <DateRangeFilter component="placements" />
+
+          {/* ✅ Export Button — CSV or XLSX */}
+          <ExportButton
+            apiUrl="/candidate/placement/placements-list" 
+            fileName="placements"
+          />
+
           <Button
             variant="contained"
             color="primary"
@@ -599,7 +607,10 @@ const PlacementsList = () => {
           sx={{ flexWrap: "wrap" }}
         >
           <Typography variant="subtitle2" color="text.secondary" sx={{ mr: 1 }}>
-            <FilterList fontSize="small" sx={{ mr: 0.5, verticalAlign: "middle" }} />
+            <FilterList
+              fontSize="small"
+              sx={{ mr: 0.5, verticalAlign: "middle" }}
+            />
             Filter by:
           </Typography>
 
@@ -661,14 +672,11 @@ const PlacementsList = () => {
             sx={{ mt: 1, fontStyle: "italic" }}
           >
             {activeFilter === "active" &&
-              "Showing active placements (excludes full-time employment)"
-            }
+              "Showing active placements (excludes full-time employment)"}
             {activeFilter === "inactive" &&
-              "Showing inactive placements (excludes full-time employment)"
-            }
+              "Showing inactive placements (excludes full-time employment)"}
             {activeFilter === "fulltime" &&
-              "Showing all full-time placements (active and inactive)"
-            }
+              "Showing all full-time placements (active and inactive)"}
           </Typography>
         )}
       </Box>
@@ -693,8 +701,7 @@ const PlacementsList = () => {
             <Typography variant="body2" color="text.secondary">
               {activeFilter === "all"
                 ? "No placement records found."
-                : `No ${activeFilter === "fulltime" ? "full-time" : activeFilter} placement records found.`
-              }
+                : `No ${activeFilter === "fulltime" ? "full-time" : activeFilter} placement records found.`}
             </Typography>
             {activeFilter !== "all" && (
               <Button

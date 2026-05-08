@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import httpService, { API_BASE_URL } from '../../Services/httpService';
 import DataTablePaginated from '../muiComponents/DataTablePaginated';
 import DownloadResume from '../../utils/DownloadResume';
+import { exportFile } from '../../utils/exportFile'; // ADDED: Import export functionality
 
 import {
   Box,
@@ -44,6 +45,7 @@ const BenchList = () => {
   const [candidateToDelete, setCandidateToDelete] = useState(null);
   const [downloadingResume, setDownloadingResume] = useState(false);
   const [loadingBenchRegister, setLoadingBenchRegister] = useState(null);
+  const [exportingBench, setExportingBench] = useState(false); // ADDED: Export loading state
 
   // Form handling states
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -231,8 +233,6 @@ const handleBenchCandidate = async (candidate) => {
 
     fetchBenchList(page, rowsPerPage, searchKeyword);
 
-    console.log("API Response:", response?.data);
-
   } catch (error) {
     // Update loading toast to error
     ToastService.update(
@@ -248,6 +248,39 @@ const handleBenchCandidate = async (candidate) => {
     setLoadingBenchRegister(null);
   }
 };
+
+  // ADDED: Export functionality handler
+  const handleExportBenchData = async (format, exportParams) => {
+    if (exportingBench) return;
+
+    try {
+      setExportingBench(true);
+
+      const endpoint = "/candidate/bench/getBenchList";
+      const params = {
+        page: 0,
+        size: totalCount,
+        ...(exportParams?.searchQuery && { search: exportParams.searchQuery }),
+      };
+
+      const fileName = `bench_candidates_${new Date().toISOString().split("T")[0]}`;
+
+      await exportFile(
+        endpoint,
+        fileName,
+        format,
+        params,
+        exportParams?.selectedColumns,
+      );
+    } catch (error) {
+      console.error("Bench export error:", error);
+      ToastService.error(
+        error?.response?.data?.message || "Failed to export bench data",
+      );
+    } finally {
+      setExportingBench(false);
+    }
+  };
 
   const generateColumns = (loading = false) => [
     {
@@ -556,6 +589,8 @@ const handleBenchCandidate = async (candidate) => {
         searchValue={searchKeyword}
         enableLocalFiltering={false}
         enableServerSideFiltering={false}
+        enableExport={true}              // ADDED: Enable export feature
+        onExportData={handleExportBenchData}  // ADDED: Export handler
       />
 
       {/* Add / Edit Form */}

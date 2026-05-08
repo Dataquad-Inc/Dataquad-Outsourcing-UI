@@ -62,6 +62,9 @@ const BaseSubmission = ({
   // NEW PROPS for date range integration
   onDateRangeChange = () => {},
   isFiltered = false,
+
+  enableExport = false,
+  onExportData = () => {},
 }) => {
   const [openDrawer, setOpenDrawer] = useState(false);
   const [candidateData, setCandidateData] = useState(null);
@@ -547,6 +550,9 @@ const BaseSubmission = ({
         enableLocalFiltering={false}
         enableServerSideFiltering={true}
         searchValue={searchQuery}
+
+        enableExport={enableExport}
+        onExportData={onExportData}
       />
 
       <Dialog
