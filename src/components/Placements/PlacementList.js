@@ -250,6 +250,7 @@ const PlacementsList = () => {
         ToastService.success("Link has been sent to email.", {
           autoClose: 4000,
         });
+        await dispatch(fetchPlacements());
       }
     } catch (error) {
       // ✅ Stop loading toast BEFORE showing error
