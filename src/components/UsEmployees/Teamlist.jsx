@@ -17,12 +17,14 @@ import {
 import { Edit, Trash2 as Delete, Users as Group } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "@mui/material/styles";
+import { useSelector } from "react-redux";
 
 const Teamlist = () => {
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(false);
   const theme = useTheme();
   const navigate = useNavigate();
+  const {role} = useSelector(state=>state.auth);
 
   // Fetch Teams
   const fetchTeams = async () => {
@@ -64,6 +66,26 @@ const Teamlist = () => {
       alert("Something went wrong");
     }
   };
+ 
+ const handleDeleteTeam=async(teamLeadId)=>{
+  if (!window.confirm("Are you sure you want to delete this team?")) return;   
+  try {
+    const res = await fetch(
+      `https://mymulya.com/users/deleteTeam/${teamLeadId}`,
+      { method: "DELETE" }
+    );
+    if (res.ok) {
+      alert("Team deleted successfully!");
+      fetchTeams();
+    } else {
+      const errorData = await res.json();
+      alert(errorData.message || "Failed to delete team");
+    }
+  } catch (error) {
+    console.error("Error deleting team:", error);
+    alert("Something went wrong");
+  }
+};
 
   // Helper to render member chips
   const renderMembers = (members, teamLeadId, label) => (
@@ -142,8 +164,10 @@ const Teamlist = () => {
                       team.teamLeadName || "Not Assigned"
                     }`}
                     action={
+                     (
+                      <>
                       <Tooltip title="Edit Team">
-                        <IconButton
+                       <IconButton
                           size="small"
                           color="primary"
                           onClick={() =>
@@ -154,7 +178,24 @@ const Teamlist = () => {
                         >
                           <Edit size={18} />
                         </IconButton>
-                      </Tooltip>
+                        </Tooltip>            
+                    {
+                      role === "SUPERADMIN" && (
+                         <Tooltip title="Delete Team">
+                         <IconButton
+                          size="small"
+                          color="primary"
+                          onClick={() =>
+                            handleDeleteTeam(team.teamLeadId)
+                          }
+                        >
+                          <Delete size={18} />
+                        </IconButton>
+                        </Tooltip>
+                      )
+                     }
+                      </>
+                     )
                     }
                   />
                   <Divider />
