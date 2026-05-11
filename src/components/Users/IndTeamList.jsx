@@ -27,6 +27,7 @@ import {
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
+import { useSelector } from "react-redux";
 
 const IndTeamList = () => {
   const theme = useTheme();
@@ -46,6 +47,8 @@ const IndTeamList = () => {
     team: null,
     type: "",
   });
+
+  const {role} = useSelector((state)=>state.auth)
 
   useEffect(() => {
     axios
@@ -84,66 +87,63 @@ const IndTeamList = () => {
     setDeleteDialog({ open: true, member, team, type });
   };
 
+  const handleDeleteTeamClick = (team) => {
+    setDeleteDialog({ open: true, member: { userName: team.teamName || "Unnamed Team" }, team, type: "team" });
+  };
+
   const handleDeleteConfirm = async () => {
-    const { member, team } = deleteDialog;
+    const { member, team, type } = deleteDialog;
 
     try {
-      const response = await fetch(
-        `https://mymulya.com/users/team/${team.teamLeadId}/user/${
-          member.employeeId || member.userId
-        }`,
-        {
+      let response;
+      if (type === "team") {
+        response = await fetch(`https://mymulya.com/users/team/${team.teamLeadId}`, {
           method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (response.ok) {
-        setTeams((prevTeams) =>
-          prevTeams
-            .map((t) => {
-              if (t.teamLeadId === team.teamLeadId) {
-                return {
-                  ...t,
-                  employees: t.employees.filter(
-                    (e) => e.userId !== member.userId
-                  ),
-                  coordinators: t.coordinators.filter(
-                    (c) => c.userId !== member.userId
-                  ),
-                  bdms: t.bdms.filter((b) => b.userId !== member.userId),
-                  teamLeads: t.teamLeads.filter((tl) => tl.userId !== member.userId),
-                };
-              }
-              return t;
-            })
-            // filter out teams with no members left
-            .filter(
-              (t) =>
-                (t.employees && t.employees.length > 0) ||
-                (t.coordinators && t.coordinators.length > 0) ||
-                (t.bdms && t.bdms.length > 0) ||
-                (t.teamLeads && t.teamLeads.length > 0)
-            )
-        );
-
-        setSnackbar({
-          open: true,
-          message: "Member deleted successfully",
-          severity: "success",
+          headers: { "Content-Type": "application/json" },
         });
+        if (response.ok) {
+          setTeams((prev) => prev.filter((t) => t.teamLeadId !== team.teamLeadId));
+          setSnackbar({ open: true, message: "Team deleted successfully", severity: "success" });
+        } else {
+          throw new Error("Failed to delete team");
+        }
       } else {
-        throw new Error("Failed to delete member");
+        // existing member delete logic unchanged below
+        response = await fetch(
+          `https://mymulya.com/users/team/${team.teamLeadId}/user/${member.employeeId || member.userId}`,
+          { method: "DELETE", headers: { "Content-Type": "application/json" } }
+        );
+        if (response.ok) {
+          setTeams((prevTeams) =>
+            prevTeams
+              .map((t) => {
+                if (t.teamLeadId === team.teamLeadId) {
+                  return {
+                    ...t,
+                    employees: t.employees.filter((e) => e.userId !== member.userId),
+                    coordinators: t.coordinators.filter((c) => c.userId !== member.userId),
+                    bdms: t.bdms.filter((b) => b.userId !== member.userId),
+                    teamLeads: t.teamLeads.filter((tl) => tl.userId !== member.userId),
+                  };
+                }
+                return t;
+              })
+              .filter(
+                (t) =>
+                  (t.employees && t.employees.length > 0) ||
+                  (t.coordinators && t.coordinators.length > 0) ||
+                  (t.bdms && t.bdms.length > 0) ||
+                  (t.teamLeads && t.teamLeads.length > 0)
+              )
+          );
+          setSnackbar({ open: true, message: "Member deleted successfully", severity: "success" });
+        } else {
+          throw new Error("Failed to delete member");
+        }
       }
     } catch (error) {
-      console.error("Error deleting member:", error);
-      setSnackbar({
-        open: true,
-        message: "Failed to delete member",
-        severity: "error",
-      });
+      console.error("Error deleting:", error);
+      setSnackbar({ open: true, message: `Failed to delete ${type === "team" ? "team" : "member"}`, severity: "error" });
     }
 
     setDeleteDialog({ open: false, member: null, team: null, type: "" });
@@ -211,7 +211,7 @@ const IndTeamList = () => {
     .filter((team) => {
       // Handle null or undefined team names
       if (!team.teamName) return searchQuery === ""; // Show teams with no name only when not searching
-      
+
       return team.teamName.toLowerCase().includes(searchQuery.toLowerCase());
     });
 
@@ -353,7 +353,7 @@ const IndTeamList = () => {
                   </Typography>
                 </Grid>
 
-                <Grid item xs={12} md={4} sx={{ textAlign: "right" }}>
+                <Grid item xs={12} md={4} spacing={10} sx={{ textAlign: "right", display: "flex", gap: 2, justifyContent: "flex-end" }}>
                   <Button
                     variant="contained"
                     color="primary"
@@ -368,6 +368,17 @@ const IndTeamList = () => {
                   >
                     Edit Team
                   </Button>
+
+                 {role === 'SUPERADMIN' && (
+                  <Button
+                    variant="contained"
+                    color="error"
+                    startIcon={<DeleteIcon />}
+                    onClick={() => handleDeleteTeamClick(team)}
+                  >
+                    Delete Team
+                  </Button>
+                )}
                 </Grid>
               </Grid>
             </Box>
