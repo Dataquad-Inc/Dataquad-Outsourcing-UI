@@ -97,7 +97,7 @@ const IndTeamList = () => {
     try {
       let response;
       if (type === "team") {
-        response = await fetch(`https://mymulya.com/users/deleteTeam/${team.teamLeadId}`, {
+        response = await fetch(`https://mymulya.com/users/team/${team.teamLeadId}`, {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
         });

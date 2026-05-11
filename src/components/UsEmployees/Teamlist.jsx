@@ -71,7 +71,7 @@ const Teamlist = () => {
   if (!window.confirm("Are you sure you want to delete this team?")) return;   
   try {
     const res = await fetch(
-      `https://mymulya.com/users/deleteTeam/${teamLeadId}`,
+      `https://mymulya.com/users/team/${teamLeadId}`,
       { method: "DELETE" }
     );
     if (res.ok) {
