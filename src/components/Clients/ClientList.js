@@ -68,6 +68,8 @@ const ClientList = () => {
   const role = useSelector(selectRole);
 
   const isSuperAdmin = role === "SUPERADMIN";
+  const isBDM = role === "BDM";
+  const canViewOverall = role === "SUPERADMIN" || role === "BDM";
 
   const [selectedClient, setSelectedClient] = useState(null);
   const [openDocsDialog, setOpenDocsDialog] = useState(false);
@@ -91,12 +93,11 @@ const ClientList = () => {
     }
   }, [dispatch, role, userId]);
 
-  // ─── Fetch overall clients when OVERALL tab selected (SUPERADMIN only) ──────
   useEffect(() => {
-    if (levelFilter === "OVERALL" && isSuperAdmin) {
+    if (levelFilter === "OVERALL" && canViewOverall) {
       dispatch(fetchOverallClients());
     }
-  }, [levelFilter, isSuperAdmin, dispatch]);
+  }, [levelFilter, canViewOverall, dispatch]);
 
   // ─── Reset download status ──────────────────────────────────────────────────
   useEffect(() => {
@@ -231,8 +232,8 @@ const ClientList = () => {
 
   // Refresh callback for OVERALL tab
   const fetchOverall = useCallback(() => {
-    if (isSuperAdmin) dispatch(fetchOverallClients());
-  }, [dispatch, isSuperAdmin]);
+    if (canViewOverall) dispatch(fetchOverallClients());
+  }, [dispatch, canViewOverall]);
 
   // ─── Full columns (ACTIVE / INACTIVE / ALL views) ───────────────────────────
   const generateColumns = useCallback(
@@ -426,7 +427,6 @@ const ClientList = () => {
     [loading],
   );
 
-  // ─── Overall columns (SUPERADMIN slim view) ─────────────────────────────────
   // Field names match the /overall-clients API response:
   // clientId, clientName, bdmName, clientWebsiteUrl, clientLinkedInUrl, clientAddress, location
   const generateOverallColumns = useCallback(
@@ -692,8 +692,8 @@ const ClientList = () => {
             INACTIVE
           </ToggleButton>
 
-          {/* OVERALL tab is only visible to SUPERADMIN */}
-          {isSuperAdmin && (
+          {/* OVERALL tab - visible to SUPERADMIN and BDM */}
+          {canViewOverall && (
             <ToggleButton value="OVERALL" aria-label="overall clients">
               OVERALL CLIENTS
             </ToggleButton>
