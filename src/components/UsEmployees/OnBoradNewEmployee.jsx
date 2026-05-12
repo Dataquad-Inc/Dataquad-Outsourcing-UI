@@ -57,14 +57,16 @@ const OnBoardNewEmployee = () => {
   const BASE_URL = "https://mymulya.com";
 
   // Role options
-  const roleOptions = [
-    { value: "TEAMLEAD", label: "Team Lead" },
-    { value: "RECRUITER", label: "Recruiter" },
-    { value: "SALESEXECUTIVE", label: "Sales Executive" },
-    { value: "ADMIN", label: "Admin" },
-    { value: "SUPERADMIN", label: "Super Admin" },
-    { value: "GRANDSALES", label: "Grand Sales" },
-  ];
+const roleOptions = [
+  { value: "TEAMLEAD", label: "Team Lead" },
+  { value: "RECRUITER", label: "Recruiter" },
+  { value: "SALESEXECUTIVE", label: "Sales Executive" },
+  { value: "ADMIN", label: "Admin" },
+  { value: "SUPERADMIN", label: "Super Admin" },
+  { value: "GRANDSALES", label: "Grand Sales" },
+  { value: "FINANCE", label: "Finance" },
+  { value: "COORDINATOR", label: "Coordinator" }, 
+];
 
   const genderOptions = [
     { value: "Male", label: "Male" },

@@ -154,7 +154,7 @@ const UserForm = ({
                 onClick={(e) => {
                   e.stopPropagation();
                   const emailInput = document.querySelector(
-                    'input[name="email"]'
+                    'input[name="email"]',
                   );
                   const email = emailInput?.value;
                   if (email && email.match(/^[a-z0-9._%+-]+@dataqinc\.com$/)) {
@@ -163,7 +163,7 @@ const UserForm = ({
                   } else {
                     showToast(
                       "Please enter a valid company email first",
-                      "error"
+                      "error",
                     );
                   }
                 }}
@@ -190,8 +190,9 @@ const UserForm = ({
           { value: "TEAMLEAD", label: "Team Lead" },
           { value: "BDM", label: "BDM" },
           { value: "PARTNER", label: "Partner" },
-          {value:"INVOICE",label:"Invoice"},
-          {value:"COORDINATOR",label:"Coordinator"}
+          { value: "INVOICE", label: "Invoice" },
+          { value: "FINANCE", label: "Finance" }, // Added Finance
+          { value: "COORDINATOR", label: "Coordinator" },
         ],
       },
       {
