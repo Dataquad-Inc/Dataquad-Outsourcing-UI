@@ -194,7 +194,7 @@ const PlacementForm = ({
       grid: { xs: 12, sm: 6 },
       helperText: "Enter total bill rate",
       inputProps: {
-        startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+        startAdornment: <InputAdornment position="start">$</InputAdornment>,
       },
     },
     {
@@ -204,7 +204,7 @@ const PlacementForm = ({
       grid: { xs: 12, sm: 6 },
       helperText: "Enter total pay rate",
       inputProps: {
-        startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+        startAdornment: <InputAdornment position="start">$</InputAdornment>,
       },
     },
     {
@@ -214,7 +214,7 @@ const PlacementForm = ({
       helperText: "Bill Rate - Pay Rate",
       readOnly: true,
       inputProps: {
-        startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+        startAdornment: <InputAdornment position="start">$</InputAdornment>,
       },
     },
     {
@@ -223,7 +223,7 @@ const PlacementForm = ({
       grid: { xs: 12, sm: 6 },
       helperText: "Enter hold rate",
       inputProps: {
-        startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+        startAdornment: <InputAdornment position="start">$</InputAdornment>,
       },
     },
   ];

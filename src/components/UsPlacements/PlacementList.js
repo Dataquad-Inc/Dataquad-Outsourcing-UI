@@ -309,10 +309,10 @@ console.log("Placements data from Redux:", usPlacements);
   const renderFinancialField = (row, fieldName) => {
     const value = row[fieldName];
     if (typeof value === "number" && !isNaN(value)) {
-      return `₹${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+      return `$${value.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
     }
     return value
-      ? `₹${parseFloat(value).toLocaleString("en-IN", {
+      ? `$${parseFloat(value).toLocaleString("en-US", {
         maximumFractionDigits: 2,
       })}`
       : "-";

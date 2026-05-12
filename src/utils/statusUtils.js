@@ -95,7 +95,8 @@ const StatusChipWithDispatch = ({ status, row, isUs }) => {
 
 export const getStatusChip = (status, row, isUs) => {
   // Remove dispatch parameter and use the component instead
-  return <StatusChipWithDispatch status={status} row={row} isUs={isUs} />;
+  const isUsPlacement = isUs === true || String(isUs).toLowerCase() === "us";
+  return <StatusChipWithDispatch status={status} row={row} isUs={isUsPlacement} />;
 };
 
 // interview levels and other functions remain the same...

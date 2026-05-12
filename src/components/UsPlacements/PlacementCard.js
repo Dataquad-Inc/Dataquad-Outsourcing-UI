@@ -109,10 +109,10 @@ const PlacementCard = ({ data }) => {
 
   const formatCurrency = (val) =>
     val
-      ? `₹ ${parseFloat(val).toLocaleString(undefined, {
+      ? `$ ${parseFloat(val).toLocaleString("en-US", {
           minimumFractionDigits: 2,
         })}`
-      : "₹ 0";
+      : "$ 0";
 
   const getInitials = (name) =>
     name
