@@ -79,7 +79,7 @@ export const placementFormFields = {
       required: true,
       grid: { xs: 12, sm: 6 },
       inputProps: {
-        startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+        startAdornment: <InputAdornment position="start">$</InputAdornment>,
       },
     },
     {
@@ -89,7 +89,7 @@ export const placementFormFields = {
       required: true,
       grid: { xs: 12, sm: 6 },
       inputProps: {
-        startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+        startAdornment: <InputAdornment position="start">$</InputAdornment>,
       },
     },
     {
@@ -99,7 +99,7 @@ export const placementFormFields = {
       readOnly: true,
       grid: { xs: 12, sm: 6 },
       inputProps: {
-        startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+        startAdornment: <InputAdornment position="start">$</InputAdornment>,
         readOnly: true,
       },
     },
