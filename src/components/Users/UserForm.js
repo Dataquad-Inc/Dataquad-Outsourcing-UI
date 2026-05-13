@@ -154,7 +154,7 @@ const UserForm = ({
                 onClick={(e) => {
                   e.stopPropagation();
                   const emailInput = document.querySelector(
-                    'input[name="email"]',
+                    'input[name="email"]'
                   );
                   const email = emailInput?.value;
                   if (email && email.match(/^[a-z0-9._%+-]+@dataqinc\.com$/)) {
@@ -163,7 +163,7 @@ const UserForm = ({
                   } else {
                     showToast(
                       "Please enter a valid company email first",
-                      "error",
+                      "error"
                     );
                   }
                 }}
@@ -190,9 +190,8 @@ const UserForm = ({
           { value: "TEAMLEAD", label: "Team Lead" },
           { value: "BDM", label: "BDM" },
           { value: "PARTNER", label: "Partner" },
-          { value: "INVOICE", label: "Invoice" },
-          { value: "FINANCE", label: "Finance" }, // Added Finance
-          { value: "COORDINATOR", label: "Coordinator" },
+          {value:"INVOICE",label:"Invoice"},
+          {value:"COORDINATOR",label:"Coordinator"}
         ],
       },
       {
@@ -330,11 +329,12 @@ const UserForm = ({
 
   const handleFormSubmit = (values, actions) => {
     // For registration, ensure email is verified
-    if (!isEditMode && !isEmailVerified) {
-      showToast("Please verify your company email before submitting", "error");
-      actions.setSubmitting(false);
-      return;
-    }
+    // if (!isEditMode && !isEmailVerified) {
+    //   showToast("Please verify your company email before submitting", "error");
+    //   actions.setSubmitting(false);
+    //   return;
+    // }
+    console.log("Form submitted with values:", values);
 
     // Prepare final values
     const finalValues = { ...values };
@@ -448,7 +448,7 @@ const UserForm = ({
         }}
         onSubmit={handleFormSubmit}
         editMode={isEditMode}
-        validationSchema={Yup.object().shape(getValidationSchema())}
+        // validationSchema={Yup.object().shape(getValidationSchema())}
         elevation={0}
         maxWidth="100%"
         spacing={2}

@@ -7,8 +7,11 @@ import axios from "axios";
 export const fetchEmployees = createAsyncThunk(
   "employee/fetchEmployees",
   async () => {
-    const response = await httpService.get("/users/employee");
-    return response.data;
+    // const response = await httpService.get("/users/employee");
+    // return response.data;
+
+    const data = await fetch("http://localhost:8083/users/employee");
+    return data.json();
   }
 );
 
@@ -20,16 +23,24 @@ export const updateEmployee = createAsyncThunk(
 
     console.log("employee data from the edit  ", updatedData);
 
-    const response = await httpService.put(
-      `/users/update/${employeeId}`,
-      updatedData,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
-    return response.data;
+    // const response = await httpService.put(
+    //   `/users/update/${employeeId}`,
+    //   updatedData,
+    //   {
+    //     headers: {
+    //       "Content-Type": "application/json",
+    //     },
+    //   }
+    // );
+        // return response.data;
+
+    const response = await fetch(`http://localhost:8083/users/update/${employeeId}`, {
+      method: "PUT",
+      headers: {  "Content-Type": "application/json" },
+      body: JSON.stringify(updatedData),
+    });   
+    return response.json();
+    
   }
 );
 

@@ -23,11 +23,17 @@ export const loginAsync = createAsyncThunk(
   "auth/loginAsync",
   async ({ email, password }, { rejectWithValue }) => {
     try {
-      const response = await httpService.post(
-        `/users/login`,
-        { email, password },
-        { withCredentials: true }
-      );
+      // const response = await httpService.post(
+      //   `/users/login`,
+      //   { email, password },
+      //   { withCredentials: true }
+      // );
+      const response = await fetch("http://localhost:8083/users/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include", // Ensure cookies are sent
+        body: JSON.stringify({ email, password }),
+      }).then((res) => res.json());
 
       const {
         userId,
@@ -37,7 +43,9 @@ export const loginAsync = createAsyncThunk(
         loginTimestamp,
         encryptionKey,
         entity,
-      } = response.data.payload;
+      } = response.payload; // need to undo
+
+      console.log("Login response data:", roleType);
 
       return {
         isAuthenticated: true,

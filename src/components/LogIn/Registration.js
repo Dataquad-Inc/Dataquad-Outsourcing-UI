@@ -222,11 +222,12 @@ const Registration = ({ onSwitchView }) => {
   ];
 
   const handleSubmit = async (values, { resetForm, setSubmitting }) => {
-    if (!isEmailVerified) {
-      showToast("Please verify your company email before submitting", "error");
-      setSubmitting(false);
-      return;
-    }
+    console.log("Form submitted with values:", values);
+    // if (!isEmailVerified) {
+    //   showToast("Please verify your company email before submitting", "error");
+    //   setSubmitting(false);
+    //   return;
+    // }
 
     try {
       setFormValues(values);
@@ -236,7 +237,13 @@ const Registration = ({ onSwitchView }) => {
         roles: ["EMPLOYEE"],
       };
 
-      const response = await httpService.post("/users/register", userData);
+      // const response = await httpService.post("/users/register", userData);
+      const response = await fetch("http://localhost:8083/users/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(userData),
+      }).then((res) => res.json());
+
 
       if (response.data.success) {
         showToast("Employee registered successfully!", "success");

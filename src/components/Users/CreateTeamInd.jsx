@@ -38,8 +38,9 @@ export default function TeamForm() {
     const fetchUsers = async () => {
       try {
         setLoading(true);
-        const response = await axios.get("https://mymulya.com/users/employee");
-        const users = response.data;
+        // const response = await axios.get("https://mymulya.com/users/employee");
+        const response = await fetch("http://localhost:8083/users/employee").then((res) => res.json());
+        const users = response; //need to undo
 
         const customTeamLead = {
           userName: "KolanupakaRaghava",
@@ -195,10 +196,15 @@ export default function TeamForm() {
 
       console.log("Submitting payload:", payload);
 
-      const response = await axios.post(
-        `https://mymulya.com/users/assignTeamLead/${userId}`,
-        payload
-      );
+      // const response = await axios.post(
+      //   `https://mymulya.com/users/assignTeamLead/${userId}`,
+      //   payload
+      // );
+      const response = await fetch(`http://localhost:8083/users/assignTeamLead/${userId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }).then((res) => res.json());
 
       if (response.status === 200 || response.status === 201) {
         showSuccessToast(

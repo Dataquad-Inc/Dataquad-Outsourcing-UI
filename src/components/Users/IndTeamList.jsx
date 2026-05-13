@@ -51,10 +51,20 @@ const IndTeamList = () => {
   const {role} = useSelector((state)=>state.auth)
 
   useEffect(() => {
-    axios
-      .get("https://mymulya.com/users/AllAssociatedUsers?entity=IN")
-      .then((res) => {
-        setTeams(res.data);
+    // axios
+    //   .get("https://mymulya.com/users/AllAssociatedUsers?entity=IN")
+    //   .then((res) => {
+    //     setTeams(res.data);
+    //     setLoading(false);
+    //   })
+    //   .catch((err) => {
+    //     console.error(err);
+    //     setLoading(false);
+    //   });
+    fetch("http://localhost:8083/users/AllAssociatedUsers?entity=IN")
+      .then((res) => res.json())
+      .then((data) => {
+        setTeams(data);
         setLoading(false);
       })
       .catch((err) => {

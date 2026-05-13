@@ -36,8 +36,13 @@ const UsEmployees = () => {
           ? `&category=${encodeURIComponent(selectedFilter)}`
           : "";
 
+      // const response = await fetch(
+      //   `${BASE_URL}/hotlist/user/allUsers?page=${apiPage}&size=${rowsPerPage}&search=${encodeURIComponent(
+      //     search
+      //   )}${categoryQuery}`
+      // );
       const response = await fetch(
-        `${BASE_URL}/hotlist/user/allUsers?page=${apiPage}&size=${rowsPerPage}&search=${encodeURIComponent(
+        `http://localhost:8092/hotlist/user/allUsers?page=${apiPage}&size=${rowsPerPage}&search=${encodeURIComponent(
           search
         )}${categoryQuery}`
       );
@@ -233,6 +238,7 @@ const UsEmployees = () => {
             <MenuItem value="RECRUITER">Recruiter</MenuItem>
             <MenuItem value="SALESEXECUTIVE">Sales Executive</MenuItem>
             <MenuItem value="GRANDSALES">Grand Sales</MenuItem>
+            <MenuItem value="COORDINATOR">Coordinator</MenuItem>
           </TextField>
 
           <TextField

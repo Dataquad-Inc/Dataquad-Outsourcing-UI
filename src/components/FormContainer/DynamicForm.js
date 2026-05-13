@@ -217,7 +217,8 @@ const DynamicForm = ({
                         borderRadius: "8px",
                       }}
                       disabled={
-                        formikProps.isSubmitting || !formikProps.isValid
+                        false
+                        // formikProps.isSubmitting || !formikProps.isValid
                       }
                       startIcon={
                         formikProps.isSubmitting ? (

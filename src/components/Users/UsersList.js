@@ -446,6 +446,7 @@ const UsersList = () => {
   };
 
   const handleSubmitEdit = (values, actions) => {
+    console.log("Submitting edit with values:", values);
     dispatch(
       updateEmployee({ employeeId: currentUser.employeeId, ...values }),
     ).finally(() => {
