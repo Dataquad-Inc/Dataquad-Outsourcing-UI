@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AppBar,
   Toolbar,
@@ -47,6 +47,35 @@ const darkColorPalette = [
   "#827717",
 ];
 
+const getPayload = (response) =>
+  response?.data?.payload || response?.data?.data || response?.data || response || {};
+
+const getPhotoSrc = (photo) => {
+  if (!photo) return "";
+
+  if (photo.startsWith("data:") || photo.startsWith("http")) {
+    return photo;
+  }
+
+  if (photo.startsWith("/9j")) {
+    return `data:image/jpeg;base64,${photo}`;
+  }
+
+  if (photo.startsWith("iVBOR")) {
+    return `data:image/png;base64,${photo}`;
+  }
+
+  if (photo.startsWith("R0lGOD")) {
+    return `data:image/gif;base64,${photo}`;
+  }
+
+  if (photo.startsWith("/")) {
+    return photo;
+  }
+
+  return `data:image/jpeg;base64,${photo}`;
+};
+
 const Header = ({
   handleDrawerToggle,
   isCollapsed,
@@ -56,6 +85,7 @@ const Header = ({
   const [anchorEl, setAnchorEl] = useState(null);
   const [notificationsAnchor, setNotificationsAnchor] = useState(null);
   const [leaveDrawerOpen, setLeaveDrawerOpen] = useState(false);
+  const [profilePhoto, setProfilePhoto] = useState("");
 
   const theme = useTheme();
   const dispatch = useDispatch();
@@ -64,6 +94,36 @@ const Header = ({
   const { userId, userName, email, role, logInTimeStamp, entity } = useSelector(
     (state) => state.auth
   );
+
+  const fetchProfilePhoto = useCallback(async () => {
+    if (!userId) {
+      setProfilePhoto("");
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:8083/users/profile/${userId}`);
+      if (!response.ok) throw new Error("Failed to fetch profile");
+
+      const result = await response.json();
+      const data = getPayload(result);
+      const photo = data.photo || data.profilePhoto || data.imageUrl || "";
+      setProfilePhoto(getPhotoSrc(photo));
+    } catch (error) {
+      setProfilePhoto("");
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    fetchProfilePhoto();
+  }, [fetchProfilePhoto]);
+
+  useEffect(() => {
+    window.addEventListener("profileUpdated", fetchProfilePhoto);
+    return () => {
+      window.removeEventListener("profileUpdated", fetchProfilePhoto);
+    };
+  }, [fetchProfilePhoto]);
 
   // Generate a stable color for each user based on their userId
   const userColor = useMemo(() => {
@@ -112,6 +172,11 @@ const Header = ({
 
   const handleMenuClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleProfileClick = () => {
+    navigate("/dashboard/profile");
+    handleMenuClose();
   };
 
   const handleNotificationsOpen = (event) => {
@@ -196,7 +261,7 @@ const Header = ({
       </Box>
 
       <Divider />
-      <MenuItem onClick={handleMenuClose} sx={{ py: 1.5 }}>
+      <MenuItem onClick={handleProfileClick} sx={{ py: 1.5 }}>
         <AccountIcon sx={{ mr: 2 }} /> Profile
       </MenuItem>
       <MenuItem onClick={handleOpenLeaveDrawer} sx={{ py: 1.5 }}>
@@ -378,6 +443,7 @@ const Header = ({
               sx={{ ml: 1 }}
             >
               <Avatar
+                src={profilePhoto}
                 sx={{
                   width: 32,
                   height: 32,

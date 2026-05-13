@@ -201,6 +201,7 @@ const TimesheetsForAdmin = lazy(
 const EmployeeTimesheetDetail = lazy(
   () => import("../components/Timesheets/EmployeeTimesheetDetail"),
 );
+const Profile = lazy(() => import("../components/Profile/Profile"));
 
 const Unauthorized = lazy(() => import("../pages/Unauthorized"));
 const DeniedAccessCard = lazy(
@@ -648,6 +649,30 @@ const routeConfig = [
                 element: Loadable(EmployeeTimesheetDetail),
               },
             ],
+          },
+
+          {
+            path: "profile",
+            element: (
+              <ProtectedRoute
+                allowedRoles={[
+                  "ADMIN",
+                  "SUPERADMIN",
+                  "RECRUITER",
+                  "EMPLOYEE",
+                  "BDM",
+                  "TEAMLEAD",
+                  "PARTNER",
+                  "INVOICE",
+                  "COORDINATOR",
+                  "SALESEXECUTIVE",
+                  "EXTERNALEMPLOYEE",
+                  "ACCOUNTS",
+                  "GRANDSALES",
+                ]}
+              />
+            ),
+            children: [{ index: true, element: Loadable(Profile) }],
           },
 
           // HOTLIST (US) - Updated with proper index routing
