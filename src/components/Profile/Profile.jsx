@@ -9,6 +9,7 @@ import {
   Divider,
   Grid,
   IconButton,
+  MenuItem,
   Paper,
   Stack,
   TextField,
@@ -39,6 +40,12 @@ const initialProfile = {
   phoneNumber: "",
   pan: "",
   adhar: "",
+  fatherOrSpouseName: "",
+  motherName: "",
+  dob: "",
+  bloodGroup: "",
+  gender: "",
+  maritalStatus: "",
   currentAddress: "",
   emergencyContactNo: "",
   permanentAddress: "",
@@ -189,6 +196,19 @@ const formatProfileDate = (dateValue) => {
     day: "numeric",
   });
 };
+
+const formatDateForInput = (dateValue) => {
+  if (!dateValue) return "";
+
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return dateValue;
+
+  return date.toISOString().split("T")[0];
+};
+
+const bloodGroupOptions = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+const genderOptions = ["Male", "Female", "Other"];
+const maritalStatusOptions = ["Single", "Married", "Divorced", "Widowed"];
 
 const personalEmailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const panPattern = /^[A-Za-z0-9]{10}$/;
@@ -416,6 +436,17 @@ const Profile = () => {
         phoneNumber: data.phoneNumber || data.phone || "",
         pan: data.pan || data.panNumber || "",
         adhar: data.adhar || data.aadhar || data.aadhaar || "",
+        fatherOrSpouseName:
+          data.fatherOrSpouseName ||
+          data.fatherNameOrSpouseName ||
+          data.fatherName ||
+          data.spouseName ||
+          "",
+        motherName: data.motherName || "",
+        dob: formatDateForInput(data.dob || data.dateOfBirth || data.birthDate || ""),
+        bloodGroup: data.bloodGroup || data.blood_group || "",
+        gender: data.gender || "",
+        maritalStatus: data.maritalStatus || data.marital_status || "",
         currentAddress: data.currentAddress || "",
         emergencyContactNo: data.emergencyContactNo || "",
         permanentAddress: data.permanentAddress || "",
@@ -526,6 +557,12 @@ const Profile = () => {
       formData.append("phoneNumber", profile.phoneNumber || "");
       formData.append("pan", profile.pan || "");
       formData.append("adhar", profile.adhar || "");
+      formData.append("fatherOrSpouseName", profile.fatherOrSpouseName || "");
+      formData.append("motherName", profile.motherName || "");
+      formData.append("dob", profile.dob || "");
+      formData.append("bloodGroup", profile.bloodGroup || "");
+      formData.append("gender", profile.gender || "");
+      formData.append("maritalStatus", profile.maritalStatus || "");
       formData.append("currentAddress", profile.currentAddress || "");
       formData.append("emergencyContactNo", profile.emergencyContactNo || "");
       formData.append("permanentAddress", profile.permanentAddress || "");
@@ -724,6 +761,77 @@ const Profile = () => {
                   helperText={errors.adhar || "12 digits only"}
                   inputProps={{ maxLength: 12 }}
                 />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Father Name / Spouse Name"
+                  value={profile.fatherOrSpouseName}
+                  onChange={handleChange("fatherOrSpouseName")}
+                  fullWidth
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Mother Name"
+                  value={profile.motherName}
+                  onChange={handleChange("motherName")}
+                  fullWidth
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="DOB"
+                  type="date"
+                  value={profile.dob}
+                  onChange={handleChange("dob")}
+                  fullWidth
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Blood Group"
+                  value={profile.bloodGroup}
+                  onChange={handleChange("bloodGroup")}
+                  fullWidth
+                  select
+                >
+                  {bloodGroupOptions.map((option) => (
+                    <MenuItem key={option} value={option}>
+                      {option}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Gender"
+                  value={profile.gender}
+                  onChange={handleChange("gender")}
+                  fullWidth
+                  select
+                >
+                  {genderOptions.map((option) => (
+                    <MenuItem key={option} value={option}>
+                      {option}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Marital Status"
+                  value={profile.maritalStatus}
+                  onChange={handleChange("maritalStatus")}
+                  fullWidth
+                  select
+                >
+                  {maritalStatusOptions.map((option) => (
+                    <MenuItem key={option} value={option}>
+                      {option}
+                    </MenuItem>
+                  ))}
+                </TextField>
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
