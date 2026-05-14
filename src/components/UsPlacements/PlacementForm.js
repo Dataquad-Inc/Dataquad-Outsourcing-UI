@@ -381,14 +381,26 @@ const PlacementForm = ({
   };
 
   const formatNumberWithCommas = (value) => {
-    if (!value) return "";
-    const numStr = value.toString().replace(/\D/g, "");
-    return numStr.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    if (value === null || value === undefined || value === "") return "";
+
+    const valueStr = value.toString().replace(/,/g, "");
+    const hasDecimal = valueStr.includes(".");
+    const [integerPart, ...decimalParts] = valueStr.split(".");
+    const formattedInteger = integerPart
+      .replace(/\D/g, "")
+      .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    const decimalPart = decimalParts.join("").replace(/\D/g, "");
+
+    return hasDecimal ? `${formattedInteger}.${decimalPart}` : formattedInteger;
   };
 
   const parseNumberFromFormatted = (formattedValue) => {
-    if (!formattedValue) return "";
-    return formattedValue.toString().replace(/,/g, "");
+    if (formattedValue === null || formattedValue === undefined || formattedValue === "") return "";
+
+    const cleanedValue = formattedValue.toString().replace(/,/g, "").replace(/[^\d.]/g, "");
+    const [integerPart, ...decimalParts] = cleanedValue.split(".");
+
+    return decimalParts.length ? `${integerPart}.${decimalParts.join("")}` : integerPart;
   };
 
   // Prepare initial values with decryption for financial fields
@@ -408,7 +420,7 @@ const PlacementForm = ({
       startDate: formatDateForInput(initialValues.startDate) || "",
       endDate: formatDateForInput(initialValues.endDate) || "",
       billRate: decryptedBillRate,
-      payRate: Number(initialValues?.payRate || 0),
+      payRate: decryptedPayRate,
       grossProfit: decryptedGrossProfit,
       holdRate: initialValues.holdRate || "",
       employmentType: initialValues.employmentType || "",
@@ -454,11 +466,11 @@ const PlacementForm = ({
           return;
         }
         
-        const grossProfit = billRate - payRate;
+        const grossProfit = Number((billRate - payRate).toFixed(2));
 
         // Encrypt financial data before sending to backend
-        const encryptedBillRate = encryptFinancialValue(Math.round(billRate));
-        const encryptedPayRate = encryptFinancialValue(Math.round(payRate));
+        const encryptedBillRate = encryptFinancialValue(billRate);
+        const encryptedPayRate = encryptFinancialValue(payRate);
         const encryptedGrossProfit = encryptFinancialValue(grossProfit);
 
         // Prepare the payload with encrypted financial data
@@ -467,8 +479,7 @@ const PlacementForm = ({
           startDate: formatDateForSubmission(values.startDate),
           endDate: formatDateForSubmission(values.endDate),
           billRate: encryptedBillRate,
-          // payRate: encryptedPayRate,
-          payRate:Math.round(payRate),
+          payRate: encryptedPayRate,
           grossProfit: encryptedGrossProfit,
           currency: "INR",
         };
@@ -510,11 +521,11 @@ const PlacementForm = ({
 
   // Update gross profit when bill rate or pay rate changes
   useEffect(() => {
-    const billRate = parseFloat(formik.values.billRate) || 0;
-    const payRate = parseFloat(formik.values.payRate) || 0;
+    const billRate = parseFloat(parseNumberFromFormatted(formik.values.billRate)) || 0;
+    const payRate = parseFloat(parseNumberFromFormatted(formik.values.payRate)) || 0;
     
     if (billRate > 0 && payRate > 0) {
-      const grossProfit = Math.round(billRate - payRate);
+      const grossProfit = Number((billRate - payRate).toFixed(2));
       formik.setFieldValue('grossProfit', grossProfit.toString());
     }
   }, [formik.values.billRate, formik.values.payRate]);
