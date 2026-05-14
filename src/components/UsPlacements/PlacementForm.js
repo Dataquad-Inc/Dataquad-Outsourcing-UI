@@ -23,7 +23,7 @@ import { styled } from "@mui/material/styles";
 import dayjs from "dayjs";
 import { useFormik } from "formik";
 import * as Yup from "yup";
-import { createPlacement, updatePlacement, updateUsPlacement } from "../../redux/placementSlice";
+import { createUsPlacement, updateUsPlacement } from "../../redux/placementSlice";
 import CryptoJS from "crypto-js";
 
 const SuccessAlert = styled(Alert)(({ theme }) => ({
@@ -226,6 +226,11 @@ const PlacementForm = ({
         startAdornment: <InputAdornment position="start">$</InputAdornment>,
       },
     },
+    {
+      id: "referal",
+      label: "Referral",
+      grid: { xs: 12, sm: 6 },
+    },
   ];
 
   const employmentFields = [
@@ -259,11 +264,6 @@ const PlacementForm = ({
         { value: "Cancelled", label: "Cancelled" },
         { value: "BackOut", label: "BackOut" },
       ],
-    },
-    {
-      id: "referal",
-      label: "Referral",
-      grid: { xs: 12, sm: 6 },
     },
     {
       id: "projectIn",
@@ -490,7 +490,7 @@ const PlacementForm = ({
             placementData: payload,
           }));
         } else {
-          dispatch(createPlacement(payload)); 
+          dispatch(createUsPlacement(payload));
         }
 
         setSubmitStatus({
