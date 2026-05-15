@@ -15,10 +15,12 @@ import {
   IconButton,
   MenuItem,
   Stack,
+  responsiveFontSizes,
 } from "@mui/material";
 import { Close } from "@mui/icons-material";
 import httpService from "../../Services/httpService";
 import ToastService from "../../Services/toastService";
+import { benchAPI } from "../../utils/api";
 
 const BenchCandidateForm = ({
   open,
@@ -35,30 +37,31 @@ const BenchCandidateForm = ({
   const [errors, setErrors] = useState({});
   const [tagSelection, setTagSelection] = useState("");
   const [customTagInput, setCustomTagInput] = useState("");
+  const [PRESET_TAGS , setTagsList] = useState([]);
 
- const PRESET_TAGS = [
-  "Java Full Stack Dev",
-  "Java Backend Dev",
-  "Java Frontend Dev",
-  "AI/ML",
-  "Cybersecurity",
-  "Data Science & Big Data",
-  "DevOps & Platform Engineering",
-  "Quantum Computing",
-  "Salesforce Developer",
-  "Mulesoft Developer",
-  ".Net Developer",
-  "Python Developer",
-  "QA Engineer",
-  "UI Developer",
-  "Business Analyst",
-  "MERN Stack Developer",
-  "Oracle Tech",
-  "Data Engineer",
-  "SAP Consultants",
-  "Scrum Master",
-  "M365 Dynamics"
-];
+//  const PRESET_TAGS = [
+//   "Java Full Stack Dev",
+//   "Java Backend Dev",
+//   "Java Frontend Dev",
+//   "AI/ML",
+//   "Cybersecurity",
+//   "Data Science & Big Data",
+//   "DevOps & Platform Engineering",
+//   "Quantum Computing",
+//   "Salesforce Developer",
+//   "Mulesoft Developer",
+//   ".Net Developer",
+//   "Python Developer",
+//   "QA Engineer",
+//   "UI Developer",
+//   "Business Analyst",
+//   "MERN Stack Developer",
+//   "Oracle Tech",
+//   "Data Engineer",
+//   "SAP Consultants",
+//   "Scrum Master",
+//   "M365 Dynamics"
+// ];
 
   const applyTagFromValue = (tagValue) => {
     if (!tagValue) {
@@ -119,6 +122,20 @@ const BenchCandidateForm = ({
           "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
       );
     });
+
+    const fetchBenchTags = async () => {
+      try {
+        const response = await benchAPI.getBenchTags();
+        setTagsList(response);
+        console.log("bench tags ", response);
+      } catch (error) {
+        ToastService.error("error while getting the tags ");
+      }
+    };
+
+    useEffect(() => {
+      fetchBenchTags();
+    }, []);
 
   // Initialize form values when edit mode or initial data changes
   useEffect(() => {
