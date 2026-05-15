@@ -129,7 +129,7 @@ const BenchCandidateForm = ({
         setTagsList(response);
         console.log("bench tags ", response);
       } catch (error) {
-        ToastService.info("error while getting the tags ");
+        ToastService.error("error while getting the tags ");
       }
     };
 
