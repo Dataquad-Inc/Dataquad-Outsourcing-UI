@@ -285,6 +285,9 @@ const DataTablePaginated = ({
     setSearchInput(value);
     
     // For real-time search (without debounce)
+    if (!serverSide || enableLocalFiltering) {
+    setSearchQuery(value);
+  }
   };
 
   const handleSearchClick = () => {
@@ -540,57 +543,45 @@ const DataTablePaginated = ({
         result = result.filter((row) => {
           const rowValue = row[key];
           const filterValue = filters[key];
-
           if (rowValue === null || rowValue === undefined) return false;
-
-          if (typeof rowValue === "number") {
-            return rowValue === Number(filterValue);
-          }
-
-          if (Array.isArray(filterValue)) {
-            return filterValue.includes(String(rowValue).toLowerCase());
-          }
-
-          return String(rowValue)
-            .toLowerCase()
-            .includes(String(filterValue).toLowerCase());
+          if (typeof rowValue === "number") return rowValue === Number(filterValue);
+          if (Array.isArray(filterValue)) return filterValue.includes(String(rowValue).toLowerCase());
+          return String(rowValue).toLowerCase().includes(String(filterValue).toLowerCase());
         });
       }
     });
 
-    result = result.sort(getComparator(order, orderBy));
+    setFilteredData(result); // no sorting here — sortedData useMemo handles it
+  }, [searchQuery, filters, data, columns, serverSide, enableLocalFiltering]);
 
-    setFilteredData(result);
-  }, [
-    searchQuery,
-    filters,
-    data,
-    order,
-    orderBy,
-    columns,
-    serverSide,
-    enableLocalFiltering,
-  ]);
+  
+  const sortedData = useMemo(() => {
+    const source = serverSide && !enableLocalFiltering ? [...data] : [...filteredData];
+    if (!orderBy) return source;
 
+    return [...source].sort((a, b) => {
+      const aVal = a[orderBy] === null || a[orderBy] === undefined ? "" : a[orderBy];
+      const bVal = b[orderBy] === null || b[orderBy] === undefined ? "" : b[orderBy];
+
+      if (bVal < aVal) return order === "desc" ? -1 : 1;
+      if (bVal > aVal) return order === "desc" ? 1 : -1;
+      return 0;
+    });
+  }, [data, filteredData, orderBy, order, serverSide, enableLocalFiltering]);
+
+  
   const displayData = useMemo(() => {
-    if (serverSide) {
-      return data;
-    } else {
-      const page = externalPage || 0;
-      const rowsPerPage = externalRowsPerPage || defaultRowsPerPage;
-      return filteredData.slice(
-        page * rowsPerPage,
-        page * rowsPerPage + rowsPerPage,
-      );
+    if (serverSide && !enableLocalFiltering) {
+      return sortedData; // server paginates, we sort current page locally
     }
-  }, [
-    serverSide,
-    data,
-    filteredData,
-    externalPage,
-    externalRowsPerPage,
-    defaultRowsPerPage,
-  ]);
+    if (serverSide && enableLocalFiltering) {
+      return sortedData; // server paginates, sort+search locally — no slice
+    }
+    // fully client-side: slice for pagination
+    const p = externalPage || 0;
+    const rpp = externalRowsPerPage || defaultRowsPerPage;
+    return sortedData.slice(p * rpp, p * rpp + rpp);
+  }, [sortedData, serverSide, enableLocalFiltering, externalPage, externalRowsPerPage, defaultRowsPerPage]);
 
   const totalRowCount = serverSide ? totalCount : filteredData.length;
   const visibleColumns = columns.filter((column) => column.visible !== false);
