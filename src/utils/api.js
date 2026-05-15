@@ -122,6 +122,12 @@ export const apiPutFormData = async (endpoint, formData) => {
   }
 };
 
+
+
+export const benchAPI = {
+  getBenchTags: async () => apiGet("/candidate/tags"),
+};
+
 // ========== User Authentication APIs ==========
 export const userAPI = {
   // Authentication
