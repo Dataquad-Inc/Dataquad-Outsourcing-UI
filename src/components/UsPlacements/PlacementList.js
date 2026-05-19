@@ -381,22 +381,6 @@ console.log("Placements data from Redux:", usPlacements);
         width: 130,
       },
       {
-        key: "holdRate",
-        label: "Hold Rate",
-        type: "text",
-        sortable: true,
-        filterable: true,
-        width: 120,
-      },
-      {
-        key: "referal",
-        label: "Referral",
-        type: "text",
-        sortable: true,
-        filterable: true,
-        width: 120,
-      },
-      {
         key: "projectIn",
         label: "Project In",
         type: "text",
@@ -446,6 +430,15 @@ console.log("Placements data from Redux:", usPlacements);
         render: (row) => renderFinancialField(row, "billRate"),
       },
       {
+        key: "holdRate",
+        label: "Hold Rate",
+        type: "text",
+        sortable: true,
+        filterable: true,
+        width: 120,
+        render: (row) => renderFinancialField(row, "holdRate"),
+      },
+      {
         key: "payRate",
         label: "Pay Rate",
         type: "text",
@@ -453,6 +446,14 @@ console.log("Placements data from Redux:", usPlacements);
         filterable: true,
         width: 130,
         render: (row) => renderFinancialField(row, "payRate"),
+      },
+      {
+        key: "referal",
+        label: "Referral",
+        type: "text",
+        sortable: true,
+        filterable: true,
+        width: 120,
       },
       {
         key: "grossProfit",
