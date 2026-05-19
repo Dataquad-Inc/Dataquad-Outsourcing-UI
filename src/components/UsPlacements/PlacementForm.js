@@ -247,6 +247,7 @@ const PlacementForm = ({
         { value: "Part-time", label: "Part-time" },
         { value: "Contract", label: "Contract" },
         { value: "Contract-to-hire", label: "Contract-to-hire" },
+        { value: "special project", label: "special project" },
       ],
     },
     {
@@ -279,6 +280,8 @@ const PlacementForm = ({
         { value: "H1B", label: "H1B" },
         { value: "Green Card", label: "Green Card" },
         { value: "Citizen", label: "Citizen" },
+        { value: "H4-EAD", label: "H4-EAD" },
+        { value: "GC-EAD", label: "GC-EAD" },
         { value: "L1", label: "L1" },
         { value: "O1", label: "O1" },
         { value: "F1", label: "F1" },
