@@ -72,7 +72,7 @@ const PlacementsList = lazy(
 const UsPlacementsList = lazy(
   () => import("../components/UsPlacements/PlacementList"),
 );
-const BenchList = lazy(() => import("../components/Bench/BenchList"));
+const BenchPage = lazy(() => import("../components/Bench/BenchPage"));
 const TeamMetrices = lazy(
   () => import("../components/TeamMetrics/TeamMetrices"),
 );
@@ -558,7 +558,7 @@ const routeConfig = [
                 allowedEntities={["IN"]}
               />
             ),
-            children: [{ index: true, element: Loadable(BenchList) }],
+            children: [{ index: true, element: Loadable(BenchPage) }],
           },
 
           // TEAM METRICS (no entity restriction)
