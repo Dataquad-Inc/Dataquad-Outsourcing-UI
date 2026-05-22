@@ -127,7 +127,6 @@ const BenchCandidateForm = ({
       try {
         const response = await benchAPI.getBenchTags();
         setTagsList(response);
-        console.log("bench tags ", response);
       } catch (error) {
         ToastService.error("error while getting the tags ");
       }
