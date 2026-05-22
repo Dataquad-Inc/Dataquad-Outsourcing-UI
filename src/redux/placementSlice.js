@@ -111,10 +111,11 @@ export const fetchPlacements = createAsyncThunk(
 
 export const fetchUsPlacements = createAsyncThunk(
   "placement/fetchUsPlacements",
-  async (_, { rejectWithValue }) => {
+  async ({ page = 0, size = 20 } = {}, { rejectWithValue }) => {
     try {
       const response = await httpService.get(
-        "/candidate/us-placement/placements-list"
+        "/candidate/us-placement/placements-list",
+        { page, size }
       );
       const rawData = response?.data?.data || response?.data || [];
       const formattedData = rawData.map((item) => ({
@@ -123,7 +124,16 @@ export const fetchUsPlacements = createAsyncThunk(
         endDate: item.endDate ? formatDateForUI(item.endDate) : "",
       }));
 
-      return formattedData;
+      return {
+        data: formattedData,
+        pagination: response?.data?.pagination || {
+          totalPages: 0,
+          pageSize: size,
+          isLast: true,
+          totalElements: formattedData.length,
+          currentPage: page,
+        },
+      };
     } catch (error) {
       ToastService.error("Failed to load placement data. Please try again.");
       return rejectWithValue(
@@ -399,6 +409,13 @@ export const filterPlacementByDateRange = createAsyncThunk(
 const initialState = {
   placements: [],
   usPlacements: [],
+  usPlacementsPagination: {
+    totalPages: 0,
+    pageSize: 20,
+    isLast: true,
+    totalElements: 0,
+    currentPage: 0,
+  },
   loading: false,
   error: null,
   success: false,
@@ -478,7 +495,8 @@ const placementSlice = createSlice({
       })
       .addCase(fetchUsPlacements.fulfilled, (state, action) => {
         state.loading = false;
-        state.usPlacements = action.payload;
+        state.usPlacements = action.payload.data;
+        state.usPlacementsPagination = action.payload.pagination;
         state.actionType = null;
         state.isFiltered = false; // Reset filter state when fetching all data
       })

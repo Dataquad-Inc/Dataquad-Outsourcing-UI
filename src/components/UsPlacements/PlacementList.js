@@ -29,7 +29,7 @@ import {
 } from "@mui/icons-material";
 import { useDispatch, useSelector } from "react-redux";
 
-import DataTable from "../muiComponents/DataTabel";
+import CustomDataTable from "../../ui-lib/CustomDataTable";
 import PlacementForm from "./PlacementForm";
 import PlacementCard from "./PlacementCard";
 import ConfirmDialog from "../muiComponents/ConfirmDialog";
@@ -47,7 +47,12 @@ import { pl } from "date-fns/locale";
 
 const PlacementsList = () => {
   const dispatch = useDispatch();
-  const { usPlacements, placements, loading, selectedPlacement } = useSelector(
+  const {
+    usPlacements,
+    usPlacementsPagination,
+    loading,
+    selectedPlacement,
+  } = useSelector(
     (state) => state.placement
   );
 
@@ -65,6 +70,10 @@ console.log("Placements data from Redux:", usPlacements);
   // Filter states
   const [activeFilter, setActiveFilter] = useState("all"); // "all", "active", "inactive", "fulltime"
   const [filteredPlacements, setFilteredPlacements] = useState([]);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [keyword, setSearch] = useState("");
+  const [tableFilters, setTableFilters] = useState({});
 
   const decoded = atob(encryptionKey);
   const FINANCIAL_SECRET_KEY = decoded;
@@ -147,11 +156,12 @@ console.log("Placements data from Redux:", usPlacements);
   }, [processedPlacements, activeFilter]);
 
   useEffect(() => {
-    dispatch(fetchUsPlacements());
-  }, [dispatch]);
+    dispatch(fetchUsPlacements({ page, size: rowsPerPage }));
+  }, [dispatch, page, rowsPerPage]);
 
   const handleFilterChange = (filterType) => {
     setActiveFilter(filterType);
+    setPage(0);
   };
 
   const getFilterButtonColor = (filterType) => {
@@ -566,6 +576,89 @@ console.log("Placements data from Redux:", usPlacements);
     );
   };
 
+  const customTableColumns = React.useMemo(
+    () =>
+      generateColumns().map((column) => ({
+        ...column,
+        id: column.key,
+        filterType: column.type === "select" ? "select" : "text",
+        applyFilter: column.filterable === true,
+        render: column.render ? (_value, row) => column.render(row) : undefined,
+      })),
+    []
+  );
+
+  const tableFilteredPlacements = React.useMemo(() => {
+    let result = [...filteredPlacements];
+
+    if (keyword.trim()) {
+      const query = keyword.trim().toLowerCase();
+      result = result.filter((placement) =>
+        customTableColumns.some((column) => {
+          if (column.id === "actions") return false;
+          const value = placement[column.id];
+          return value !== null &&
+            value !== undefined &&
+            String(value).toLowerCase().includes(query);
+        })
+      );
+    }
+
+    Object.entries(tableFilters).forEach(([field, filter]) => {
+      const value = filter?.value;
+      if (value === "" || value === null || value === undefined) return;
+
+      result = result.filter((placement) => {
+        const rowValue = placement[field];
+        if (rowValue === null || rowValue === undefined) return false;
+        return String(rowValue)
+          .toLowerCase()
+          .includes(String(value).toLowerCase());
+      });
+    });
+
+    return result;
+  }, [filteredPlacements, keyword, tableFilters, customTableColumns]);
+
+  const hasLocalTableFilters =
+    activeFilter !== "all" ||
+    keyword.trim() !== "" ||
+    Object.keys(tableFilters).length > 0;
+
+  const totalPlacements = hasLocalTableFilters
+    ? tableFilteredPlacements.length
+    : usPlacementsPagination?.totalElements || tableFilteredPlacements.length;
+
+  useEffect(() => {
+    if (page > 0 && page * rowsPerPage >= totalPlacements) {
+      setPage(0);
+    }
+  }, [page, rowsPerPage, totalPlacements]);
+
+  const handlePageChange = (_event, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleRowsPerPageChange = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  const handleSearchChange = (event) => {
+    setSearch(event.target.value);
+    setPage(0);
+  };
+
+  const handleSearchClear = () => {
+    setSearch("");
+    setPage(0);
+  };
+
+  const handleTableFiltersChange = (newFilters) => {
+    setTableFilters(newFilters);
+    setPage(0);
+  };
+
   return (
     <>
       <Stack
@@ -695,49 +788,25 @@ console.log("Placements data from Redux:", usPlacements);
         )}
       </Box>
 
-      <DataTable
-        data={filteredPlacements}
-        columns={generateColumns()}
-        pageLimit={20}
+        <CustomDataTable
+        rows={tableFilteredPlacements}
+        columns={customTableColumns}
+        total={totalPlacements}
+        page={page}
+        rowsPerPage={rowsPerPage}
+        search={keyword}
         title=""
-        refreshData={() => {
-          dispatch(fetchUsPlacements());
+        loading={loading}
+        filters={tableFilters}
+        filterStorageKey="us_placements_filters"
+        onPageChange={handlePageChange}
+        onRowsPerPageChange={handleRowsPerPageChange}
+        onSearchChange={handleSearchChange}
+        onSearchClear={handleSearchClear}
+        onRefresh={() => {
+          dispatch(fetchUsPlacements({ page, size: rowsPerPage }));
         }}
-        isRefreshing={loading}
-        enableSelection={false}
-        defaultSortColumn="id"
-        defaultSortDirection="desc"
-        noDataMessage={
-          <Box sx={{ py: 4, textAlign: "center" }}>
-            <Typography variant="h6" color="text.secondary" gutterBottom>
-              No Records Found
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {activeFilter === "all"
-                ? "No placement records found."
-                : `No ${activeFilter === "fulltime" ? "full-time" : activeFilter} placement records found.`
-              }
-            </Typography>
-            {activeFilter !== "all" && (
-              <Button
-                variant="text"
-                size="small"
-                onClick={() => handleFilterChange("all")}
-                sx={{ mt: 1 }}
-              >
-                View All Placements
-              </Button>
-            )}
-          </Box>
-        }
-        sx={{
-          "& .MuiDataGrid-root": {
-            border: "none",
-            borderRadius: 2,
-            overflow: "hidden",
-          },
-        }}
-        uniqueId="id"
+        onFiltersChange={handleTableFiltersChange}
       />
 
       {/* Form Drawer */}
