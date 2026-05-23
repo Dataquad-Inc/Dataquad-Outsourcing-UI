@@ -12,6 +12,8 @@ import {
   MenuItem,
   Paper,
   Stack,
+  Tab,
+  Tabs,
   TextField,
   Typography,
 } from "@mui/material";
@@ -53,7 +55,34 @@ const initialProfile = {
   employeeId: "",
   entity: "",
   joiningDate: "",
+  officialNumber: "",
+  officialEmailId: "",
+  probation: "",
+  reportingManager: "",
+  department: "",
+  linkedInUrl: "",
+  bankName: "",
+  accountNumber: "",
+  branch: "",
+  accountHolderName: "",
+  ifscCode: "",
+  uanNumber: "",
+  pfNumber: "",
+  payrollPanNumber: "",
+  payrollAadharNumber: "",
+  clearnessForm: "",
+  fAndF: "",
+  exitFromPfDate: "",
+  lastWorkingDay: "",
 };
+
+const profileTabs = [
+  "Personal Profile",
+  "Job Profile",
+  "Payroll Inputs",
+  "Documents",
+  "Exit Formality",
+];
 
 const getResponseBody = (response) => response?.data || response || {};
 
@@ -405,6 +434,7 @@ const Profile = () => {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
 
   const avatarText = useMemo(() => getInitials(profile.name), [profile.name]);
 
@@ -454,6 +484,30 @@ const Profile = () => {
         employeeId: data.employeeId || data.userId || "",
         entity: entity || "",
         joiningDate: data.joiningDate || data.joining_date || "",
+        officialNumber:
+          data.officialNumber || data.officialPhoneNumber || data.officeNumber || "",
+        officialEmailId:
+          data.officialEmailId || data.officialEmail || data.officeEmail || "",
+        probation: data.probation || data.isProbation || "",
+        reportingManager: data.reportingManager || data.managerName || "",
+        department: data.department || "",
+        linkedInUrl: data.linkedInUrl || data.linkedinUrl || data.linkedinURL || "",
+        bankName: data.bankName || "",
+        accountNumber: data.accountNumber || data.bankAccountNumber || "",
+        branch: data.branch || data.bankBranch || "",
+        accountHolderName: data.accountHolderName || data.bankAccountHolderName || "",
+        ifscCode: data.ifscCode || data.ifsc || "",
+        uanNumber: data.uanNumber || data.uan || "",
+        pfNumber: data.pfNumber || "",
+        payrollPanNumber: data.payrollPanNumber || data.panNumber || "",
+        payrollAadharNumber:
+          data.payrollAadharNumber || data.aadharNumber || data.adharNumber || "",
+        clearnessForm: data.clearnessForm || data.clearanceForm || "",
+        fAndF: data.fAndF || data.fandF || data.fullAndFinal || "",
+        exitFromPfDate: formatDateForInput(
+          data.exitFromPfDate || data.existFromPfDate || ""
+        ),
+        lastWorkingDay: formatDateForInput(data.lastWorkingDay || ""),
       };
 
       setExistingDocuments(getDocumentsPayload(result));
@@ -476,7 +530,9 @@ const Profile = () => {
     const value = event.target.value;
     setProfile((currentProfile) => ({
       ...currentProfile,
-      [field]: field === "pan" ? value.toUpperCase() : value,
+      [field]: ["pan", "ifscCode", "payrollPanNumber"].includes(field)
+        ? value.toUpperCase()
+        : value,
     }));
     setErrors((currentErrors) => ({
       ...currentErrors,
@@ -505,6 +561,10 @@ const Profile = () => {
     if (!files.length) return;
 
     setSelectedDocumentFiles(files);
+  };
+
+  const handleTabChange = (event, nextTab) => {
+    setActiveTab(nextTab);
   };
 
   const handleCancel = () => {
@@ -569,6 +629,26 @@ const Profile = () => {
       formData.append("role", role || profile.role || "");
       formData.append("entity", entity || profile.entity || "");
       formData.append("joiningDate", profile.joiningDate || "");
+      formData.append("officialNumber", profile.officialNumber || "");
+      formData.append("officialEmailId", profile.officialEmailId || "");
+      formData.append("probation", profile.probation || "");
+      formData.append("reportingManager", profile.reportingManager || "");
+      formData.append("department", profile.department || "");
+      formData.append("linkedInUrl", profile.linkedInUrl || "");
+      formData.append("bankName", profile.bankName || "");
+      formData.append("accountNumber", profile.accountNumber || "");
+      formData.append("branch", profile.branch || "");
+      formData.append("accountHolderName", profile.accountHolderName || "");
+      formData.append("ifscCode", profile.ifscCode || "");
+      formData.append("uanNumber", profile.uanNumber || "");
+      formData.append("pfNumber", profile.pfNumber || "");
+      formData.append("payrollPanNumber", profile.payrollPanNumber || "");
+      formData.append("payrollAadharNumber", profile.payrollAadharNumber || "");
+      formData.append("clearnessForm", profile.clearnessForm || "");
+      formData.append("fAndF", profile.fAndF || "");
+      formData.append("fandF", profile.fAndF || "");
+      formData.append("exitFromPfDate", profile.exitFromPfDate || "");
+      formData.append("lastWorkingDay", profile.lastWorkingDay || "");
 
       if (selectedPhotoFile) {
         formData.append("profilePhoto", selectedPhotoFile);
@@ -649,6 +729,30 @@ const Profile = () => {
           bgcolor: "background.default",
         }}
       >
+        <Tabs
+          value={activeTab}
+          onChange={handleTabChange}
+          variant="scrollable"
+          scrollButtons="auto"
+          textColor="primary"
+          indicatorColor="primary"
+          sx={{
+            mb: 3,
+            borderBottom: "1px solid",
+            borderColor: "divider",
+            "& .MuiTab-root": {
+              textTransform: "none",
+              fontWeight: 600,
+              minHeight: 44,
+            },
+          }}
+        >
+          {profileTabs.map((tab) => (
+            <Tab key={tab} label={tab} />
+          ))}
+        </Tabs>
+
+        {activeTab === 0 && (
         <Grid container spacing={3}>
           <Grid item xs={12} md={3}>
             <Stack alignItems="center" spacing={2}>
@@ -705,8 +809,8 @@ const Profile = () => {
                 <TextField
                   label="Name"
                   value={profile.name}
+                  onChange={handleChange("name")}
                   fullWidth
-                  disabled
                   InputProps={{ startAdornment: <BadgeOutlined sx={{ mr: 1 }} /> }}
                 />
               </Grid>
@@ -738,28 +842,6 @@ const Profile = () => {
                   fullWidth
                   inputProps={{ maxLength: 10 }}
                   InputProps={{ startAdornment: <PhoneOutlined sx={{ mr: 1 }} /> }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="PAN"
-                  value={profile.pan}
-                  onChange={handleChange("pan")}
-                  fullWidth
-                  error={Boolean(errors.pan)}
-                  helperText={errors.pan || "10 alphanumeric characters"}
-                  inputProps={{ maxLength: 10, style: { textTransform: "uppercase" } }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Adhar"
-                  value={profile.adhar}
-                  onChange={handleChange("adhar")}
-                  fullWidth
-                  error={Boolean(errors.adhar)}
-                  helperText={errors.adhar || "12 digits only"}
-                  inputProps={{ maxLength: 12 }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -841,14 +923,6 @@ const Profile = () => {
                   disabled
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Joining Date"
-                  value={formatProfileDate(profile.joiningDate)}
-                  fullWidth
-                  disabled
-                />
-              </Grid>
             </Grid>
 
             <Divider sx={{ my: 3 }} />
@@ -893,9 +967,161 @@ const Profile = () => {
                 />
               </Grid>
             </Grid>
+          </Grid>
+        </Grid>
+        )}
 
-            <Divider sx={{ my: 3 }} />
+        {activeTab === 1 && (
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Joining Date"
+                value={formatProfileDate(profile.joiningDate)}
+                fullWidth
+                disabled
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Official Number (optional)"
+                value={profile.officialNumber}
+                onChange={handleChange("officialNumber")}
+                fullWidth
+                inputProps={{ maxLength: 10 }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Official EMail ID"
+                value={profile.officialEmailId}
+                onChange={handleChange("officialEmailId")}
+                fullWidth
+                InputProps={{ startAdornment: <EmailOutlined sx={{ mr: 1 }} /> }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Probation"
+                value={profile.probation}
+                onChange={handleChange("probation")}
+                fullWidth
+                select
+              >
+                {["Yes", "No"].map((option) => (
+                  <MenuItem key={option} value={option}>
+                    {option}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Reporting Manager"
+                value={profile.reportingManager}
+                onChange={handleChange("reportingManager")}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Department"
+                value={profile.department}
+                onChange={handleChange("department")}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                label="LinkedIn URL"
+                value={profile.linkedInUrl}
+                onChange={handleChange("linkedInUrl")}
+                fullWidth
+              />
+            </Grid>
+          </Grid>
+        )}
 
+        {activeTab === 2 && (
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Bank Name"
+                value={profile.bankName}
+                onChange={handleChange("bankName")}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Account Number"
+                value={profile.accountNumber}
+                onChange={handleChange("accountNumber")}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Branch"
+                value={profile.branch}
+                onChange={handleChange("branch")}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Account Holder Name"
+                value={profile.accountHolderName}
+                onChange={handleChange("accountHolderName")}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="IFSC Code"
+                value={profile.ifscCode}
+                onChange={handleChange("ifscCode")}
+                fullWidth
+                inputProps={{ style: { textTransform: "uppercase" } }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="UAN Number"
+                value={profile.uanNumber}
+                onChange={handleChange("uanNumber")}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="PF Number"
+                value={profile.pfNumber}
+                onChange={handleChange("pfNumber")}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="PAN Number"
+                value={profile.payrollPanNumber}
+                onChange={handleChange("payrollPanNumber")}
+                fullWidth
+                inputProps={{ style: { textTransform: "uppercase" } }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Aadhar Number"
+                value={profile.payrollAadharNumber}
+                onChange={handleChange("payrollAadharNumber")}
+                fullWidth
+              />
+            </Grid>
+          </Grid>
+        )}
+
+        {activeTab === 3 && (
+          <Box>
             <Stack
               direction={{ xs: "column", sm: "row" }}
               alignItems={{ xs: "flex-start", sm: "center" }}
@@ -1030,33 +1256,92 @@ console.log("Document document?.documentData:", getDocumentThumbnailSrc(document
                 </Alert>
               )}
             </Box>
+          </Box>
+        )}
 
-            <Stack
-              direction={{ xs: "column", sm: "row" }}
-              justifyContent="flex-end"
-              gap={2}
-              sx={{ mt: 4 }}
-            >
-              <Button
-                variant="outlined"
-                color="inherit"
-                startIcon={<CancelOutlined />}
-                onClick={handleCancel}
-                disabled={saving}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                variant="contained"
-                startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <SaveOutlined />}
-                disabled={saving}
-              >
-                Submit
-              </Button>
-            </Stack>
+        {activeTab === 4 && (
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Clearness Form"
+                value={profile.clearnessForm}
+                onChange={handleChange("clearnessForm")}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="F&F"
+                value={profile.fAndF}
+                onChange={handleChange("fAndF")}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Exist From PF Date"
+                type="date"
+                value={profile.exitFromPfDate}
+                onChange={handleChange("exitFromPfDate")}
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Last Working day"
+                type="date"
+                value={profile.lastWorkingDay}
+                onChange={handleChange("lastWorkingDay")}
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
           </Grid>
-        </Grid>
+        )}
+
+        {activeTab !== 0 && activeTab !== 1 && activeTab !== 2 && activeTab !== 3 && activeTab !== 4 && (
+          <Box
+            sx={{
+              py: 6,
+              px: 2,
+              textAlign: "center",
+              border: "1px dashed",
+              borderColor: "divider",
+              borderRadius: 1,
+              bgcolor: "background.paper",
+            }}
+          >
+            <Typography variant="body2" color="text.secondary">
+              No details available.
+            </Typography>
+          </Box>
+        )}
+
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          justifyContent="flex-end"
+          gap={2}
+          sx={{ mt: 4 }}
+        >
+          <Button
+            variant="outlined"
+            color="inherit"
+            startIcon={<CancelOutlined />}
+            onClick={handleCancel}
+            disabled={saving}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="contained"
+            startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <SaveOutlined />}
+            disabled={saving}
+          >
+            Submit
+          </Button>
+        </Stack>
       </Paper>
     </Box>
   );
