@@ -9,8 +9,7 @@ export const fetchEmployees = createAsyncThunk(
   "employee/fetchEmployees",
   async () => {
     const response = await httpService.get("/users/employee");
-    return data.response || data; 
-  }
+    return response.data;  }
 );
 
 // Update employee thunk
