@@ -70,7 +70,7 @@ const initialProfile = {
   pfNumber: "",
   payrollPanNumber: "",
   payrollAadharNumber: "",
-  clearnessForm: "",
+  clearanceForm: "",
   fAndF: "",
   exitFromPfDate: "",
   lastWorkingDay: "",
@@ -502,7 +502,7 @@ const Profile = () => {
         payrollPanNumber: data.payrollPanNumber || data.panNumber || "",
         payrollAadharNumber:
           data.payrollAadharNumber || data.aadharNumber || data.adharNumber || "",
-        clearnessForm: data.clearnessForm || data.clearanceForm || "",
+        clearanceForm: formatDateForInput(data.clearanceForm || data.clearnessForm || ""),
         fAndF: data.fAndF || data.fandF || data.fullAndFinal || "",
         exitFromPfDate: formatDateForInput(
           data.exitFromPfDate || data.existFromPfDate || ""
@@ -630,7 +630,7 @@ const Profile = () => {
       formData.append("entity", entity || profile.entity || "");
       formData.append("joiningDate", profile.joiningDate || "");
       formData.append("officialNumber", profile.officialNumber || "");
-      formData.append("officialEmailId", profile.officialEmailId || "");
+      formData.append("officialEmailId", profile.email || profile.officialEmailId || "");
       formData.append("probation", profile.probation || "");
       formData.append("reportingManager", profile.reportingManager || "");
       formData.append("department", profile.department || "");
@@ -644,7 +644,8 @@ const Profile = () => {
       formData.append("pfNumber", profile.pfNumber || "");
       formData.append("payrollPanNumber", profile.payrollPanNumber || "");
       formData.append("payrollAadharNumber", profile.payrollAadharNumber || "");
-      formData.append("clearnessForm", profile.clearnessForm || "");
+      formData.append("clearanceForm", profile.clearanceForm || "");
+      formData.append("clearnessForm", profile.clearanceForm || "");
       formData.append("fAndF", profile.fAndF || "");
       formData.append("fandF", profile.fAndF || "");
       formData.append("exitFromPfDate", profile.exitFromPfDate || "");
@@ -812,15 +813,6 @@ const Profile = () => {
                   onChange={handleChange("name")}
                   fullWidth
                   InputProps={{ startAdornment: <BadgeOutlined sx={{ mr: 1 }} /> }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Email"
-                  value={profile.email}
-                  fullWidth
-                  disabled
-                  InputProps={{ startAdornment: <EmailOutlined sx={{ mr: 1 }} /> }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -993,9 +985,9 @@ const Profile = () => {
             <Grid item xs={12} sm={6}>
               <TextField
                 label="Official EMail ID"
-                value={profile.officialEmailId}
-                onChange={handleChange("officialEmailId")}
+                value={profile.email}
                 fullWidth
+                disabled
                 InputProps={{ startAdornment: <EmailOutlined sx={{ mr: 1 }} /> }}
               />
             </Grid>
@@ -1263,10 +1255,13 @@ console.log("Document document?.documentData:", getDocumentThumbnailSrc(document
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
               <TextField
-                label="Clearness Form"
-                value={profile.clearnessForm}
-                onChange={handleChange("clearnessForm")}
+                label="Clearance Form"
+                type="date"
+                value={profile.clearanceForm}
+                onChange={handleChange("clearanceForm")}
                 fullWidth
+                disabled
+                InputLabelProps={{ shrink: true }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -1275,6 +1270,7 @@ console.log("Document document?.documentData:", getDocumentThumbnailSrc(document
                 value={profile.fAndF}
                 onChange={handleChange("fAndF")}
                 fullWidth
+                disabled
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -1284,6 +1280,7 @@ console.log("Document document?.documentData:", getDocumentThumbnailSrc(document
                 value={profile.exitFromPfDate}
                 onChange={handleChange("exitFromPfDate")}
                 fullWidth
+                disabled
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
@@ -1294,6 +1291,7 @@ console.log("Document document?.documentData:", getDocumentThumbnailSrc(document
                 value={profile.lastWorkingDay}
                 onChange={handleChange("lastWorkingDay")}
                 fullWidth
+                disabled
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
