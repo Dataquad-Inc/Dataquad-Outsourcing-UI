@@ -102,7 +102,7 @@ const Header = ({
     }
 
     try {
-      const response = await fetch(`http://localhost:8083/users/profile/${userId}`);
+      const response = await fetch(`https://mymulya.com/users/profile/${userId}`);
       if (!response.ok) throw new Error("Failed to fetch profile");
 
       const result = await response.json();

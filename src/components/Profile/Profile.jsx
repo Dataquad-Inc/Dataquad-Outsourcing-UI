@@ -33,6 +33,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { showToast } from "../../utils/ToastNotification";
+import httpService from "../../Services/httpService";
 
 const initialProfile = {
   photo: "",
@@ -74,6 +75,7 @@ const initialProfile = {
   fAndF: "",
   exitFromPfDate: "",
   lastWorkingDay: "",
+  isEditable: false,
 };
 
 const profileTabs = [
@@ -85,6 +87,8 @@ const profileTabs = [
 ];
 
 const getResponseBody = (response) => response?.data || response || {};
+
+const isTrueFlag = (value) => value === true || value === "true";
 
 const getPayload = (response) => {
   const body = getResponseBody(response);
@@ -437,6 +441,7 @@ const Profile = () => {
   const [activeTab, setActiveTab] = useState(0);
 
   const avatarText = useMemo(() => getInitials(profile.name), [profile.name]);
+  const canEditProfile = isTrueFlag(profile.isEditable);
 
   const fetchProfile = useCallback(async ({ showLoader = true } = {}) => {
     if (!userId) return;
@@ -446,15 +451,14 @@ const Profile = () => {
     }
 
     try {
-      // const response = await httpService.get(`/users/profile/${userId}`);
-      const response = await fetch(
-        `http://localhost:8083/users/profile/${userId}`
-      );
+      const response = await httpService.get(`/users/profile/${userId}`);
+      
       if (!response.ok) {
         throw new Error("Failed to fetch profile");
       }
 
       const result = await response.json();
+      const body = getResponseBody(result);
       const data = getPayload(result);
       const profilePhoto = data.photo || data.profilePhoto || data.imageUrl || "";
       const nextProfile = {
@@ -508,6 +512,7 @@ const Profile = () => {
           data.exitFromPfDate || data.existFromPfDate || ""
         ),
         lastWorkingDay: formatDateForInput(data.lastWorkingDay || ""),
+        isEditable: isTrueFlag(data.isEditable) || isTrueFlag(body.isEditable),
       };
 
       setExistingDocuments(getDocumentsPayload(result));
@@ -527,6 +532,8 @@ const Profile = () => {
   }, [fetchProfile]);
 
   const handleChange = (field) => (event) => {
+    if (!canEditProfile) return;
+
     const value = event.target.value;
     setProfile((currentProfile) => ({
       ...currentProfile,
@@ -541,6 +548,8 @@ const Profile = () => {
   };
 
   const handlePhotoChange = (event) => {
+    if (!canEditProfile) return;
+
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -557,6 +566,8 @@ const Profile = () => {
   };
 
   const handleDocumentChange = (event) => {
+    if (!canEditProfile) return;
+
     const files = Array.from(event.target.files || []);
     if (!files.length) return;
 
@@ -601,6 +612,10 @@ const Profile = () => {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+
+    if (!canEditProfile) {
+      return;
+    }
 
     if (!validateProfile()) {
       showToast("Please fix the highlighted fields", "error");
@@ -664,7 +679,7 @@ const Profile = () => {
       //     "Content-Type": "multipart/form-data",
       //   },
       // });
-      const updateResponse = await fetch(`http://localhost:8083/users/update/${profile.employeeId || userId}`, {
+      const updateResponse = await fetch(`https://mymulya.com/users/update/${profile.employeeId || userId}`, {
         method: "PUT",
         body: formData,
       });
@@ -774,6 +789,7 @@ const Profile = () => {
                   color="primary"
                   aria-label="Edit profile photo"
                   onClick={() => fileInputRef.current?.click()}
+                  disabled={!canEditProfile}
                   sx={{
                     position: "absolute",
                     right: 4,
@@ -793,11 +809,13 @@ const Profile = () => {
                 accept="image/*"
                 hidden
                 onChange={handlePhotoChange}
+                disabled={!canEditProfile}
               />
               <Button
                 variant="outlined"
                 startIcon={<UploadFileOutlined />}
                 onClick={() => fileInputRef.current?.click()}
+                disabled={!canEditProfile}
               >
                 Upload Photo
               </Button>
@@ -812,6 +830,7 @@ const Profile = () => {
                   value={profile.name}
                   onChange={handleChange("name")}
                   fullWidth
+                  disabled={!canEditProfile}
                   InputProps={{ startAdornment: <BadgeOutlined sx={{ mr: 1 }} /> }}
                 />
               </Grid>
@@ -821,6 +840,7 @@ const Profile = () => {
                   value={profile.personalemail}
                   onChange={handleChange("personalemail")}
                   fullWidth
+                  disabled={!canEditProfile}
                   error={Boolean(errors.personalemail)}
                   helperText={errors.personalemail || ""}
                   InputProps={{ startAdornment: <EmailOutlined sx={{ mr: 1 }} /> }}
@@ -832,6 +852,7 @@ const Profile = () => {
                   value={profile.phoneNumber}
                   onChange={handleChange("phoneNumber")}
                   fullWidth
+                  disabled={!canEditProfile}
                   inputProps={{ maxLength: 10 }}
                   InputProps={{ startAdornment: <PhoneOutlined sx={{ mr: 1 }} /> }}
                 />
@@ -842,6 +863,7 @@ const Profile = () => {
                   value={profile.fatherOrSpouseName}
                   onChange={handleChange("fatherOrSpouseName")}
                   fullWidth
+                  disabled={!canEditProfile}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -850,6 +872,7 @@ const Profile = () => {
                   value={profile.motherName}
                   onChange={handleChange("motherName")}
                   fullWidth
+                  disabled={!canEditProfile}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -859,6 +882,7 @@ const Profile = () => {
                   value={profile.dob}
                   onChange={handleChange("dob")}
                   fullWidth
+                  disabled={!canEditProfile}
                   InputLabelProps={{ shrink: true }}
                 />
               </Grid>
@@ -868,6 +892,7 @@ const Profile = () => {
                   value={profile.bloodGroup}
                   onChange={handleChange("bloodGroup")}
                   fullWidth
+                  disabled={!canEditProfile}
                   select
                 >
                   {bloodGroupOptions.map((option) => (
@@ -883,6 +908,7 @@ const Profile = () => {
                   value={profile.gender}
                   onChange={handleChange("gender")}
                   fullWidth
+                  disabled={!canEditProfile}
                   select
                 >
                   {genderOptions.map((option) => (
@@ -898,6 +924,7 @@ const Profile = () => {
                   value={profile.maritalStatus}
                   onChange={handleChange("maritalStatus")}
                   fullWidth
+                  disabled={!canEditProfile}
                   select
                 >
                   {maritalStatusOptions.map((option) => (
@@ -935,6 +962,7 @@ const Profile = () => {
                   value={profile.emergencyContactNo}
                   onChange={handleChange("emergencyContactNo")}
                   fullWidth
+                  disabled={!canEditProfile}
                   inputProps={{ maxLength: 10 }}
                 />
               </Grid>
@@ -944,6 +972,7 @@ const Profile = () => {
                   value={profile.currentAddress}
                   onChange={handleChange("currentAddress")}
                   fullWidth
+                  disabled={!canEditProfile}
                   multiline
                   minRows={2}
                 />
@@ -954,6 +983,7 @@ const Profile = () => {
                   value={profile.permanentAddress}
                   onChange={handleChange("permanentAddress")}
                   fullWidth
+                  disabled={!canEditProfile}
                   multiline
                   minRows={2}
                 />
@@ -979,6 +1009,7 @@ const Profile = () => {
                 value={profile.officialNumber}
                 onChange={handleChange("officialNumber")}
                 fullWidth
+                disabled={!canEditProfile}
                 inputProps={{ maxLength: 10 }}
               />
             </Grid>
@@ -997,6 +1028,7 @@ const Profile = () => {
                 value={profile.probation}
                 onChange={handleChange("probation")}
                 fullWidth
+                disabled={!canEditProfile}
                 select
               >
                 {["Yes", "No"].map((option) => (
@@ -1012,6 +1044,7 @@ const Profile = () => {
                 value={profile.reportingManager}
                 onChange={handleChange("reportingManager")}
                 fullWidth
+                disabled={!canEditProfile}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -1020,6 +1053,7 @@ const Profile = () => {
                 value={profile.department}
                 onChange={handleChange("department")}
                 fullWidth
+                disabled={!canEditProfile}
               />
             </Grid>
             <Grid item xs={12}>
@@ -1028,6 +1062,7 @@ const Profile = () => {
                 value={profile.linkedInUrl}
                 onChange={handleChange("linkedInUrl")}
                 fullWidth
+                disabled={!canEditProfile}
               />
             </Grid>
           </Grid>
@@ -1041,6 +1076,7 @@ const Profile = () => {
                 value={profile.bankName}
                 onChange={handleChange("bankName")}
                 fullWidth
+                disabled={!canEditProfile}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -1049,6 +1085,7 @@ const Profile = () => {
                 value={profile.accountNumber}
                 onChange={handleChange("accountNumber")}
                 fullWidth
+                disabled={!canEditProfile}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -1057,6 +1094,7 @@ const Profile = () => {
                 value={profile.branch}
                 onChange={handleChange("branch")}
                 fullWidth
+                disabled={!canEditProfile}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -1065,6 +1103,7 @@ const Profile = () => {
                 value={profile.accountHolderName}
                 onChange={handleChange("accountHolderName")}
                 fullWidth
+                disabled={!canEditProfile}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -1073,6 +1112,7 @@ const Profile = () => {
                 value={profile.ifscCode}
                 onChange={handleChange("ifscCode")}
                 fullWidth
+                disabled={!canEditProfile}
                 inputProps={{ style: { textTransform: "uppercase" } }}
               />
             </Grid>
@@ -1082,6 +1122,7 @@ const Profile = () => {
                 value={profile.uanNumber}
                 onChange={handleChange("uanNumber")}
                 fullWidth
+                disabled={!canEditProfile}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -1090,6 +1131,7 @@ const Profile = () => {
                 value={profile.pfNumber}
                 onChange={handleChange("pfNumber")}
                 fullWidth
+                disabled={!canEditProfile}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -1098,6 +1140,7 @@ const Profile = () => {
                 value={profile.payrollPanNumber}
                 onChange={handleChange("payrollPanNumber")}
                 fullWidth
+                disabled={!canEditProfile}
                 inputProps={{ style: { textTransform: "uppercase" } }}
               />
             </Grid>
@@ -1107,6 +1150,7 @@ const Profile = () => {
                 value={profile.payrollAadharNumber}
                 onChange={handleChange("payrollAadharNumber")}
                 fullWidth
+                disabled={!canEditProfile}
               />
             </Grid>
           </Grid>
@@ -1133,11 +1177,13 @@ const Profile = () => {
                 hidden
                 multiple
                 onChange={handleDocumentChange}
+                disabled={!canEditProfile}
               />
               <Button
                 variant="outlined"
                 startIcon={<UploadFileOutlined />}
                 onClick={() => documentInputRef.current?.click()}
+                disabled={!canEditProfile}
               >
                 Select Files
               </Button>
@@ -1260,7 +1306,7 @@ console.log("Document document?.documentData:", getDocumentThumbnailSrc(document
                 value={profile.clearanceForm}
                 onChange={handleChange("clearanceForm")}
                 fullWidth
-                disabled
+                disabled={!canEditProfile}
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
@@ -1270,7 +1316,7 @@ console.log("Document document?.documentData:", getDocumentThumbnailSrc(document
                 value={profile.fAndF}
                 onChange={handleChange("fAndF")}
                 fullWidth
-                disabled
+                disabled={!canEditProfile}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -1280,7 +1326,7 @@ console.log("Document document?.documentData:", getDocumentThumbnailSrc(document
                 value={profile.exitFromPfDate}
                 onChange={handleChange("exitFromPfDate")}
                 fullWidth
-                disabled
+                disabled={!canEditProfile}
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
@@ -1291,7 +1337,7 @@ console.log("Document document?.documentData:", getDocumentThumbnailSrc(document
                 value={profile.lastWorkingDay}
                 onChange={handleChange("lastWorkingDay")}
                 fullWidth
-                disabled
+                disabled={!canEditProfile}
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
@@ -1335,7 +1381,7 @@ console.log("Document document?.documentData:", getDocumentThumbnailSrc(document
             type="submit"
             variant="contained"
             startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <SaveOutlined />}
-            disabled={saving}
+            disabled={saving || !canEditProfile}
           >
             Submit
           </Button>

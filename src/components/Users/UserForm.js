@@ -69,6 +69,10 @@ const UserForm = ({
       status: isEditMode
         ? Yup.string().required("Status is required")
         : Yup.string(),
+
+      isEditable: isEditMode
+        ? Yup.string().oneOf(["true", "false"]).required("Profile edit access is required")
+        : Yup.string(),
     };
 
     // Add date validations only for new user registration
@@ -271,6 +275,18 @@ const UserForm = ({
             { value: "ACTIVE", label: "Active" },
             { value: "INACTIVE", label: "Inactive" },
           ],
+        },
+        {
+          name: "isEditable",
+          type: "select",
+          label: "Profile Edit Access",
+          required: true,
+          gridProps: { xs: 12, sm: 6 },
+          sx: { mb: 2 },
+          options: [
+            { value: "true", label: "Editable" },
+            { value: "false", label: "Locked" },
+          ],
         }
       );
     }
@@ -342,6 +358,10 @@ const UserForm = ({
     // Format roles to always be an array for API consistency
     if (!Array.isArray(finalValues.roles)) {
       finalValues.roles = [finalValues.roles];
+    }
+
+    if (isEditMode) {
+      finalValues.isEditable = finalValues.isEditable === true || finalValues.isEditable === "true";
     }
 
     // For registration, add default values
