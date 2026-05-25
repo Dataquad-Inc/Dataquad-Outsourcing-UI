@@ -19,6 +19,8 @@ import {
   Skeleton,
   Paper,
   Divider,
+  Button,
+  CircularProgress,
   alpha,
   useTheme,
 } from "@mui/material";
@@ -26,7 +28,9 @@ import {
   Search as SearchIcon,
   Clear as ClearIcon,
   SearchOff as SearchOffIcon,
+  Send as SendIcon,
 } from "@mui/icons-material";
+import axios from "axios";
 
 // ─── Sorting helpers ───────────────────────────────────────────────────────────
 function descendingComparator(a, b, orderBy) {
@@ -57,7 +61,6 @@ const COLUMNS = [
   { id: "email",           label: "Email",       width: 220 },
   { id: "contactNumber",   label: "Contact",     width: 140 },
   { id: "totalExperience", label: "Exp (Yrs)",   width: 110 },
-//   { id: "skills",          label: "Skills",      width: 220, noSort: true },
   { id: "tags",            label: "Tags",        width: 180, noSort: true },
   { id: "referredBy",      label: "Referred By", width: 160 },
 ];
@@ -83,20 +86,6 @@ function applySearch(rows, keyword) {
 }
 
 // ─── Cell renderers ────────────────────────────────────────────────────────────
-function SkillsCell({ skills }) {
-  if (!Array.isArray(skills) || skills.length === 0) return <>—</>;
-  return (
-    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-      {skills.slice(0, 3).map((s, i) => (
-        <Chip key={i} label={s} size="small" />
-      ))}
-      {skills.length > 3 && (
-        <Chip label={`+${skills.length - 3}`} size="small" variant="outlined" />
-      )}
-    </Box>
-  );
-}
-
 function TagsCell({ tags }) {
   if (!tags) return <>—</>;
   const arr = Array.isArray(tags) ? tags : [tags];
@@ -111,7 +100,6 @@ function TagsCell({ tags }) {
 }
 
 function CellValue({ col, row }) {
-  if (col.id === "skills") return <SkillsCell skills={row.skills} />;
   if (col.id === "tags") return <TagsCell tags={row.tags} />;
   if (col.id === "email")
     return (
@@ -178,6 +166,11 @@ const TagCandidatesTable = ({ rows = [], loading = false, tagName = "" }) => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [search,      setSearch]      = useState("");
 
+  // ── NEW: Job ID + submit state ──────────────────────────────────────────────
+  const [jobId,        setJobId]        = useState("");
+  const [submitting,   setSubmitting]   = useState(false);
+  const [submitResult, setSubmitResult] = useState(null); // { type: "success"|"error", message }
+
   const handleSearchChange = (e) => { setSearch(e.target.value); setPage(0); };
   const clearSearch = () => { setSearch(""); setPage(0); };
 
@@ -208,24 +201,139 @@ const TagCandidatesTable = ({ rows = [], loading = false, tagName = "" }) => {
     );
   const isSelected = (id) => selected.includes(id);
 
+  // ── Submit handler ──────────────────────────────────────────────────────────
+  const handleSubmit = async () => {
+    if (!jobId.trim()) {
+      setSubmitResult({ type: "error", message: "Please enter a Job ID before submitting." });
+      return;
+    }
+    if (selected.length === 0) {
+      setSubmitResult({ type: "error", message: "Please select at least one candidate." });
+      return;
+    }
+
+    // Map selected row IDs → benchIds from the actual row objects
+    const benchIds = rows
+      .filter((r) => selected.includes(r.id))
+      .map((r) => r.id);        // ← adjust field name if different
+
+    setSubmitting(true);
+    setSubmitResult(null);
+
+    try {
+      const response = await axios.post(
+        "https://mymulya.com/candidate/submit-bench",
+        { benchIds, jobId: jobId.trim() },
+      );
+
+      const { message, submittedBenchIds, skippedBenchIds } = response.data;
+
+      let detail = message;
+      if (skippedBenchIds?.length > 0) {
+        detail += ` (${skippedBenchIds.length} skipped: ${skippedBenchIds.join(", ")})`;
+      }
+
+      setSubmitResult({ type: "success", message: detail });
+      setSelected([]); // clear selection on success
+    } catch (err) {
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        "Submission failed. Please try again.";
+      setSubmitResult({ type: "error", message: msg });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const canSubmit = numSelected > 0 && jobId.trim() !== "" && !submitting;
+
   return (
     <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
-      {/* Toolbar */}
+
+      {/* ── Submit Result Banner ─────────────────────────────────────────────── */}
+      {submitResult && (
+        <Box
+          sx={{
+            px: 2,
+            py: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            bgcolor:
+              submitResult.type === "success"
+                ? alpha(theme.palette.success.main, 0.1)
+                : alpha(theme.palette.error.main, 0.1),
+            borderBottom: `1px solid ${
+              submitResult.type === "success"
+                ? theme.palette.success.light
+                : theme.palette.error.light
+            }`,
+          }}
+        >
+          <Typography
+            variant="body2"
+            color={submitResult.type === "success" ? "success.dark" : "error.dark"}
+            fontWeight={500}
+          >
+            {submitResult.type === "success" ? "✓ " : "✕ "}
+            {submitResult.message}
+          </Typography>
+          <IconButton size="small" onClick={() => setSubmitResult(null)}>
+            <ClearIcon fontSize="small" />
+          </IconButton>
+        </Box>
+      )}
+
+      {/* ── Toolbar ──────────────────────────────────────────────────────────── */}
       <Toolbar
         sx={{
           px: 2,
           py: 1,
           gap: 2,
+          flexWrap: "wrap",
           minHeight: "56px !important",
           ...(numSelected > 0 && { bgcolor: alpha(theme.palette.primary.main, 0.08) }),
         }}
       >
         {numSelected > 0 ? (
-          <Typography variant="subtitle1" color="primary" fontWeight={600} sx={{ flex: 1 }}>
-            {numSelected} row{numSelected > 1 ? "s" : ""} selected
-          </Typography>
+          <>
+            {/* Selection mode: show count + Job ID input + Submit button */}
+            <Typography variant="subtitle1" color="primary" fontWeight={600}>
+              {numSelected} row{numSelected > 1 ? "s" : ""} selected
+            </Typography>
+
+            <Box sx={{ flex: 1 }} />
+
+            <TextField
+              size="small"
+              placeholder="Enter Job ID…"
+              value={jobId}
+              onChange={(e) => {
+                setJobId(e.target.value);
+                setSubmitResult(null);
+              }}
+              sx={{ width: 200 }}
+              error={submitResult?.type === "error" && !jobId.trim()}
+            />
+
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={
+                submitting
+                  ? <CircularProgress size={14} color="inherit" />
+                  : <SendIcon fontSize="small" />
+              }
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+            >
+              {submitting ? "Submitting…" : "Submit to Job"}
+            </Button>
+          </>
         ) : (
           <>
+            {/* Normal mode: search + count */}
             <TextField
               size="small"
               placeholder="Search candidates…"
@@ -258,7 +366,7 @@ const TagCandidatesTable = ({ rows = [], loading = false, tagName = "" }) => {
 
       <Divider />
 
-      {/* Table */}
+      {/* ── Table ────────────────────────────────────────────────────────────── */}
       <TableContainer sx={{ maxHeight: "60vh" }}>
         <Table stickyHeader size="small">
           <TableHead>
@@ -344,7 +452,7 @@ const TagCandidatesTable = ({ rows = [], loading = false, tagName = "" }) => {
 
       <Divider />
 
-      {/* Pagination */}
+      {/* ── Pagination ───────────────────────────────────────────────────────── */}
       <TablePagination
         component="div"
         count={filteredRows.length}
