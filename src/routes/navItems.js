@@ -10,6 +10,8 @@ import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
 import InsightsIcon from "@mui/icons-material/Insights";
 import HomeIcon from "@mui/icons-material/Home";
 import AutorenewIcon from "@mui/icons-material/Autorenew";
+import TableChartIcon from "@mui/icons-material/TableChart";
+import BarChartIcon from "@mui/icons-material/BarChart";
 
 export const inNavItems = [
   {
@@ -33,7 +35,6 @@ export const inNavItems = [
     icon: <GroupIcon />,
     roles: ["ADMIN", "SUPERADMIN", "INVOICE", "COORDINATOR"],
   },
-
   {
     text: "Team-list",
     path: "ind-team",
@@ -79,19 +80,6 @@ export const inNavItems = [
       "COORDINATOR",
     ],
   },
-  // {
-  //   text: "Submissions",
-  //   path: "submissions",
-  //   icon: <SendIcon />,
-  //   roles: [
-  //     "ADMIN",
-  //     "EMPLOYEE",
-  //     "BDM",
-  //     "TEAMLEAD",
-  //     "SUPERADMIN",
-  //     "COORDINATOR",
-  //   ],
-  // },
   {
     text: "Submissions",
     path: "submissions-all",
@@ -106,13 +94,6 @@ export const inNavItems = [
       "COORDINATOR",
     ],
   },
-
-  //   {
-  //     text: 'Job Form',
-  //     path: 'jobForm',
-  //     icon: <PersonAddIcon />,
-  //     roles: ['ADMIN', 'SUPERADMIN', 'BDM'],
-  //   },
   {
     text: "Interviews",
     path: "interviews",
@@ -126,38 +107,34 @@ export const inNavItems = [
       "COORDINATOR",
     ],
   },
-
-  //   {
-  //     text: 'Add Client',
-  //     path: 'addNewClient',
-  //     icon: <PersonAddIcon />,
-  //     roles: [ 'SUPERADMIN', 'BDM'],
-  //   },
-  // {
-  //   text: "Submissions",
-  //   path: "submissions-all",
-  //   icon: <AssignmentTurnedInIcon />,
-  //   roles: ["SUPERADMIN"],
-  // },
-  // {
-  //   text: "Interviews",
-  //   path: "interviews-all",
-  //   // path: "interviews",
-  //   icon: <EventNoteIcon />,
-  //   roles: ["SUPERADMIN"],
-  // },
   {
     text: "Placements",
     path: "placements",
     icon: <PersonAddIcon />,
     roles: ["SUPERADMIN", "PARTNER", "ADMIN", "INVOICE"],
   },
+  // ── Bench with sub-items ──────────────────────────────────────────────────
   {
     text: "Bench",
-    path: "bench-users",
+    path: "bench-users",                // parent path — navigates to summary by default
     icon: <HourglassIcon />,
     roles: ["ADMIN", "SUPERADMIN", "BDM", "TEAMLEAD", "PARTNER", "EMPLOYEE"],
+    children: [
+      {
+        text: "Technology Summary",
+        path: "bench-users/summary",
+        icon: <BarChartIcon />,
+        roles: ["ADMIN", "SUPERADMIN", "BDM", "TEAMLEAD", "PARTNER", "EMPLOYEE"],
+      },
+      {
+        text: "Bench List",
+        path: "bench-users/bench-list",
+        icon: <TableChartIcon />,
+        roles: ["ADMIN", "SUPERADMIN", "BDM", "TEAMLEAD", "PARTNER", "EMPLOYEE"],
+      },
+    ],
   },
+  // ─────────────────────────────────────────────────────────────────────────
   {
     text: "Timesheet",
     path: "timesheets",
