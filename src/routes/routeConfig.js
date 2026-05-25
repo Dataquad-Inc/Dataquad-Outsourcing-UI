@@ -506,15 +506,12 @@ const routeConfig = [
             children: [{ index: true, element: Loadable(PlacementsList) }],
           },
 
-          
           // PLACEMENTS (US)
           {
             path: "us-placements",
             element: (
               <ProtectedRoute
-                allowedRoles={[
-                  "SUPERADMIN",
-                ]}
+                allowedRoles={["SUPERADMIN"]}
                 allowedEntities={["US"]}
               />
             ),
@@ -558,7 +555,17 @@ const routeConfig = [
                 allowedEntities={["IN"]}
               />
             ),
-            children: [{ index: true, element: Loadable(BenchPage) }],
+            children: [
+              // /bench-users  → redirect to /bench-users/summary
+              { index: true, element: <Navigate to="summary" replace /> },
+
+              // /bench-users/summary  and  /bench-users/bench-list
+              // BenchPage itself contains <Routes> so it must sit on a wildcard
+              {
+                path: "*",
+                element: Loadable(BenchPage),
+              },
+            ],
           },
 
           // TEAM METRICS (no entity restriction)
