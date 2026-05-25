@@ -429,6 +429,7 @@ const UsersList = () => {
       roles: Array.isArray(user.roles) ? user.roles[0] : user.roles,
       dob: user.dob ? user.dob.split("T")[0] : "",
       joiningDate: user.joiningDate ? user.joiningDate.split("T")[0] : "",
+      isEditable: user.isEditable === true || user.isEditable === "true" ? "true" : "false",
     };
     setCurrentUser(formattedUser);
     setOpenEditDrawer(true);
@@ -446,8 +447,13 @@ const UsersList = () => {
   };
 
   const handleSubmitEdit = (values, actions) => {
+    const finalValues = {
+      ...values,
+      entity: values.entity || currentUser.entity || "IN",
+    };
+
     dispatch(
-      updateEmployee({ employeeId: currentUser.employeeId, ...values }),
+      updateEmployee({ employeeId: currentUser.employeeId, ...finalValues }),
     ).finally(() => {
       actions.setSubmitting(false);
     });

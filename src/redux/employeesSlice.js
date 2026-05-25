@@ -2,14 +2,14 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import httpService from "../Services/httpService"; // Import the httpService
 import axios from "axios";
+import { data } from "react-router-dom";
 
 // Fetch employees thunk
 export const fetchEmployees = createAsyncThunk(
   "employee/fetchEmployees",
   async () => {
     const response = await httpService.get("/users/employee");
-    return response.data;
-  }
+    return response.data;  }
 );
 
 // Update employee thunk
