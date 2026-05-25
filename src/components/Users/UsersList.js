@@ -447,8 +447,13 @@ const UsersList = () => {
   };
 
   const handleSubmitEdit = (values, actions) => {
+    const finalValues = {
+      ...values,
+      entity: values.entity || currentUser.entity || "IN",
+    };
+
     dispatch(
-      updateEmployee({ employeeId: currentUser.employeeId, ...values }),
+      updateEmployee({ employeeId: currentUser.employeeId, ...finalValues }),
     ).finally(() => {
       actions.setSubmitting(false);
     });

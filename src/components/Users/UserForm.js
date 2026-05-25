@@ -284,8 +284,8 @@ const UserForm = ({
           gridProps: { xs: 12, sm: 6 },
           sx: { mb: 2 },
           options: [
-            { value: "true", label: "Editable" },
-            { value: "false", label: "Locked" },
+            { value: "false", label: "Editable" },
+            { value: "true", label: "Locked" },
           ],
         }
       );

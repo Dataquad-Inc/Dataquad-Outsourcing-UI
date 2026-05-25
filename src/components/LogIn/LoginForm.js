@@ -68,7 +68,7 @@ const handleSubmit = async (values, { setSubmitting }) => {
     if (loginAsync.fulfilled.match(resultAction)) {
       // Get role from Redux or localStorage
       const { role } = resultAction.payload || {};
-      const localUser = JSON.parse(localStorage.getItem("user"));
+      const localUser = JSON.parse(localStorage.getItem("authUser"));
       const userRole = role || localUser?.role;
 
       if (userRole === "EXTERNALEMPLOYEE") {

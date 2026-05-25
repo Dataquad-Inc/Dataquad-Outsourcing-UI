@@ -75,7 +75,7 @@ const initialProfile = {
   fAndF: "",
   exitFromPfDate: "",
   lastWorkingDay: "",
-  isEditable: false,
+  isEditable: true,
 };
 
 const profileTabs = [
@@ -88,7 +88,37 @@ const profileTabs = [
 
 const getResponseBody = (response) => response?.data || response || {};
 
-const isTrueFlag = (value) => value === true || value === "true";
+const readResponseBody = async (response) => {
+  if (response?.json && typeof response.json === "function") {
+    return response.json();
+  }
+
+  return getResponseBody(response);
+};
+
+const isErrorResponse = (response) =>
+  response?.ok === false || (response?.status && response.status >= 400);
+
+const isLockedFlag = (value) => {
+  if (value === true) return true;
+  if (typeof value !== "string") return false;
+
+  return ["true", "locked", "lock"].includes(value.toLowerCase());
+};
+
+const isProfileLocked = (data, body) =>
+  isLockedFlag(data.locked) ||
+  isLockedFlag(body.locked) ||
+  isLockedFlag(data.isLocked) ||
+  isLockedFlag(body.isLocked) ||
+  isLockedFlag(data.profileLocked) ||
+  isLockedFlag(body.profileLocked) ||
+  isLockedFlag(data.profileEditAccess) ||
+  isLockedFlag(body.profileEditAccess) ||
+  isLockedFlag(data.lockedFlag) ||
+  isLockedFlag(body.lockedFlag) ||
+  isLockedFlag(data.isEditable) ||
+  isLockedFlag(body.isEditable);
 
 const getPayload = (response) => {
   const body = getResponseBody(response);
@@ -441,7 +471,7 @@ const Profile = () => {
   const [activeTab, setActiveTab] = useState(0);
 
   const avatarText = useMemo(() => getInitials(profile.name), [profile.name]);
-  const canEditProfile = isTrueFlag(profile.isEditable);
+  const canEditProfile = profile.isEditable !== false;
 
   const fetchProfile = useCallback(async ({ showLoader = true } = {}) => {
     if (!userId) return;
@@ -453,11 +483,11 @@ const Profile = () => {
     try {
       const response = await httpService.get(`/users/profile/${userId}`);
       
-      if (!response.ok) {
+      if (isErrorResponse(response)) {
         throw new Error("Failed to fetch profile");
       }
 
-      const result = await response.json();
+      const result = await readResponseBody(response);
       const body = getResponseBody(result);
       const data = getPayload(result);
       const profilePhoto = data.photo || data.profilePhoto || data.imageUrl || "";
@@ -512,7 +542,7 @@ const Profile = () => {
           data.exitFromPfDate || data.existFromPfDate || ""
         ),
         lastWorkingDay: formatDateForInput(data.lastWorkingDay || ""),
-        isEditable: isTrueFlag(data.isEditable) || isTrueFlag(body.isEditable),
+        isEditable: !isProfileLocked(data, body),
       };
 
       setExistingDocuments(getDocumentsPayload(result));
@@ -683,9 +713,10 @@ const Profile = () => {
         method: "PUT",
         body: formData,
       });
+      const updateResult = await readResponseBody(updateResponse);
 
-      if (!updateResponse.ok) {
-        throw new Error("Failed to update profile");
+      if (isErrorResponse(updateResponse) || updateResult?.success === false) {
+        throw new Error(updateResult?.message || "Failed to update profile");
       }
 
       setSelectedPhotoFile(null);
@@ -696,9 +727,9 @@ const Profile = () => {
       if (documentInputRef.current) {
         documentInputRef.current.value = "";
       }
-      await fetchProfile({ showLoader: false });
+      fetchProfile({ showLoader: false }).catch(() => {});
       window.dispatchEvent(new Event("profileUpdated"));
-      showToast("Profile updated successfully", "success");
+      showToast(updateResult?.message || "Profile updated successfully", "success");
     } catch (error) {
       showToast("Unable to update profile. Please try again.", "error");
     } finally {
