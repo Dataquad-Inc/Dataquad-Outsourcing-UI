@@ -87,7 +87,7 @@ const BenchPage = () => {
   const handleCardClick = (tech) => {
     setSelectedTag(tech);
     fetchTagCandidates(tech.tagName);
-    navigate("/bench-users/summary");
+    navigate("/dashboard/bench-users/summary");
   };
 
   // ── Back from tag view ──────────────────────────────────────────────────────
