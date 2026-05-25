@@ -67,10 +67,9 @@ const handleSubmit = async (values, { setSubmitting }) => {
 
     if (loginAsync.fulfilled.match(resultAction)) {
       // Get role from Redux or localStorage
-      const { role, entity } = resultAction.payload || {};
+      const { role } = resultAction.payload || {};
       const localUser = JSON.parse(localStorage.getItem("user"));
       const userRole = role || localUser?.role;
-      const userEntity = entity || localUser?.entity;
 
       if (userRole === "EXTERNALEMPLOYEE") {
         navigate("/dashboard/timesheets");
