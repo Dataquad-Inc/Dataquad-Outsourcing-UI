@@ -12,6 +12,7 @@ import HomeIcon from "@mui/icons-material/Home";
 import AutorenewIcon from "@mui/icons-material/Autorenew";
 import TableChartIcon from "@mui/icons-material/TableChart";
 import BarChartIcon from "@mui/icons-material/BarChart";
+import ManageAccountsIcon from "@mui/icons-material/ManageAccounts";
 
 export const inNavItems = [
   {
@@ -146,5 +147,11 @@ export const inNavItems = [
     path: "timesheetsForAdmins",
     icon: <AssignmentTurnedInIcon />,
     roles: ["SUPERADMIN", "ADMIN", "ACCOUNTS", "INVOICE", "ADMIN"],
+  },
+  {
+    text: "HRMS",
+    path: "hrms",
+    icon: <ManageAccountsIcon />,
+    roles: ["SUPERADMIN", "ADMIN"],
   },
 ];

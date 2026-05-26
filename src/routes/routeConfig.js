@@ -201,6 +201,7 @@ const TimesheetsForAdmin = lazy(
 const EmployeeTimesheetDetail = lazy(
   () => import("../components/Timesheets/EmployeeTimesheetDetail"),
 );
+const HRMS = lazy(() => import("../components/HRMS/HRMS"));
 const Profile = lazy(() => import("../components/Profile/Profile"));
 
 const Unauthorized = lazy(() => import("../pages/Unauthorized"));
@@ -656,6 +657,17 @@ const routeConfig = [
                 element: Loadable(EmployeeTimesheetDetail),
               },
             ],
+          },
+
+          {
+            path: "hrms",
+            element: (
+              <ProtectedRoute
+                allowedRoles={["SUPERADMIN", "ADMIN"]}
+                allowedEntities={["IN"]}
+              />
+            ),
+            children: [{ index: true, element: Loadable(HRMS) }],
           },
 
           {

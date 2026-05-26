@@ -7,6 +7,10 @@ import {
   Chip,
   CircularProgress,
   Divider,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Grid,
   IconButton,
   MenuItem,
@@ -15,12 +19,15 @@ import {
   Tab,
   Tabs,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import {
   BadgeOutlined,
   CancelOutlined,
+  Close,
   DescriptionOutlined,
+  DownloadOutlined,
   EditOutlined,
   EmailOutlined,
   ImageOutlined,
@@ -29,11 +36,12 @@ import {
   PictureAsPdfOutlined,
   SaveOutlined,
   UploadFileOutlined,
+  Visibility,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { showToast } from "../../utils/ToastNotification";
-import httpService from "../../Services/httpService";
+import httpService, { API_BASE_URL } from "../../Services/httpService";
 
 const initialProfile = {
   photo: "",
@@ -441,6 +449,69 @@ const getDocumentSource = (document) => {
 const getDocumentThumbnailSrc = (document) =>
   getDocumentType(document) === "image" ? getDocumentSource(document) : "";
 
+const resolveFileSource = (source) => {
+  if (!source) return "";
+  if (source.startsWith("data:") || source.startsWith("blob:")) return source;
+  if (source.startsWith("http")) return source;
+  if (source.startsWith("/")) return `${API_BASE_URL}${source}`;
+  return `${API_BASE_URL}/${source.replace(/^[/\\]+/, "")}`;
+};
+
+const triggerBrowserDownload = (source, fileName) => {
+  if (!source) {
+    showToast("No file available to download", "error");
+    return;
+  }
+
+  const link = document.createElement("a");
+  link.href = resolveFileSource(source);
+  link.download = fileName || "download";
+  link.target = "_blank";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+const fetchFileBlob = async (source) => {
+  const resolvedSource = resolveFileSource(source);
+
+  if (resolvedSource.startsWith("data:") || resolvedSource.startsWith("blob:")) {
+    const response = await fetch(resolvedSource);
+    return response.blob();
+  }
+
+  const response = await fetch(resolvedSource, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("File request failed");
+  }
+
+  return response.blob();
+};
+
+const downloadFile = async (source, fileName) => {
+  if (!source) {
+    showToast("No file available to download", "error");
+    return;
+  }
+
+  if (source.startsWith("data:") || source.startsWith("blob:")) {
+    triggerBrowserDownload(source, fileName);
+    return;
+  }
+
+  try {
+    const blob = await fetchFileBlob(source);
+    const objectUrl = URL.createObjectURL(blob);
+    triggerBrowserDownload(objectUrl, fileName);
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  } catch (error) {
+    triggerBrowserDownload(source, fileName);
+  }
+};
+
 const getFileIcon = (fileName = "") => {
   const extension = getDocumentExtension(fileName);
 
@@ -469,6 +540,8 @@ const Profile = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
+  const [viewDocument, setViewDocument] = useState(null);
+  const [viewLoading, setViewLoading] = useState(false);
 
   const avatarText = useMemo(() => getInitials(profile.name), [profile.name]);
   const canEditProfile = profile.isEditable !== false;
@@ -606,6 +679,54 @@ const Profile = () => {
 
   const handleTabChange = (event, nextTab) => {
     setActiveTab(nextTab);
+  };
+
+  const handleViewDocument = async (document) => {
+    const source = getDocumentSource(document);
+    const documentName = getDocumentName(document);
+
+    if (!source) {
+      showToast("No file available to view", "error");
+      return;
+    }
+
+    if (source.startsWith("data:") || source.startsWith("blob:")) {
+      setViewDocument({
+        name: documentName,
+        type: getDataUrlMimeType(document),
+        url: source,
+        source,
+      });
+      return;
+    }
+
+    setViewLoading(true);
+    try {
+      const blob = await fetchFileBlob(source);
+      const objectUrl = URL.createObjectURL(blob);
+      setViewDocument({
+        name: documentName,
+        type: blob.type || getDataUrlMimeType(document),
+        url: objectUrl,
+        source,
+      });
+    } catch (error) {
+      setViewDocument({
+        name: documentName,
+        type: getDataUrlMimeType(document),
+        url: resolveFileSource(source),
+        source,
+      });
+    } finally {
+      setViewLoading(false);
+    }
+  };
+
+  const closeDocumentViewer = () => {
+    if (viewDocument?.url?.startsWith("blob:")) {
+      URL.revokeObjectURL(viewDocument.url);
+    }
+    setViewDocument(null);
   };
 
   const handleCancel = () => {
@@ -1265,11 +1386,9 @@ const Profile = () => {
               {existingDocuments.length > 0 ? (
                 <Grid container spacing={0}>
                   {existingDocuments.map((document, index) => {
-                    console.log("Document:", document);
                     const documentName = getDocumentName(document);
                     const meta = getDocumentMeta(document);
-                    const thumbnailSrc = getDocumentThumbnailSrc(document?.documentData);
-console.log("Document document?.documentData:", getDocumentThumbnailSrc(document));
+                    const source = getDocumentSource(document);
                     return (
                       <Grid item xs={12} sm={6} key={`${documentName}-${index}`}>
                         <Stack
@@ -1299,7 +1418,7 @@ console.log("Document document?.documentData:", getDocumentThumbnailSrc(document
                           >
                             {getFileIcon(documentName)}
                           </Avatar>
-                          <Box sx={{ minWidth: 0 }}>
+                          <Box sx={{ minWidth: 0, flex: 1 }}>
                             <Typography
                               variant="body2"
                               fontWeight={600}
@@ -1314,6 +1433,32 @@ console.log("Document document?.documentData:", getDocumentThumbnailSrc(document
                               </Typography>
                             )}
                           </Box>
+                          <Stack direction="row" gap={0.5} sx={{ flexShrink: 0 }}>
+                            <Tooltip title="View document">
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  color="info"
+                                  disabled={!source || viewLoading}
+                                  onClick={() => handleViewDocument(document)}
+                                >
+                                  <Visibility fontSize="small" />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                            <Tooltip title="Download document">
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  disabled={!source}
+                                  onClick={() => downloadFile(source, documentName)}
+                                >
+                                  <DownloadOutlined fontSize="small" />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                          </Stack>
                         </Stack>
                       </Grid>
                     );
@@ -1418,6 +1563,61 @@ console.log("Document document?.documentData:", getDocumentThumbnailSrc(document
           </Button>
         </Stack>
       </Paper>
+
+      <Dialog open={Boolean(viewDocument)} onClose={closeDocumentViewer} fullWidth maxWidth="lg">
+        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 }}>
+          <Typography variant="h6" noWrap title={viewDocument?.name}>
+            {viewDocument?.name || "Document"}
+          </Typography>
+          <IconButton onClick={closeDocumentViewer}>
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers sx={{ minHeight: { xs: 420, md: 620 }, p: 0 }}>
+          {viewDocument?.type?.startsWith("image/") ? (
+            <Box
+              component="img"
+              src={viewDocument.url}
+              alt={viewDocument.name}
+              sx={{
+                display: "block",
+                maxWidth: "100%",
+                maxHeight: { xs: 420, md: 620 },
+                mx: "auto",
+                objectFit: "contain",
+              }}
+            />
+          ) : viewDocument?.type?.includes("pdf") ? (
+            <Box
+              component="iframe"
+              title={viewDocument.name}
+              src={viewDocument.url}
+              sx={{ width: "100%", height: { xs: 420, md: 620 }, border: 0 }}
+            />
+          ) : (
+            <Box sx={{ p: 4, textAlign: "center" }}>
+              <InsertDriveFileOutlined sx={{ fontSize: 56, color: "text.secondary", mb: 2 }} />
+              <Typography variant="body1" fontWeight={600}>
+                Preview is not available for this file type.
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Download the document to open it on your device.
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            type="button"
+            startIcon={<DownloadOutlined />}
+            onClick={() => downloadFile(viewDocument?.source || viewDocument?.url, viewDocument?.name)}
+            disabled={!viewDocument}
+          >
+            Download
+          </Button>
+          <Button type="button" onClick={closeDocumentViewer}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
