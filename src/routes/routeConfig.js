@@ -201,6 +201,7 @@ const TimesheetsForAdmin = lazy(
 const EmployeeTimesheetDetail = lazy(
   () => import("../components/Timesheets/EmployeeTimesheetDetail"),
 );
+const HRMS = lazy(() => import("../components/HRMS/HRMS"));
 const Profile = lazy(() => import("../components/Profile/Profile"));
 
 const Unauthorized = lazy(() => import("../pages/Unauthorized"));
@@ -220,6 +221,7 @@ const routeConfig = [
         allowedRoles={[
           "ADMIN",
           "SUPERADMIN",
+          "HRMS",
           "RECRUITER",
           "EMPLOYEE",
           "BDM",
@@ -414,7 +416,7 @@ const routeConfig = [
             path: "users",
             element: (
               <ProtectedRoute
-                allowedRoles={["ADMIN", "SUPERADMIN", "COORDINATOR", "INVOICE"]}
+                allowedRoles={["ADMIN", "SUPERADMIN", "HRMS", "COORDINATOR", "INVOICE"]}
                 allowedEntities={["IN"]}
               />
             ),
@@ -426,7 +428,7 @@ const routeConfig = [
             path: "ind-team",
             element: (
               <ProtectedRoute
-                allowedRoles={["ADMIN", "SUPERADMIN", "COORDINATOR", "INVOICE"]}
+                allowedRoles={["ADMIN", "SUPERADMIN", "HRMS", "COORDINATOR", "INVOICE"]}
                 allowedEntities={["IN"]}
               />
             ),
@@ -659,12 +661,24 @@ const routeConfig = [
           },
 
           {
+            path: "hrms",
+            element: (
+              <ProtectedRoute
+                allowedRoles={["SUPERADMIN", "HRMS"]}
+                allowedEntities={["IN"]}
+              />
+            ),
+            children: [{ index: true, element: Loadable(HRMS) }],
+          },
+
+          {
             path: "profile",
             element: (
               <ProtectedRoute
                 allowedRoles={[
                   "ADMIN",
                   "SUPERADMIN",
+                  "HRMS",
                   "RECRUITER",
                   "EMPLOYEE",
                   "BDM",

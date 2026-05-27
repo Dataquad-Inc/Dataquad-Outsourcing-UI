@@ -12,6 +12,7 @@ import HomeIcon from "@mui/icons-material/Home";
 import AutorenewIcon from "@mui/icons-material/Autorenew";
 import TableChartIcon from "@mui/icons-material/TableChart";
 import BarChartIcon from "@mui/icons-material/BarChart";
+import ManageAccountsIcon from "@mui/icons-material/ManageAccounts";
 
 export const inNavItems = [
   {
@@ -33,13 +34,13 @@ export const inNavItems = [
     text: "Users",
     path: "users",
     icon: <GroupIcon />,
-    roles: ["ADMIN", "SUPERADMIN", "INVOICE", "COORDINATOR"],
+    roles: ["ADMIN", "SUPERADMIN", "HRMS", "INVOICE", "COORDINATOR"],
   },
   {
     text: "Team-list",
     path: "ind-team",
     icon: <GroupIcon />,
-    roles: ["ADMIN", "SUPERADMIN", "INVOICE", "COORDINATOR"],
+    roles: ["ADMIN", "SUPERADMIN", "HRMS", "INVOICE", "COORDINATOR"],
   },
   {
     text: "Team Metrices",
@@ -146,5 +147,11 @@ export const inNavItems = [
     path: "timesheetsForAdmins",
     icon: <AssignmentTurnedInIcon />,
     roles: ["SUPERADMIN", "ADMIN", "ACCOUNTS", "INVOICE", "ADMIN"],
+  },
+  {
+    text: "HRMS",
+    path: "hrms",
+    icon: <ManageAccountsIcon />,
+    roles: ["SUPERADMIN", "HRMS"],
   },
 ];

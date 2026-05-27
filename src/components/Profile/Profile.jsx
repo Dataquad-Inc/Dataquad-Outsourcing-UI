@@ -4,10 +4,16 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   CircularProgress,
   Divider,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Grid,
+  FormControlLabel,
   IconButton,
   MenuItem,
   Paper,
@@ -15,12 +21,15 @@ import {
   Tab,
   Tabs,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import {
   BadgeOutlined,
   CancelOutlined,
+  Close,
   DescriptionOutlined,
+  DownloadOutlined,
   EditOutlined,
   EmailOutlined,
   ImageOutlined,
@@ -29,11 +38,12 @@ import {
   PictureAsPdfOutlined,
   SaveOutlined,
   UploadFileOutlined,
+  Visibility,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { showToast } from "../../utils/ToastNotification";
-import httpService from "../../Services/httpService";
+import httpService, { API_BASE_URL } from "../../Services/httpService";
 
 const initialProfile = {
   photo: "",
@@ -67,6 +77,7 @@ const initialProfile = {
   branch: "",
   accountHolderName: "",
   ifscCode: "",
+  isEmployeeHavingPF: false,
   uanNumber: "",
   pfNumber: "",
   payrollPanNumber: "",
@@ -441,6 +452,69 @@ const getDocumentSource = (document) => {
 const getDocumentThumbnailSrc = (document) =>
   getDocumentType(document) === "image" ? getDocumentSource(document) : "";
 
+const resolveFileSource = (source) => {
+  if (!source) return "";
+  if (source.startsWith("data:") || source.startsWith("blob:")) return source;
+  if (source.startsWith("http")) return source;
+  if (source.startsWith("/")) return `${API_BASE_URL}${source}`;
+  return `${API_BASE_URL}/${source.replace(/^[/\\]+/, "")}`;
+};
+
+const triggerBrowserDownload = (source, fileName) => {
+  if (!source) {
+    showToast("No file available to download", "error");
+    return;
+  }
+
+  const link = document.createElement("a");
+  link.href = resolveFileSource(source);
+  link.download = fileName || "download";
+  link.target = "_blank";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+const fetchFileBlob = async (source) => {
+  const resolvedSource = resolveFileSource(source);
+
+  if (resolvedSource.startsWith("data:") || resolvedSource.startsWith("blob:")) {
+    const response = await fetch(resolvedSource);
+    return response.blob();
+  }
+
+  const response = await fetch(resolvedSource, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("File request failed");
+  }
+
+  return response.blob();
+};
+
+const downloadFile = async (source, fileName) => {
+  if (!source) {
+    showToast("No file available to download", "error");
+    return;
+  }
+
+  if (source.startsWith("data:") || source.startsWith("blob:")) {
+    triggerBrowserDownload(source, fileName);
+    return;
+  }
+
+  try {
+    const blob = await fetchFileBlob(source);
+    const objectUrl = URL.createObjectURL(blob);
+    triggerBrowserDownload(objectUrl, fileName);
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  } catch (error) {
+    triggerBrowserDownload(source, fileName);
+  }
+};
+
 const getFileIcon = (fileName = "") => {
   const extension = getDocumentExtension(fileName);
 
@@ -469,6 +543,8 @@ const Profile = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
+  const [viewDocument, setViewDocument] = useState(null);
+  const [viewLoading, setViewLoading] = useState(false);
 
   const avatarText = useMemo(() => getInitials(profile.name), [profile.name]);
   const canEditProfile = profile.isEditable !== false;
@@ -531,6 +607,7 @@ const Profile = () => {
         branch: data.branch || data.bankBranch || "",
         accountHolderName: data.accountHolderName || data.bankAccountHolderName || "",
         ifscCode: data.ifscCode || data.ifsc || "",
+        isEmployeeHavingPF: data.isEmployeeHavingPF === true || data.employeeHavingPF === true,
         uanNumber: data.uanNumber || data.uan || "",
         pfNumber: data.pfNumber || "",
         payrollPanNumber: data.payrollPanNumber || data.panNumber || "",
@@ -577,6 +654,15 @@ const Profile = () => {
     }));
   };
 
+  const handleCheckboxChange = (field) => (event) => {
+    if (!canEditProfile) return;
+
+    setProfile((currentProfile) => ({
+      ...currentProfile,
+      [field]: event.target.checked,
+    }));
+  };
+
   const handlePhotoChange = (event) => {
     if (!canEditProfile) return;
 
@@ -606,6 +692,54 @@ const Profile = () => {
 
   const handleTabChange = (event, nextTab) => {
     setActiveTab(nextTab);
+  };
+
+  const handleViewDocument = async (document) => {
+    const source = getDocumentSource(document);
+    const documentName = getDocumentName(document);
+
+    if (!source) {
+      showToast("No file available to view", "error");
+      return;
+    }
+
+    if (source.startsWith("data:") || source.startsWith("blob:")) {
+      setViewDocument({
+        name: documentName,
+        type: getDataUrlMimeType(document),
+        url: source,
+        source,
+      });
+      return;
+    }
+
+    setViewLoading(true);
+    try {
+      const blob = await fetchFileBlob(source);
+      const objectUrl = URL.createObjectURL(blob);
+      setViewDocument({
+        name: documentName,
+        type: blob.type || getDataUrlMimeType(document),
+        url: objectUrl,
+        source,
+      });
+    } catch (error) {
+      setViewDocument({
+        name: documentName,
+        type: getDataUrlMimeType(document),
+        url: resolveFileSource(source),
+        source,
+      });
+    } finally {
+      setViewLoading(false);
+    }
+  };
+
+  const closeDocumentViewer = () => {
+    if (viewDocument?.url?.startsWith("blob:")) {
+      URL.revokeObjectURL(viewDocument.url);
+    }
+    setViewDocument(null);
   };
 
   const handleCancel = () => {
@@ -685,6 +819,7 @@ const Profile = () => {
       formData.append("branch", profile.branch || "");
       formData.append("accountHolderName", profile.accountHolderName || "");
       formData.append("ifscCode", profile.ifscCode || "");
+      formData.append("isEmployeeHavingPF", String(Boolean(profile.isEmployeeHavingPF)));
       formData.append("uanNumber", profile.uanNumber || "");
       formData.append("pfNumber", profile.pfNumber || "");
       formData.append("payrollPanNumber", profile.payrollPanNumber || "");
@@ -1101,88 +1236,120 @@ const Profile = () => {
 
         {activeTab === 2 && (
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Bank Name"
-                value={profile.bankName}
-                onChange={handleChange("bankName")}
-                fullWidth
-                disabled={!canEditProfile}
-              />
+            <Grid item xs={12} md={6}>
+              <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 2, height: "100%" }}>
+                <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
+                  Bank Details
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <TextField
+                      label="Bank Name"
+                      value={profile.bankName}
+                      onChange={handleChange("bankName")}
+                      fullWidth
+                      disabled={!canEditProfile}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      label="Account Number"
+                      value={profile.accountNumber}
+                      onChange={handleChange("accountNumber")}
+                      fullWidth
+                      disabled={!canEditProfile}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      label="Branch"
+                      value={profile.branch}
+                      onChange={handleChange("branch")}
+                      fullWidth
+                      disabled={!canEditProfile}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      label="Account Holder Name"
+                      value={profile.accountHolderName}
+                      onChange={handleChange("accountHolderName")}
+                      fullWidth
+                      disabled={!canEditProfile}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      label="IFSC Code"
+                      value={profile.ifscCode}
+                      onChange={handleChange("ifscCode")}
+                      fullWidth
+                      disabled={!canEditProfile}
+                      inputProps={{ style: { textTransform: "uppercase" } }}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      label="PAN Number"
+                      value={profile.payrollPanNumber}
+                      onChange={handleChange("payrollPanNumber")}
+                      fullWidth
+                      disabled={!canEditProfile}
+                      inputProps={{ style: { textTransform: "uppercase" } }}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      label="Aadhar Number"
+                      value={profile.payrollAadharNumber}
+                      onChange={handleChange("payrollAadharNumber")}
+                      fullWidth
+                      disabled={!canEditProfile}
+                    />
+                  </Grid>
+                </Grid>
+              </Box>
             </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Account Number"
-                value={profile.accountNumber}
-                onChange={handleChange("accountNumber")}
-                fullWidth
-                disabled={!canEditProfile}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Branch"
-                value={profile.branch}
-                onChange={handleChange("branch")}
-                fullWidth
-                disabled={!canEditProfile}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Account Holder Name"
-                value={profile.accountHolderName}
-                onChange={handleChange("accountHolderName")}
-                fullWidth
-                disabled={!canEditProfile}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="IFSC Code"
-                value={profile.ifscCode}
-                onChange={handleChange("ifscCode")}
-                fullWidth
-                disabled={!canEditProfile}
-                inputProps={{ style: { textTransform: "uppercase" } }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="UAN Number"
-                value={profile.uanNumber}
-                onChange={handleChange("uanNumber")}
-                fullWidth
-                disabled={!canEditProfile}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="PF Number"
-                value={profile.pfNumber}
-                onChange={handleChange("pfNumber")}
-                fullWidth
-                disabled={!canEditProfile}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="PAN Number"
-                value={profile.payrollPanNumber}
-                onChange={handleChange("payrollPanNumber")}
-                fullWidth
-                disabled={!canEditProfile}
-                inputProps={{ style: { textTransform: "uppercase" } }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Aadhar Number"
-                value={profile.payrollAadharNumber}
-                onChange={handleChange("payrollAadharNumber")}
-                fullWidth
-                disabled={!canEditProfile}
-              />
+            <Grid item xs={12} md={6}>
+              <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 2, height: "100%" }}>
+                <Stack direction={{ xs: "column", sm: "row" }} alignItems={{ xs: "flex-start", sm: "center" }} justifyContent="space-between" gap={1.5} sx={{ mb: 2 }}>
+                  <Typography variant="subtitle1" fontWeight={700}>
+                    PF Details
+                  </Typography>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={Boolean(profile.isEmployeeHavingPF)}
+                        onChange={handleCheckboxChange("isEmployeeHavingPF")}
+                        disabled={!canEditProfile}
+                      />
+                    }
+                    label="Employee having PF"
+                  />
+                </Stack>
+                {profile.isEmployeeHavingPF && (
+                  <Grid container spacing={2}>
+                    <Grid item xs={12}>
+                      <TextField
+                        label="PF Number"
+                        value={profile.pfNumber}
+                        onChange={handleChange("pfNumber")}
+                        fullWidth
+                        disabled={!canEditProfile}
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        label="UAN Number"
+                        value={profile.uanNumber}
+                        onChange={handleChange("uanNumber")}
+                        fullWidth
+                        disabled={!canEditProfile}
+                      />
+                    </Grid>
+                  </Grid>
+                )}
+              </Box>
             </Grid>
           </Grid>
         )}
@@ -1265,11 +1432,9 @@ const Profile = () => {
               {existingDocuments.length > 0 ? (
                 <Grid container spacing={0}>
                   {existingDocuments.map((document, index) => {
-                    console.log("Document:", document);
                     const documentName = getDocumentName(document);
                     const meta = getDocumentMeta(document);
-                    const thumbnailSrc = getDocumentThumbnailSrc(document?.documentData);
-console.log("Document document?.documentData:", getDocumentThumbnailSrc(document));
+                    const source = getDocumentSource(document);
                     return (
                       <Grid item xs={12} sm={6} key={`${documentName}-${index}`}>
                         <Stack
@@ -1299,7 +1464,7 @@ console.log("Document document?.documentData:", getDocumentThumbnailSrc(document
                           >
                             {getFileIcon(documentName)}
                           </Avatar>
-                          <Box sx={{ minWidth: 0 }}>
+                          <Box sx={{ minWidth: 0, flex: 1 }}>
                             <Typography
                               variant="body2"
                               fontWeight={600}
@@ -1314,6 +1479,32 @@ console.log("Document document?.documentData:", getDocumentThumbnailSrc(document
                               </Typography>
                             )}
                           </Box>
+                          <Stack direction="row" gap={0.5} sx={{ flexShrink: 0 }}>
+                            <Tooltip title="View document">
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  color="info"
+                                  disabled={!source || viewLoading}
+                                  onClick={() => handleViewDocument(document)}
+                                >
+                                  <Visibility fontSize="small" />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                            <Tooltip title="Download document">
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  disabled={!source}
+                                  onClick={() => downloadFile(source, documentName)}
+                                >
+                                  <DownloadOutlined fontSize="small" />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                          </Stack>
                         </Stack>
                       </Grid>
                     );
@@ -1418,6 +1609,61 @@ console.log("Document document?.documentData:", getDocumentThumbnailSrc(document
           </Button>
         </Stack>
       </Paper>
+
+      <Dialog open={Boolean(viewDocument)} onClose={closeDocumentViewer} fullWidth maxWidth="lg">
+        <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 }}>
+          <Typography variant="h6" noWrap title={viewDocument?.name}>
+            {viewDocument?.name || "Document"}
+          </Typography>
+          <IconButton onClick={closeDocumentViewer}>
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers sx={{ minHeight: { xs: 420, md: 620 }, p: 0 }}>
+          {viewDocument?.type?.startsWith("image/") ? (
+            <Box
+              component="img"
+              src={viewDocument.url}
+              alt={viewDocument.name}
+              sx={{
+                display: "block",
+                maxWidth: "100%",
+                maxHeight: { xs: 420, md: 620 },
+                mx: "auto",
+                objectFit: "contain",
+              }}
+            />
+          ) : viewDocument?.type?.includes("pdf") ? (
+            <Box
+              component="iframe"
+              title={viewDocument.name}
+              src={viewDocument.url}
+              sx={{ width: "100%", height: { xs: 420, md: 620 }, border: 0 }}
+            />
+          ) : (
+            <Box sx={{ p: 4, textAlign: "center" }}>
+              <InsertDriveFileOutlined sx={{ fontSize: 56, color: "text.secondary", mb: 2 }} />
+              <Typography variant="body1" fontWeight={600}>
+                Preview is not available for this file type.
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Download the document to open it on your device.
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            type="button"
+            startIcon={<DownloadOutlined />}
+            onClick={() => downloadFile(viewDocument?.source || viewDocument?.url, viewDocument?.name)}
+            disabled={!viewDocument}
+          >
+            Download
+          </Button>
+          <Button type="button" onClick={closeDocumentViewer}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
