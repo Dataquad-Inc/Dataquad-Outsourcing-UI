@@ -187,6 +187,7 @@ const UserForm = ({
           { value: "EMPLOYEE", label: "Employee" },
           { value: "ADMIN", label: "Admin" },
           { value: "SUPERADMIN", label: "Super Admin" },
+          { value: "HRMS", label: "HRMS" },
           { value: "TEAMLEAD", label: "Team Lead" },
           { value: "BDM", label: "BDM" },
           { value: "PARTNER", label: "Partner" },

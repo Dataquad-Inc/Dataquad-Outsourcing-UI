@@ -221,6 +221,7 @@ const routeConfig = [
         allowedRoles={[
           "ADMIN",
           "SUPERADMIN",
+          "HRMS",
           "RECRUITER",
           "EMPLOYEE",
           "BDM",
@@ -415,7 +416,7 @@ const routeConfig = [
             path: "users",
             element: (
               <ProtectedRoute
-                allowedRoles={["ADMIN", "SUPERADMIN", "COORDINATOR", "INVOICE"]}
+                allowedRoles={["ADMIN", "SUPERADMIN", "HRMS", "COORDINATOR", "INVOICE"]}
                 allowedEntities={["IN"]}
               />
             ),
@@ -427,7 +428,7 @@ const routeConfig = [
             path: "ind-team",
             element: (
               <ProtectedRoute
-                allowedRoles={["ADMIN", "SUPERADMIN", "COORDINATOR", "INVOICE"]}
+                allowedRoles={["ADMIN", "SUPERADMIN", "HRMS", "COORDINATOR", "INVOICE"]}
                 allowedEntities={["IN"]}
               />
             ),
@@ -663,7 +664,7 @@ const routeConfig = [
             path: "hrms",
             element: (
               <ProtectedRoute
-                allowedRoles={["SUPERADMIN", "ADMIN"]}
+                allowedRoles={["SUPERADMIN", "HRMS"]}
                 allowedEntities={["IN"]}
               />
             ),
@@ -677,6 +678,7 @@ const routeConfig = [
                 allowedRoles={[
                   "ADMIN",
                   "SUPERADMIN",
+                  "HRMS",
                   "RECRUITER",
                   "EMPLOYEE",
                   "BDM",

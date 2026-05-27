@@ -34,13 +34,13 @@ export const inNavItems = [
     text: "Users",
     path: "users",
     icon: <GroupIcon />,
-    roles: ["ADMIN", "SUPERADMIN", "INVOICE", "COORDINATOR"],
+    roles: ["ADMIN", "SUPERADMIN", "HRMS", "INVOICE", "COORDINATOR"],
   },
   {
     text: "Team-list",
     path: "ind-team",
     icon: <GroupIcon />,
-    roles: ["ADMIN", "SUPERADMIN", "INVOICE", "COORDINATOR"],
+    roles: ["ADMIN", "SUPERADMIN", "HRMS", "INVOICE", "COORDINATOR"],
   },
   {
     text: "Team Metrices",
@@ -152,6 +152,6 @@ export const inNavItems = [
     text: "HRMS",
     path: "hrms",
     icon: <ManageAccountsIcon />,
-    roles: ["SUPERADMIN", "ADMIN"],
+    roles: ["SUPERADMIN", "HRMS"],
   },
 ];

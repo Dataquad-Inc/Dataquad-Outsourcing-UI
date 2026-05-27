@@ -4,6 +4,7 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   CircularProgress,
   Divider,
@@ -12,6 +13,7 @@ import {
   DialogContent,
   DialogTitle,
   Grid,
+  FormControlLabel,
   IconButton,
   MenuItem,
   Paper,
@@ -75,6 +77,7 @@ const initialProfile = {
   branch: "",
   accountHolderName: "",
   ifscCode: "",
+  isEmployeeHavingPF: false,
   uanNumber: "",
   pfNumber: "",
   payrollPanNumber: "",
@@ -604,6 +607,7 @@ const Profile = () => {
         branch: data.branch || data.bankBranch || "",
         accountHolderName: data.accountHolderName || data.bankAccountHolderName || "",
         ifscCode: data.ifscCode || data.ifsc || "",
+        isEmployeeHavingPF: data.isEmployeeHavingPF === true || data.employeeHavingPF === true,
         uanNumber: data.uanNumber || data.uan || "",
         pfNumber: data.pfNumber || "",
         payrollPanNumber: data.payrollPanNumber || data.panNumber || "",
@@ -647,6 +651,15 @@ const Profile = () => {
     setErrors((currentErrors) => ({
       ...currentErrors,
       [field]: "",
+    }));
+  };
+
+  const handleCheckboxChange = (field) => (event) => {
+    if (!canEditProfile) return;
+
+    setProfile((currentProfile) => ({
+      ...currentProfile,
+      [field]: event.target.checked,
     }));
   };
 
@@ -806,6 +819,7 @@ const Profile = () => {
       formData.append("branch", profile.branch || "");
       formData.append("accountHolderName", profile.accountHolderName || "");
       formData.append("ifscCode", profile.ifscCode || "");
+      formData.append("isEmployeeHavingPF", String(Boolean(profile.isEmployeeHavingPF)));
       formData.append("uanNumber", profile.uanNumber || "");
       formData.append("pfNumber", profile.pfNumber || "");
       formData.append("payrollPanNumber", profile.payrollPanNumber || "");
@@ -1222,88 +1236,120 @@ const Profile = () => {
 
         {activeTab === 2 && (
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Bank Name"
-                value={profile.bankName}
-                onChange={handleChange("bankName")}
-                fullWidth
-                disabled={!canEditProfile}
-              />
+            <Grid item xs={12} md={6}>
+              <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 2, height: "100%" }}>
+                <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
+                  Bank Details
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <TextField
+                      label="Bank Name"
+                      value={profile.bankName}
+                      onChange={handleChange("bankName")}
+                      fullWidth
+                      disabled={!canEditProfile}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      label="Account Number"
+                      value={profile.accountNumber}
+                      onChange={handleChange("accountNumber")}
+                      fullWidth
+                      disabled={!canEditProfile}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      label="Branch"
+                      value={profile.branch}
+                      onChange={handleChange("branch")}
+                      fullWidth
+                      disabled={!canEditProfile}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      label="Account Holder Name"
+                      value={profile.accountHolderName}
+                      onChange={handleChange("accountHolderName")}
+                      fullWidth
+                      disabled={!canEditProfile}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      label="IFSC Code"
+                      value={profile.ifscCode}
+                      onChange={handleChange("ifscCode")}
+                      fullWidth
+                      disabled={!canEditProfile}
+                      inputProps={{ style: { textTransform: "uppercase" } }}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      label="PAN Number"
+                      value={profile.payrollPanNumber}
+                      onChange={handleChange("payrollPanNumber")}
+                      fullWidth
+                      disabled={!canEditProfile}
+                      inputProps={{ style: { textTransform: "uppercase" } }}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      label="Aadhar Number"
+                      value={profile.payrollAadharNumber}
+                      onChange={handleChange("payrollAadharNumber")}
+                      fullWidth
+                      disabled={!canEditProfile}
+                    />
+                  </Grid>
+                </Grid>
+              </Box>
             </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Account Number"
-                value={profile.accountNumber}
-                onChange={handleChange("accountNumber")}
-                fullWidth
-                disabled={!canEditProfile}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Branch"
-                value={profile.branch}
-                onChange={handleChange("branch")}
-                fullWidth
-                disabled={!canEditProfile}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Account Holder Name"
-                value={profile.accountHolderName}
-                onChange={handleChange("accountHolderName")}
-                fullWidth
-                disabled={!canEditProfile}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="IFSC Code"
-                value={profile.ifscCode}
-                onChange={handleChange("ifscCode")}
-                fullWidth
-                disabled={!canEditProfile}
-                inputProps={{ style: { textTransform: "uppercase" } }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="UAN Number"
-                value={profile.uanNumber}
-                onChange={handleChange("uanNumber")}
-                fullWidth
-                disabled={!canEditProfile}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="PF Number"
-                value={profile.pfNumber}
-                onChange={handleChange("pfNumber")}
-                fullWidth
-                disabled={!canEditProfile}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="PAN Number"
-                value={profile.payrollPanNumber}
-                onChange={handleChange("payrollPanNumber")}
-                fullWidth
-                disabled={!canEditProfile}
-                inputProps={{ style: { textTransform: "uppercase" } }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Aadhar Number"
-                value={profile.payrollAadharNumber}
-                onChange={handleChange("payrollAadharNumber")}
-                fullWidth
-                disabled={!canEditProfile}
-              />
+            <Grid item xs={12} md={6}>
+              <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 2, height: "100%" }}>
+                <Stack direction={{ xs: "column", sm: "row" }} alignItems={{ xs: "flex-start", sm: "center" }} justifyContent="space-between" gap={1.5} sx={{ mb: 2 }}>
+                  <Typography variant="subtitle1" fontWeight={700}>
+                    PF Details
+                  </Typography>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={Boolean(profile.isEmployeeHavingPF)}
+                        onChange={handleCheckboxChange("isEmployeeHavingPF")}
+                        disabled={!canEditProfile}
+                      />
+                    }
+                    label="Employee having PF"
+                  />
+                </Stack>
+                {profile.isEmployeeHavingPF && (
+                  <Grid container spacing={2}>
+                    <Grid item xs={12}>
+                      <TextField
+                        label="PF Number"
+                        value={profile.pfNumber}
+                        onChange={handleChange("pfNumber")}
+                        fullWidth
+                        disabled={!canEditProfile}
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        label="UAN Number"
+                        value={profile.uanNumber}
+                        onChange={handleChange("uanNumber")}
+                        fullWidth
+                        disabled={!canEditProfile}
+                      />
+                    </Grid>
+                  </Grid>
+                )}
+              </Box>
             </Grid>
           </Grid>
         )}
