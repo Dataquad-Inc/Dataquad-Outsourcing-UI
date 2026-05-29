@@ -964,12 +964,12 @@ const Profile = () => {
         formData.append("documentTypes", item.documentType || otherDocumentType);
       });
 
-      await httpService.put(`/users/update/${profile.employeeId || userId}`, formData, {
+      const updateResponse = await httpService.put(`/users/update/${profile.employeeId || userId}`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
       });
-     
+      
       const updateResult = await readResponseBody(updateResponse);
 
       if (isErrorResponse(updateResponse) || updateResult?.success === false) {
