@@ -27,6 +27,7 @@ import {
 import {
   BadgeOutlined,
   CancelOutlined,
+  CheckCircleOutlined,
   Close,
   DescriptionOutlined,
   DownloadOutlined,
@@ -80,9 +81,10 @@ const initialProfile = {
   isEmployeeHavingPF: false,
   uanNumber: "",
   pfNumber: "",
+  isEmployeeHavingESI: false,
+  esiNumber: "",
   payrollPanNumber: "",
   payrollAadharNumber: "",
-  clearanceForm: "",
   fAndF: "",
   exitFromPfDate: "",
   lastWorkingDay: "",
@@ -96,6 +98,15 @@ const profileTabs = [
   "Documents",
   "Exit Formality",
 ];
+
+const documentUploadSections = [
+  { key: "pan", label: "PAN", documentType: "PAN" },
+  { key: "adhar", label: "Aadhar", documentType: "Aadhar" },
+  { key: "bankPassbook", label: "Bank Passbook", documentType: "Bank Passbook" },
+  { key: "insurance", label: "Insurance", documentType: "Insurance" },
+];
+
+const otherDocumentType = "Other Documents";
 
 const getResponseBody = (response) => response?.data || response || {};
 
@@ -283,6 +294,7 @@ const formatDateForInput = (dateValue) => {
 const bloodGroupOptions = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 const genderOptions = ["Male", "Female", "Other"];
 const maritalStatusOptions = ["Single", "Married", "Divorced", "Widowed"];
+const departmentOptions = ["Sales", "Recruitment", "Coordination", "Admin", "Finance", "HRMS"];
 
 const personalEmailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const panPattern = /^[A-Za-z0-9]{10}$/;
@@ -308,6 +320,51 @@ const getDocumentMeta = (document) => {
   const createdAt = document.createdAt || document.createdDate || document.uploadedAt;
   const dateText = createdAt ? new Date(createdAt).toLocaleDateString() : "";
   return [type, dateText].filter(Boolean).join(" • ");
+};
+
+const normalizeDocumentType = (value = "") =>
+  String(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+const getDocumentSectionKey = (document) => {
+  const documentType = normalizeDocumentType(
+    typeof document === "object" ? document?.documentType || "" : ""
+  );
+
+  const matchedByType = documentUploadSections.find(
+    (section) => normalizeDocumentType(section.documentType) === documentType
+  );
+  if (matchedByType) return matchedByType.key;
+
+  const searchText = normalizeDocumentType(
+    [
+      typeof document === "string" ? document : "",
+      typeof document === "object" ? document?.documentType : "",
+      typeof document === "object" ? document?.fileName : "",
+      typeof document === "object" ? document?.documentName : "",
+      typeof document === "object" ? document?.name : "",
+      typeof document === "object" ? document?.originalFileName : "",
+      typeof document === "object" ? document?.originalName : "",
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
+
+  if (searchText.includes("pan")) return "pan";
+  if (
+    searchText.includes("adhar") ||
+    searchText.includes("aadhar") ||
+    searchText.includes("aadhaar")
+  ) {
+    return "adhar";
+  }
+  if (searchText.includes("bankpassbook") || searchText.includes("passbook")) {
+    return "bankPassbook";
+  }
+  if (searchText.includes("insurance")) return "insurance";
+
+  return "";
 };
 
 const getDocumentExtension = (fileName = "") =>
@@ -452,6 +509,13 @@ const getDocumentSource = (document) => {
 const getDocumentThumbnailSrc = (document) =>
   getDocumentType(document) === "image" ? getDocumentSource(document) : "";
 
+const isDocumentVerified = (document) =>
+  Boolean(
+    document?.isVerified ||
+      document?.verified ||
+      document?.documentVerified
+  );
+
 const resolveFileSource = (source) => {
   if (!source) return "";
   if (source.startsWith("data:") || source.startsWith("blob:")) return source;
@@ -497,12 +561,12 @@ const fetchFileBlob = async (source) => {
 const downloadFile = async (source, fileName) => {
   if (!source) {
     showToast("No file available to download", "error");
-    return;
+    return false;
   }
 
   if (source.startsWith("data:") || source.startsWith("blob:")) {
     triggerBrowserDownload(source, fileName);
-    return;
+    return true;
   }
 
   try {
@@ -510,8 +574,10 @@ const downloadFile = async (source, fileName) => {
     const objectUrl = URL.createObjectURL(blob);
     triggerBrowserDownload(objectUrl, fileName);
     setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    return true;
   } catch (error) {
     triggerBrowserDownload(source, fileName);
+    return true;
   }
 };
 
@@ -548,6 +614,16 @@ const Profile = () => {
 
   const avatarText = useMemo(() => getInitials(profile.name), [profile.name]);
   const canEditProfile = profile.isEditable !== false;
+  const existingDocumentsBySection = useMemo(
+    () =>
+      documentUploadSections.reduce((sections, section) => {
+        sections[section.key] = existingDocuments.filter(
+          (document) => getDocumentSectionKey(document) === section.key
+        );
+        return sections;
+      }, {}),
+    [existingDocuments]
+  );
 
   const fetchProfile = useCallback(async ({ showLoader = true } = {}) => {
     if (!userId) return;
@@ -610,15 +686,18 @@ const Profile = () => {
         isEmployeeHavingPF: data.isEmployeeHavingPF === true || data.employeeHavingPF === true,
         uanNumber: data.uanNumber || data.uan || "",
         pfNumber: data.pfNumber || "",
+        isEmployeeHavingESI: data.isEmployeeHavingESI === true || data.employeeHavingESI === true,
+        esiNumber: data.esiNumber || data.esi || "",
         payrollPanNumber: data.payrollPanNumber || data.panNumber || "",
         payrollAadharNumber:
           data.payrollAadharNumber || data.aadharNumber || data.adharNumber || "",
-        clearanceForm: formatDateForInput(data.clearanceForm || data.clearnessForm || ""),
-        fAndF: data.fAndF || data.fandF || data.fullAndFinal || "",
+        fAndF: data.fAndF || data.fandF || data.fullAndFinal || data.finalSettlement || "",
         exitFromPfDate: formatDateForInput(
-          data.exitFromPfDate || data.existFromPfDate || ""
+          data.exitFromPfDate || data.existFromPfDate || data.exitFromPFDate || data.existFromPFDate || ""
         ),
-        lastWorkingDay: formatDateForInput(data.lastWorkingDay || ""),
+        lastWorkingDay: formatDateForInput(
+          data.lastWorkingDay || data.lastWorkingDate || data.lwd || ""
+        ),
         isEditable: !isProfileLocked(data, body),
       };
 
@@ -687,7 +766,43 @@ const Profile = () => {
     const files = Array.from(event.target.files || []);
     if (!files.length) return;
 
-    setSelectedDocumentFiles(files);
+    setSelectedDocumentFiles((currentFiles) => [
+      ...currentFiles,
+      ...files.map((file) => ({
+        file,
+        section: otherDocumentType,
+        documentType: otherDocumentType,
+      })),
+    ]);
+  };
+
+  const handleSectionDocumentChange = (section) => (event) => {
+    if (!canEditProfile) return;
+
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setSelectedDocumentFiles((currentFiles) => [
+      ...currentFiles.filter((item) => item.sectionKey !== section.key),
+      {
+        file,
+        section: section.label,
+        sectionKey: section.key,
+        documentType: section.documentType,
+      },
+    ]);
+  };
+
+  const handleRemoveSelectedDocument = (indexToRemove) => {
+    if (!canEditProfile) return;
+
+    setSelectedDocumentFiles((currentFiles) =>
+      currentFiles.filter((_, index) => index !== indexToRemove)
+    );
+
+    if (documentInputRef.current) {
+      documentInputRef.current.value = "";
+    }
   };
 
   const handleTabChange = (event, nextTab) => {
@@ -822,32 +937,39 @@ const Profile = () => {
       formData.append("isEmployeeHavingPF", String(Boolean(profile.isEmployeeHavingPF)));
       formData.append("uanNumber", profile.uanNumber || "");
       formData.append("pfNumber", profile.pfNumber || "");
+      formData.append("isEmployeeHavingESI", String(Boolean(profile.isEmployeeHavingESI)));
+      formData.append("employeeHavingESI", String(Boolean(profile.isEmployeeHavingESI)));
+      formData.append("esiNumber", profile.esiNumber || "");
+      formData.append("esi", profile.esiNumber || "");
       formData.append("payrollPanNumber", profile.payrollPanNumber || "");
       formData.append("payrollAadharNumber", profile.payrollAadharNumber || "");
-      formData.append("clearanceForm", profile.clearanceForm || "");
-      formData.append("clearnessForm", profile.clearanceForm || "");
       formData.append("fAndF", profile.fAndF || "");
       formData.append("fandF", profile.fAndF || "");
+      formData.append("fullAndFinal", profile.fAndF || "");
+      formData.append("finalSettlement", profile.fAndF || "");
       formData.append("exitFromPfDate", profile.exitFromPfDate || "");
+      formData.append("existFromPfDate", profile.exitFromPfDate || "");
+      formData.append("exitFromPFDate", profile.exitFromPfDate || "");
+      formData.append("existFromPFDate", profile.exitFromPfDate || "");
       formData.append("lastWorkingDay", profile.lastWorkingDay || "");
+      formData.append("lastWorkingDate", profile.lastWorkingDay || "");
+      formData.append("lwd", profile.lastWorkingDay || "");
 
       if (selectedPhotoFile) {
         formData.append("profilePhoto", selectedPhotoFile);
       }
 
-      selectedDocumentFiles.forEach((file) => {
-        formData.append("documents", file);
+      selectedDocumentFiles.forEach((item) => {
+        formData.append("documents", item.file || item);
+        formData.append("documentTypes", item.documentType || otherDocumentType);
       });
 
-      // await httpService.put(`/users/update/${profile.employeeId || userId}`, formData, {
-      //   headers: {
-      //     "Content-Type": "multipart/form-data",
-      //   },
-      // });
-      const updateResponse = await fetch(`https://mymulya.com/users/update/${profile.employeeId || userId}`, {
-        method: "PUT",
-        body: formData,
+      await httpService.put(`/users/update/${profile.employeeId || userId}`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
       });
+     
       const updateResult = await readResponseBody(updateResponse);
 
       if (isErrorResponse(updateResponse) || updateResult?.success === false) {
@@ -1220,7 +1342,14 @@ const Profile = () => {
                 onChange={handleChange("department")}
                 fullWidth
                 disabled={!canEditProfile}
-              />
+                select
+              >
+                {departmentOptions.map((option) => (
+                  <MenuItem key={option} value={option}>
+                    {option}
+                  </MenuItem>
+                ))}
+              </TextField>
             </Grid>
             <Grid item xs={12}>
               <TextField
@@ -1311,7 +1440,8 @@ const Profile = () => {
               </Box>
             </Grid>
             <Grid item xs={12} md={6}>
-              <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 2, height: "100%" }}>
+              <Stack spacing={2} sx={{ height: "100%" }}>
+              <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 2 }}>
                 <Stack direction={{ xs: "column", sm: "row" }} alignItems={{ xs: "flex-start", sm: "center" }} justifyContent="space-between" gap={1.5} sx={{ mb: 2 }}>
                   <Typography variant="subtitle1" fontWeight={700}>
                     PF Details
@@ -1350,6 +1480,37 @@ const Profile = () => {
                   </Grid>
                 )}
               </Box>
+              <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1, p: 2 }}>
+                <Stack direction={{ xs: "column", sm: "row" }} alignItems={{ xs: "flex-start", sm: "center" }} justifyContent="space-between" gap={1.5} sx={{ mb: 2 }}>
+                  <Typography variant="subtitle1" fontWeight={700}>
+                    ESI Details
+                  </Typography>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={Boolean(profile.isEmployeeHavingESI)}
+                        onChange={handleCheckboxChange("isEmployeeHavingESI")}
+                        disabled={!canEditProfile}
+                      />
+                    }
+                    label="Employee having ESI"
+                  />
+                </Stack>
+                {profile.isEmployeeHavingESI && (
+                  <Grid container spacing={2}>
+                    <Grid item xs={12}>
+                      <TextField
+                        label="ESI Number"
+                        value={profile.esiNumber}
+                        onChange={handleChange("esiNumber")}
+                        fullWidth
+                        disabled={!canEditProfile}
+                      />
+                    </Grid>
+                  </Grid>
+                )}
+              </Box>
+              </Stack>
             </Grid>
           </Grid>
         )}
@@ -1366,7 +1527,7 @@ const Profile = () => {
               <Box>
                 <Typography variant="h6">Documents</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Upload files and review documents already attached to your profile.
+                  Upload PAN, Aadhar, Bank Passbook, Insurance, and other profile documents.
                 </Typography>
               </Box>
               <input
@@ -1383,18 +1544,115 @@ const Profile = () => {
                 onClick={() => documentInputRef.current?.click()}
                 disabled={!canEditProfile}
               >
-                Select Files
+                Select Other Documents
               </Button>
             </Stack>
 
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              {documentUploadSections.map((section) => {
+                const selectedItem = selectedDocumentFiles.find(
+                  (item) => item.sectionKey === section.key
+                );
+                const selectedFile = selectedItem?.file;
+                const existingSectionDocuments = existingDocumentsBySection[section.key] || [];
+                const hasExistingDocument = existingSectionDocuments.length > 0;
+                const existingDocument = existingSectionDocuments[0];
+
+                return (
+                  <Grid item xs={12} sm={6} md={3} key={section.key}>
+                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 1, height: "100%" }}>
+                      <Stack spacing={1.5}>
+                        <Typography variant="subtitle2" fontWeight={700}>
+                          <Stack direction="row" alignItems="center" gap={0.75}>
+                            <span>{section.label}</span>
+                            {isDocumentVerified(existingDocument) && (
+                              <Tooltip title="Verified">
+                                <CheckCircleOutlined color="success" fontSize="small" />
+                              </Tooltip>
+                            )}
+                          </Stack>
+                        </Typography>
+                        <input
+                          type="file"
+                          hidden
+                          id={`profile-${section.key}-document`}
+                          onChange={handleSectionDocumentChange(section)}
+                          disabled={!canEditProfile}
+                        />
+                        <Button
+                          variant="outlined"
+                          startIcon={<UploadFileOutlined />}
+                          component="label"
+                          htmlFor={`profile-${section.key}-document`}
+                          disabled={!canEditProfile || hasExistingDocument}
+                          fullWidth
+                        >
+                          {hasExistingDocument ? "Document Uploaded" : "Select Document"}
+                        </Button>
+                        <Typography
+                          variant="caption"
+                          color={selectedFile ? "text.primary" : "text.secondary"}
+                          noWrap
+                          title={selectedFile?.name || ""}
+                        >
+                          {selectedFile?.name ||
+                            (hasExistingDocument
+                              ? getDocumentName(existingSectionDocuments[0])
+                              : "No file selected")}
+                        </Typography>
+                        {hasExistingDocument && (
+                          <Stack direction="row" gap={0.5}>
+                            <Tooltip title="View document">
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  color="info"
+                                  disabled={!getDocumentSource(existingDocument) || viewLoading}
+                                  onClick={() => handleViewDocument(existingDocument)}
+                                >
+                                  <Visibility fontSize="small" />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                            <Tooltip title="Download document">
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  disabled={!getDocumentSource(existingDocument)}
+                                  onClick={() =>
+                                    downloadFile(
+                                      getDocumentSource(existingDocument),
+                                      getDocumentName(existingDocument)
+                                    )
+                                  }
+                                >
+                                  <DownloadOutlined fontSize="small" />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                          </Stack>
+                        )}
+                      </Stack>
+                    </Paper>
+                  </Grid>
+                );
+              })}
+            </Grid>
+
             {selectedDocumentFiles.length > 0 && (
               <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mb: 2 }}>
-                {selectedDocumentFiles.map((file, index) => (
+                {selectedDocumentFiles.map((item, index) => {
+                  const file = item.file || item;
+                  const sectionLabel = item.section ? `${item.section}: ` : "";
+                  return (
                   <Chip
                     key={`${file.name}-${index}`}
                     icon={getFileIcon(file.name)}
-                    label={file.name}
+                    label={`${sectionLabel}${file.name}`}
                     variant="outlined"
+                    onDelete={() => handleRemoveSelectedDocument(index)}
+                    deleteIcon={<CancelOutlined />}
                     sx={{
                       maxWidth: { xs: "100%", sm: 260 },
                       "& .MuiChip-label": {
@@ -1403,7 +1661,8 @@ const Profile = () => {
                       },
                     }}
                   />
-                ))}
+                  );
+                })}
               </Stack>
             )}
 
@@ -1465,14 +1724,22 @@ const Profile = () => {
                             {getFileIcon(documentName)}
                           </Avatar>
                           <Box sx={{ minWidth: 0, flex: 1 }}>
-                            <Typography
-                              variant="body2"
-                              fontWeight={600}
-                              noWrap
-                              title={documentName}
-                            >
-                              {documentName}
-                            </Typography>
+                            <Stack direction="row" alignItems="center" gap={0.75} sx={{ minWidth: 0 }}>
+                              <Typography
+                                variant="body2"
+                                fontWeight={600}
+                                noWrap
+                                title={documentName}
+                                sx={{ minWidth: 0 }}
+                              >
+                                {documentName}
+                              </Typography>
+                              {isDocumentVerified(document) && (
+                                <Tooltip title="Verified">
+                                  <CheckCircleOutlined color="success" fontSize="small" />
+                                </Tooltip>
+                              )}
+                            </Stack>
                             {meta && (
                               <Typography variant="caption" color="text.secondary">
                                 {meta}
@@ -1521,17 +1788,6 @@ const Profile = () => {
 
         {activeTab === 4 && (
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Clearance Form"
-                type="date"
-                value={profile.clearanceForm}
-                onChange={handleChange("clearanceForm")}
-                fullWidth
-                disabled={!canEditProfile}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
                 label="F&F"
