@@ -4,6 +4,7 @@ import {
   Avatar,
   Box,
   Button,
+  Checkbox,
   Chip,
   CircularProgress,
   Divider,
@@ -80,13 +81,78 @@ const emptyProfile = {
   ifscCode: "",
   uanNumber: "",
   pfNumber: "",
+  isEmployeeHavingESI: "false",
+  esiNumber: "",
   payrollPanNumber: "",
   payrollAadharNumber: "",
-  clearanceForm: "",
   fAndF: "",
   exitFromPfDate: "",
   lastWorkingDay: "",
   isEditable: "false",
+};
+
+const departmentOptions = ["Sales", "Recruitment", "Coordination", "Admin", "Finance", "HRMS"].map(
+  (department) => ({ value: department, label: department })
+);
+
+const isTruthyFlag = (value) => value === true || value === "true";
+
+const hrmsTableColumns = [
+  { label: "Employee ID", getValue: (profile) => profile.employeeId },
+  { label: "Name", getValue: (profile) => profile.name },
+  { label: "Email", getValue: (profile) => profile.email },
+  { label: "Personal Email", getValue: (profile) => profile.personalemail },
+  { label: "Phone Number", getValue: (profile) => profile.phoneNumber },
+  // { label: "PAN", getValue: (profile) => profile.pan },
+  // { label: "Aadhar", getValue: (profile) => profile.adhar },
+  { label: "Father / Spouse Name", getValue: (profile) => profile.fatherOrSpouseName },
+  { label: "Mother Name", getValue: (profile) => profile.motherName },
+  { label: "DOB", getValue: (profile) => formatDateForInput(profile.dob) },
+  { label: "Blood Group", getValue: (profile) => profile.bloodGroup },
+  { label: "Gender", getValue: (profile) => profile.gender },
+  { label: "Marital Status", getValue: (profile) => profile.maritalStatus },
+  { label: "Emergency Contact", getValue: (profile) => profile.emergencyContactNo },
+  { label: "Current Address", getValue: (profile) => profile.currentAddress },
+  { label: "Permanent Address", getValue: (profile) => profile.permanentAddress },
+  { label: "Role", getValue: (profile) => profile.role },
+  { label: "Entity", getValue: (profile) => profile.entity },
+  { label: "Joining Date", getValue: (profile) => formatDateForInput(profile.joiningDate) },
+  { label: "Official Number", getValue: (profile) => profile.officialNumber },
+  { label: "Official Email", getValue: (profile) => profile.officialEmailId },
+  { label: "Probation", getValue: (profile) => profile.probation },
+  { label: "Reporting Manager", getValue: (profile) => profile.reportingManager },
+  { label: "Department", getValue: (profile) => profile.department },
+  { label: "LinkedIn URL", getValue: (profile) => profile.linkedInUrl },
+  { label: "Bank Name", getValue: (profile) => profile.bankName },
+  { label: "Account Number", getValue: (profile) => profile.accountNumber },
+  { label: "Branch", getValue: (profile) => profile.branch },
+  { label: "Account Holder Name", getValue: (profile) => profile.accountHolderName },
+  { label: "IFSC Code", getValue: (profile) => profile.ifscCode },
+  { label: "UAN Number", getValue: (profile) => profile.uanNumber },
+  { label: "PF Number", getValue: (profile) => profile.pfNumber },
+  { label: "Employee Having ESI", getValue: (profile) => (isTruthyFlag(profile.isEmployeeHavingESI) ? "Yes" : "No") },
+  { label: "ESI Number", getValue: (profile) => profile.esiNumber },
+  { label: "Payroll PAN Number", getValue: (profile) => profile.payrollPanNumber },
+  { label: "Payroll Aadhar Number", getValue: (profile) => profile.payrollAadharNumber },
+  { label: "F&F", getValue: (profile) => profile.fAndF },
+  { label: "Exit From PF Date", getValue: (profile) => formatDateForInput(profile.exitFromPfDate) },
+  { label: "Last Working Day", getValue: (profile) => formatDateForInput(profile.lastWorkingDay) },
+];
+
+const stickyStatusColumnSx = {
+  position: "sticky",
+  right: 72,
+  minWidth: 120,
+  bgcolor: "background.paper",
+  zIndex: 2,
+};
+
+const stickyActionsColumnSx = {
+  position: "sticky",
+  right: 0,
+  minWidth: 72,
+  bgcolor: "background.paper",
+  zIndex: 2,
 };
 
 const getBody = (response) => response?.data || response || {};
@@ -96,6 +162,8 @@ const getPayload = (response) => {
   const payload = body?.payload || body?.data || body;
   return payload?.profile || payload?.user || payload?.employee || payload || {};
 };
+
+const getEmployeeId = (user) => user?.employeeId || user?.userId || "";
 
 const normalizeArrayPayload = (value) => {
   if (!value) return [];
@@ -358,6 +426,110 @@ const getFileIcon = (fileName = "") => {
   return <InsertDriveFileOutlined fontSize="small" />;
 };
 
+const getDocumentKey = (document, index) => {
+  if (document && typeof document === "object") {
+    return (
+      document.id ||
+      document.documentId ||
+      document.fileId ||
+      document.documentName ||
+      document.fileName ||
+      `${getDocumentName(document)}-${index}`
+    );
+  }
+
+  return `${getDocumentName(document)}-${index}`;
+};
+
+const isDocumentVerified = (document) =>
+  Boolean(
+    document?.isVerified ||
+      document?.verified ||
+      document?.documentVerified
+  );
+
+const primaryDocumentSections = [
+  { key: "pan", label: "PAN", documentType: "PAN" },
+  { key: "adhar", label: "Aadhar", documentType: "Aadhar" },
+  { key: "bankPassbook", label: "Bank Passbook", documentType: "Bank Passbook" },
+  { key: "insurance", label: "Insurance", documentType: "Insurance" },
+];
+
+const otherDocumentType = "Other Documents";
+
+const normalizeDocumentType = (value = "") =>
+  String(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+const getDocumentSearchText = (document) => {
+  if (!document || typeof document === "string") return String(document || "").toLowerCase();
+
+  return [
+    document.fileName,
+    document.documentName,
+    document.name,
+    document.originalFileName,
+    document.originalName,
+    document.filename,
+    document.file_name,
+    document.documentType,
+    document.fileType,
+    document.type,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+};
+
+const getPrimaryDocumentSectionKey = (document) => {
+  const documentType = normalizeDocumentType(
+    typeof document === "object" ? document?.documentType || "" : ""
+  );
+  const matchedByType = primaryDocumentSections.find(
+    (section) => normalizeDocumentType(section.documentType) === documentType
+  );
+  if (matchedByType) return matchedByType.key;
+
+  const searchText = getDocumentSearchText(document);
+
+  if (/\bpan\b/.test(searchText)) return "pan";
+  if (searchText.includes("adhar") || searchText.includes("aadhar") || searchText.includes("aadhaar")) {
+    return "adhar";
+  }
+  if (searchText.includes("bank passbook") || searchText.includes("passbook")) {
+    return "bankPassbook";
+  }
+  if (searchText.includes("insurance")) return "insurance";
+
+  return "";
+};
+
+const groupDocumentsForHRMS = (documents) => {
+  const grouped = primaryDocumentSections.reduce(
+    (sections, section) => ({
+      ...sections,
+      [section.key]: [],
+    }),
+    {}
+  );
+  const otherDocuments = [];
+
+  documents.forEach((document, index) => {
+    const documentWithIndex = { document, originalIndex: index };
+    const sectionKey = getPrimaryDocumentSectionKey(document);
+
+    if (sectionKey && grouped[sectionKey]) {
+      grouped[sectionKey].push(documentWithIndex);
+      return;
+    }
+
+    otherDocuments.push(documentWithIndex);
+  });
+
+  return { grouped, otherDocuments };
+};
+
 const profileFromData = (data) => {
   const roles = Array.isArray(data.roles) ? data.roles.join(", ") : data.roles || data.role || "";
   const isEditableValue =
@@ -406,12 +578,18 @@ const profileFromData = (data) => {
     ifscCode: data.ifscCode || data.ifsc || "",
     uanNumber: data.uanNumber || data.uan || "",
     pfNumber: data.pfNumber || "",
+    isEmployeeHavingESI:
+      isTruthyFlag(data.isEmployeeHavingESI) || isTruthyFlag(data.employeeHavingESI)
+        ? "true"
+        : "false",
+    esiNumber: data.esiNumber || data.esi || "",
     payrollPanNumber: data.payrollPanNumber || data.panNumber || "",
     payrollAadharNumber: data.payrollAadharNumber || data.aadharNumber || data.adharNumber || "",
-    clearanceForm: formatDateForInput(data.clearanceForm || data.clearnessForm || ""),
-    fAndF: data.fAndF || data.fandF || data.fullAndFinal || "",
-    exitFromPfDate: formatDateForInput(data.exitFromPfDate || data.existFromPfDate || ""),
-    lastWorkingDay: formatDateForInput(data.lastWorkingDay || ""),
+    fAndF: data.fAndF || data.fandF || data.fullAndFinal || data.finalSettlement || "",
+    exitFromPfDate: formatDateForInput(
+      data.exitFromPfDate || data.existFromPfDate || data.exitFromPFDate || data.existFromPFDate || ""
+    ),
+    lastWorkingDay: formatDateForInput(data.lastWorkingDay || data.lastWorkingDate || data.lwd || ""),
     isEditable: isEditableValue === true || isEditableValue === "true" ? "true" : "false",
   };
 };
@@ -448,14 +626,23 @@ const appendProfileFields = (formData, profile) => {
   formData.append("ifscCode", profile.ifscCode || "");
   formData.append("uanNumber", profile.uanNumber || "");
   formData.append("pfNumber", profile.pfNumber || "");
+  formData.append("isEmployeeHavingESI", String(isTruthyFlag(profile.isEmployeeHavingESI)));
+  formData.append("employeeHavingESI", String(isTruthyFlag(profile.isEmployeeHavingESI)));
+  formData.append("esiNumber", profile.esiNumber || "");
+  formData.append("esi", profile.esiNumber || "");
   formData.append("payrollPanNumber", profile.payrollPanNumber || "");
   formData.append("payrollAadharNumber", profile.payrollAadharNumber || "");
-  formData.append("clearanceForm", profile.clearanceForm || "");
-  formData.append("clearnessForm", profile.clearanceForm || "");
   formData.append("fAndF", profile.fAndF || "");
   formData.append("fandF", profile.fAndF || "");
+  formData.append("fullAndFinal", profile.fAndF || "");
+  formData.append("finalSettlement", profile.fAndF || "");
   formData.append("exitFromPfDate", profile.exitFromPfDate || "");
+  formData.append("existFromPfDate", profile.exitFromPfDate || "");
+  formData.append("exitFromPFDate", profile.exitFromPfDate || "");
+  formData.append("existFromPFDate", profile.exitFromPfDate || "");
   formData.append("lastWorkingDay", profile.lastWorkingDay || "");
+  formData.append("lastWorkingDate", profile.lastWorkingDay || "");
+  formData.append("lwd", profile.lastWorkingDay || "");
 };
 
 const getRolesPayload = (role) => {
@@ -504,14 +691,23 @@ const getProfileUpdatePayload = (profile, selectedUser) => {
   ifscCode: profile.ifscCode || "",
   uanNumber: profile.uanNumber || "",
   pfNumber: profile.pfNumber || "",
+  isEmployeeHavingESI: isTruthyFlag(profile.isEmployeeHavingESI),
+  employeeHavingESI: isTruthyFlag(profile.isEmployeeHavingESI),
+  esiNumber: profile.esiNumber || "",
+  esi: profile.esiNumber || "",
   payrollPanNumber: profile.payrollPanNumber || "",
   payrollAadharNumber: profile.payrollAadharNumber || "",
-  clearanceForm: profile.clearanceForm || "",
-  clearnessForm: profile.clearanceForm || "",
   fAndF: profile.fAndF || "",
   fandF: profile.fAndF || "",
+  fullAndFinal: profile.fAndF || "",
+  finalSettlement: profile.fAndF || "",
   exitFromPfDate: profile.exitFromPfDate || "",
+  existFromPfDate: profile.exitFromPfDate || "",
+  exitFromPFDate: profile.exitFromPfDate || "",
+  existFromPFDate: profile.exitFromPfDate || "",
   lastWorkingDay: profile.lastWorkingDay || "",
+  lastWorkingDate: profile.lastWorkingDay || "",
+  lwd: profile.lastWorkingDay || "",
   isEditable: profile.isEditable === true || profile.isEditable === "true",
   };
 
@@ -566,12 +762,12 @@ const fetchFileBlob = async (source) => {
 const downloadFile = async (source, fileName) => {
   if (!source) {
     showToast("No file available to download", "error");
-    return;
+    return false;
   }
 
   if (source.startsWith("data:") || source.startsWith("blob:")) {
     triggerBrowserDownload(source, fileName);
-    return;
+    return true;
   }
 
   try {
@@ -579,8 +775,10 @@ const downloadFile = async (source, fileName) => {
     const objectUrl = URL.createObjectURL(blob);
     triggerBrowserDownload(objectUrl, fileName);
     setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    return true;
   } catch (error) {
     triggerBrowserDownload(source, fileName);
+    return true;
   }
 };
 
@@ -630,7 +828,9 @@ const Section = ({ title, children }) => (
 
 const HRMS = () => {
   const fileInputRef = useRef(null);
+  const profileDetailsLoadingRef = useRef(new Set());
   const [users, setUsers] = useState([]);
+  const [profileDetailsByEmployeeId, setProfileDetailsByEmployeeId] = useState({});
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -643,6 +843,8 @@ const HRMS = () => {
   const [savingProfile, setSavingProfile] = useState(false);
   const [viewDocument, setViewDocument] = useState(null);
   const [viewLoading, setViewLoading] = useState(false);
+  const [downloadedDocumentKeys, setDownloadedDocumentKeys] = useState({});
+  const [savingVerifiedDocumentKeys, setSavingVerifiedDocumentKeys] = useState({});
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
@@ -665,28 +867,75 @@ const HRMS = () => {
   const filteredUsers = useMemo(() => {
     const nextQuery = query.trim().toLowerCase();
     if (!nextQuery) return users;
-    return users.filter((user) =>
-      [
-        user.userName,
-        user.name,
-        user.employeeId,
-        user.userId,
-        user.email,
-        user.phoneNumber,
-        Array.isArray(user.roles) ? user.roles.join(", ") : user.roles,
-      ]
+    return users.filter((user) => {
+      const employeeId = getEmployeeId(user);
+      const rowProfile = profileFromData({
+        ...user,
+        ...(profileDetailsByEmployeeId[employeeId] || {}),
+      });
+      return hrmsTableColumns
+        .map((column) => column.getValue(rowProfile, user))
         .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(nextQuery))
-    );
-  }, [query, users]);
+        .some((value) => String(value).toLowerCase().includes(nextQuery));
+    });
+  }, [profileDetailsByEmployeeId, query, users]);
 
   const paginatedUsers = useMemo(() => {
     const start = page * rowsPerPage;
     return filteredUsers.slice(start, start + rowsPerPage);
   }, [filteredUsers, page, rowsPerPage]);
 
+  const groupedDocuments = useMemo(() => groupDocumentsForHRMS(documents), [documents]);
+
+  useEffect(() => {
+    const missingEmployeeIds = paginatedUsers
+      .map(getEmployeeId)
+      .filter(
+        (employeeId) =>
+          employeeId &&
+          !profileDetailsByEmployeeId[employeeId] &&
+          !profileDetailsLoadingRef.current.has(employeeId)
+      );
+
+    if (!missingEmployeeIds.length) return;
+
+    missingEmployeeIds.forEach((employeeId) => {
+      profileDetailsLoadingRef.current.add(employeeId);
+    });
+
+    Promise.all(
+      missingEmployeeIds.map(async (employeeId) => {
+        try {
+          const response = await fetch(`https://mymulya.com/users/profile/${employeeId}`, {
+            method: "GET",
+            credentials: "include",
+          });
+          if (!response.ok) return null;
+
+          const responseBody = await response.json();
+          return [employeeId, getPayload(responseBody)];
+        } catch (error) {
+          return null;
+        } finally {
+          profileDetailsLoadingRef.current.delete(employeeId);
+        }
+      })
+    ).then((entries) => {
+      const loadedProfiles = entries.filter(Boolean);
+      if (!loadedProfiles.length) return;
+
+      setProfileDetailsByEmployeeId((currentProfiles) => {
+        const nextProfiles = { ...currentProfiles };
+        loadedProfiles.forEach(([employeeId, profileDetails]) => {
+          nextProfiles[employeeId] = profileDetails;
+        });
+        return nextProfiles;
+      });
+    });
+  }, [paginatedUsers, profileDetailsByEmployeeId]);
+
   const fetchUserProfile = async (user) => {
-    const employeeId = user?.employeeId || user?.userId;
+    const employeeId = getEmployeeId(user);
     if (!employeeId) {
       showToast("User does not have an employee id", "error");
       return;
@@ -696,13 +945,28 @@ const HRMS = () => {
     setDrawerOpen(true);
     setProfileLoading(true);
     setSelectedFiles([]);
+    setDownloadedDocumentKeys({});
+    setSavingVerifiedDocumentKeys({});
     if (fileInputRef.current) fileInputRef.current.value = "";
 
     try {
-      const response = await httpService.get(`/users/profile/${employeeId}`);
-      const payload = getPayload(response);
+      // const response = await httpService.get(`/users/profile/${employeeId}`);
+      const response = await fetch(`https://mymulya.com/users/profile/${employeeId}`, {
+        method: "GET",
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Profile request failed");
+      }
+
+      const responseBody = await response.json();
+      const payload = getPayload(responseBody);
+      setProfileDetailsByEmployeeId((currentProfiles) => ({
+        ...currentProfiles,
+        [employeeId]: payload,
+      }));
       setProfile(profileFromData({ ...user, ...payload }));
-      setDocuments(getDocumentsPayload(response));
+      setDocuments(getDocumentsPayload(responseBody));
     } catch (error) {
       setProfile(profileFromData(user));
       setDocuments(getDocumentsPayload(user));
@@ -715,6 +979,123 @@ const HRMS = () => {
   const handleFileChange = (event) => {
     const files = Array.from(event.target.files || []);
     setSelectedFiles(files);
+  };
+
+  const handleDocumentDownload = async (document, index) => {
+    const source = getDocumentSource(document);
+    const documentName = getDocumentName(document);
+    const documentKey = getDocumentKey(document, index);
+    const downloaded = await downloadFile(source, documentName);
+
+    if (downloaded) {
+      setDownloadedDocumentKeys((currentKeys) => ({
+        ...currentKeys,
+        [documentKey]: true,
+      }));
+    }
+  };
+
+  const handleDocumentVerifiedChange = (document, index) => async (event) => {
+    const documentKey = getDocumentKey(document, index);
+    const employeeId = profile.employeeId || selectedUser?.employeeId || selectedUser?.userId;
+    const documentId = document?.id || document?.documentId || document?.fileId;
+    const nextVerified = event.target.checked;
+
+    if (!downloadedDocumentKeys[documentKey] || !employeeId || !documentId) return;
+
+    setSavingVerifiedDocumentKeys((currentKeys) => ({
+      ...currentKeys,
+      [documentKey]: true,
+    }));
+
+    try {
+      // await httpService.patch(
+      //   `/users/profile/${employeeId}/documents/${documentId}/verify`,
+      //   null,
+      //   { params: { isVerified: nextVerified } }
+      // );
+      await fetch(`https://mymulya.com/users/profile/${employeeId}/documents/${documentId}/verify?isVerified=${nextVerified}`, {
+        method: "PATCH",
+        credentials: "include",
+      });
+      setDocuments((currentDocuments) =>
+        currentDocuments.map((currentDocument) => {
+          const currentDocumentId =
+            currentDocument?.id || currentDocument?.documentId || currentDocument?.fileId;
+          if (currentDocumentId !== documentId) return currentDocument;
+          return { ...currentDocument, isVerified: nextVerified };
+        })
+      );
+      showToast("Document verification updated successfully", "success");
+    } catch (error) {
+      showToast("Unable to update document verification", "error");
+    } finally {
+      setSavingVerifiedDocumentKeys((currentKeys) => ({
+        ...currentKeys,
+        [documentKey]: false,
+      }));
+    }
+  };
+
+  const renderDocumentRow = ({ document, originalIndex }, showDivider = false) => {
+    const documentName = getDocumentName(document);
+    const source = getDocumentSource(document);
+    const documentKey = getDocumentKey(document, originalIndex);
+    const isDownloaded = Boolean(downloadedDocumentKeys[documentKey]);
+    const savingVerification = Boolean(savingVerifiedDocumentKeys[documentKey]);
+    const canVerifyDocument = Boolean(document?.id || document?.documentId || document?.fileId);
+
+    return (
+      <React.Fragment key={`${documentKey}-${originalIndex}`}>
+        {showDivider && <Divider />}
+        <Stack direction="row" alignItems="center" gap={1.5} sx={{ p: 2 }}>
+          <Avatar variant="rounded" src={getDocumentType(document) === "image" ? source : ""}>
+            {getFileIcon(documentName)}
+          </Avatar>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography variant="body2" fontWeight={700} noWrap title={documentName}>
+              {documentName}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {document?.documentType || document?.fileType || document?.type || "Profile document"}
+            </Typography>
+          </Box>
+          <Tooltip title="Download">
+            <span>
+              <IconButton
+                color="primary"
+                disabled={!source}
+                onClick={() => handleDocumentDownload(document, originalIndex)}
+              >
+                <DownloadOutlined />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title={isDownloaded ? "Mark as verified" : "Download document first"}>
+            <span>
+              <Checkbox
+                size="small"
+                checked={isDocumentVerified(document)}
+                disabled={!isDownloaded || savingVerification || !canVerifyDocument}
+                onChange={handleDocumentVerifiedChange(document, originalIndex)}
+                inputProps={{ "aria-label": `Verify ${documentName}` }}
+              />
+            </span>
+          </Tooltip>
+          <Tooltip title="View">
+            <span>
+              <IconButton
+                color="info"
+                disabled={!source || viewLoading}
+                onClick={() => handleViewDocument(document)}
+              >
+                <Visibility />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Stack>
+      </React.Fragment>
+    );
   };
 
   const handleProfileChange = (field, value) => {
@@ -741,6 +1122,7 @@ const HRMS = () => {
           },
         }
       );
+      
       if (response?.data?.success === false) {
         throw new Error(response.data.message || "Profile update failed");
       }
@@ -811,7 +1193,10 @@ const HRMS = () => {
     try {
       const formData = new FormData();
       appendProfileFields(formData, profile);
-      selectedFiles.forEach((file) => formData.append("documents", file));
+      selectedFiles.forEach((file) => {
+        formData.append("documents", file);
+        formData.append("documentTypes", otherDocumentType);
+      });
 
       await httpService.put(`/users/update/${employeeId}`, formData);
       showToast("HR documents uploaded successfully", "success");
@@ -831,6 +1216,8 @@ const HRMS = () => {
     setProfile(emptyProfile);
     setDocuments([]);
     setSelectedFiles([]);
+    setDownloadedDocumentKeys({});
+    setSavingVerifiedDocumentKeys({});
     closeDocumentViewer();
   };
 
@@ -882,37 +1269,79 @@ const HRMS = () => {
         ) : (
           <>
             <TableContainer>
-              <Table size="small">
+              <Table size="small" sx={{ minWidth: 5200 }}>
                 <TableHead>
                   <TableRow sx={{ bgcolor: "primary.main" }}>
-                    <TableCell sx={{ color: "primary.contrastText", fontWeight: 700 }}>Employee ID</TableCell>
-                    <TableCell sx={{ color: "primary.contrastText", fontWeight: 700 }}>Name</TableCell>
-                    <TableCell sx={{ color: "primary.contrastText", fontWeight: 700 }}>Email</TableCell>
-                    <TableCell sx={{ color: "primary.contrastText", fontWeight: 700 }}>Role</TableCell>
-                    <TableCell sx={{ color: "primary.contrastText", fontWeight: 700 }}>Status</TableCell>
-                    <TableCell align="center" sx={{ color: "primary.contrastText", fontWeight: 700 }}>
+                    {hrmsTableColumns.map((column) => (
+                      <TableCell
+                        key={column.label}
+                        sx={{
+                          color: "primary.contrastText",
+                          fontWeight: 700,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {column.label}
+                      </TableCell>
+                    ))}
+                    <TableCell
+                      sx={{
+                        ...stickyStatusColumnSx,
+                        color: "primary.contrastText",
+                        fontWeight: 700,
+                        bgcolor: "primary.main",
+                      }}
+                    >
+                      Status
+                    </TableCell>
+                    <TableCell
+                      align="center"
+                      sx={{
+                        ...stickyActionsColumnSx,
+                        color: "primary.contrastText",
+                        fontWeight: 700,
+                        bgcolor: "primary.main",
+                      }}
+                    >
                       Actions
                     </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {paginatedUsers.map((user) => {
-                    const employeeId = user.employeeId || user.userId;
-                    const roles = Array.isArray(user.roles) ? user.roles.join(", ") : user.roles || user.role;
+                    const employeeId = getEmployeeId(user);
+                    const rowProfile = profileFromData({
+                      ...user,
+                      ...(profileDetailsByEmployeeId[employeeId] || {}),
+                    });
                     return (
                       <TableRow key={employeeId || user.email} hover>
-                        <TableCell>{employeeId || "-"}</TableCell>
-                        <TableCell>{user.userName || user.name || "-"}</TableCell>
-                        <TableCell>{user.email || "-"}</TableCell>
-                        <TableCell>{roles || "-"}</TableCell>
-                        <TableCell>
+                        {hrmsTableColumns.map((column) => {
+                          const cellValue = column.getValue(rowProfile, user) || "-";
+
+                          return (
+                            <TableCell
+                              key={column.label}
+                              title={String(cellValue)}
+                              sx={{
+                                maxWidth: 220,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {cellValue}
+                            </TableCell>
+                          );
+                        })}
+                        <TableCell sx={stickyStatusColumnSx}>
                           <Chip
                             size="small"
                             label={user.status || "-"}
                             color={String(user.status).toLowerCase() === "active" ? "success" : "default"}
                           />
                         </TableCell>
-                        <TableCell align="center">
+                        <TableCell align="center" sx={stickyActionsColumnSx}>
                           <Tooltip title="View HRMS profile">
                             <IconButton color="primary" size="small" onClick={() => fetchUserProfile(user)}>
                               <Visibility fontSize="small" />
@@ -924,7 +1353,7 @@ const HRMS = () => {
                   })}
                   {!paginatedUsers.length && (
                     <TableRow>
-                      <TableCell colSpan={6}>
+                      <TableCell colSpan={hrmsTableColumns.length + 1}>
                         <Alert severity="info">No users found.</Alert>
                       </TableCell>
                     </TableRow>
@@ -1021,7 +1450,13 @@ const HRMS = () => {
                 <EditableField label="Official Email" field="officialEmailId" value={profile.officialEmailId} onChange={handleProfileChange} />
                 <EditableField label="Probation" field="probation" value={profile.probation} onChange={handleProfileChange} />
                 <EditableField label="Reporting Manager" field="reportingManager" value={profile.reportingManager} onChange={handleProfileChange} />
-                <EditableField label="Department" field="department" value={profile.department} onChange={handleProfileChange} />
+                <EditableField
+                  label="Department"
+                  field="department"
+                  value={profile.department}
+                  onChange={handleProfileChange}
+                  options={departmentOptions}
+                />
                 <EditableField label="LinkedIn URL" field="linkedInUrl" value={profile.linkedInUrl} onChange={handleProfileChange} />
                 <EditableField
                   label="Profile Edit Access"
@@ -1043,6 +1478,19 @@ const HRMS = () => {
                 <EditableField label="IFSC Code" field="ifscCode" value={profile.ifscCode} onChange={handleProfileChange} />
                 <EditableField label="UAN Number" field="uanNumber" value={profile.uanNumber} onChange={handleProfileChange} />
                 <EditableField label="PF Number" field="pfNumber" value={profile.pfNumber} onChange={handleProfileChange} />
+                <EditableField
+                  label="Employee Having ESI"
+                  field="isEmployeeHavingESI"
+                  value={profile.isEmployeeHavingESI}
+                  onChange={handleProfileChange}
+                  options={[
+                    { value: "false", label: "No" },
+                    { value: "true", label: "Yes" },
+                  ]}
+                />
+                {isTruthyFlag(profile.isEmployeeHavingESI) && (
+                  <EditableField label="ESI Number" field="esiNumber" value={profile.esiNumber} onChange={handleProfileChange} />
+                )}
                 <EditableField label="PAN Number" field="payrollPanNumber" value={profile.payrollPanNumber} onChange={handleProfileChange} />
                 <EditableField label="Aadhar Number" field="payrollAadharNumber" value={profile.payrollAadharNumber} onChange={handleProfileChange} />
               </Section>
@@ -1086,62 +1534,50 @@ const HRMS = () => {
                   </Stack>
                 )}
 
-                <Paper variant="outlined" sx={{ borderRadius: 1, overflow: "hidden" }}>
-                  {documents.length ? (
-                    documents.map((document, index) => {
-                      const documentName = getDocumentName(document);
-                      const source = getDocumentSource(document);
-                      return (
-                        <React.Fragment key={`${documentName}-${index}`}>
-                          {index > 0 && <Divider />}
-                          <Stack direction="row" alignItems="center" gap={1.5} sx={{ p: 2 }}>
-                            <Avatar variant="rounded" src={getDocumentType(document) === "image" ? source : ""}>
-                              {getFileIcon(documentName)}
-                            </Avatar>
-                            <Box sx={{ flex: 1, minWidth: 0 }}>
-                              <Typography variant="body2" fontWeight={700} noWrap title={documentName}>
-                                {documentName}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {document?.documentType || document?.fileType || document?.type || "Profile document"}
-                              </Typography>
-                            </Box>
-                            <Tooltip title="Download">
-                              <span>
-                                <IconButton
-                                  color="primary"
-                                  disabled={!source}
-                                  onClick={() => downloadFile(source, documentName)}
-                                >
-                                  <DownloadOutlined />
-                                </IconButton>
-                              </span>
-                            </Tooltip>
-                            <Tooltip title="View">
-                              <span>
-                                <IconButton
-                                  color="info"
-                                  disabled={!source || viewLoading}
-                                  onClick={() => handleViewDocument(document)}
-                                >
-                                  <Visibility />
-                                </IconButton>
-                              </span>
-                            </Tooltip>
-                          </Stack>
-                        </React.Fragment>
-                      );
-                    })
-                  ) : (
-                    <Alert severity="info" sx={{ borderRadius: 0 }}>
-                      No uploaded documents found for this profile.
-                    </Alert>
-                  )}
-                </Paper>
+                <Stack spacing={2}>
+                  {primaryDocumentSections.map((section) => {
+                    const sectionDocuments = groupedDocuments.grouped[section.key] || [];
+
+                    return (
+                      <Paper variant="outlined" sx={{ borderRadius: 1, overflow: "hidden" }} key={section.key}>
+                        <Box sx={{ px: 2, py: 1.25, bgcolor: "background.default", borderBottom: "1px solid", borderColor: "divider" }}>
+                          <Typography variant="subtitle2" fontWeight={700}>
+                            {section.label}
+                          </Typography>
+                        </Box>
+                        {sectionDocuments.length ? (
+                          sectionDocuments.map((documentWithIndex, index) =>
+                            renderDocumentRow(documentWithIndex, index > 0)
+                          )
+                        ) : (
+                          <Alert severity="info" sx={{ borderRadius: 0 }}>
+                            No {section.label} document uploaded.
+                          </Alert>
+                        )}
+                      </Paper>
+                    );
+                  })}
+
+                  <Paper variant="outlined" sx={{ borderRadius: 1, overflow: "hidden" }}>
+                    <Box sx={{ px: 2, py: 1.25, bgcolor: "background.default", borderBottom: "1px solid", borderColor: "divider" }}>
+                      <Typography variant="subtitle2" fontWeight={700}>
+                        Other Documents
+                      </Typography>
+                    </Box>
+                    {groupedDocuments.otherDocuments.length ? (
+                      groupedDocuments.otherDocuments.map((documentWithIndex, index) =>
+                        renderDocumentRow(documentWithIndex, index > 0)
+                      )
+                    ) : (
+                      <Alert severity="info" sx={{ borderRadius: 0 }}>
+                        No other documents uploaded for this profile.
+                      </Alert>
+                    )}
+                  </Paper>
+                </Stack>
               </Box>
 
               <Section title="Exit Formality">
-                <EditableField label="Clearance Form" field="clearanceForm" value={profile.clearanceForm} onChange={handleProfileChange} type="date" />
                 <EditableField label="F&F" field="fAndF" value={profile.fAndF} onChange={handleProfileChange} />
                 <EditableField label="Exit From PF Date" field="exitFromPfDate" value={profile.exitFromPfDate} onChange={handleProfileChange} type="date" />
                 <EditableField label="Last Working Day" field="lastWorkingDay" value={profile.lastWorkingDay} onChange={handleProfileChange} type="date" />
