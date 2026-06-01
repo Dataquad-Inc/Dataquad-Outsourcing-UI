@@ -115,11 +115,11 @@ const hrmsTableColumns = [
   { label: "Current Address", getValue: (profile) => profile.currentAddress },
   { label: "Permanent Address", getValue: (profile) => profile.permanentAddress },
   { label: "Role", getValue: (profile) => profile.role },
-  { label: "Entity", getValue: (profile) => profile.entity },
+  // { label: "Entity", getValue: (profile) => profile.entity },
   { label: "Joining Date", getValue: (profile) => formatDateForInput(profile.joiningDate) },
   { label: "Official Number", getValue: (profile) => profile.officialNumber },
   { label: "Official Email", getValue: (profile) => profile.officialEmailId },
-  { label: "Probation", getValue: (profile) => profile.probation },
+  { label: "Probation", getValue: (profile) => calculateProbationStatus(profile.joiningDate) },
   { label: "Reporting Manager", getValue: (profile) => profile.reportingManager },
   { label: "Department", getValue: (profile) => profile.department },
   { label: "LinkedIn URL", getValue: (profile) => profile.linkedInUrl },
@@ -130,6 +130,7 @@ const hrmsTableColumns = [
   { label: "IFSC Code", getValue: (profile) => profile.ifscCode },
   { label: "UAN Number", getValue: (profile) => profile.uanNumber },
   { label: "PF Number", getValue: (profile) => profile.pfNumber },
+  { label: "PF", getValue: (profile) => (profile.pfNumber ? "Yes" : "No") },
   { label: "Employee Having ESI", getValue: (profile) => (isTruthyFlag(profile.isEmployeeHavingESI) ? "Yes" : "No") },
   { label: "ESI Number", getValue: (profile) => profile.esiNumber },
   { label: "Payroll PAN Number", getValue: (profile) => profile.payrollPanNumber },
@@ -271,6 +272,26 @@ const formatDateForInput = (value) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toISOString().split("T")[0];
+};
+
+const calculateProbationStatus = (joiningDate) => {
+  if (!joiningDate) return "";
+  const joining = new Date(joiningDate);
+  if (Number.isNaN(joining.getTime())) return "";
+  
+  const today = new Date();
+  const probationEndDate = new Date(joining);
+  probationEndDate.setMonth(probationEndDate.getMonth() + 3);
+  
+  const daysRemaining = Math.ceil((probationEndDate - today) / (1000 * 60 * 60 * 24));
+  
+  if (daysRemaining > 0) {
+    return `Active (${daysRemaining} days left)`;
+  } else if (daysRemaining === 0) {
+    return "Completed";
+  } else {
+    return "Completed";
+  }
 };
 
 const getInitials = (name) => {
@@ -1330,7 +1351,20 @@ const HRMS = () => {
                                 whiteSpace: "nowrap",
                               }}
                             >
-                              {cellValue}
+                              {column.label === "LinkedIn URL" && cellValue && cellValue !== "-" ? (
+                                <a
+                                  href={cellValue.startsWith("http") ? cellValue : `https://${cellValue}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{ color: "#1976d2", textDecoration: "none" }}
+                                  onMouseEnter={(e) => (e.target.style.textDecoration = "underline")}
+                                  onMouseLeave={(e) => (e.target.style.textDecoration = "none")}
+                                >
+                                  {cellValue}
+                                </a>
+                              ) : (
+                                cellValue
+                              )}
                             </TableCell>
                           );
                         })}
@@ -1448,7 +1482,14 @@ const HRMS = () => {
                 <EditableField label="Joining Date" field="joiningDate" value={formatDateForInput(profile.joiningDate)} onChange={handleProfileChange} type="date" />
                 <EditableField label="Official Number" field="officialNumber" value={profile.officialNumber} onChange={handleProfileChange} />
                 <EditableField label="Official Email" field="officialEmailId" value={profile.officialEmailId} onChange={handleProfileChange} />
-                <EditableField label="Probation" field="probation" value={profile.probation} onChange={handleProfileChange} />
+                <Grid item xs={12} sm={6} md={4}>
+                  <TextField
+                    label="Probation"
+                    value={profile.joiningDate ? calculateProbationStatus(profile.joiningDate) : profile.probation}
+                    disabled={Boolean(profile.joiningDate)}
+                    fullWidth
+                  />
+                </Grid>
                 <EditableField label="Reporting Manager" field="reportingManager" value={profile.reportingManager} onChange={handleProfileChange} />
                 <EditableField
                   label="Department"
@@ -1458,16 +1499,6 @@ const HRMS = () => {
                   options={departmentOptions}
                 />
                 <EditableField label="LinkedIn URL" field="linkedInUrl" value={profile.linkedInUrl} onChange={handleProfileChange} />
-                <EditableField
-                  label="Profile Edit Access"
-                  field="isEditable"
-                  value={profile.isEditable}
-                  onChange={handleProfileChange}
-                  options={[
-                    { value: "false", label: "Editable" },
-                    { value: "true", label: "Locked" },
-                  ]}
-                />
               </Section>
 
               <Section title="Payroll Inputs">
@@ -1595,18 +1626,34 @@ const HRMS = () => {
                   zIndex: 2,
                 }}
               >
-                <Stack direction={{ xs: "column", sm: "row" }} justifyContent="flex-end" gap={1.5}>
-                  <Button variant="outlined" color="inherit" onClick={closeDrawer} disabled={savingProfile}>
-                    Cancel
-                  </Button>
-                  <Button
-                    variant="contained"
-                    onClick={handleSaveProfile}
+                <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems="center" gap={1.5}>
+                  <TextField
+                    label="Profile Edit Access"
+                    value={profile.isEditable}
+                    onChange={(event) => handleProfileChange("isEditable", event.target.value)}
+                    select
                     disabled={profileLoading || savingProfile}
-                    startIcon={savingProfile ? <CircularProgress size={18} color="inherit" /> : null}
+                    sx={{ minWidth: 200 }}
                   >
-                    Save Profile
-                  </Button>
+                    {[{ value: "false", label: "Editable" }, { value: "true", label: "Locked" }].map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  <Stack direction={{ xs: "column", sm: "row" }} justifyContent="flex-end" gap={1.5}>
+                    <Button variant="outlined" color="inherit" onClick={closeDrawer} disabled={savingProfile}>
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="contained"
+                      onClick={handleSaveProfile}
+                      disabled={profileLoading || savingProfile}
+                      startIcon={savingProfile ? <CircularProgress size={18} color="inherit" /> : null}
+                    >
+                      Save Profile
+                    </Button>
+                  </Stack>
                 </Stack>
               </Paper>
             </>
