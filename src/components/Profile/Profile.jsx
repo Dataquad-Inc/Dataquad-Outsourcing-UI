@@ -291,6 +291,24 @@ const formatDateForInput = (dateValue) => {
   return date.toISOString().split("T")[0];
 };
 
+const calculateProbationStatus = (joiningDate) => {
+  if (!joiningDate) return "";
+  const joining = new Date(joiningDate);
+  if (Number.isNaN(joining.getTime())) return "";
+
+  const today = new Date();
+  const probationEndDate = new Date(joining);
+  probationEndDate.setMonth(probationEndDate.getMonth() + 3);
+
+  const daysRemaining = Math.ceil((probationEndDate - today) / (1000 * 60 * 60 * 24));
+
+  if (daysRemaining > 0) {
+    return `Active (${daysRemaining} days left)`;
+  }
+
+  return "Completed";
+};
+
 const bloodGroupOptions = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 const genderOptions = ["Male", "Female", "Other"];
 const maritalStatusOptions = ["Single", "Married", "Divorced", "Widowed"];
@@ -1311,20 +1329,29 @@ const Profile = () => {
               />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField
-                label="Probation"
-                value={profile.probation}
-                onChange={handleChange("probation")}
-                fullWidth
-                disabled={!canEditProfile}
-                select
-              >
-                {["Yes", "No"].map((option) => (
-                  <MenuItem key={option} value={option}>
-                    {option}
-                  </MenuItem>
-                ))}
-              </TextField>
+              {profile.joiningDate ? (
+                <TextField
+                  label="Probation"
+                  value={calculateProbationStatus(profile.joiningDate)}
+                  fullWidth
+                  disabled
+                />
+              ) : (
+                <TextField
+                  label="Probation"
+                  value={profile.probation}
+                  onChange={handleChange("probation")}
+                  fullWidth
+                  disabled={!canEditProfile}
+                  select
+                >
+                  {["Yes", "No"].map((option) => (
+                    <MenuItem key={option} value={option}>
+                      {option}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
