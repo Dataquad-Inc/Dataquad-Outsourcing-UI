@@ -44,6 +44,7 @@ import {
   UploadFileOutlined,
   Visibility,
 } from "@mui/icons-material";
+import { useSelector } from "react-redux";
 import httpService, { API_BASE_URL } from "../../Services/httpService";
 import { showToast } from "../../utils/ToastNotification";
 
@@ -850,6 +851,8 @@ const Section = ({ title, children }) => (
 const HRMS = () => {
   const fileInputRef = useRef(null);
   const profileDetailsLoadingRef = useRef(new Set());
+  const { entity } = useSelector((state) => state.auth);
+  const activeEntity = (entity || "IN").toUpperCase();
   const [users, setUsers] = useState([]);
   const [profileDetailsByEmployeeId, setProfileDetailsByEmployeeId] = useState({});
   const [query, setQuery] = useState("");
@@ -872,14 +875,17 @@ const HRMS = () => {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await httpService.get("/users/employee");
+      const response = await httpService.get("/users/employee", { entity: activeEntity });
       setUsers(normalizeArrayPayload(response));
+      setProfileDetailsByEmployeeId({});
+      profileDetailsLoadingRef.current.clear();
+      setPage(0);
     } catch (error) {
       showToast("Unable to load HRMS users", "error");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeEntity]);
 
   useEffect(() => {
     fetchUsers();
@@ -1256,7 +1262,7 @@ const HRMS = () => {
             HRMS
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Review employee profile data, download uploaded files, and attach HR documents.
+            Review {activeEntity} employee profile data, download uploaded files, and attach HR documents.
           </Typography>
         </Box>
         <Stack direction={{ xs: "column", sm: "row" }} gap={1.5}>
