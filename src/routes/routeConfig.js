@@ -665,7 +665,7 @@ const routeConfig = [
             element: (
               <ProtectedRoute
                 allowedRoles={["SUPERADMIN", "HRMS"]}
-                allowedEntities={["IN"]}
+                allowedEntities={["IN", "US"]}
               />
             ),
             children: [{ index: true, element: Loadable(HRMS) }],

@@ -12,6 +12,7 @@ import HomeIcon from "@mui/icons-material/Home";
 import AutorenewIcon from "@mui/icons-material/Autorenew";
 import PeopleIcon from "@mui/icons-material/People";
 import BadgeIcon from "@mui/icons-material/Badge";
+import ManageAccountsIcon from "@mui/icons-material/ManageAccounts";
 
 const commonRoles = [
   "SUPERADMIN",
@@ -54,6 +55,12 @@ export const usNavItems = (role) => [
     path: "us-employees/employeeslist",
     icon: <BadgeIcon />,
     roles: ["SUPERADMIN", "ADMIN"],
+  },
+  {
+    text: "HRMS",
+    path: "hrms",
+    icon: <ManageAccountsIcon />,
+    roles: ["SUPERADMIN", "HRMS"],
   },
   {
     text: "Requirements",
