@@ -5,6 +5,20 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { showSuccessToast, showErrorToast } from "../../utils/toastUtils";
 import DynamicFormUltra from "../FormContainer/DynamicFormUltra";
 
+const API_BASE_URL = "https://mymulya.com";
+
+const getMemberId = (member) => {
+  if (!member) return "";
+  if (typeof member === "string") return member;
+  return member.employeeId || member.userId || "";
+};
+
+const normalizeIds = (members = []) =>
+  members.map(getMemberId).filter(Boolean);
+
+const getAdditionalTeamLeadIds = (teamData = {}) =>
+  normalizeIds(teamData.teamLeads || teamData.teamleads);
+
 export default function TeamForm() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -38,8 +52,10 @@ export default function TeamForm() {
     const fetchUsers = async () => {
       try {
         setLoading(true);
-        const response = await axios.get("https://mymulya.com/users/employee");
-        const users = response.data;
+        // const response = await axios.get(`${API_BASE_URL}/users/employee`);
+        const response = await fetch("https://mymulya.com/users/employee");
+        const users = await response.json();
+        // const users = response.data;
 
         const customTeamLead = {
           userName: "KolanupakaRaghava",
@@ -66,7 +82,7 @@ export default function TeamForm() {
             teamName: teamData.teamName || "",
             superAdmin: teamData.superAdminId || "",
             teamLead: teamData.teamLeadId || "", // Single team lead
-            teamleads: teamData.teamleads || [], // Multiple team leads
+            teamleads: getAdditionalTeamLeadIds(teamData), // Multiple team leads
             employees:
               teamData.employees?.map((e) => e.employeeId || e.userId) || [],
             bdms: teamData.bdms?.map((b) => b.employeeId || b.userId) || [],
@@ -194,6 +210,44 @@ export default function TeamForm() {
       };
 
       console.log("Submitting payload:", payload);
+
+      if (isEditMode && teamData) {
+        const previousMembers = {
+          teamLeads: getAdditionalTeamLeadIds(teamData),
+          employees: normalizeIds(teamData.employees),
+          bdms: normalizeIds(teamData.bdms),
+          coordinators: normalizeIds(teamData.coordinators),
+        };
+
+        const currentMembers = {
+          teamLeads: normalizeIds(payload.teamLeads),
+          employees: normalizeIds(payload.employees),
+          bdms: normalizeIds(payload.bdms),
+          coordinators: normalizeIds(payload.coordinators),
+        };
+
+        const removedMemberIds = Object.keys(previousMembers).flatMap(
+          (memberType) => {
+            const currentIds = new Set(currentMembers[memberType]);
+            return previousMembers[memberType].filter(
+              (memberId) => !currentIds.has(memberId)
+            );
+          }
+        );
+
+        const teamLeadForRemoval =
+          teamData.teamLeadId || initialValues.teamLead || values.teamLead;
+
+        if (teamLeadForRemoval && removedMemberIds.length > 0) {
+          await Promise.all(
+            [...new Set(removedMemberIds)].map((memberId) =>
+              axios.delete(
+                `https://mymulya.com/users/team/${teamLeadForRemoval}/user/${memberId}`
+              )
+            )
+          );
+        }
+      }
 
       const response = await axios.post(
         `https://mymulya.com/users/assignTeamLead/${userId}`,

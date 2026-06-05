@@ -34,7 +34,7 @@ export const inNavItems = [
     text: "Users",
     path: "users",
     icon: <GroupIcon />,
-    roles: ["ADMIN", "SUPERADMIN", "HRMS", "INVOICE", "COORDINATOR"],
+    roles: ["ADMIN", "SUPERADMIN", "HRMS", "INVOICE"],
   },
   {
     text: "Team-list",

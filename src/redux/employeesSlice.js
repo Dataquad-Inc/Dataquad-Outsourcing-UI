@@ -38,7 +38,7 @@ export const filterUsersByDateRange = createAsyncThunk(
   async({startDate, endDate}, {rejectWithValue}) => {
       try{
         const response = await httpService.get(`/users/employee/filterByJoiningDate?startDate=${startDate}&endDate=${endDate}`);
-        
+
         return response.data;
       }catch(error){
         console.log(error);
