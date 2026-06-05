@@ -66,6 +66,7 @@ const roleOptions = [
   { value: "GRANDSALES", label: "Grand Sales" },
   { value: "FINANCE", label: "Finance" },
   { value: "COORDINATOR", label: "Coordinator" }, 
+  { value: "HRMS", label: "HRMS" },
 ];
 
   const genderOptions = [

@@ -25,6 +25,16 @@ const UsEmployees = () => {
   const [selectedFilter, setSelectedFilter] = useState("all");
 
   const BASE_URL = "https://mymulya.com";
+  const roleOptions = [
+    { value: "EMPLOYEE", label: "Employee" },
+    { value: "ADMIN", label: "Admin" },
+    { value: "SUPERADMIN", label: "SuperAdmin" },
+    { value: "TEAMLEAD", label: "Team Lead" },
+    { value: "RECRUITER", label: "Recruiter" },
+    { value: "SALESEXECUTIVE", label: "Sales Executive" },
+    { value: "GRANDSALES", label: "Grand Sales" },
+    { value: "HRMS", label: "HRMS" },
+  ];
 
   /** ---------------- Fetch Employees ---------------- */
   const fetchData = useCallback(async () => {
@@ -104,9 +114,10 @@ const UsEmployees = () => {
 
   /** ---------------- Edit ---------------- */
   const handleEdit = (row) => {
+    const currentRole = Array.isArray(row.roles) ? row.roles[0] || "" : row.roles || "";
     setSelectedEmployee(row);
     setFormValues({
-      roles: row.roles || "",
+      roles: currentRole,
       status: row.status || "",
     });
     setOpenEdit(true);
@@ -226,13 +237,11 @@ const UsEmployees = () => {
             }
             fullWidth
           >
-            <MenuItem value="EMPLOYEE">Employee</MenuItem>
-            <MenuItem value="ADMIN">Admin</MenuItem>
-            <MenuItem value="SUPERADMIN">SuperAdmin</MenuItem>
-            <MenuItem value="TEAMLEAD">Team Lead</MenuItem>
-            <MenuItem value="RECRUITER">Recruiter</MenuItem>
-            <MenuItem value="SALESEXECUTIVE">Sales Executive</MenuItem>
-            <MenuItem value="GRANDSALES">Grand Sales</MenuItem>
+            {roleOptions.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
           </TextField>
 
           <TextField

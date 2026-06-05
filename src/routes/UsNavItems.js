@@ -54,7 +54,7 @@ export const usNavItems = (role) => [
     text: "Employees",
     path: "us-employees/employeeslist",
     icon: <BadgeIcon />,
-    roles: ["SUPERADMIN", "ADMIN"],
+    roles: ["SUPERADMIN", "ADMIN", "HRMS"],
   },
   {
     text: "HRMS",
