@@ -3,6 +3,7 @@ import { Tabs, Tab, Box, CircularProgress, Stack, Typography } from '@mui/materi
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import UserTable from './UserTable';
+import TeamList from './TeamList';
 import DateRangeFilter from '../muiComponents/DateRangeFilter';
 import { 
     fetchBdmUsers,
@@ -34,15 +35,16 @@ const TeamMetrics = () => {
     const tabFromUrl = searchParams.get('activeTab');
 
     const tabsConfig = useMemo(() => [
-        { role: 'BDM', title: 'BDM Users', key: 'bdm', hasNavigation: true },
-        { role: 'TEAMLEAD', title: 'Team Lead Users', key: 'teamlead', hasNavigation: true },
-        { role: 'EMPLOYEE', title: 'Employee Users', key: 'employee', hasNavigation: true },
-        { role: 'COORDINATOR', title: 'Coordinators Users', key: 'coordinator', hasNavigation: false } // Explicitly set no navigation
+        { role: 'BDM',         title: 'BDM Users',         key: 'bdm',         hasNavigation: true  },
+        { role: 'TEAMLEAD',    title: 'Team Lead Users',   key: 'teamlead',    hasNavigation: true  },
+        { role: 'EMPLOYEE',    title: 'Employee Users',    key: 'employee',    hasNavigation: true  },
+        { role: 'COORDINATOR', title: 'Coordinators',      key: 'coordinator', hasNavigation: false },
+        { role: 'TEAMS',       title: 'Teams',             key: 'teams',       hasNavigation: true  },
     ], []);
 
     // Set initial tab from URL
     useEffect(() => {
-        if (tabFromUrl && tabsConfig.some(tab => tab.key === tabFromUrl)) {
+        if (tabFromUrl) {
             const newTabIndex = tabsConfig.findIndex(tab => tab.key === tabFromUrl);
             if (newTabIndex !== -1) {
                 setActiveTab(newTabIndex);
@@ -65,18 +67,25 @@ const TeamMetrics = () => {
             const params = new URLSearchParams(searchParams);
             params.set('source', 'employee');
             navigate(`/dashboard/team-metrics/employeestatus/${employeeId}?${params.toString()}`);
-        }
+        },
+        TEAMS: (teamId) => {
+            const params = new URLSearchParams(searchParams);
+            navigate(`/dashboard/team-metrics/teamstatus/${teamId}?${params.toString()}`);
+        },
     }), [navigate, searchParams]);
 
     const getNavigationHandler = useCallback(() => {
         const currentTabConfig = tabsConfig[activeTab];
-        return currentTabConfig.hasNavigation ? navigationHandlers[currentTabConfig.role] : undefined;
+        return currentTabConfig.hasNavigation
+            ? navigationHandlers[currentTabConfig.role]
+            : undefined;
     }, [activeTab, navigationHandlers, tabsConfig]);
 
-    // Data fetching
+    // Data fetching — Teams tab fetches nothing from Redux (handled inside TeamList)
     const fetchDataForActiveTab = useCallback(async () => {
         const currentRole = tabsConfig[activeTab].role;
-        
+        if (currentRole === 'TEAMS') return;
+
         try {
             if (startDate && endDate) {
                 await dispatch(filterTeamMetricsByDateRange({ startDate, endDate })).unwrap();
@@ -110,10 +119,8 @@ const TeamMetrics = () => {
     const handleTabChange = (event, newValue) => {
         setActiveTab(newValue);
         const tabKey = tabsConfig[newValue].key;
-        
         const params = new URLSearchParams(searchParams);
         params.set('activeTab', tabKey);
-        
         navigate(`/dashboard/team-metrics?${params.toString()}`, { replace: true });
     };
 
@@ -123,25 +130,28 @@ const TeamMetrics = () => {
 
     const getCurrentRoleData = useCallback(() => {
         const currentRole = tabsConfig[activeTab].role;
-        
-        switch(currentRole) {
-            case 'BDM':
-                return filteredBdmUsers;
-            case 'TEAMLEAD':
-                return filteredTeamLeadUsers;
-            case 'EMPLOYEE':
-                return filteredEmployeeUsers;
-            case 'COORDINATOR':
-                return coordinators;
-            default:
-                return [];
+        switch (currentRole) {
+            case 'BDM':         return filteredBdmUsers;
+            case 'TEAMLEAD':    return filteredTeamLeadUsers;
+            case 'EMPLOYEE':    return filteredEmployeeUsers;
+            case 'COORDINATOR': return coordinators;
+            default:            return [];
         }
     }, [activeTab, filteredBdmUsers, filteredTeamLeadUsers, filteredEmployeeUsers, coordinators, tabsConfig]);
 
     const renderTabContent = () => {
         const currentTabConfig = tabsConfig[activeTab];
-        const currentData = getCurrentRoleData();
-        
+
+        // Teams tab renders its own component with its own data fetching and navigation
+        if (currentTabConfig.role === 'TEAMS') {
+            return (
+                <TeamList
+                    startDate={startDate}
+                    endDate={endDate}
+                />
+            );
+        }
+
         if (isLoading) {
             return (
                 <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}>
@@ -149,12 +159,12 @@ const TeamMetrics = () => {
                 </Box>
             );
         }
-        
+
         return (
-            <UserTable 
-                role={currentTabConfig.role} 
-                title={currentTabConfig.title} 
-                employeesList={currentData} 
+            <UserTable
+                role={currentTabConfig.role}
+                title={currentTabConfig.title}
+                employeesList={getCurrentRoleData()}
                 loading={isLoading}
                 onEmployeeClick={currentTabConfig.hasNavigation ? getNavigationHandler() : undefined}
             />
@@ -163,9 +173,9 @@ const TeamMetrics = () => {
 
     return (
         <>
-            <Stack 
-                direction="row" 
-                alignItems="center" 
+            <Stack
+                direction="row"
+                alignItems="center"
                 spacing={2}
                 sx={{
                     flexWrap: 'wrap',
@@ -178,8 +188,8 @@ const TeamMetrics = () => {
                 }}
             >
                 <Typography variant="h6" color="primary">Team Metrics</Typography>
-                <DateRangeFilter 
-                    component="TeamMetrics" 
+                <DateRangeFilter
+                    component="TeamMetrics"
                     onDateChange={handleRefresh}
                 />
             </Stack>
@@ -205,7 +215,7 @@ const TeamMetrics = () => {
                 >
                     {tabsConfig.map((tab, index) => (
                         <Tab
-                            key={tab.role}
+                            key={tab.key}
                             label={tab.title}
                             sx={{
                                 textTransform: 'none',
@@ -218,9 +228,7 @@ const TeamMetrics = () => {
                                 borderRadius: 2,
                                 backgroundColor: activeTab === index ? '#e6ecfc' : 'transparent',
                                 transition: 'all 0.3s ease',
-                                '&:hover': {
-                                    backgroundColor: '#f0f4ff',
-                                },
+                                '&:hover': { backgroundColor: '#f0f4ff' },
                             }}
                         />
                     ))}
