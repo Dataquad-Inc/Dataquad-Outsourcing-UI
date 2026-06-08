@@ -80,6 +80,7 @@ const BdmStatus = lazy(() => import("../components/TeamMetrics/BdmStatus"));
 const EmployeeStatus = lazy(
   () => import("../components/TeamMetrics/EmployeeStatus"),
 );
+const TeamStatus = lazy(() => import("../components/TeamMetrics/TeamStatus"));
 
 //RTR imports
 const RtrForm = lazy(() => import("../components/RightToRepresent/RtrForm"));
@@ -605,6 +606,15 @@ const routeConfig = [
                   />
                 ),
                 children: [{ index: true, element: Loadable(EmployeeStatus) }],
+              },
+              {
+                path: "teamstatus/:teamId",
+                element: (
+                  <ProtectedRoute
+                    allowedRoles={["ADMIN", "SUPERADMIN", "BDM", "TEAMLEAD", "EMPLOYEE"]}
+                  />
+                ),
+                children: [{ index: true, element: Loadable(TeamStatus) }],
               },
             ],
           },

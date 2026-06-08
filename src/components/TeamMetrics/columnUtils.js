@@ -669,3 +669,129 @@ export const generateColumns = (role, handleEmployeeClick, loading = false) => {
     ...teamLeadExtras
   ];
 };
+
+export const generateTeamColumns = (handleTeamClick, loading = false) => [
+    {
+        key: 'teamLeadId',
+        label: 'Team ID',
+        type: 'text',
+        sortable: true,
+        filterable: true,
+        width: 140,
+        render: (row) =>
+            loading ? (
+                <Skeleton variant="text" width={100} height={24} />
+            ) : (
+                // Display root-level teamLeadId as the team identifier
+                <span style={{ fontWeight: 500, color: '#555' }}>
+                    {row.teamLeadId}
+                </span>
+            ),
+    },
+    {
+        key: 'teamName',
+        label: 'Team Name',
+        type: 'text',
+        sortable: true,
+        filterable: true,
+        width: 200,
+        render: (row) =>
+            loading ? (
+                <Skeleton variant="text" width={160} height={24} />
+            ) : (
+                // Clicking team name navigates using root-level teamLeadId (row.teamId)
+                <span
+                    style={{ cursor: 'pointer', color: '#1976d2', fontWeight: 600 }}
+                    onClick={() => handleTeamClick && handleTeamClick(row.teamId)}
+                >
+                    {row.teamName}
+                </span>
+            ),
+    },
+    {
+        key: 'teamLeadName',
+        label: 'Team Lead',
+        type: 'text',
+        sortable: true,
+        filterable: true,
+        width: 200,
+        render: (row) =>
+            loading ? <Skeleton variant="text" width={160} height={24} /> : row.teamLeadName,
+    },
+    {
+        key: 'memberCount',
+        label: 'Total Members',
+        type: 'number',
+        sortable: true,
+        filterable: true,
+        width: 130,
+        render: (row) =>
+            loading ? (
+                <Skeleton variant="rectangular" width={60} height={24} />
+            ) : (
+                <Chip
+                    label={row.memberCount || 0}
+                    size="small"
+                    sx={{ backgroundColor: '#e3f2fd', color: '#1565c0', fontWeight: 600 }}
+                />
+            ),
+    },
+    {
+        key: 'employeeCount',
+        label: 'Employees',
+        type: 'number',
+        sortable: true,
+        filterable: true,
+        width: 110,
+        render: (row) =>
+            loading ? (
+                <Skeleton variant="rectangular" width={60} height={24} />
+            ) : (
+                <Chip label={row.employeeCount || 0} size="small" variant="outlined" color="info" />
+            ),
+    },
+    {
+        key: 'bdmCount',
+        label: 'BDMs',
+        type: 'number',
+        sortable: true,
+        filterable: true,
+        width: 90,
+        render: (row) =>
+            loading ? (
+                <Skeleton variant="rectangular" width={60} height={24} />
+            ) : (
+                <Chip label={row.bdmCount || 0} size="small" variant="outlined" color="primary" />
+            ),
+    },
+    {
+        key: 'teamLeadCount',
+        label: 'Team Leads',
+        type: 'number',
+        sortable: true,
+        filterable: true,
+        width: 110,
+        render: (row) =>
+            loading ? (
+                <Skeleton variant="rectangular" width={60} height={24} />
+            ) : (
+                <Chip label={row.teamLeadCount || 0} size="small" variant="outlined" color="success" />
+            ),
+    },
+    {
+        key: 'coordinatorCount',
+        label: 'Coordinators',
+        type: 'number',
+        sortable: true,
+        filterable: true,
+        width: 120,
+        render: (row) =>
+            loading ? (
+                <Skeleton variant="rectangular" width={60} height={24} />
+            ) : (
+                <Chip label={row.coordinatorCount || 0} size="small" variant="outlined" color="warning" />
+            ),
+    },
+];
+
+ 
