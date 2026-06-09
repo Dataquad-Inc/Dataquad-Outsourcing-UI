@@ -867,7 +867,7 @@ const HRMS = () => {
   const [downloadedDocumentKeys, setDownloadedDocumentKeys] = useState({});
   const [savingVerifiedDocumentKeys, setSavingVerifiedDocumentKeys] = useState({});
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -1405,7 +1405,7 @@ const HRMS = () => {
                 setRowsPerPage(parseInt(event.target.value, 10));
                 setPage(0);
               }}
-              rowsPerPageOptions={[5, 10, 25, 50]}
+              rowsPerPageOptions={[5, 10, 20, 50, 100]}
             />
           </>
         )}

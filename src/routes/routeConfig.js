@@ -443,11 +443,23 @@ const routeConfig = [
                   },
                   {
                     path: "create-team",
-                    element: Loadable(CreateTeamInd),
+                    element: (
+                      <ProtectedRoute
+                        allowedRoles={["ADMIN", "SUPERADMIN", "HRMS", "INVOICE"]}
+                        allowedEntities={["IN"]}
+                      />
+                    ),
+                    children: [{ index: true, element: Loadable(CreateTeamInd) }],
                   },
                   {
                     path: "edit-team/:teamId",
-                    element: Loadable(CreateTeamInd), // Reusing the same component
+                    element: (
+                      <ProtectedRoute
+                        allowedRoles={["ADMIN", "SUPERADMIN", "HRMS", "COORDINATOR", "INVOICE"]}
+                        allowedEntities={["IN"]}
+                      />
+                    ),
+                    children: [{ index: true, element: Loadable(CreateTeamInd) }], // Reusing the same component
                   },
                 ],
               },

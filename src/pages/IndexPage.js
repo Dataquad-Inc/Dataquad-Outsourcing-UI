@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   FileText, Users, ClipboardCheck, Calendar, Briefcase, Award, UserCheck,
 } from 'lucide-react';
@@ -24,6 +24,7 @@ import { filterDashBoardCountByDateRange } from '../redux/dashboardSlice';
 
 const HomePage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const dispatch = useDispatch();
   const { role, userId } = useSelector((state) => state.auth);
   const { statsByFilter } = useSelector((state) => state.dashboard);
@@ -51,9 +52,12 @@ const HomePage = () => {
     interviews: ['ADMIN', 'EMPLOYEE', 'BDM', 'TEAMLEAD','COORDINATOR','SUPERADMIN'],
     internalInterviews:['SUPERADMIN','TEAMLEAD','BDM'],
     externalInterviews:['SUPERADMIN','TEAMLEAD','BDM'],
-    clients: ['ADMIN', 'SUPERADMIN', 'BDM', 'PARTNER'],
+    submissions: ['COORDINATOR'],
+    inProgress: ['COORDINATOR'],
+    clients: ['ADMIN', 'SUPERADMIN', 'BDM', 'PARTNER', 'COORDINATOR'],
     placements: ['ADMIN', 'SUPERADMIN', 'PARTNER',"INVOICE"],
     users: ['ADMIN', 'SUPERADMIN', 'PARTNER',"INVOICE",'COORDINATOR'],
+    teamList: ['COORDINATOR'],
     bench: ['ADMIN', 'SUPERADMIN', 'BDM', 'TEAMLEAD', 'PARTNER', 'EMPLOYEE'],
     timesheet:['EXTERNALEMPLOYEE']
   };
@@ -70,6 +74,29 @@ const HomePage = () => {
     return data || '0/0';
   };
 
+  const getCoordinatorInterviewCount = async (startDate, endDate) => {
+    const response = await httpService.get(
+      `/candidate/interviews/interviewsByUserId/${userId}?coordinator=true`
+    );
+    const interviews = Array.isArray(response.data) ? response.data : [];
+
+    if (!startDate || !endDate) {
+      return interviews.length;
+    }
+
+    const rangeStart = new Date(`${startDate}T00:00:00`);
+    const rangeEnd = new Date(`${endDate}T23:59:59`);
+
+    return interviews.filter((interview) => {
+      if (!interview.interviewDateTime) {
+        return false;
+      }
+
+      const interviewDate = new Date(interview.interviewDateTime);
+      return interviewDate >= rangeStart && interviewDate <= rangeEnd;
+    }).length;
+  };
+
 useEffect(() => {
   const fetchDashboardCounts = async () => {
     try {
@@ -79,11 +106,16 @@ useEffect(() => {
       }
 
       const response = await httpService.get(url);
+      const coordinatorInterviewCount =
+        role === 'COORDINATOR'
+          ? await getCoordinatorInterviewCount()
+          : response.data.interviews || 0;
+
       setDefaultStats({
         requirements: response.data.requirements || 0,
         candidates: response.data.candidates || 0,
         assigned: response.data.assigned || 0,
-        interviews: response.data.interviews || 0,
+        interviews: coordinatorInterviewCount,
         internalInterviews: response.data.internalInterviews || 0,
         externalInterviews: response.data.externalInterviews || 0,
         clients: response.data.clients || 0,
@@ -91,7 +123,7 @@ useEffect(() => {
         users: response.data.users || 0,
         bench: response.data.bench || 0,
       });
-      setStats(response.data); // Initialize stats with default
+      setStats({ ...response.data, interviews: coordinatorInterviewCount }); // Initialize stats with default
       setFilteredStats(null); // Clear filtered stats on reload
       setIsFiltered(false);   // Reset isFiltered on reload
       setLoading(false);
@@ -106,19 +138,42 @@ useEffect(() => {
 }, [userId, role]);
 
 useEffect(() => {
+  let isMounted = true;
+
+  const applyFilteredStats = async () => {
   if (statsByFilter) {
     // Format the filtered stats, especially placements
     const formattedFilteredStats = {
       ...statsByFilter,
       placements: formatPlacements(statsByFilter)
     };
+
+    if (role === 'COORDINATOR') {
+      const startDate = searchParams.get('startDate');
+      const endDate = searchParams.get('endDate');
+      formattedFilteredStats.interviews = await getCoordinatorInterviewCount(startDate, endDate);
+    }
+
+    if (!isMounted) {
+      return;
+    }
+
     setFilteredStats(formattedFilteredStats);
     setIsFiltered(true);
   } else {
     setFilteredStats(null);
     setIsFiltered(false);
   }
-}, [statsByFilter]);
+  };
+
+  applyFilteredStats().catch((error) => {
+    console.error('Error applying coordinator dashboard interview count:', error);
+  });
+
+  return () => {
+    isMounted = false;
+  };
+}, [statsByFilter, role, userId, searchParams]);
 
   const cards = [
     {
@@ -192,6 +247,28 @@ useEffect(() => {
       path: '/dashboard/clients',
     },
     {
+      title: 'Submissions',
+      key: 'submissions',
+      subtitle: 'Coordinator',
+      color: '#7C3AED',
+      bg: '#F3E8FF',
+      icon: <ClipboardCheck size={24} />,
+      buttonText: 'View Submissions',
+      path: '/dashboard/submissions-all',
+      staticValue: 'Open',
+    },
+    {
+      title: 'InProgress',
+      key: 'inProgress',
+      subtitle: 'Requirements',
+      color: '#0F766E',
+      bg: '#CCFBF1',
+      icon: <FileText size={24} />,
+      buttonText: 'View InProgress',
+      path: '/dashboard/InProgress',
+      staticValue: 'Open',
+    },
+    {
       title: 'Placements',
       key: 'placements',
       subtitle: 'Contract/Full Time',
@@ -210,6 +287,17 @@ useEffect(() => {
       icon: <UserCheck size={24} />,
       buttonText: 'View Employees',
       path: '/dashboard/users',
+    },
+    {
+      title: 'Team-list',
+      key: 'teamList',
+      subtitle: 'Coordinator',
+      color: '#0284C7',
+      bg: '#E0F2FE',
+      icon: <Users size={24} />,
+      buttonText: 'View Team-list',
+      path: '/dashboard/ind-team',
+      staticValue: 'Open',
     },
     {
       title: 'Bench',
@@ -232,7 +320,7 @@ useEffect(() => {
       return card.key === 'placements' || card.key ==='users'
     }
     else if(role === 'COORDINATOR'){
-      return  card.key === 'interviews';
+      return ['requirements', 'interviews', 'submissions', 'inProgress', 'clients', 'teamList'].includes(card.key);
   }
     return card.key !== 'assigned';
    
@@ -303,7 +391,7 @@ useEffect(() => {
                 ) : (
                   <>
                     <Typography variant="h5" fontWeight="bold">
-                       {currentStats[card.key] || (card.key === 'placements' ? '0/0' : 0)}
+                       {card.staticValue || currentStats[card.key] || (card.key === 'placements' ? '0/0' : 0)}
                     </Typography>
                     <Typography variant="caption" color="textSecondary">
                       {card.subtitle}

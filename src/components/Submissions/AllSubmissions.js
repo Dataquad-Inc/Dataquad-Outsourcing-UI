@@ -25,6 +25,8 @@ const AllSubmissions = () => {
 
   const { isFilteredDataRequested } = useSelector((state) => state.bench);
   const { filteredSubmissionsList } = useSelector((state) => state.submission);
+  const { role, userId } = useSelector((state) => state.auth);
+  const isCoordinator = role === "COORDINATOR";
 
   // Use refs to track current state
   const stateRefs = useRef({
@@ -58,12 +60,17 @@ const AllSubmissions = () => {
 
       // Build query parameters
       const params = new URLSearchParams();
-      params.append("page", stateRefs.current.page + 1); // API expects 1-based page number
+      params.append("page", isCoordinator ? stateRefs.current.page : stateRefs.current.page + 1); // Preserve existing non-coordinator behavior
       params.append("size", stateRefs.current.rowsPerPage);
+
+      if (isCoordinator) {
+        params.append("userId", userId);
+        params.append("coordinator", "true");
+      }
       
       // Add search query if exists
       if (stateRefs.current.searchQuery) {
-        params.append("fullName", stateRefs.current.searchQuery);
+        params.append(isCoordinator ? "globalSearch" : "fullName", stateRefs.current.searchQuery);
       }
       
       // Add filters directly as URL parameters
@@ -109,7 +116,7 @@ const AllSubmissions = () => {
       console.log("Triggering fetch - Page:", page);
       fetchSubmissions();
     }
-  }, [page, rowsPerPage, isFilteredDataRequested]);
+  }, [page, rowsPerPage, isFilteredDataRequested, isCoordinator, userId]);
 
   // Separate effect for filters and search (with debouncing)
   useEffect(() => {
