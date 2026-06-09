@@ -23,12 +23,20 @@ import {
   CircularProgress,
   alpha,
   useTheme,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@mui/material";
 import {
   Search as SearchIcon,
   Clear as ClearIcon,
   SearchOff as SearchOffIcon,
   Send as SendIcon,
+  Email as EmailIcon,
+  Work as WorkIcon,
 } from "@mui/icons-material";
 import axios from "axios";
 
@@ -149,6 +157,70 @@ function EmptyState({ search, tagName }) {
   );
 }
 
+// ─── Email Dialog Component ────────────────────────────────────────────────────
+const EmailDialog = ({ open, onClose, onSend, selectedCount, submitting }) => {
+  const [subject, setSubject] = useState("");
+  const [mailBody, setMailBody] = useState("");
+
+  const handleSend = () => {
+    if (subject.trim() && mailBody.trim()) {
+      onSend(subject, mailBody);
+    }
+  };
+
+  // Reset form when dialog opens
+  React.useEffect(() => {
+    if (open) {
+      setSubject("");
+      setMailBody("");
+    }
+  }, [open]);
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <DialogTitle>
+        Send Email to {selectedCount} Candidate{selectedCount > 1 ? "s" : ""}
+      </DialogTitle>
+      <DialogContent>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+          <TextField
+            label="Subject"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            fullWidth
+            required
+            placeholder="Enter email subject..."
+          />
+          <TextField
+            label="Mail Body"
+            value={mailBody}
+            onChange={(e) => setMailBody(e.target.value)}
+            fullWidth
+            multiline
+            rows={8}
+            required
+            placeholder="Enter email content..."
+          />
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={submitting}>
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSend}
+          variant="contained"
+          color="primary"
+          disabled={!subject.trim() || !mailBody.trim() || submitting}
+          startIcon={submitting ? <CircularProgress size={16} /> : <SendIcon />}
+        >
+          {submitting ? "Sending..." : "Send"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
+
 // ─── TagCandidatesTable ────────────────────────────────────────────────────────
 /**
  * Props:
@@ -165,11 +237,17 @@ const TagCandidatesTable = ({ rows = [], loading = false, tagName = "" }) => {
   const [page,        setPage]        = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [search,      setSearch]      = useState("");
+  const [actionType,  setActionType]  = useState("email"); // "email" or "job"
 
-  // ── NEW: Job ID + submit state ──────────────────────────────────────────────
+  // ── Job submission state ──────────────────────────────────────────────────────
   const [jobId,        setJobId]        = useState("");
   const [submitting,   setSubmitting]   = useState(false);
-  const [submitResult, setSubmitResult] = useState(null); // { type: "success"|"error", message }
+  const [submitResult, setSubmitResult] = useState(null);
+
+  // ── Email dialog state ──────────────────────────────────────────────────────
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailResult, setEmailResult] = useState(null);
 
   const handleSearchChange = (e) => { setSearch(e.target.value); setPage(0); };
   const clearSearch = () => { setSearch(""); setPage(0); };
@@ -201,21 +279,30 @@ const TagCandidatesTable = ({ rows = [], loading = false, tagName = "" }) => {
     );
   const isSelected = (id) => selected.includes(id);
 
-  // ── Submit handler ──────────────────────────────────────────────────────────
-  const handleSubmit = async () => {
+  // ── Clear results after timeout ─────────────────────────────────────────────
+  const clearResultsAfterTimeout = () => {
+    setTimeout(() => {
+      setSubmitResult(null);
+      setEmailResult(null);
+    }, 5000);
+  };
+
+  // ── Job submission handler ──────────────────────────────────────────────────
+  const handleJobSubmit = async () => {
     if (!jobId.trim()) {
       setSubmitResult({ type: "error", message: "Please enter a Job ID before submitting." });
+      clearResultsAfterTimeout();
       return;
     }
     if (selected.length === 0) {
       setSubmitResult({ type: "error", message: "Please select at least one candidate." });
+      clearResultsAfterTimeout();
       return;
     }
 
-    // Map selected row IDs → benchIds from the actual row objects
     const benchIds = rows
       .filter((r) => selected.includes(r.id))
-      .map((r) => r.id);        // ← adjust field name if different
+      .map((r) => r.id);
 
     setSubmitting(true);
     setSubmitResult(null);
@@ -226,32 +313,104 @@ const TagCandidatesTable = ({ rows = [], loading = false, tagName = "" }) => {
         { benchIds, jobId: jobId.trim() },
       );
 
-      const { message, submittedBenchIds, skippedBenchIds } = response.data;
+      const { message, skippedBenchIds } = response.data;
 
-      let detail = message;
+      let detail = message || "Submitted successfully!";
       if (skippedBenchIds?.length > 0) {
-        detail += ` (${skippedBenchIds.length} skipped: ${skippedBenchIds.join(", ")})`;
+        detail += ` (${skippedBenchIds.length} candidate(s) were already submitted)`;
       }
 
       setSubmitResult({ type: "success", message: detail });
       setSelected([]); // clear selection on success
+      setJobId(""); // clear job ID
+      clearResultsAfterTimeout();
     } catch (err) {
       const msg =
         err.response?.data?.message ||
         err.response?.data?.error ||
         "Submission failed. Please try again.";
       setSubmitResult({ type: "error", message: msg });
+      clearResultsAfterTimeout();
     } finally {
       setSubmitting(false);
     }
   };
 
-  const canSubmit = numSelected > 0 && jobId.trim() !== "" && !submitting;
+  // ── Open email dialog ───────────────────────────────────────────────────────
+  const handleOpenEmailDialog = () => {
+    if (selected.length === 0) {
+      setEmailResult({ type: "error", message: "Please select at least one candidate." });
+      clearResultsAfterTimeout();
+      return;
+    }
+    setEmailDialogOpen(true);
+  };
+
+  // ── Send email handler (UPDATED to match JSON structure) ────────────────────
+  const handleSendEmail = async (subject, mailBody) => {
+    const selectedEmails = rows
+      .filter((r) => selected.includes(r.id))
+      .map((r) => r.email)
+      .filter((email) => email && email.trim() !== "");
+
+    if (selectedEmails.length === 0) {
+      setEmailResult({ type: "error", message: "Selected candidates don't have valid email addresses." });
+      setEmailDialogOpen(false);
+      clearResultsAfterTimeout();
+      return;
+    }
+
+    setSendingEmail(true);
+    setEmailResult(null);
+
+    try {
+      // Updated payload structure to match your JSON format
+      const emailPayload = {
+        emails: selectedEmails,  // Array of email addresses
+        subject: subject,         // Email subject
+        body: mailBody           // Email body content (changed from mailBody to body)
+      };
+
+      
+      const response = await axios.post("https://mymulya.com/candidate/send-jd", emailPayload);
+
+      setEmailResult({ 
+        type: "success", 
+        message: response.data.message || `Email sent successfully to ${selectedEmails.length} candidate(s)!` 
+      });
+      
+      setEmailDialogOpen(false);
+      setSelected([]);
+      clearResultsAfterTimeout();
+    } catch (err) {
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        "Failed to send email. Please try again.";
+      setEmailResult({ type: "error", message: msg });
+      clearResultsAfterTimeout();
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  const canSubmitJob = numSelected > 0 && jobId.trim() !== "" && !submitting && actionType === "job";
+  const canSendEmail = numSelected > 0 && !sendingEmail && actionType === "email";
+
+  // Handle action type change
+  const handleActionTypeChange = (event, newActionType) => {
+    if (newActionType !== null) {
+      setActionType(newActionType);
+      // Clear any existing results when switching
+      setSubmitResult(null);
+      setEmailResult(null);
+    }
+  };
 
   return (
     <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
 
-      {/* ── Submit Result Banner ─────────────────────────────────────────────── */}
+      {/* ── Result Banners ─────────────────────────────────────────────────────── */}
       {submitResult && (
         <Box
           sx={{
@@ -285,6 +444,39 @@ const TagCandidatesTable = ({ rows = [], loading = false, tagName = "" }) => {
         </Box>
       )}
 
+      {emailResult && (
+        <Box
+          sx={{
+            px: 2,
+            py: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            bgcolor:
+              emailResult.type === "success"
+                ? alpha(theme.palette.success.main, 0.1)
+                : alpha(theme.palette.error.main, 0.1),
+            borderBottom: `1px solid ${
+              emailResult.type === "success"
+                ? theme.palette.success.light
+                : theme.palette.error.light
+            }`,
+          }}
+        >
+          <Typography
+            variant="body2"
+            color={emailResult.type === "success" ? "success.dark" : "error.dark"}
+            fontWeight={500}
+          >
+            {emailResult.type === "success" ? "✓ " : "✕ "}
+            {emailResult.message}
+          </Typography>
+          <IconButton size="small" onClick={() => setEmailResult(null)}>
+            <ClearIcon fontSize="small" />
+          </IconButton>
+        </Box>
+      )}
+
       {/* ── Toolbar ──────────────────────────────────────────────────────────── */}
       <Toolbar
         sx={{
@@ -298,38 +490,70 @@ const TagCandidatesTable = ({ rows = [], loading = false, tagName = "" }) => {
       >
         {numSelected > 0 ? (
           <>
-            {/* Selection mode: show count + Job ID input + Submit button */}
+            {/* Selection mode: show count + action selector + action inputs/buttons */}
             <Typography variant="subtitle1" color="primary" fontWeight={600}>
               {numSelected} row{numSelected > 1 ? "s" : ""} selected
             </Typography>
 
             <Box sx={{ flex: 1 }} />
 
-            <TextField
+            {/* Action Type Toggle */}
+            <ToggleButtonGroup
+              value={actionType}
+              exclusive
+              onChange={handleActionTypeChange}
               size="small"
-              placeholder="Enter Job ID…"
-              value={jobId}
-              onChange={(e) => {
-                setJobId(e.target.value);
-                setSubmitResult(null);
-              }}
-              sx={{ width: 200 }}
-              error={submitResult?.type === "error" && !jobId.trim()}
-            />
-
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={
-                submitting
-                  ? <CircularProgress size={14} color="inherit" />
-                  : <SendIcon fontSize="small" />
-              }
-              onClick={handleSubmit}
-              disabled={!canSubmit}
+              sx={{ mr: 1 }}
             >
-              {submitting ? "Submitting…" : "Submit to Job"}
-            </Button>
+              <ToggleButton value="email">
+                <EmailIcon fontSize="small" sx={{ mr: 0.5 }} />
+                Email
+              </ToggleButton>
+              <ToggleButton value="job">
+                <WorkIcon fontSize="small" sx={{ mr: 0.5 }} />
+                Job
+              </ToggleButton>
+            </ToggleButtonGroup>
+
+            {actionType === "email" ? (
+              <Button
+                variant="contained"
+                color="primary"
+                size="small"
+                startIcon={<EmailIcon fontSize="small" />}
+                onClick={handleOpenEmailDialog}
+                disabled={!canSendEmail}
+              >
+                Send Email
+              </Button>
+            ) : (
+              <>
+                <TextField
+                  size="small"
+                  placeholder="Enter Job ID…"
+                  value={jobId}
+                  onChange={(e) => {
+                    setJobId(e.target.value);
+                    setSubmitResult(null);
+                  }}
+                  sx={{ width: 200 }}
+                  error={submitResult?.type === "error" && !jobId.trim()}
+                />
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={
+                    submitting
+                      ? <CircularProgress size={14} color="inherit" />
+                      : <WorkIcon fontSize="small" />
+                  }
+                  onClick={handleJobSubmit}
+                  disabled={!canSubmitJob}
+                >
+                  {submitting ? "Submitting…" : "Submit to Job"}
+                </Button>
+              </>
+            )}
           </>
         ) : (
           <>
@@ -464,6 +688,15 @@ const TagCandidatesTable = ({ rows = [], loading = false, tagName = "" }) => {
           setPage(0);
         }}
         rowsPerPageOptions={[5, 10, 20, 50]}
+      />
+
+      {/* ── Email Dialog ─────────────────────────────────────────────────────── */}
+      <EmailDialog
+        open={emailDialogOpen}
+        onClose={() => setEmailDialogOpen(false)}
+        onSend={handleSendEmail}
+        selectedCount={numSelected}
+        submitting={sendingEmail}
       />
     </Paper>
   );

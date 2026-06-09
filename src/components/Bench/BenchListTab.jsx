@@ -17,6 +17,8 @@ import {
   Paper,
   alpha,
   useTheme,
+  Popover,
+  TextField,
 } from "@mui/material";
 import {
   Edit,
@@ -25,6 +27,9 @@ import {
   Add,
   Clear as ClearIcon,
   SearchOff as SearchOffIcon,
+  Work as WorkIcon,
+  Send as SendIcon,
+  Email as EmailIcon,
 } from "@mui/icons-material";
 import HowToRegIcon from "@mui/icons-material/HowToReg";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
@@ -37,6 +42,7 @@ import httpService, { API_BASE_URL } from "../../Services/httpService";
 import DataTablePaginated from "../muiComponents/DataTablePaginated";
 import DownloadResume from "../../utils/DownloadResume";
 import { exportFile } from "../../utils/exportFile";
+import axios from "axios";
 
 // ─── No results state ──────────────────────────────────────────────────────────
 function NoResultsState({ searchKeyword, onClear }) {
@@ -52,11 +58,17 @@ function NoResultsState({ searchKeyword, onClear }) {
         bgcolor: alpha(theme.palette.background.paper, 0.6),
       }}
     >
-      <SearchOffIcon sx={{ fontSize: 64, color: "text.secondary", mb: 2, opacity: 0.5 }} />
+      <SearchOffIcon
+        sx={{ fontSize: 64, color: "text.secondary", mb: 2, opacity: 0.5 }}
+      />
       <Typography variant="h6" color="text.secondary" gutterBottom>
         No candidates found
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 1, maxWidth: 400, mx: "auto" }}>
+      <Typography
+        variant="body2"
+        color="text.secondary"
+        sx={{ mt: 1, maxWidth: 400, mx: "auto" }}
+      >
         {searchKeyword
           ? `No bench candidates match "${searchKeyword}". Try a different term or clear the search.`
           : 'No bench candidates available. Click "Add" to add new candidates.'}
@@ -76,71 +88,346 @@ function NoResultsState({ searchKeyword, onClear }) {
   );
 }
 
-// ─── BenchListTab ──────────────────────────────────────────────────────────────
-/**
- * Props:
- *   onAddClick – optional callback so BenchPage can intercept "Add" if needed
- */
-const BenchListTab = ({ onAddClick }) => {
-  const [benchData,           setBenchData]           = useState([]);
-  const [loading,             setLoading]             = useState(true);
-  const [selectedCandidate,   setSelectedCandidate]   = useState(null);
-  const [isViewModalOpen,     setIsViewModalOpen]     = useState(false);
-  const [deleteDialogOpen,    setDeleteDialogOpen]    = useState(false);
-  const [candidateToDelete,   setCandidateToDelete]   = useState(null);
-  const [loadingBenchRegister,setLoadingBenchRegister]= useState(null);
-  const [exportingBench,      setExportingBench]      = useState(false);
+// ─── Submit to Job Popover (Single Row) ─────────────────────────────────────
+function SubmitToJobPopover({ anchorEl, row, onClose }) {
+  const [jobId, setJobId] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState(null);
 
-  const [isFormOpen,      setIsFormOpen]      = useState(false);
+  useEffect(() => {
+    if (anchorEl) {
+      setJobId("");
+      setResult(null);
+      setSubmitting(false);
+    }
+  }, [anchorEl, row?.id]);
+
+  const handleSubmit = async () => {
+    if (!jobId.trim()) return;
+
+    setSubmitting(true);
+    setResult(null);
+
+    try {
+      const response = await axios.post(
+        "https://mymulya.com/candidate/submit-bench",
+        {
+          benchIds: [row.id],
+          jobId: jobId.trim(),
+        },
+      );
+
+      const { message, skippedBenchIds } = response.data;
+      let detail = message || "Submitted successfully!";
+      if (skippedBenchIds?.length > 0) {
+        detail += ` (skipped: ${skippedBenchIds.join(", ")})`;
+      }
+
+      setResult({ type: "success", message: detail });
+      ToastService.success(detail);
+      setTimeout(() => onClose(), 1800);
+    } catch (err) {
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        "Submission failed. Please try again.";
+      setResult({ type: "error", message: msg });
+      ToastService.error(msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const open = Boolean(anchorEl);
+
+  return (
+    <Popover
+      open={open}
+      anchorEl={anchorEl}
+      onClose={onClose}
+      anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      transformOrigin={{ vertical: "top", horizontal: "right" }}
+      slotProps={{ paper: { sx: { p: 2, width: 280, borderRadius: 2 } } }}
+    >
+      <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>
+        Submit to Job
+      </Typography>
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{ display: "block", mb: 1.5 }}
+      >
+        Candidate: <strong>{row?.fullName}</strong>
+      </Typography>
+
+      <TextField
+        size="small"
+        fullWidth
+        label="Job ID"
+        placeholder="Enter Job ID…"
+        value={jobId}
+        onChange={(e) => {
+          setJobId(e.target.value);
+          setResult(null);
+        }}
+        onKeyDown={(e) =>
+          e.key === "Enter" && !submitting && jobId.trim() && handleSubmit()
+        }
+        disabled={submitting}
+        autoFocus
+        sx={{ mb: 1.5 }}
+      />
+
+      {result && (
+        <Typography
+          variant="caption"
+          color={result.type === "success" ? "success.main" : "error.main"}
+          sx={{ display: "block", mb: 1.5 }}
+        >
+          {result.type === "success" ? "✓ " : "✕ "}
+          {result.message}
+        </Typography>
+      )}
+
+      <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
+        <Button
+          size="small"
+          onClick={onClose}
+          disabled={submitting}
+          color="inherit"
+        >
+          Cancel
+        </Button>
+        <Button
+          size="small"
+          variant="contained"
+          onClick={handleSubmit}
+          disabled={!jobId.trim() || submitting}
+          startIcon={
+            submitting ? (
+              <CircularProgress size={12} color="inherit" />
+            ) : (
+              <SendIcon fontSize="small" />
+            )
+          }
+        >
+          {submitting ? "Submitting…" : "Submit"}
+        </Button>
+      </Box>
+    </Popover>
+  );
+}
+
+// ─── Batch Email Dialog ─────────────────────────────────────────────────────
+function BatchEmailDialog({ open, onClose, onSend, selectedCount, sending }) {
+  const [subject, setSubject] = useState("");
+  const [mailBody, setMailBody] = useState("");
+
+  const handleSend = () => {
+    if (subject.trim() && mailBody.trim()) {
+      onSend(subject, mailBody);
+    }
+  };
+
+  // Reset form when dialog opens
+  useEffect(() => {
+    if (open) {
+      setSubject("");
+      setMailBody("");
+    }
+  }, [open]);
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <DialogTitle>
+        Send Email to {selectedCount} Candidate{selectedCount > 1 ? "s" : ""}
+      </DialogTitle>
+      <DialogContent>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+          <TextField
+            label="Subject"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            fullWidth
+            required
+            placeholder="Enter email subject..."
+          />
+          <TextField
+            label="Mail Body"
+            value={mailBody}
+            onChange={(e) => setMailBody(e.target.value)}
+            fullWidth
+            multiline
+            rows={8}
+            required
+            placeholder="Enter email content..."
+          />
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={sending}>
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSend}
+          variant="contained"
+          color="primary"
+          disabled={!subject.trim() || !mailBody.trim() || sending}
+          startIcon={sending ? <CircularProgress size={16} /> : <SendIcon />}
+        >
+          {sending ? "Sending..." : "Send"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ─── Batch Job Submission Dialog ────────────────────────────────────────────
+function BatchJobDialog({ open, onClose, onSubmit, selectedCount, submitting }) {
+  const [jobId, setJobId] = useState("");
+
+  const handleSubmit = () => {
+    if (jobId.trim()) {
+      onSubmit(jobId.trim());
+    }
+  };
+
+  useEffect(() => {
+    if (open) {
+      setJobId("");
+    }
+  }, [open]);
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>
+        Submit {selectedCount} Candidate{selectedCount > 1 ? "s" : ""} to Job
+      </DialogTitle>
+      <DialogContent>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+          <Typography variant="body2" color="text.secondary">
+            Selected candidates will be submitted to the job with the following ID:
+          </Typography>
+          <TextField
+            label="Job ID"
+            value={jobId}
+            onChange={(e) => setJobId(e.target.value)}
+            fullWidth
+            required
+            placeholder="Enter Job ID..."
+            autoFocus
+          />
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={submitting}>
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          color="warning"
+          disabled={!jobId.trim() || submitting}
+          startIcon={submitting ? <CircularProgress size={16} /> : <WorkIcon />}
+        >
+          {submitting ? "Submitting..." : "Submit"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ─── BenchListTab ──────────────────────────────────────────────────────────────
+const BenchListTab = ({ onAddClick }) => {
+  const [benchData, setBenchData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedCandidate, setSelectedCandidate] = useState(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [candidateToDelete, setCandidateToDelete] = useState(null);
+  const [loadingBenchRegister, setLoadingBenchRegister] = useState(null);
+  const [exportingBench, setExportingBench] = useState(false);
+
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [editCandidateId, setEditCandidateId] = useState(null);
 
-  const [page,        setPage]        = useState(0);
+  const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
-  const [totalCount,  setTotalCount]  = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [noResultsFound, setNoResultsFound] = useState(false);
+
+  // ── Selection state for checkboxes ──────────────────────────────────────────
+  const [selectedRows, setSelectedRows] = useState([]);
+
+  // ── Batch email state ───────────────────────────────────────────────────────
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+
+  // ── Batch job submission state ──────────────────────────────────────────────
+  const [jobDialogOpen, setJobDialogOpen] = useState(false);
+  const [submittingJob, setSubmittingJob] = useState(false);
+
+  // ── Per-row submit-to-job popover state ─────────────────────────────────────
+  const [submitPopoverAnchor, setSubmitPopoverAnchor] = useState(null);
+  const [submitPopoverRow, setSubmitPopoverRow] = useState(null);
 
   const isUpdating = useRef(false);
 
   // ── Fetch bench list ──────────────────────────────────────────────────────────
-  const fetchBenchList = useCallback(async (currentPage, currentRowsPerPage, search) => {
-    try {
-      setLoading(true);
-      setNoResultsFound(false);
+  const fetchBenchList = useCallback(
+    async (currentPage, currentRowsPerPage, search) => {
+      try {
+        setLoading(true);
+        setNoResultsFound(false);
 
-      const params = { page: currentPage, size: currentRowsPerPage };
-      if (search && search.trim()) params.search = search.trim();
+        const params = { page: currentPage, size: currentRowsPerPage };
+        if (search && search.trim()) params.search = search.trim();
 
-      const response     = await httpService.get("/candidate/bench/getBenchList", params);
-      const responseData = response.data;
-      const data  = Array.isArray(responseData) ? responseData : responseData.data || [];
-      const total = Array.isArray(responseData) ? responseData.length : responseData.totalItems || 0;
+        const response = await httpService.get(
+          "/candidate/bench/getBenchList",
+          params,
+        );
+        const responseData = response.data;
+        const data = Array.isArray(responseData)
+          ? responseData
+          : responseData.data || [];
+        const total = Array.isArray(responseData)
+          ? responseData.length
+          : responseData.totalItems || 0;
 
-      setBenchData(data);
-      setTotalCount(total);
+        setBenchData(data);
+        setTotalCount(total);
 
-      if (total === 0 && search && search.trim()) {
-        setNoResultsFound(true);
-        ToastService.info(`No candidates found matching "${search}"`);
-      } else if (total > 0) {
-        ToastService.success(`Loaded ${data?.length || 0} bench candidates (Total: ${total})`);
+        if (total === 0 && search && search.trim()) {
+          setNoResultsFound(true);
+          ToastService.info(`No candidates found matching "${search}"`);
+        }
+      } catch (error) {
+        ToastService.error("Failed to load bench candidates");
+        setBenchData([]);
+        setTotalCount(0);
+        if (search?.trim()) setNoResultsFound(true);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      ToastService.error("Failed to load bench candidates");
-      setBenchData([]);
-      setTotalCount(0);
-      if (search?.trim()) setNoResultsFound(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (isUpdating.current) return;
     isUpdating.current = true;
     fetchBenchList(page, rowsPerPage, searchKeyword);
-    setTimeout(() => { isUpdating.current = false; }, 0);
+    setTimeout(() => {
+      isUpdating.current = false;
+    }, 0);
   }, [page, rowsPerPage, searchKeyword, fetchBenchList]);
+
+  // Clear selection when data changes (page change, search, etc.)
+  useEffect(() => {
+    setSelectedRows([]);
+  }, [page, rowsPerPage, searchKeyword, benchData]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────────
   const handleView = (row) => {
@@ -160,7 +447,10 @@ const BenchListTab = ({ onAddClick }) => {
   };
 
   const handleAdd = () => {
-    if (onAddClick) { onAddClick(); return; }
+    if (onAddClick) {
+      onAddClick();
+      return;
+    }
     setEditCandidateId(null);
     setIsFormOpen(true);
   };
@@ -170,7 +460,8 @@ const BenchListTab = ({ onAddClick }) => {
     setIsFormOpen(true);
   };
 
-  const handleFormSuccess = () => fetchBenchList(page, rowsPerPage, searchKeyword);
+  const handleFormSuccess = () =>
+    fetchBenchList(page, rowsPerPage, searchKeyword);
 
   const handleDelete = (row) => {
     setCandidateToDelete(row);
@@ -181,8 +472,14 @@ const BenchListTab = ({ onAddClick }) => {
   const confirmDelete = async () => {
     try {
       const toastId = ToastService.loading("Deleting candidate...");
-      await httpService.delete(`/candidate/bench/deletebench/${candidateToDelete.id}`);
-      ToastService.update(toastId, "Candidate deleted successfully!", "success");
+      await httpService.delete(
+        `/candidate/bench/deletebench/${candidateToDelete.id}`,
+      );
+      ToastService.update(
+        toastId,
+        "Candidate deleted successfully!",
+        "success",
+      );
       fetchBenchList(page, rowsPerPage, searchKeyword);
       setDeleteDialogOpen(false);
     } catch {
@@ -220,8 +517,12 @@ const BenchListTab = ({ onAddClick }) => {
       setLoadingBenchRegister(candidate.id);
       toastId = ToastService.loading("Sending register request...");
       await new Promise((r) => setTimeout(r, 1000));
-      await httpService.post("/candidate/register", payload);
-      ToastService.update(toastId, "Register request sent successfully", "success");
+      await httpService.post(`/candidate/bench-create-user/${candidate.id}`, payload);
+      ToastService.update(
+        toastId,
+        "Register request sent successfully",
+        "success",
+      );
       fetchBenchList(page, rowsPerPage, searchKeyword);
     } catch (error) {
       ToastService.update(
@@ -256,10 +557,165 @@ const BenchListTab = ({ onAddClick }) => {
       );
     } catch (error) {
       console.error("Bench export error:", error);
-      ToastService.error(error?.response?.data?.message || "Failed to export bench data");
+      ToastService.error(
+        error?.response?.data?.message || "Failed to export bench data",
+      );
     } finally {
       setExportingBench(false);
     }
+  };
+
+  // ── Batch Email Handler ──────────────────────────────────────────
+  const handleBatchEmail = async (subject, mailBody) => {
+    // Get selected candidates' emails
+    const selectedEmails = benchData
+      .filter((candidate) => selectedRows.includes(candidate.id))
+      .map((candidate) => candidate.email)
+      .filter((email) => email && email.trim() !== "");
+
+    if (selectedEmails.length === 0) {
+      ToastService.error("Selected candidates don't have valid email addresses.");
+      setEmailDialogOpen(false);
+      return;
+    }
+
+    setSendingEmail(true);
+
+    try {
+      const emailPayload = {
+        emails: selectedEmails,
+        subject: subject,
+        body: mailBody
+      };
+
+      // Replace with your actual email API endpoint
+      const response = await axios.post("https://your-api-endpoint/send-email", emailPayload);
+
+      ToastService.success(
+        response.data.message || `Email sent successfully to ${selectedEmails.length} candidate(s)!`
+      );
+      
+      setEmailDialogOpen(false);
+      setSelectedRows([]);
+    } catch (err) {
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        "Failed to send email. Please try again.";
+      ToastService.error(msg);
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  // ── Batch Job Submission Handler ────────────────────────────────────────────
+  const handleBatchJobSubmit = async (jobId) => {
+    const benchIds = benchData
+      .filter((candidate) => selectedRows.includes(candidate.id))
+      .map((candidate) => candidate.id);
+
+    if (benchIds.length === 0) {
+      ToastService.error("No candidates selected.");
+      setJobDialogOpen(false);
+      return;
+    }
+
+    setSubmittingJob(true);
+
+    try {
+      const response = await axios.post(
+        "https://mymulya.com/candidate/submit-bench",
+        {
+          benchIds: benchIds,
+          jobId: jobId,
+        },
+      );
+
+      const { message, skippedBenchIds } = response.data;
+
+      let detail = message || "Submitted successfully!";
+      if (skippedBenchIds?.length > 0) {
+        detail += ` (${skippedBenchIds.length} candidates were already submitted)`;
+      }
+
+      ToastService.success(detail);
+      setJobDialogOpen(false);
+      setSelectedRows([]);
+    } catch (err) {
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        "Submission failed. Please try again.";
+      ToastService.error(msg);
+    } finally {
+      setSubmittingJob(false);
+    }
+  };
+
+  // ── Open submit-to-job popover for a row ──────────────────────────────────────
+  const handleOpenSubmitPopover = (event, row) => {
+    event.stopPropagation();
+    setSubmitPopoverAnchor(event.currentTarget);
+    setSubmitPopoverRow(row);
+  };
+
+  const handleCloseSubmitPopover = () => {
+    setSubmitPopoverAnchor(null);
+    setSubmitPopoverRow(null);
+  };
+
+  // ── Selection change handler from DataTablePaginated ────────────────────────
+  const handleSelectionChange = (selected) => {
+    setSelectedRows(selected);
+  };
+
+  // ── Batch action buttons (visible when rows are selected) ───────────────────
+  const renderBatchActions = () => {
+    if (selectedRows.length === 0) return null;
+
+    return (
+      <Paper
+        elevation={3}
+        sx={{
+          mb: 2,
+          p: 1.5,
+          borderRadius: 2,
+          bgcolor: "primary.main",
+          color: "primary.contrastText",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 1,
+        }}
+      >
+        <Typography variant="body2" fontWeight="bold">
+          {selectedRows.length} candidate{selectedRows.length > 1 ? "s" : ""} selected
+        </Typography>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="contained"
+            color="secondary"
+            startIcon={<EmailIcon />}
+            onClick={() => setEmailDialogOpen(true)}
+            size="small"
+            sx={{ bgcolor: "white", color: "primary.main", "&:hover": { bgcolor: "#f5f5f5" } }}
+          >
+            Send Email
+          </Button>
+          <Button
+            variant="contained"
+            color="warning"
+            startIcon={<WorkIcon />}
+            onClick={() => setJobDialogOpen(true)}
+            size="small"
+          >
+            Submit to Job
+          </Button>
+         
+        </Stack>
+      </Paper>
+    );
   };
 
   // ── Column definitions ────────────────────────────────────────────────────────
@@ -271,7 +727,9 @@ const BenchListTab = ({ onAddClick }) => {
       sortable: true,
       filterable: true,
       width: 120,
-      render: isLoading ? () => <Skeleton variant="text" width={80} height={24} /> : undefined,
+      render: isLoading
+        ? () => <Skeleton variant="text" width={80} height={24} />
+        : undefined,
     },
     {
       key: "fullName",
@@ -284,13 +742,21 @@ const BenchListTab = ({ onAddClick }) => {
         ? () => <Skeleton variant="text" width={140} height={24} />
         : (row) => (
             <Box display="flex" alignItems="center" gap={1}>
-              <Tooltip title={row.isRegistered ? "Already Registered" : "Send Register Request"}>
+              <Tooltip
+                title={
+                  row.isRegistered
+                    ? "Already Registered"
+                    : "Send Register Request"
+                }
+              >
                 <span>
                   <IconButton
                     size="small"
                     color={row.isRegistered ? "success" : "primary"}
                     onClick={() => handleBenchCandidate(row)}
-                    disabled={loadingBenchRegister === row.id || row.isRegistered}
+                    disabled={
+                      loadingBenchRegister === row.id || row.isRegistered
+                    }
                   >
                     {loadingBenchRegister === row.id ? (
                       <CircularProgress size={16} color="info" />
@@ -313,7 +779,9 @@ const BenchListTab = ({ onAddClick }) => {
       sortable: true,
       filterable: true,
       width: 180,
-      render: isLoading ? () => <Skeleton variant="text" width={140} height={24} /> : undefined,
+      render: isLoading
+        ? () => <Skeleton variant="text" width={140} height={24} />
+        : undefined,
     },
     {
       key: "skills",
@@ -350,7 +818,9 @@ const BenchListTab = ({ onAddClick }) => {
       sortable: true,
       filterable: true,
       width: 220,
-      render: isLoading ? () => <Skeleton variant="text" width={180} height={24} /> : undefined,
+      render: isLoading
+        ? () => <Skeleton variant="text" width={180} height={24} />
+        : undefined,
     },
     {
       key: "contactNumber",
@@ -359,7 +829,9 @@ const BenchListTab = ({ onAddClick }) => {
       sortable: true,
       filterable: true,
       width: 150,
-      render: isLoading ? () => <Skeleton variant="text" width={100} height={24} /> : undefined,
+      render: isLoading
+        ? () => <Skeleton variant="text" width={100} height={24} />
+        : undefined,
     },
     {
       key: "referredBy",
@@ -368,7 +840,9 @@ const BenchListTab = ({ onAddClick }) => {
       sortable: true,
       filterable: true,
       width: 180,
-      render: isLoading ? () => <Skeleton variant="text" width={120} height={24} /> : undefined,
+      render: isLoading
+        ? () => <Skeleton variant="text" width={120} height={24} />
+        : undefined,
     },
     {
       key: "tags",
@@ -389,7 +863,13 @@ const BenchListTab = ({ onAddClick }) => {
         ) : Array.isArray(row.tags) ? (
           <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
             {row.tags.map((tag, i) => (
-              <Chip key={i} label={tag} size="small" color="info" variant="outlined" />
+              <Chip
+                key={i}
+                label={tag}
+                size="small"
+                color="info"
+                variant="outlined"
+              />
             ))}
           </Box>
         ) : (
@@ -423,7 +903,9 @@ const BenchListTab = ({ onAddClick }) => {
       label: "Remarks",
       type: "text",
       align: "center",
-      render: (row) => <InternalFeedbackCell value={row.remarks} type="remarks" />,
+      render: (row) => (
+        <InternalFeedbackCell value={row.remarks} type="remarks" />
+      ),
       sortable: true,
       filterable: true,
       width: 150,
@@ -433,11 +915,12 @@ const BenchListTab = ({ onAddClick }) => {
       label: "Actions",
       sortable: false,
       filterable: false,
-      width: 200,
+      width: 230,
       align: "center",
       render: isLoading
         ? () => (
             <Box sx={{ display: "flex", justifyContent: "center", gap: 1 }}>
+              <Skeleton variant="circular" width={32} height={32} />
               <Skeleton variant="circular" width={32} height={32} />
               <Skeleton variant="circular" width={32} height={32} />
               <Skeleton variant="circular" width={32} height={32} />
@@ -449,21 +932,51 @@ const BenchListTab = ({ onAddClick }) => {
               sx={{ display: "flex", justifyContent: "center", gap: 1 }}
               onClick={(e) => e.stopPropagation()}
             >
+              <Tooltip title="Submit to Job">
+                <Button
+                  variant="contained"
+                  color="warning"
+                  size="small"
+                  onClick={(e) => handleOpenSubmitPopover(e, row)}
+                  sx={{
+                    minWidth: 80,
+                    textTransform: "none",
+                  }}
+                >
+                  Submit
+                </Button>
+              </Tooltip>
+
               <Tooltip title="View">
-                <IconButton color="info" size="small" onClick={() => handleView(row)}>
+                <IconButton
+                  color="info"
+                  size="small"
+                  onClick={() => handleView(row)}
+                >
                   <Visibility fontSize="small" />
                 </IconButton>
               </Tooltip>
+
               <Tooltip title="Edit">
-                <IconButton color="primary" size="small" onClick={() => handleEdit(row)}>
+                <IconButton
+                  color="primary"
+                  size="small"
+                  onClick={() => handleEdit(row)}
+                >
                   <Edit fontSize="small" />
                 </IconButton>
               </Tooltip>
+
               <Tooltip title="Delete">
-                <IconButton color="error" size="small" onClick={() => handleDelete(row)}>
+                <IconButton
+                  color="error"
+                  size="small"
+                  onClick={() => handleDelete(row)}
+                >
                   <Delete fontSize="small" />
                 </IconButton>
               </Tooltip>
+
               <DownloadResume
                 candidate={{
                   candidateId: row?.id ?? "NO_ID",
@@ -500,6 +1013,9 @@ const BenchListTab = ({ onAddClick }) => {
         </Button>
       </Stack>
 
+      {/* Batch Action Buttons - Now ABOVE the table */}
+      {renderBatchActions()}
+
       {/* Table or empty state */}
       {noResultsFound && !loading && benchData.length === 0 ? (
         <NoResultsState
@@ -512,7 +1028,8 @@ const BenchListTab = ({ onAddClick }) => {
           columns={generateColumns(loading)}
           title="Bench List"
           loading={loading}
-          enableSelection={false}
+          enableSelection={true}
+          checkboxRequired={false}
           uniqueId="id"
           defaultSortColumn="id"
           defaultSortDirection="desc"
@@ -531,13 +1048,42 @@ const BenchListTab = ({ onAddClick }) => {
           enableServerSideFiltering={false}
           enableExport={true}
           onExportData={handleExportBenchData}
+          onSelectionChange={handleSelectionChange}
         />
       )}
+
+      {/* Per-row Submit to Job Popover */}
+      <SubmitToJobPopover
+        anchorEl={submitPopoverAnchor}
+        row={submitPopoverRow}
+        onClose={handleCloseSubmitPopover}
+      />
+
+      {/* Batch Email Dialog */}
+      <BatchEmailDialog
+        open={emailDialogOpen}
+        onClose={() => setEmailDialogOpen(false)}
+        onSend={handleBatchEmail}
+        selectedCount={selectedRows.length}
+        sending={sendingEmail}
+      />
+
+      {/* Batch Job Submission Dialog */}
+      <BatchJobDialog
+        open={jobDialogOpen}
+        onClose={() => setJobDialogOpen(false)}
+        onSubmit={handleBatchJobSubmit}
+        selectedCount={selectedRows.length}
+        submitting={submittingJob}
+      />
 
       {/* Add / Edit form */}
       <BenchCandidateForm
         open={isFormOpen}
-        onClose={() => { setIsFormOpen(false); setEditCandidateId(null); }}
+        onClose={() => {
+          setIsFormOpen(false);
+          setEditCandidateId(null);
+        }}
         onSuccess={handleFormSuccess}
         id={editCandidateId}
         initialData={
@@ -579,7 +1125,10 @@ const BenchListTab = ({ onAddClick }) => {
       </Dialog>
 
       {/* Delete confirmation */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+      >
         <DialogTitle>Confirm Delete</DialogTitle>
         <DialogContent>
           <DialogContentText>
@@ -589,8 +1138,12 @@ const BenchListTab = ({ onAddClick }) => {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)} color="inherit">Cancel</Button>
-          <Button onClick={confirmDelete} color="error" variant="contained">Delete</Button>
+          <Button onClick={() => setDeleteDialogOpen(false)} color="inherit">
+            Cancel
+          </Button>
+          <Button onClick={confirmDelete} color="error" variant="contained">
+            Delete
+          </Button>
         </DialogActions>
       </Dialog>
     </>

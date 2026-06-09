@@ -14,682 +14,331 @@ import {
   Chip,
   Stack,
   CircularProgress,
-  Tab,
-  Tabs,
-  Card,
-  CardContent,
-  CardActionArea,
-  Grid,
   Paper,
-  Avatar,
   alpha,
   useTheme,
+  Popover,
   TextField,
-  InputAdornment,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
-  TableSortLabel,
-  Checkbox,
-  Toolbar,
-  Slide,
-  Divider,
 } from "@mui/material";
 import {
   Edit,
   Delete,
   Visibility,
   Add,
-  BarChart,
-  TableChart,
-  Computer,
-  Storage,
-  Code,
-  Cloud,
-  Security,
-  DataUsage,
-  AccountTree,
-  Search as SearchIcon,
   Clear as ClearIcon,
   SearchOff as SearchOffIcon,
-  Close as CloseIcon,
-  OpenInNew as OpenInNewIcon,
-  People as PeopleIcon,
+  Work as WorkIcon,
+  Send as SendIcon,
+  Email as EmailIcon,
 } from "@mui/icons-material";
 import HowToRegIcon from "@mui/icons-material/HowToReg";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
+import { User2Icon } from "lucide-react";
 import ToastService from "../../Services/toastService";
 import BenchCandidateForm from "./BenchForm";
 import CandidateDetails from "./CandidateDetails";
-import { useDispatch, useSelector } from "react-redux";
-import {
-  filterBenchListByDateRange,
-  setFilteredDataRequested,
-} from "../../redux/benchSlice";
-import { User2Icon } from "lucide-react";
 import InternalFeedbackCell from "../Interviews/FeedBack";
 import httpService, { API_BASE_URL } from "../../Services/httpService";
 import DataTablePaginated from "../muiComponents/DataTablePaginated";
 import DownloadResume from "../../utils/DownloadResume";
 import { exportFile } from "../../utils/exportFile";
+import axios from "axios";
 
-// ─────────────────────────────────────────────
-// Tab Panel
-// ─────────────────────────────────────────────
-function TabPanel(props) {
-  const { children, value, index, ...other } = props;
+// ─── No results state ──────────────────────────────────────────────────────────
+function NoResultsState({ searchKeyword, onClear }) {
+  const theme = useTheme();
   return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`bench-tabpanel-${index}`}
-      aria-labelledby={`bench-tab-${index}`}
-      {...other}
+    <Paper
+      elevation={0}
+      sx={{
+        textAlign: "center",
+        py: 8,
+        px: 3,
+        borderRadius: 2,
+        bgcolor: alpha(theme.palette.background.paper, 0.6),
+      }}
     >
-      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
-    </div>
+      <SearchOffIcon
+        sx={{ fontSize: 64, color: "text.secondary", mb: 2, opacity: 0.5 }}
+      />
+      <Typography variant="h6" color="text.secondary" gutterBottom>
+        No candidates found
+      </Typography>
+      <Typography
+        variant="body2"
+        color="text.secondary"
+        sx={{ mt: 1, maxWidth: 400, mx: "auto" }}
+      >
+        {searchKeyword
+          ? `No bench candidates match "${searchKeyword}". Try a different term or clear the search.`
+          : 'No bench candidates available. Click "Add" to add new candidates.'}
+      </Typography>
+      {searchKeyword && (
+        <Button
+          onClick={onClear}
+          variant="outlined"
+          color="primary"
+          startIcon={<ClearIcon />}
+          sx={{ mt: 3 }}
+        >
+          Clear Search
+        </Button>
+      )}
+    </Paper>
   );
 }
 
-function a11yProps(index) {
-  return {
-    id: `bench-tab-${index}`,
-    "aria-controls": `bench-tabpanel-${index}`,
-  };
-}
+// ─── Submit to Job Popover (Single Row) ─────────────────────────────────────
+function SubmitToJobPopover({ anchorEl, row, onClose }) {
+  const [jobId, setJobId] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState(null);
 
-// ─────────────────────────────────────────────
-// Tech icon helper
-// ─────────────────────────────────────────────
-const getTechIcon = (techName, theme) => {
-  const name = (techName || "").toLowerCase();
-  if (name.includes("java")) return <Code sx={{ color: "#f89820" }} />;
-  if (name.includes("react") || name.includes("frontend"))
-    return <Storage sx={{ color: "#61dafb" }} />;
-  if (name.includes("sap")) return <DataUsage sx={{ color: "#0f7e3f" }} />;
-  if (name.includes("cloud") || name.includes("aws"))
-    return <Cloud sx={{ color: "#ff9900" }} />;
-  if (name.includes("security")) return <Security sx={{ color: "#d32f2f" }} />;
-  if (name.includes("full stack"))
-    return <AccountTree sx={{ color: "#9c27b0" }} />;
-  return <Computer sx={{ color: theme.palette.primary.main }} />;
-};
-
-// ─────────────────────────────────────────────
-// Sorting helpers for client-side DataTable
-// ─────────────────────────────────────────────
-function descendingComparator(a, b, orderBy) {
-  const av = a[orderBy] ?? "";
-  const bv = b[orderBy] ?? "";
-  if (bv < av) return -1;
-  if (bv > av) return 1;
-  return 0;
-}
-function getComparator(order, orderBy) {
-  return order === "desc"
-    ? (a, b) => descendingComparator(a, b, orderBy)
-    : (a, b) => -descendingComparator(a, b, orderBy);
-}
-function stableSort(array, comparator) {
-  const stabilized = array.map((el, index) => [el, index]);
-  stabilized.sort((a, b) => {
-    const order = comparator(a[0], b[0]);
-    if (order !== 0) return order;
-    return a[1] - b[1];
-  });
-  return stabilized.map((el) => el[0]);
-}
-
-// ─────────────────────────────────────────────
-// Tag Candidates Dialog — client-side DataTable
-// ─────────────────────────────────────────────
-const Transition = React.forwardRef(function Transition(props, ref) {
-  return <Slide direction="up" ref={ref} {...props} />;
-});
-
-const TAG_COLUMNS = [
-  { id: "id", label: "ID", width: 80 },
-  { id: "fullName", label: "Full Name", width: 180 },
-  { id: "technology", label: "Technology", width: 160 },
-  { id: "email", label: "Email", width: 220 },
-  { id: "contactNumber", label: "Contact", width: 140 },
-  { id: "totalExperience", label: "Exp (Yrs)", width: 110 },
-  { id: "skills", label: "Skills", width: 220, noSort: true },
-  { id: "tags", label: "Tags", width: 160, noSort: true },
-  { id: "referredBy", label: "Referred By", width: 160 },
-  { id: "actions", label: "Actions", width: 120, noSort: true, align: "center" },
-];
-
-function TagCandidatesDialog({ open, tagName, onClose }) {
-  const theme = useTheme();
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(false);
-
-  // Table state
-  const [order, setOrder] = useState("asc");
-  const [orderBy, setOrderBy] = useState("id");
-  const [selected, setSelected] = useState([]);
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [search, setSearch] = useState("");
-
-  // Delete inside this dialog
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [rowToDelete, setRowToDelete] = useState(null);
-
-  // Fetch candidates by tag
   useEffect(() => {
-    if (!open || !tagName) return;
-    setRows([]);
-    setSelected([]);
-    setPage(0);
-    setSearch("");
-    setLoading(true);
-    httpService
-      .get("/candidate/benchprofiles/by-tag", { tagName })
-      .then((res) => {
-        const data = Array.isArray(res.data)
-          ? res.data
-          : res.data?.candidates || res.data?.content || [];
-        setRows(data);
-      })
-      .catch(() => {
-        ToastService.error("Failed to load candidates for this tag");
-        setRows([]);
-      })
-      .finally(() => setLoading(false));
-  }, [open, tagName]);
-
-  // Filtered rows (client-side search)
-  const filteredRows = React.useMemo(() => {
-    if (!search.trim()) return rows;
-    const kw = search.toLowerCase();
-    return rows.filter(
-      (r) =>
-        (r.fullName || "").toLowerCase().includes(kw) ||
-        (r.email || "").toLowerCase().includes(kw) ||
-        (r.technology || "").toLowerCase().includes(kw) ||
-        (r.contactNumber || "").toLowerCase().includes(kw) ||
-        (r.referredBy || "").toLowerCase().includes(kw) ||
-        (Array.isArray(r.skills) ? r.skills.join(" ") : "")
-          .toLowerCase()
-          .includes(kw) ||
-        (Array.isArray(r.tags) ? r.tags.join(" ") : "")
-          .toLowerCase()
-          .includes(kw),
-    );
-  }, [rows, search]);
-
-  const sortedRows = React.useMemo(
-    () => stableSort(filteredRows, getComparator(order, orderBy)),
-    [filteredRows, order, orderBy],
-  );
-
-  const pagedRows = React.useMemo(
-    () => sortedRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
-    [sortedRows, page, rowsPerPage],
-  );
-
-  // Sorting
-  const handleRequestSort = (colId) => {
-    const isAsc = orderBy === colId && order === "asc";
-    setOrder(isAsc ? "desc" : "asc");
-    setOrderBy(colId);
-  };
-
-  // Selection
-  const handleSelectAll = (e) => {
-    if (e.target.checked) {
-      setSelected(filteredRows.map((r) => r.id));
-    } else {
-      setSelected([]);
+    if (anchorEl) {
+      setJobId("");
+      setResult(null);
+      setSubmitting(false);
     }
-  };
-  const handleSelectRow = (id) => {
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
-    );
-  };
-  const isSelected = (id) => selected.includes(id);
+  }, [anchorEl, row?.id]);
 
-  // Pagination
-  const handleChangePage = (_, newPage) => setPage(newPage);
-  const handleChangeRowsPerPage = (e) => {
-    setRowsPerPage(parseInt(e.target.value, 10));
-    setPage(0);
-  };
+  const handleSubmit = async () => {
+    if (!jobId.trim()) return;
 
-  // Delete
-  const handleDeleteClick = (row) => {
-    setRowToDelete(row);
-    setDeleteDialogOpen(true);
-  };
-  const confirmDelete = async () => {
+    setSubmitting(true);
+    setResult(null);
+
     try {
-      const toastId = ToastService.loading("Deleting candidate...");
-      await httpService.delete(`/candidate/bench/deletebench/${rowToDelete.id}`);
-      ToastService.update(toastId, "Deleted successfully!", "success");
-      setRows((prev) => prev.filter((r) => r.id !== rowToDelete.id));
-      setSelected((prev) => prev.filter((id) => id !== rowToDelete.id));
-    } catch {
-      ToastService.error("Failed to delete candidate");
-    } finally {
-      setDeleteDialogOpen(false);
-      setRowToDelete(null);
-    }
-  };
-
-  // Bulk delete selected
-  const handleDeleteSelected = async () => {
-    if (selected.length === 0) return;
-    try {
-      const toastId = ToastService.loading(`Deleting ${selected.length} candidates...`);
-      await Promise.all(
-        selected.map((id) =>
-          httpService.delete(`/candidate/bench/deletebench/${id}`),
-        ),
+      const response = await axios.post(
+        "https://mymulya.com/candidate/submit-bench",
+        {
+          benchIds: [row.id],
+          jobId: jobId.trim(),
+        },
       );
-      ToastService.update(toastId, "Deleted selected candidates!", "success");
-      setRows((prev) => prev.filter((r) => !selected.includes(r.id)));
-      setSelected([]);
-    } catch {
-      ToastService.error("Failed to delete some candidates");
+
+      const { message, skippedBenchIds } = response.data;
+      let detail = message || "Submitted successfully!";
+      if (skippedBenchIds?.length > 0) {
+        detail += ` (skipped: ${skippedBenchIds.join(", ")})`;
+      }
+
+      setResult({ type: "success", message: detail });
+      ToastService.success(detail);
+      setTimeout(() => onClose(), 1800);
+    } catch (err) {
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        "Submission failed. Please try again.";
+      setResult({ type: "error", message: msg });
+      ToastService.error(msg);
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const numSelected = selected.length;
-  const rowCount = filteredRows.length;
+  const open = Boolean(anchorEl);
 
   return (
-    <>
-      <Dialog
-        open={open}
-        onClose={onClose}
-        maxWidth="xl"
+    <Popover
+      open={open}
+      anchorEl={anchorEl}
+      onClose={onClose}
+      anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      transformOrigin={{ vertical: "top", horizontal: "right" }}
+      slotProps={{ paper: { sx: { p: 2, width: 280, borderRadius: 2 } } }}
+    >
+      <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>
+        Submit to Job
+      </Typography>
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{ display: "block", mb: 1.5 }}
+      >
+        Candidate: <strong>{row?.fullName}</strong>
+      </Typography>
+
+      <TextField
+        size="small"
         fullWidth
-        TransitionComponent={Transition}
-        PaperProps={{
-          sx: {
-            borderRadius: 3,
-            minHeight: "70vh",
-          },
+        label="Job ID"
+        placeholder="Enter Job ID…"
+        value={jobId}
+        onChange={(e) => {
+          setJobId(e.target.value);
+          setResult(null);
         }}
-      >
-        {/* Header */}
-        <DialogTitle
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            pb: 1,
-            borderBottom: `1px solid ${theme.palette.divider}`,
-          }}
+        onKeyDown={(e) =>
+          e.key === "Enter" && !submitting && jobId.trim() && handleSubmit()
+        }
+        disabled={submitting}
+        autoFocus
+        sx={{ mb: 1.5 }}
+      />
+
+      {result && (
+        <Typography
+          variant="caption"
+          color={result.type === "success" ? "success.main" : "error.main"}
+          sx={{ display: "block", mb: 1.5 }}
         >
-          <Stack direction="row" alignItems="center" spacing={1.5}>
-            <Avatar
-              sx={{
-                bgcolor: alpha(theme.palette.primary.main, 0.12),
-                width: 36,
-                height: 36,
-              }}
-            >
-              {getTechIcon(tagName || "", theme)}
-            </Avatar>
-            <Box>
-              <Typography variant="h6" fontWeight={700} lineHeight={1.2}>
-                {tagName} — Candidates
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {loading
-                  ? "Loading…"
-                  : `${filteredRows.length} of ${rows.length} candidate${rows.length !== 1 ? "s" : ""}`}
-              </Typography>
-            </Box>
-          </Stack>
-          <IconButton onClick={onClose} size="small">
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
+          {result.type === "success" ? "✓ " : "✕ "}
+          {result.message}
+        </Typography>
+      )}
 
-        <DialogContent sx={{ p: 0 }}>
-          {/* Toolbar: search + bulk actions */}
-          <Toolbar
-            sx={{
-              px: 2,
-              py: 1.5,
-              gap: 2,
-              ...(numSelected > 0 && {
-                bgcolor: alpha(theme.palette.primary.main, 0.08),
-              }),
-            }}
-          >
-            {numSelected > 0 ? (
-              <>
-                <Typography
-                  variant="subtitle1"
-                  color="primary"
-                  fontWeight={600}
-                  sx={{ flex: 1 }}
-                >
-                  {numSelected} selected
-                </Typography>
-                <Tooltip title="Delete selected">
-                  <IconButton color="error" onClick={handleDeleteSelected}>
-                    <Delete />
-                  </IconButton>
-                </Tooltip>
-              </>
+      <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
+        <Button
+          size="small"
+          onClick={onClose}
+          disabled={submitting}
+          color="inherit"
+        >
+          Cancel
+        </Button>
+        <Button
+          size="small"
+          variant="contained"
+          onClick={handleSubmit}
+          disabled={!jobId.trim() || submitting}
+          startIcon={
+            submitting ? (
+              <CircularProgress size={12} color="inherit" />
             ) : (
-              <TextField
-                size="small"
-                placeholder="Search candidates…"
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(0);
-                }}
-                sx={{ width: 320 }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon fontSize="small" color="action" />
-                    </InputAdornment>
-                  ),
-                  endAdornment: search && (
-                    <InputAdornment position="end">
-                      <IconButton
-                        size="small"
-                        onClick={() => {
-                          setSearch("");
-                          setPage(0);
-                        }}
-                      >
-                        <ClearIcon fontSize="small" />
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            )}
-          </Toolbar>
-
-          <Divider />
-
-          {/* Table */}
-          <TableContainer sx={{ maxHeight: "55vh" }}>
-            <Table stickyHeader size="small">
-              <TableHead>
-                <TableRow>
-                  {/* Checkbox column */}
-                  <TableCell padding="checkbox" sx={{ bgcolor: "background.paper" }}>
-                    <Checkbox
-                      indeterminate={
-                        numSelected > 0 && numSelected < rowCount
-                      }
-                      checked={rowCount > 0 && numSelected === rowCount}
-                      onChange={handleSelectAll}
-                      size="small"
-                    />
-                  </TableCell>
-                  {TAG_COLUMNS.map((col) => (
-                    <TableCell
-                      key={col.id}
-                      align={col.align || "left"}
-                      sx={{
-                        width: col.width,
-                        fontWeight: 700,
-                        bgcolor: "background.paper",
-                        whiteSpace: "nowrap",
-                      }}
-                      sortDirection={orderBy === col.id ? order : false}
-                    >
-                      {col.noSort ? (
-                        col.label
-                      ) : (
-                        <TableSortLabel
-                          active={orderBy === col.id}
-                          direction={orderBy === col.id ? order : "asc"}
-                          onClick={() => handleRequestSort(col.id)}
-                        >
-                          {col.label}
-                        </TableSortLabel>
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-
-              <TableBody>
-                {loading ? (
-                  Array.from({ length: 6 }).map((_, i) => (
-                    <TableRow key={i}>
-                      <TableCell padding="checkbox">
-                        <Skeleton variant="rectangular" width={18} height={18} />
-                      </TableCell>
-                      {TAG_COLUMNS.map((col) => (
-                        <TableCell key={col.id}>
-                          <Skeleton variant="text" width="80%" />
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))
-                ) : pagedRows.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={TAG_COLUMNS.length + 1}
-                      align="center"
-                      sx={{ py: 6 }}
-                    >
-                      <SearchOffIcon
-                        sx={{
-                          fontSize: 48,
-                          color: "text.disabled",
-                          mb: 1,
-                          display: "block",
-                          mx: "auto",
-                        }}
-                      />
-                      <Typography variant="body2" color="text.secondary">
-                        {search
-                          ? `No candidates match "${search}"`
-                          : "No candidates found for this tag"}
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  pagedRows.map((row) => {
-                    const isRowSelected = isSelected(row.id);
-                    return (
-                      <TableRow
-                        key={row.id}
-                        hover
-                        selected={isRowSelected}
-                        onClick={() => handleSelectRow(row.id)}
-                        sx={{ cursor: "pointer" }}
-                      >
-                        <TableCell padding="checkbox">
-                          <Checkbox
-                            checked={isRowSelected}
-                            size="small"
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={() => handleSelectRow(row.id)}
-                          />
-                        </TableCell>
-                        {/* ID */}
-                        <TableCell>{row.id}</TableCell>
-                        {/* Full Name */}
-                        <TableCell>
-                          <Typography variant="body2" fontWeight={500}>
-                            {row.fullName || "—"}
-                          </Typography>
-                        </TableCell>
-                        {/* Technology */}
-                        <TableCell>{row.technology || "—"}</TableCell>
-                        {/* Email */}
-                        <TableCell>
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              maxWidth: 200,
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {row.email || "—"}
-                          </Typography>
-                        </TableCell>
-                        {/* Contact */}
-                        <TableCell>{row.contactNumber || "—"}</TableCell>
-                        {/* Experience */}
-                        <TableCell>{row.totalExperience ?? "—"}</TableCell>
-                        {/* Skills */}
-                        <TableCell>
-                          {Array.isArray(row.skills) && row.skills.length > 0 ? (
-                            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                              {row.skills.slice(0, 3).map((s, i) => (
-                                <Chip key={i} label={s} size="small" />
-                              ))}
-                              {row.skills.length > 3 && (
-                                <Chip
-                                  label={`+${row.skills.length - 3}`}
-                                  size="small"
-                                  variant="outlined"
-                                />
-                              )}
-                            </Box>
-                          ) : (
-                            "—"
-                          )}
-                        </TableCell>
-                        {/* Tags */}
-                        <TableCell>
-                          {Array.isArray(row.tags) && row.tags.length > 0 ? (
-                            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                              {row.tags.map((t, i) => (
-                                <Chip
-                                  key={i}
-                                  label={t}
-                                  size="small"
-                                  color="info"
-                                  variant="outlined"
-                                />
-                              ))}
-                            </Box>
-                          ) : row.tags ? (
-                            <Chip
-                              label={row.tags}
-                              size="small"
-                              color="info"
-                              variant="outlined"
-                            />
-                          ) : (
-                            "—"
-                          )}
-                        </TableCell>
-                        {/* Referred By */}
-                        <TableCell>{row.referredBy || "—"}</TableCell>
-                        {/* Actions */}
-                        <TableCell
-                          align="center"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Stack
-                            direction="row"
-                            justifyContent="center"
-                            spacing={0.5}
-                          >
-                            <Tooltip title="Edit">
-                              <IconButton
-                                size="small"
-                                color="primary"
-                                onClick={() =>
-                                  ToastService.info(
-                                    `Edit ${row.fullName} — wire up BenchCandidateForm here`,
-                                  )
-                                }
-                              >
-                                <Edit fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Delete">
-                              <IconButton
-                                size="small"
-                                color="error"
-                                onClick={() => handleDeleteClick(row)}
-                              >
-                                <Delete fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </Stack>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-
-          <Divider />
-
-          {/* Pagination */}
-          <TablePagination
-            component="div"
-            count={filteredRows.length}
-            page={page}
-            onPageChange={handleChangePage}
-            rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-            rowsPerPageOptions={[5, 10, 20, 50]}
-          />
-        </DialogContent>
-
-        <DialogActions sx={{ px: 3, py: 1.5 }}>
-          <Button onClick={onClose} variant="outlined" color="inherit">
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Inner delete confirmation */}
-      <Dialog
-        open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
-      >
-        <DialogTitle>Confirm Delete</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Are you sure you want to delete{" "}
-            <strong>{rowToDelete?.fullName}</strong> from the bench list? This
-            action cannot be undone.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)} color="inherit">
-            Cancel
-          </Button>
-          <Button onClick={confirmDelete} color="error" variant="contained">
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </>
+              <SendIcon fontSize="small" />
+            )
+          }
+        >
+          {submitting ? "Submitting…" : "Submit"}
+        </Button>
+      </Box>
+    </Popover>
   );
 }
 
-// ─────────────────────────────────────────────
-// Main BenchList Component
-// ─────────────────────────────────────────────
-const BenchList = () => {
-  const theme = useTheme();
-  const [activeTab, setActiveTab] = useState(0);
+// ─── Batch Email Dialog ─────────────────────────────────────────────────────
+function BatchEmailDialog({ open, onClose, onSend, selectedCount, sending }) {
+  const [subject, setSubject] = useState("");
+  const [mailBody, setMailBody] = useState("");
 
-  // ── Bench List tab states ──
+  const handleSend = () => {
+    if (subject.trim() && mailBody.trim()) {
+      onSend(subject, mailBody);
+    }
+  };
+
+  // Reset form when dialog opens
+  useEffect(() => {
+    if (open) {
+      setSubject("");
+      setMailBody("");
+    }
+  }, [open]);
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <DialogTitle>
+        Send Email to {selectedCount} Candidate{selectedCount > 1 ? "s" : ""}
+      </DialogTitle>
+      <DialogContent>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+          <TextField
+            label="Subject"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            fullWidth
+            required
+            placeholder="Enter email subject..."
+          />
+          <TextField
+            label="Mail Body"
+            value={mailBody}
+            onChange={(e) => setMailBody(e.target.value)}
+            fullWidth
+            multiline
+            rows={8}
+            required
+            placeholder="Enter email content..."
+          />
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={sending}>
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSend}
+          variant="contained"
+          color="primary"
+          disabled={!subject.trim() || !mailBody.trim() || sending}
+          startIcon={sending ? <CircularProgress size={16} /> : <SendIcon />}
+        >
+          {sending ? "Sending..." : "Send"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ─── Batch Job Submission Dialog ────────────────────────────────────────────
+function BatchJobDialog({ open, onClose, onSubmit, selectedCount, submitting }) {
+  const [jobId, setJobId] = useState("");
+
+  const handleSubmit = () => {
+    if (jobId.trim()) {
+      onSubmit(jobId.trim());
+    }
+  };
+
+  useEffect(() => {
+    if (open) {
+      setJobId("");
+    }
+  }, [open]);
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>
+        Submit {selectedCount} Candidate{selectedCount > 1 ? "s" : ""} to Job
+      </DialogTitle>
+      <DialogContent>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+          <Typography variant="body2" color="text.secondary">
+            Selected candidates will be submitted to the job with the following ID:
+          </Typography>
+          <TextField
+            label="Job ID"
+            value={jobId}
+            onChange={(e) => setJobId(e.target.value)}
+            fullWidth
+            required
+            placeholder="Enter Job ID..."
+            autoFocus
+          />
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={submitting}>
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          color="warning"
+          disabled={!jobId.trim() || submitting}
+          startIcon={submitting ? <CircularProgress size={16} /> : <WorkIcon />}
+        >
+          {submitting ? "Submitting..." : "Submit"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ─── BenchListTab ──────────────────────────────────────────────────────────────
+const BenchListTab = ({ onAddClick }) => {
   const [benchData, setBenchData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
@@ -699,37 +348,39 @@ const BenchList = () => {
   const [loadingBenchRegister, setLoadingBenchRegister] = useState(null);
   const [exportingBench, setExportingBench] = useState(false);
 
-  // Form states
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editCandidateId, setEditCandidateId] = useState(null);
 
-  // Pagination + search
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [noResultsFound, setNoResultsFound] = useState(false);
 
-  // ── Summary tab states ──
-  const [techSummary, setTechSummary] = useState([]);
-  const [filteredTechSummary, setFilteredTechSummary] = useState([]);
-  const [summaryLoading, setSummaryLoading] = useState(false);
-  const [totalCandidates, setTotalCandidates] = useState(0);
-  const [techSearchKeyword, setTechSearchKeyword] = useState("");
+  // ── Selection state for checkboxes ──────────────────────────────────────────
+  const [selectedRows, setSelectedRows] = useState([]);
 
-  // ── Tag Dialog state ──
-  const [tagDialogOpen, setTagDialogOpen] = useState(false);
-  const [selectedTag, setSelectedTag] = useState(null);
+  // ── Batch email state ───────────────────────────────────────────────────────
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
 
-  const dispatch = useDispatch();
+  // ── Batch job submission state ──────────────────────────────────────────────
+  const [jobDialogOpen, setJobDialogOpen] = useState(false);
+  const [submittingJob, setSubmittingJob] = useState(false);
+
+  // ── Per-row submit-to-job popover state ─────────────────────────────────────
+  const [submitPopoverAnchor, setSubmitPopoverAnchor] = useState(null);
+  const [submitPopoverRow, setSubmitPopoverRow] = useState(null);
+
   const isUpdating = useRef(false);
 
-  // ── Fetch bench list ──
+  // ── Fetch bench list ──────────────────────────────────────────────────────────
   const fetchBenchList = useCallback(
     async (currentPage, currentRowsPerPage, search) => {
       try {
         setLoading(true);
         setNoResultsFound(false);
+
         const params = { page: currentPage, size: currentRowsPerPage };
         if (search && search.trim()) params.search = search.trim();
 
@@ -751,17 +402,12 @@ const BenchList = () => {
         if (total === 0 && search && search.trim()) {
           setNoResultsFound(true);
           ToastService.info(`No candidates found matching "${search}"`);
-        } else if (total > 0) {
-          ToastService.success(
-            `Loaded ${data?.length || 0} bench candidates (Total: ${total})`,
-          );
         }
       } catch (error) {
-        console.error("Failed to fetch bench list:", error);
         ToastService.error("Failed to load bench candidates");
         setBenchData([]);
         setTotalCount(0);
-        if (searchKeyword.trim()) setNoResultsFound(true);
+        if (search?.trim()) setNoResultsFound(true);
       } finally {
         setLoading(false);
       }
@@ -769,82 +415,21 @@ const BenchList = () => {
     [],
   );
 
-  // ── Fetch tech summary ──
-  const fetchTechSummary = useCallback(async () => {
-    try {
-      setSummaryLoading(true);
-      const response = await httpService.get("/candidate/tag-count");
-      const tagData = response.data || response;
-
-      if (Array.isArray(tagData) && tagData.length > 0) {
-        const summaryArray = tagData
-          .map((item) => ({
-            tagName: item["tag name"] || item.tagName || item.tag,
-            count: item.count || 0,
-          }))
-          .sort((a, b) => b.count - a.count);
-
-        setTechSummary(summaryArray);
-        setFilteredTechSummary(summaryArray);
-        setTotalCandidates(summaryArray.reduce((s, i) => s + i.count, 0));
-      } else {
-        setTechSummary([]);
-        setFilteredTechSummary([]);
-        setTotalCandidates(0);
-        ToastService.info("No technology tags found");
-      }
-    } catch (error) {
-      console.error("Failed to fetch technology summary:", error);
-      ToastService.error("Failed to load technology summary");
-      setTechSummary([]);
-      setFilteredTechSummary([]);
-      setTotalCandidates(0);
-    } finally {
-      setSummaryLoading(false);
-    }
-  }, []);
-
-  // ── Tech search ──
-  const handleTechSearch = (e) => {
-    const kw = e.target.value.toLowerCase();
-    setTechSearchKeyword(kw);
-    setFilteredTechSummary(
-      kw.trim() === ""
-        ? techSummary
-        : techSummary.filter((t) =>
-            t.tagName.toLowerCase().includes(kw),
-          ),
-    );
-  };
-  const clearTechSearch = () => {
-    setTechSearchKeyword("");
-    setFilteredTechSummary(techSummary);
-  };
-
-  // ── Effect: fetch on tab / pagination / search change ──
   useEffect(() => {
-    if (activeTab === 0) {
-      if (isUpdating.current) return;
-      isUpdating.current = true;
-      fetchBenchList(page, rowsPerPage, searchKeyword);
-      setTimeout(() => { isUpdating.current = false; }, 0);
-    } else if (activeTab === 1) {
-      fetchTechSummary();
-    }
-  }, [activeTab, page, rowsPerPage, searchKeyword, fetchBenchList, fetchTechSummary]);
+    if (isUpdating.current) return;
+    isUpdating.current = true;
+    fetchBenchList(page, rowsPerPage, searchKeyword);
+    setTimeout(() => {
+      isUpdating.current = false;
+    }, 0);
+  }, [page, rowsPerPage, searchKeyword, fetchBenchList]);
 
-  const handleTabChange = (_, newValue) => {
-    setActiveTab(newValue);
-    if (newValue === 1) setTechSearchKeyword("");
-  };
+  // Clear selection when data changes (page change, search, etc.)
+  useEffect(() => {
+    setSelectedRows([]);
+  }, [page, rowsPerPage, searchKeyword, benchData]);
 
-  // ── Card click → open tag dialog ──
-  const handleCardClick = (tech) => {
-    setSelectedTag(tech.tagName);
-    setTagDialogOpen(true);
-  };
-
-  // ── Bench list handlers ──
+  // ── Handlers ──────────────────────────────────────────────────────────────────
   const handleView = (row) => {
     setSelectedCandidate({
       ...row,
@@ -862,6 +447,10 @@ const BenchList = () => {
   };
 
   const handleAdd = () => {
+    if (onAddClick) {
+      onAddClick();
+      return;
+    }
     setEditCandidateId(null);
     setIsFormOpen(true);
   };
@@ -871,15 +460,8 @@ const BenchList = () => {
     setIsFormOpen(true);
   };
 
-  const handleFormClose = () => {
-    setIsFormOpen(false);
-    setEditCandidateId(null);
-  };
-
-  const handleFormSuccess = () => {
+  const handleFormSuccess = () =>
     fetchBenchList(page, rowsPerPage, searchKeyword);
-    if (activeTab === 1) fetchTechSummary();
-  };
 
   const handleDelete = (row) => {
     setCandidateToDelete(row);
@@ -893,9 +475,12 @@ const BenchList = () => {
       await httpService.delete(
         `/candidate/bench/deletebench/${candidateToDelete.id}`,
       );
-      ToastService.update(toastId, "Candidate deleted successfully!", "success");
+      ToastService.update(
+        toastId,
+        "Candidate deleted successfully!",
+        "success",
+      );
       fetchBenchList(page, rowsPerPage, searchKeyword);
-      if (activeTab === 1) fetchTechSummary();
       setDeleteDialogOpen(false);
     } catch {
       ToastService.error("Failed to delete candidate");
@@ -932,8 +517,12 @@ const BenchList = () => {
       setLoadingBenchRegister(candidate.id);
       toastId = ToastService.loading("Sending register request...");
       await new Promise((r) => setTimeout(r, 1000));
-      await httpService.post("/candidate/register", payload);
-      ToastService.update(toastId, "Register request sent successfully", "success");
+      await httpService.post(`/candidate/bench-create-user/${candidate.id}`, payload);
+      ToastService.update(
+        toastId,
+        "Register request sent successfully",
+        "success",
+      );
       fetchBenchList(page, rowsPerPage, searchKeyword);
     } catch (error) {
       ToastService.update(
@@ -953,24 +542,188 @@ const BenchList = () => {
     if (exportingBench) return;
     try {
       setExportingBench(true);
-      const endpoint = "/candidate/bench/getBenchList";
       const params = {
         page: 0,
         size: totalCount,
         ...(exportParams?.searchQuery && { search: exportParams.searchQuery }),
       };
       const fileName = `bench_candidates_${new Date().toISOString().split("T")[0]}`;
-      await exportFile(endpoint, fileName, format, params, exportParams?.selectedColumns);
+      await exportFile(
+        "/candidate/bench/getBenchList",
+        fileName,
+        format,
+        params,
+        exportParams?.selectedColumns,
+      );
     } catch (error) {
       console.error("Bench export error:", error);
-      ToastService.error(error?.response?.data?.message || "Failed to export bench data");
+      ToastService.error(
+        error?.response?.data?.message || "Failed to export bench data",
+      );
     } finally {
       setExportingBench(false);
     }
   };
 
-  // ── Column definitions ──
-  const generateColumns = (loading = false) => [
+  // ── Batch Email Handler ──────────────────────────────────────────────────────
+  const handleBatchEmail = async (subject, mailBody) => {
+    // Get selected candidates' emails
+    const selectedEmails = benchData
+      .filter((candidate) => selectedRows.includes(candidate.id))
+      .map((candidate) => candidate.email)
+      .filter((email) => email && email.trim() !== "");
+
+    if (selectedEmails.length === 0) {
+      ToastService.error("Selected candidates don't have valid email addresses.");
+      setEmailDialogOpen(false);
+      return;
+    }
+
+    setSendingEmail(true);
+
+    try {
+      const response = await axios.post("/send-email/", {
+        subject: subject,
+        mailBody: mailBody,
+        emails: selectedEmails,
+      });
+
+      ToastService.success(
+        response.data.message || `Email sent successfully to ${selectedEmails.length} candidate(s)!`
+      );
+      
+      setEmailDialogOpen(false);
+      setSelectedRows([]); // Clear selection after successful send
+    } catch (err) {
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        "Failed to send email. Please try again.";
+      ToastService.error(msg);
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  // ── Batch Job Submission Handler ────────────────────────────────────────────
+  const handleBatchJobSubmit = async (jobId) => {
+    const benchIds = benchData
+      .filter((candidate) => selectedRows.includes(candidate.id))
+      .map((candidate) => candidate.id);
+
+    if (benchIds.length === 0) {
+      ToastService.error("No candidates selected.");
+      setJobDialogOpen(false);
+      return;
+    }
+
+    setSubmittingJob(true);
+
+    try {
+      const response = await axios.post(
+        "https://mymulya.com/candidate/submit-bench",
+        {
+          benchIds: benchIds,
+          jobId: jobId,
+        },
+      );
+
+      const { message, submittedBenchIds, skippedBenchIds } = response.data;
+
+      let detail = message || "Submitted successfully!";
+      if (skippedBenchIds?.length > 0) {
+        detail += ` (${skippedBenchIds.length} candidates were already submitted)`;
+      }
+
+      ToastService.success(detail);
+      setJobDialogOpen(false);
+      setSelectedRows([]); // Clear selection after successful submission
+    } catch (err) {
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        "Submission failed. Please try again.";
+      ToastService.error(msg);
+    } finally {
+      setSubmittingJob(false);
+    }
+  };
+
+  // ── Open submit-to-job popover for a row ──────────────────────────────────────
+  const handleOpenSubmitPopover = (event, row) => {
+    event.stopPropagation();
+    setSubmitPopoverAnchor(event.currentTarget);
+    setSubmitPopoverRow(row);
+  };
+
+  const handleCloseSubmitPopover = () => {
+    setSubmitPopoverAnchor(null);
+    setSubmitPopoverRow(null);
+  };
+
+  // ── Selection change handler from DataTablePaginated ────────────────────────
+  const handleSelectionChange = (selected) => {
+    setSelectedRows(selected);
+  };
+
+  // ── Batch action buttons (visible when rows are selected) ───────────────────
+  const renderBatchActions = () => {
+    if (selectedRows.length === 0) return null;
+
+    return (
+      <Stack
+        direction="row"
+        spacing={2}
+        alignItems="center"
+        sx={{
+          position: "fixed",
+          bottom: 24,
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 1000,
+          bgcolor: "background.paper",
+          boxShadow: 3,
+          borderRadius: 2,
+          p: 1.5,
+          border: 1,
+          borderColor: "primary.main",
+        }}
+      >
+        <Typography variant="body2" fontWeight="bold">
+          {selectedRows.length} candidate{selectedRows.length > 1 ? "s" : ""} selected
+        </Typography>
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={<EmailIcon />}
+          onClick={() => setEmailDialogOpen(true)}
+          size="small"
+        >
+          Send Email
+        </Button>
+        <Button
+          variant="contained"
+          color="warning"
+          startIcon={<WorkIcon />}
+          onClick={() => setJobDialogOpen(true)}
+          size="small"
+        >
+          Submit to Job
+        </Button>
+        <Button
+          variant="outlined"
+          color="inherit"
+          onClick={() => setSelectedRows([])}
+          size="small"
+        >
+          Clear Selection
+        </Button>
+      </Stack>
+    );
+  };
+
+  // ── Column definitions ────────────────────────────────────────────────────────
+  const generateColumns = (isLoading = false) => [
     {
       key: "id",
       label: "Bench ID",
@@ -978,7 +731,9 @@ const BenchList = () => {
       sortable: true,
       filterable: true,
       width: 120,
-      render: loading ? () => <Skeleton variant="text" width={80} height={24} /> : undefined,
+      render: isLoading
+        ? () => <Skeleton variant="text" width={80} height={24} />
+        : undefined,
     },
     {
       key: "fullName",
@@ -987,17 +742,25 @@ const BenchList = () => {
       sortable: true,
       filterable: true,
       width: 180,
-      render: loading
+      render: isLoading
         ? () => <Skeleton variant="text" width={140} height={24} />
         : (row) => (
             <Box display="flex" alignItems="center" gap={1}>
-              <Tooltip title={row.isRegistered ? "Already Registered" : "Send Register Request"}>
+              <Tooltip
+                title={
+                  row.isRegistered
+                    ? "Already Registered"
+                    : "Send Register Request"
+                }
+              >
                 <span>
                   <IconButton
                     size="small"
                     color={row.isRegistered ? "success" : "primary"}
                     onClick={() => handleBenchCandidate(row)}
-                    disabled={loadingBenchRegister === row.id || row.isRegistered}
+                    disabled={
+                      loadingBenchRegister === row.id || row.isRegistered
+                    }
                   >
                     {loadingBenchRegister === row.id ? (
                       <CircularProgress size={16} color="info" />
@@ -1020,7 +783,9 @@ const BenchList = () => {
       sortable: true,
       filterable: true,
       width: 180,
-      render: loading ? () => <Skeleton variant="text" width={140} height={24} /> : undefined,
+      render: isLoading
+        ? () => <Skeleton variant="text" width={140} height={24} />
+        : undefined,
     },
     {
       key: "skills",
@@ -1030,7 +795,7 @@ const BenchList = () => {
       filterable: true,
       width: 250,
       render: (row) =>
-        loading ? (
+        isLoading ? (
           <Box sx={{ display: "flex", gap: 1 }}>
             <Skeleton variant="rounded" width={60} height={24} />
             <Skeleton variant="rounded" width={80} height={24} />
@@ -1057,7 +822,9 @@ const BenchList = () => {
       sortable: true,
       filterable: true,
       width: 220,
-      render: loading ? () => <Skeleton variant="text" width={180} height={24} /> : undefined,
+      render: isLoading
+        ? () => <Skeleton variant="text" width={180} height={24} />
+        : undefined,
     },
     {
       key: "contactNumber",
@@ -1066,7 +833,9 @@ const BenchList = () => {
       sortable: true,
       filterable: true,
       width: 150,
-      render: loading ? () => <Skeleton variant="text" width={100} height={24} /> : undefined,
+      render: isLoading
+        ? () => <Skeleton variant="text" width={100} height={24} />
+        : undefined,
     },
     {
       key: "referredBy",
@@ -1075,7 +844,9 @@ const BenchList = () => {
       sortable: true,
       filterable: true,
       width: 180,
-      render: loading ? () => <Skeleton variant="text" width={120} height={24} /> : undefined,
+      render: isLoading
+        ? () => <Skeleton variant="text" width={120} height={24} />
+        : undefined,
     },
     {
       key: "tags",
@@ -1085,7 +856,7 @@ const BenchList = () => {
       filterable: true,
       width: 150,
       render: (row) =>
-        loading ? (
+        isLoading ? (
           <Box sx={{ display: "flex", gap: 1 }}>
             <Skeleton variant="rounded" width={60} height={24} />
             <Skeleton variant="rounded" width={60} height={24} />
@@ -1096,7 +867,13 @@ const BenchList = () => {
         ) : Array.isArray(row.tags) ? (
           <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
             {row.tags.map((tag, i) => (
-              <Chip key={i} label={tag} size="small" color="info" variant="outlined" />
+              <Chip
+                key={i}
+                label={tag}
+                size="small"
+                color="info"
+                variant="outlined"
+              />
             ))}
           </Box>
         ) : (
@@ -1110,7 +887,7 @@ const BenchList = () => {
       sortable: true,
       filterable: true,
       width: 150,
-      render: loading
+      render: isLoading
         ? () => <Skeleton variant="text" width={80} height={24} />
         : (row) => row.totalExperience || "N/A",
     },
@@ -1121,7 +898,7 @@ const BenchList = () => {
       sortable: true,
       filterable: true,
       width: 150,
-      render: loading
+      render: isLoading
         ? () => <Skeleton variant="text" width={80} height={24} />
         : (row) => row.relevantExperience || "N/A",
     },
@@ -1130,7 +907,9 @@ const BenchList = () => {
       label: "Remarks",
       type: "text",
       align: "center",
-      render: (row) => <InternalFeedbackCell value={row.remarks} type="remarks" />,
+      render: (row) => (
+        <InternalFeedbackCell value={row.remarks} type="remarks" />
+      ),
       sortable: true,
       filterable: true,
       width: 150,
@@ -1140,11 +919,12 @@ const BenchList = () => {
       label: "Actions",
       sortable: false,
       filterable: false,
-      width: 200,
+      width: 230,
       align: "center",
-      render: loading
+      render: isLoading
         ? () => (
             <Box sx={{ display: "flex", justifyContent: "center", gap: 1 }}>
+              <Skeleton variant="circular" width={32} height={32} />
               <Skeleton variant="circular" width={32} height={32} />
               <Skeleton variant="circular" width={32} height={32} />
               <Skeleton variant="circular" width={32} height={32} />
@@ -1156,21 +936,51 @@ const BenchList = () => {
               sx={{ display: "flex", justifyContent: "center", gap: 1 }}
               onClick={(e) => e.stopPropagation()}
             >
+              <Tooltip title="Submit to Job">
+                <Button
+                  variant="contained"
+                  color="warning"
+                  size="small"
+                  onClick={(e) => handleOpenSubmitPopover(e, row)}
+                  sx={{
+                    minWidth: 80,
+                    textTransform: "none",
+                  }}
+                >
+                  Submit
+                </Button>
+              </Tooltip>
+
               <Tooltip title="View">
-                <IconButton color="info" size="small" onClick={() => handleView(row)}>
+                <IconButton
+                  color="info"
+                  size="small"
+                  onClick={() => handleView(row)}
+                >
                   <Visibility fontSize="small" />
                 </IconButton>
               </Tooltip>
+
               <Tooltip title="Edit">
-                <IconButton color="primary" size="small" onClick={() => handleEdit(row)}>
+                <IconButton
+                  color="primary"
+                  size="small"
+                  onClick={() => handleEdit(row)}
+                >
                   <Edit fontSize="small" />
                 </IconButton>
               </Tooltip>
+
               <Tooltip title="Delete">
-                <IconButton color="error" size="small" onClick={() => handleDelete(row)}>
+                <IconButton
+                  color="error"
+                  size="small"
+                  onClick={() => handleDelete(row)}
+                >
                   <Delete fontSize="small" />
                 </IconButton>
               </Tooltip>
+
               <DownloadResume
                 candidate={{
                   candidateId: row?.id ?? "NO_ID",
@@ -1186,295 +996,42 @@ const BenchList = () => {
     },
   ];
 
-  // ── Summary cards ──
-  const renderSummaryCards = () => {
-    if (summaryLoading) {
-      return (
-        <Grid container spacing={3}>
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={i}>
-              <Card sx={{ height: "100%" }}>
-                <CardContent>
-                  <Skeleton variant="circular" width={40} height={40} sx={{ mb: 2 }} />
-                  <Skeleton variant="text" width="60%" height={32} />
-                  <Skeleton variant="text" width="40%" height={24} />
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      );
-    }
-
-    if (filteredTechSummary.length === 0 && !summaryLoading) {
-      return (
-        <Paper
-          elevation={0}
-          sx={{
-            textAlign: "center",
-            py: 8,
-            px: 3,
-            borderRadius: 3,
-            bgcolor: alpha(theme.palette.background.paper, 0.6),
-          }}
-        >
-          <SearchOffIcon
-            sx={{ fontSize: 64, color: "text.secondary", mb: 2, opacity: 0.5 }}
-          />
-          <Typography variant="h6" color="text.secondary" gutterBottom>
-            {techSearchKeyword
-              ? "No matching technologies found"
-              : "No technology tags found"}
-          </Typography>
-          {techSearchKeyword && (
-            <>
-              <Typography
-                variant="body2"
-                sx={{ mt: 1, maxWidth: 400, mx: "auto", color: "text.secondary" }}
-              >
-                No results for{" "}
-                <Box component="span" sx={{ color: "error.main", fontWeight: 600 }}>
-                  "{techSearchKeyword}"
-                </Box>
-                . Try a different term or clear the search.
-              </Typography>
-              <Button
-                onClick={clearTechSearch}
-                variant="outlined"
-                color="primary"
-                startIcon={<ClearIcon />}
-                sx={{ mt: 3 }}
-              >
-                Clear Search
-              </Button>
-            </>
-          )}
-        </Paper>
-      );
-    }
-
-    return (
-      <>
-        {/* Search bar */}
-        <Box sx={{ mb: 3 }}>
-          <TextField
-            fullWidth
-            variant="outlined"
-            placeholder="Search technologies… (e.g. Java, React, Python)"
-            value={techSearchKeyword}
-            onChange={handleTechSearch}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon color="action" />
-                </InputAdornment>
-              ),
-              endAdornment: techSearchKeyword && (
-                <InputAdornment position="end">
-                  <IconButton size="small" onClick={clearTechSearch}>
-                    <ClearIcon />
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-            sx={{
-              "& .MuiOutlinedInput-root": {
-                borderRadius: 2,
-                backgroundColor: theme.palette.background.paper,
-              },
-            }}
-          />
-        </Box>
-
-        {/* Cards grid — each card is clickable */}
-        <Grid container spacing={3}>
-          {filteredTechSummary.map((tech, index) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
-              <Card
-                sx={{
-                  height: "100%",
-                  borderRadius: 3,
-                  overflow: "visible",
-                  transition: "box-shadow 0.2s",
-                  "&:hover": { boxShadow: theme.shadows[6] },
-                }}
-              >
-                {/* CardActionArea makes the whole card clickable */}
-                <CardActionArea
-                  onClick={() => handleCardClick(tech)}
-                  sx={{ height: "100%", borderRadius: 3 }}
-                >
-                  <CardContent>
-                    <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
-                      <Avatar
-                        sx={{
-                          bgcolor: alpha(theme.palette.primary.main, 0.1),
-                          width: 48,
-                          height: 48,
-                        }}
-                      >
-                        {getTechIcon(tech.tagName, theme)}
-                      </Avatar>
-                      <Box sx={{ flex: 1 }}>
-                        <Typography
-                          variant="subtitle1"
-                          fontWeight={600}
-                          sx={{
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            display: "-webkit-box",
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: "vertical",
-                          }}
-                        >
-                          {tech.tagName}
-                        </Typography>
-                      </Box>
-                      {/* Visual hint that card is clickable */}
-                      <Tooltip title={`View ${tech.tagName} candidates`}>
-                        <OpenInNewIcon
-                          fontSize="small"
-                          sx={{ color: "action.active", opacity: 0.5 }}
-                        />
-                      </Tooltip>
-                    </Stack>
-
-                    <Stack
-                      direction="row"
-                      alignItems="baseline"
-                      justifyContent="space-between"
-                      sx={{ mt: 1 }}
-                    >
-                      <Stack direction="row" alignItems="center" spacing={0.5}>
-                        <PeopleIcon
-                          fontSize="small"
-                          sx={{ color: "text.secondary", fontSize: 14 }}
-                        />
-                        <Typography variant="caption" color="text.secondary">
-                          Candidates
-                        </Typography>
-                      </Stack>
-                      <Typography variant="h5" fontWeight={700} color="primary.main">
-                        {tech.count}
-                      </Typography>
-                    </Stack>
-
-                    <Typography
-                      variant="caption"
-                      color="primary"
-                      sx={{ mt: 1, display: "block", opacity: 0.8 }}
-                    >
-                      Click to view list →
-                    </Typography>
-                  </CardContent>
-                </CardActionArea>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      </>
-    );
-  };
-
-  // ── No results for bench list table ──
-  const NoResultsComponent = () => (
-    <Paper
-      elevation={0}
-      sx={{
-        textAlign: "center",
-        py: 8,
-        px: 3,
-        borderRadius: 2,
-        bgcolor: alpha(theme.palette.background.paper, 0.6),
-      }}
-    >
-      <SearchOffIcon sx={{ fontSize: 64, color: "text.secondary", mb: 2, opacity: 0.5 }} />
-      <Typography variant="h6" color="text.secondary" gutterBottom>
-        No candidates found
-      </Typography>
-      <Typography
-        variant="body2"
-        color="text.secondary"
-        sx={{ mt: 1, maxWidth: 400, mx: "auto" }}
-      >
-        {searchKeyword
-          ? `No bench candidates match "${searchKeyword}". Try a different term or clear the search.`
-          : 'No bench candidates available. Click "Add" to add new candidates.'}
-      </Typography>
-      {searchKeyword && (
-        <Button
-          onClick={() => handleSearch("")}
-          variant="outlined"
-          color="primary"
-          startIcon={<ClearIcon />}
-          sx={{ mt: 3 }}
-        >
-          Clear Search
-        </Button>
-      )}
-    </Paper>
-  );
-
-  // ─────────────────────────────────────────────
-  // Render
-  // ─────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────────
   return (
-    <Box sx={{ width: "100%" }}>
-      {/* Header */}
+    <>
+      {/* Add button header */}
       <Stack
         direction="row"
         alignItems="center"
-        spacing={2}
-        sx={{
-          flexWrap: "wrap",
-          mb: 2,
-          p: 2,
-          backgroundColor: "#f9f9f9",
-          borderRadius: 2,
-          boxShadow: 1,
-          justifyContent: "space-between",
-        }}
+        justifyContent="flex-end"
+        sx={{ mb: 2 }}
       >
-        <Typography variant="h6" color="primary">
-          Bench Candidate Management
-        </Typography>
-        <Stack direction="row" alignItems="center" spacing={2} sx={{ ml: "auto" }}>
-          <Button variant="text" color="primary" onClick={handleAdd} disabled={loading}>
-            <Add /> <User2Icon />
-          </Button>
-        </Stack>
+        <Button
+          variant="text"
+          color="primary"
+          onClick={handleAdd}
+          disabled={loading}
+          startIcon={<Add />}
+        >
+          <User2Icon size={18} style={{ marginLeft: 4 }} />
+        </Button>
       </Stack>
 
-      {/* Tabs */}
-      <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-        <Tabs
-          value={activeTab}
-          onChange={handleTabChange}
-          aria-label="bench management tabs"
-          variant="scrollable"
-          scrollButtons="auto"
-        >
-          <Tab icon={<TableChart />} iconPosition="start" label="Bench List" {...a11yProps(0)} />
-          <Tab
-            icon={<BarChart />}
-            iconPosition="start"
-            label="Technology Summary"
-            {...a11yProps(1)}
-          />
-        </Tabs>
-      </Box>
-
-      {/* Bench List Tab */}
-      <TabPanel value={activeTab} index={0}>
-        {noResultsFound && !loading && benchData.length === 0 ? (
-          <NoResultsComponent />
-        ) : (
+      {/* Table or empty state */}
+      {noResultsFound && !loading && benchData.length === 0 ? (
+        <NoResultsState
+          searchKeyword={searchKeyword}
+          onClear={() => handleSearch("")}
+        />
+      ) : (
+        <>
           <DataTablePaginated
             data={benchData || []}
             columns={generateColumns(loading)}
             title="Bench List"
             loading={loading}
-            enableSelection={false}
+            enableSelection={true}
+            checkboxRequired={false}
             uniqueId="id"
             defaultSortColumn="id"
             defaultSortDirection="desc"
@@ -1493,29 +1050,46 @@ const BenchList = () => {
             enableServerSideFiltering={false}
             enableExport={true}
             onExportData={handleExportBenchData}
+            onSelectionChange={handleSelectionChange}
           />
-        )}
-      </TabPanel>
+          
+          {/* Batch Action Buttons */}
+          {renderBatchActions()}
+        </>
+      )}
 
-      {/* Technology Summary Tab */}
-      <TabPanel value={activeTab} index={1}>
-        <Box sx={{ p: 1 }}>{renderSummaryCards()}</Box>
-      </TabPanel>
-
-      {/* ── Tag Candidates Dialog ── */}
-      <TagCandidatesDialog
-        open={tagDialogOpen}
-        tagName={selectedTag}
-        onClose={() => {
-          setTagDialogOpen(false);
-          setSelectedTag(null);
-        }}
+      {/* Per-row Submit to Job Popover */}
+      <SubmitToJobPopover
+        anchorEl={submitPopoverAnchor}
+        row={submitPopoverRow}
+        onClose={handleCloseSubmitPopover}
       />
 
-      {/* Add / Edit Form */}
+      {/* Batch Email Dialog */}
+      <BatchEmailDialog
+        open={emailDialogOpen}
+        onClose={() => setEmailDialogOpen(false)}
+        onSend={handleBatchEmail}
+        selectedCount={selectedRows.length}
+        sending={sendingEmail}
+      />
+
+      {/* Batch Job Submission Dialog */}
+      <BatchJobDialog
+        open={jobDialogOpen}
+        onClose={() => setJobDialogOpen(false)}
+        onSubmit={handleBatchJobSubmit}
+        selectedCount={selectedRows.length}
+        submitting={submittingJob}
+      />
+
+      {/* Add / Edit form */}
       <BenchCandidateForm
         open={isFormOpen}
-        onClose={handleFormClose}
+        onClose={() => {
+          setIsFormOpen(false);
+          setEditCandidateId(null);
+        }}
         onSuccess={handleFormSuccess}
         id={editCandidateId}
         initialData={
@@ -1525,7 +1099,7 @@ const BenchList = () => {
         }
       />
 
-      {/* View Modal */}
+      {/* View modal */}
       <Dialog
         open={isViewModalOpen}
         onClose={() => {
@@ -1536,11 +1110,9 @@ const BenchList = () => {
         fullWidth
       >
         <DialogTitle>
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <Typography variant="h6">
-              Candidate Details — {selectedCandidate?.fullName}
-            </Typography>
-          </Box>
+          <Typography variant="h6">
+            Candidate Details — {selectedCandidate?.fullName}
+          </Typography>
         </DialogTitle>
         <DialogContent dividers>
           {selectedCandidate ? (
@@ -1558,8 +1130,11 @@ const BenchList = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+      {/* Delete confirmation */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+      >
         <DialogTitle>Confirm Delete</DialogTitle>
         <DialogContent>
           <DialogContentText>
@@ -1577,8 +1152,8 @@ const BenchList = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </>
   );
 };
 
-export default BenchList;
+export default BenchListTab;

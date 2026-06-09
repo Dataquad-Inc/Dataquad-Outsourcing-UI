@@ -99,6 +99,7 @@ const DataTablePaginated = ({
   title = "Data Table",
   loading = false,
   enableSelection = true,
+  checkboxRequired = false, // New prop: forces checkbox display
   defaultSortColumn,
   defaultSortDirection = "asc",
   defaultRowsPerPage = 10,
@@ -130,6 +131,8 @@ const DataTablePaginated = ({
   onRowsPerPageChange,
   enableServerSideFiltering = false,
   searchValue = "",
+  onSelectionChange, // New callback for selection changes
+  checkboxProps, // New prop for custom checkbox styling/behavior
 }) => {
   const processedColumns = useMemo(() => {
     return initialColumns.map((column) => ({
@@ -162,6 +165,16 @@ const DataTablePaginated = ({
   const [darkMode, setDarkMode] = useState(false);
   const [densePadding, setDensePadding] = useState(false);
   const [expandedRow, setExpandedRow] = useState(null);
+
+  // Determine if checkboxes should be shown
+  const showCheckboxes = enableSelection || checkboxRequired;
+
+  // Notify parent of selection changes
+  useEffect(() => {
+    if (onSelectionChange) {
+      onSelectionChange(selectedRows);
+    }
+  }, [selectedRows, onSelectionChange]);
 
   const tableHeight = customTableHeight || "100%";
   const tableWidth = customTableWidth || "100%";
@@ -225,7 +238,14 @@ const DataTablePaginated = ({
     setColumns(processedColumns);
   }, [processedColumns]);
 
+  // Reset selection when data changes
+  useEffect(() => {
+    setSelectedRows([]);
+  }, [initialData, serverSide, externalPage, externalRowsPerPage]);
+
   const handleChangePage = (event, newPage) => {
+    // Clear selection when changing page
+    setSelectedRows([]);
     if (serverSide && onPageChange) {
       onPageChange(newPage, externalRowsPerPage || defaultRowsPerPage);
     }
@@ -233,6 +253,8 @@ const DataTablePaginated = ({
 
   const handleChangeRowsPerPage = (event) => {
     const newRowsPerPage = parseInt(event.target.value, 10);
+    // Clear selection when changing rows per page
+    setSelectedRows([]);
 
     if (serverSide) {
       if (onRowsPerPageChange) {
@@ -286,8 +308,8 @@ const DataTablePaginated = ({
     
     // For real-time search (without debounce)
     if (!serverSide || enableLocalFiltering) {
-    setSearchQuery(value);
-  }
+      setSearchQuery(value);
+    }
   };
 
   const handleSearchClick = () => {
@@ -368,10 +390,29 @@ const DataTablePaginated = ({
   const handleSelectAllClick = (event) => {
     if (event.target.checked) {
       const dataToSelect = serverSide ? data : filteredData;
-      const newSelected = dataToSelect.map((row) => row[uniqueId]);
+      const currentPageData = displayData;
+      const newSelected = currentPageData.map((row) => row[uniqueId]);
       setSelectedRows(newSelected);
     } else {
       setSelectedRows([]);
+    }
+  };
+
+  // Handle select all across all pages (server-side)
+  const handleSelectAllPagesClick = () => {
+    if (selectedRows.length === totalRowCount) {
+      setSelectedRows([]);
+    } else {
+      // This would typically trigger an API call to select all records
+      // For now, we'll just select all on current page
+      const dataToSelect = serverSide ? data : filteredData;
+      const newSelected = dataToSelect.map((row) => row[uniqueId]);
+      setSelectedRows(newSelected);
+      
+      // Optional: Call a callback if provided
+      if (checkboxProps?.onSelectAllPages) {
+        checkboxProps.onSelectAllPages(true);
+      }
     }
   };
 
@@ -551,10 +592,9 @@ const DataTablePaginated = ({
       }
     });
 
-    setFilteredData(result); // no sorting here — sortedData useMemo handles it
+    setFilteredData(result);
   }, [searchQuery, filters, data, columns, serverSide, enableLocalFiltering]);
 
-  
   const sortedData = useMemo(() => {
     const source = serverSide && !enableLocalFiltering ? [...data] : [...filteredData];
     if (!orderBy) return source;
@@ -569,15 +609,13 @@ const DataTablePaginated = ({
     });
   }, [data, filteredData, orderBy, order, serverSide, enableLocalFiltering]);
 
-  
   const displayData = useMemo(() => {
     if (serverSide && !enableLocalFiltering) {
-      return sortedData; // server paginates, we sort current page locally
+      return sortedData;
     }
     if (serverSide && enableLocalFiltering) {
-      return sortedData; // server paginates, sort+search locally — no slice
+      return sortedData;
     }
-    // fully client-side: slice for pagination
     const p = externalPage || 0;
     const rpp = externalRowsPerPage || defaultRowsPerPage;
     return sortedData.slice(p * rpp, p * rpp + rpp);
@@ -587,6 +625,14 @@ const DataTablePaginated = ({
   const visibleColumns = columns.filter((column) => column.visible !== false);
   const shouldShowFilters =
     !serverSide || enableLocalFiltering || enableServerSideFiltering;
+
+  // Determine if all rows on current page are selected
+  const isAllSelectedOnPage = displayData.length > 0 && 
+    displayData.every(row => selectedRows.includes(row[uniqueId]));
+
+  // Determine if some rows on current page are selected
+  const isSomeSelectedOnPage = displayData.some(row => selectedRows.includes(row[uniqueId])) && 
+    !isAllSelectedOnPage;
 
   return (
     <Box sx={{ width: customTableWidth || "100%" }}>
@@ -1009,7 +1055,7 @@ const DataTablePaginated = ({
           >
             <TableHead>
               <TableRow>
-                {enableSelection && (
+                {showCheckboxes && (
                   <TableCell
                     padding="checkbox"
                     sx={{
@@ -1019,23 +1065,33 @@ const DataTablePaginated = ({
                       zIndex: 3,
                     }}
                   >
-                    <Checkbox
-                      color="primary"
-                      indeterminate={
-                        selectedRows.length > 0 &&
-                        selectedRows.length <
-                          (serverSide ? data.length : filteredData.length)
-                      }
-                      checked={
-                        (serverSide
-                          ? data.length > 0
-                          : filteredData.length > 0) &&
-                        selectedRows.length ===
-                          (serverSide ? data.length : filteredData.length)
-                      }
-                      onChange={handleSelectAllClick}
-                      sx={{ color: tableStyles.headerText }}
-                    />
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Checkbox
+                        color="primary"
+                        indeterminate={isSomeSelectedOnPage}
+                        checked={isAllSelectedOnPage}
+                        onChange={handleSelectAllClick}
+                        sx={{ color: tableStyles.headerText }}
+                        {...(checkboxProps?.headerCheckboxProps || {})}
+                      />
+                      {checkboxProps?.showSelectAllPages && totalRowCount > displayData.length && (
+                        <Tooltip title={`Select all ${totalRowCount} records`}>
+                          <Button
+                            size="small"
+                            onClick={handleSelectAllPagesClick}
+                            sx={{ 
+                              color: tableStyles.headerText,
+                              textTransform: 'none',
+                              fontSize: '0.7rem',
+                              minWidth: 'auto',
+                              p: 0.5
+                            }}
+                          >
+                            {selectedRows.length === totalRowCount ? 'Deselect All' : 'Select All'}
+                          </Button>
+                        </Tooltip>
+                      )}
+                    </Box>
                   </TableCell>
                 )}
 
@@ -1073,7 +1129,7 @@ const DataTablePaginated = ({
               {displayData.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={visibleColumns.length + (enableSelection ? 1 : 0)}
+                    colSpan={visibleColumns.length + (showCheckboxes ? 1 : 0)}
                     align="center"
                     sx={{ py: 3 }}
                   >
@@ -1099,7 +1155,7 @@ const DataTablePaginated = ({
                         role="checkbox"
                         aria-checked={isItemSelected}
                         tabIndex={-1}
-                        selected={isItemSelected}
+                        selected={isItemSelected && showCheckboxes}
                         sx={{
                           cursor: row.expandContent ? "pointer" : "default",
                           "&.MuiTableRow-root.Mui-selected": {
@@ -1110,7 +1166,7 @@ const DataTablePaginated = ({
                           },
                         }}
                       >
-                        {enableSelection && (
+                        {showCheckboxes && (
                           <TableCell
                             padding="checkbox"
                             sx={{
@@ -1127,6 +1183,7 @@ const DataTablePaginated = ({
                               onClick={(event) =>
                                 handleCheckboxClick(event, rowId)
                               }
+                              {...(checkboxProps?.rowCheckboxProps?.(row) || {})}
                             />
                           </TableCell>
                         )}
@@ -1155,7 +1212,7 @@ const DataTablePaginated = ({
                         <TableRow>
                           <TableCell
                             colSpan={
-                              visibleColumns.length + (enableSelection ? 1 : 0)
+                              visibleColumns.length + (showCheckboxes ? 1 : 0)
                             }
                             style={{ paddingBottom: 0, paddingTop: 0 }}
                           >
