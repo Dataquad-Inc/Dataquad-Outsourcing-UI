@@ -26,7 +26,8 @@ const AdminSubmissions = () => {
   const [initialLoading, setInitialLoading] = useState(true);
   const [exportLoading, setExportLoading] = useState(false);
 
-  const { role } = useSelector((state) => state.auth);
+  const { role, userId } = useSelector((state) => state.auth);
+  const isCoordinator = role === "COORDINATOR";
   const { filteredSubmissionsList, filteredSubmissionsPagination, isFiltered } = useSelector((state) => state.submission);
   const { isFilteredDataRequested } = useSelector((state) => state.bench);
   
@@ -50,6 +51,11 @@ const AdminSubmissions = () => {
           page,
           size,
         };
+
+        if (isCoordinator) {
+          params.userId = userId;
+          params.coordinator = true;
+        }
 
         // ✅ Global Search
         if (searchValue && searchValue.trim() !== "") {
@@ -126,25 +132,31 @@ const AdminSubmissions = () => {
         controllerRef.current = null;
       }
     },
-    [],
+    [isCoordinator, userId],
   );
 
   // Handle date range changes
   const handleDateRangeChange = useCallback((startDate, endDate) => {
     if (startDate && endDate) {
       setDateRange({ startDate, endDate });
-      dispatch(setFilteredDataRequested(true));
-      dispatch(setFilteredFlag(true));
-      
-      // Dispatch the filter action
-      dispatch(filterSubmissionsByDateRange({
-        startDate,
-        endDate,
-        page: 0,
-        size: pagination.pageSize,
-        globalSearch,
-        ...filters
-      }));
+      if (isCoordinator) {
+        dispatch(setFilteredDataRequested(false));
+        dispatch(setFilteredFlag(false));
+        fetchData(0, pagination.pageSize, globalSearch, filters, { startDate, endDate });
+      } else {
+        dispatch(setFilteredDataRequested(true));
+        dispatch(setFilteredFlag(true));
+        
+        // Dispatch the filter action
+        dispatch(filterSubmissionsByDateRange({
+          startDate,
+          endDate,
+          page: 0,
+          size: pagination.pageSize,
+          globalSearch,
+          ...filters
+        }));
+      }
     } else {
       // Clear date range filter
       setDateRange({ startDate: null, endDate: null });
@@ -154,7 +166,7 @@ const AdminSubmissions = () => {
       // Fetch without date filter
       fetchData(0, pagination.pageSize, globalSearch, filters);
     }
-  }, [dispatch, fetchData, pagination.pageSize, globalSearch, filters]);
+  }, [dispatch, fetchData, pagination.pageSize, globalSearch, filters, isCoordinator]);
 
   useEffect(() => {
     if (!hasFetchedRef.current) {
@@ -183,7 +195,7 @@ const AdminSubmissions = () => {
   // Pagination handlers
   const handlePageChange = useCallback(
     (newPage, newSize) => {
-      if (dateRange.startDate && dateRange.endDate) {
+      if (dateRange.startDate && dateRange.endDate && !isCoordinator) {
         // Use filtered data with pagination
         dispatch(filterSubmissionsByDateRange({
           startDate: dateRange.startDate,
@@ -194,15 +206,15 @@ const AdminSubmissions = () => {
           ...filters
         }));
       } else {
-        fetchData(newPage, newSize, globalSearch, filters);
+        fetchData(newPage, newSize, globalSearch, filters, dateRange);
       }
     },
-    [fetchData, dateRange, globalSearch, filters, dispatch],
+    [fetchData, dateRange, globalSearch, filters, dispatch, isCoordinator],
   );
 
   const handleRowsPerPageChange = useCallback(
     (newSize) => {
-      if (dateRange.startDate && dateRange.endDate) {
+      if (dateRange.startDate && dateRange.endDate && !isCoordinator) {
         dispatch(filterSubmissionsByDateRange({
           startDate: dateRange.startDate,
           endDate: dateRange.endDate,
@@ -212,10 +224,10 @@ const AdminSubmissions = () => {
           ...filters
         }));
       } else {
-        fetchData(0, newSize, globalSearch, filters);
+        fetchData(0, newSize, globalSearch, filters, dateRange);
       }
     },
-    [fetchData, dateRange, globalSearch, filters, dispatch],
+    [fetchData, dateRange, globalSearch, filters, dispatch, isCoordinator],
   );
 
   // Sorting handler
@@ -228,7 +240,7 @@ const AdminSubmissions = () => {
     (newFilters, page, rowsPerPage) => {
       setFilters(newFilters);
       
-      if (dateRange.startDate && dateRange.endDate) {
+      if (dateRange.startDate && dateRange.endDate && !isCoordinator) {
         dispatch(filterSubmissionsByDateRange({
           startDate: dateRange.startDate,
           endDate: dateRange.endDate,
@@ -238,10 +250,10 @@ const AdminSubmissions = () => {
           ...newFilters
         }));
       } else {
-        fetchData(page || 0, rowsPerPage || pagination.pageSize, globalSearch, newFilters);
+        fetchData(page || 0, rowsPerPage || pagination.pageSize, globalSearch, newFilters, dateRange);
       }
     },
-    [fetchData, dateRange, globalSearch, pagination.pageSize, dispatch],
+    [fetchData, dateRange, globalSearch, pagination.pageSize, dispatch, isCoordinator],
   );
 
 const handleSearchChange = useCallback((value) => {
@@ -252,7 +264,7 @@ const handleSearchChange = useCallback((value) => {
 useEffect(() => {
   if (!hasFetchedRef.current && !globalSearch) return;
   
-  if (dateRange.startDate && dateRange.endDate) {
+  if (dateRange.startDate && dateRange.endDate && !isCoordinator) {
     dispatch(filterSubmissionsByDateRange({
       startDate: dateRange.startDate,
       endDate: dateRange.endDate,
@@ -262,14 +274,14 @@ useEffect(() => {
       ...filters
     }));
   } else {
-    fetchData(0, pagination.pageSize, globalSearch, filters);
+    fetchData(0, pagination.pageSize, globalSearch, filters, dateRange);
   }
 }, [globalSearch]); 
 
 
   // Refresh handler
   const handleRefresh = useCallback(() => {
-  if (dateRange.startDate && dateRange.endDate) {
+  if (dateRange.startDate && dateRange.endDate && !isCoordinator) {
     dispatch(filterSubmissionsByDateRange({
       startDate: dateRange.startDate,
       endDate: dateRange.endDate,
@@ -284,6 +296,7 @@ useEffect(() => {
       pagination.pageSize,
       globalSearch,
       filters,
+      dateRange,
     );
   }
 }, [
@@ -294,6 +307,7 @@ useEffect(() => {
   filters,
   dateRange,
   dispatch,
+  isCoordinator,
 ]);
 
 const handleExportData = useCallback(async (format, exportParams) => {
@@ -307,6 +321,11 @@ const handleExportData = useCallback(async (format, exportParams) => {
     page: 0,
     size: pagination.totalElements || 1000,
   };
+
+  if (isCoordinator) {
+    params.userId = userId;
+    params.coordinator = true;
+  }
 
   // Add search query if present
   if (exportParams?.searchQuery && exportParams.searchQuery.trim() !== "") {
@@ -342,7 +361,7 @@ const handleExportData = useCallback(async (format, exportParams) => {
   } finally {
     setExportLoading(false);
   }
-}, [filters, dateRange, pagination.totalElements, globalSearch, exportLoading]);
+}, [filters, dateRange, pagination.totalElements, globalSearch, exportLoading, isCoordinator, userId]);
 
   return (
     <BaseSubmission
@@ -361,7 +380,7 @@ const handleExportData = useCallback(async (format, exportParams) => {
       role={role}
       enableServerSideFiltering={true}
       onDateRangeChange={handleDateRangeChange}
-      isFiltered={isFiltered}   
+      isFiltered={isCoordinator ? false : isFiltered}   
        enableExport={true}
       onExportData={handleExportData}   
     />

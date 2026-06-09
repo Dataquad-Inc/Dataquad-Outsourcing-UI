@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import {
@@ -48,20 +48,34 @@ const IndTeamList = () => {
     type: "",
   });
 
-  const {role} = useSelector((state)=>state.auth)
+  const { role, userId } = useSelector((state) => state.auth);
+
+  const isCoordinatorTeam = useCallback(
+    (team) =>
+      team.coordinators?.some(
+        (coordinator) =>
+          coordinator.userId === userId || coordinator.employeeId === userId
+      ),
+    [userId]
+  );
 
   useEffect(() => {
     axios
       .get("https://mymulya.com/users/AllAssociatedUsers?entity=IN")
       .then((res) => {
-        setTeams(res.data);
+        const teamsData = Array.isArray(res.data) ? res.data : [];
+        setTeams(
+          role === "COORDINATOR"
+            ? teamsData.filter(isCoordinatorTeam)
+            : teamsData
+        );
         setLoading(false);
       })
       .catch((err) => {
         console.error(err);
         setLoading(false);
       });
-  }, []);
+  }, [role, userId, isCoordinatorTeam]);
 
   // Debounced search handler
   useEffect(() => {
@@ -369,16 +383,16 @@ const IndTeamList = () => {
                     Edit Team
                   </Button>
 
-                 {role === 'SUPERADMIN' && (
-                  <Button
-                    variant="contained"
-                    color="error"
-                    startIcon={<DeleteIcon />}
-                    onClick={() => handleDeleteTeamClick(team)}
-                  >
-                    Delete Team
-                  </Button>
-                )}
+                  {(role === 'SUPERADMIN' || (role === 'COORDINATOR' && isCoordinatorTeam(team))) && (
+                    <Button
+                      variant="contained"
+                      color="error"
+                      startIcon={<DeleteIcon />}
+                      onClick={() => handleDeleteTeamClick(team)}
+                    >
+                      Delete Team
+                    </Button>
+                  )}
                 </Grid>
               </Grid>
             </Box>
@@ -426,15 +440,17 @@ const IndTeamList = () => {
                           <Typography variant="body2">
                             {teamLead.userName}
                           </Typography>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() =>
-                              handleDeleteClick(teamLead, team, "teamLead")
-                            }
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
+                          {(role !== "COORDINATOR" || isCoordinatorTeam(team)) && (
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() =>
+                                handleDeleteClick(teamLead, team, "teamLead")
+                              }
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          )}
                         </ListItem>
                       ))}
                     </List>
@@ -481,15 +497,17 @@ const IndTeamList = () => {
                           <Typography variant="body2">
                             {emp.userName}
                           </Typography>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() =>
-                              handleDeleteClick(emp, team, "employee")
-                            }
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
+                          {(role !== "COORDINATOR" || isCoordinatorTeam(team)) && (
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() =>
+                                handleDeleteClick(emp, team, "employee")
+                              }
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          )}
                         </ListItem>
                       ))}
                     </List>
@@ -536,15 +554,17 @@ const IndTeamList = () => {
                           <Typography variant="body2">
                             {coord.userName}
                           </Typography>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() =>
-                              handleDeleteClick(coord, team, "coordinator")
-                            }
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
+                          {(role !== "COORDINATOR" || isCoordinatorTeam(team)) && (
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() =>
+                                handleDeleteClick(coord, team, "coordinator")
+                              }
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          )}
                         </ListItem>
                       ))}
                     </List>
@@ -591,13 +611,15 @@ const IndTeamList = () => {
                           <Typography variant="body2">
                             {bdm.userName}
                           </Typography>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handleDeleteClick(bdm, team, "bdm")}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
+                          {(role !== "COORDINATOR" || isCoordinatorTeam(team)) && (
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleDeleteClick(bdm, team, "bdm")}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          )}
                         </ListItem>
                       ))}
                     </List>

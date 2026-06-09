@@ -48,14 +48,6 @@ console.log("Data being sent to placement API:", data);
           candidateContactNo:
             data.candidateContactNo || data.contactNumber || data.candidateContactNumber || "",
         };
-      //        const dataArr = await fetch(`http://localhost:8085/candidate/us-placement/create-placement/${userId}`, {
-      //   method: "POST",
-      //   headers: {
-      //     "Content-Type": "application/json",
-      //   },
-      //   body: JSON.stringify(payload),
-      // });
-      // const response = await dataArr.json();
         
       const response = await httpService.post(url, data);
       console.log("response: create us placement ", response);

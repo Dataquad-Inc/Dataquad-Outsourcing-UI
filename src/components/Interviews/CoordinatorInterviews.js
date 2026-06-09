@@ -38,7 +38,7 @@ import InternalFeedbackCell from "./FeedBack";
 import DownloadResume from "../../utils/DownloadResume";
 import { API_BASE_URL } from "../../Services/httpService";
 import EditInterviewForm from "./EditInterviewForm";
-import { clearCoordinatorFilter, clearTeamLeadFilter } from "../../redux/interviewSlice";
+import { clearCoordinatorFilter } from "../../redux/interviewSlice";
 
 const processInterviewData = (interviews) => {
   if (!Array.isArray(interviews)) return [];
@@ -76,39 +76,18 @@ const CoordinatorInterviews = () => {
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const [levelFilter, setLevelFilter] = useState("ALL");
   const [editDrawer, setEditDrawer] = useState({ open: false, data: null });
-  const [teamLeadId, setTeamLeadId] = useState(null);
   const navigate = useNavigate();
 
-  // New function to get team lead ID for coordinator view
-  const getTeamLeadId = async () => {
-    try {
-      const response = await httpService.get(
-        `/users/AllAssociatedUsers?entity=US&userId=${userId}`
-      );
-      setTeamLeadId(response.data); // Store the team lead ID
-      return response.data;
-    } catch (err) {
-      console.error("Error fetching team lead ID:", err);
-      ToastService.error("Failed to load coordinator data");
-      throw err;
-    }
-  };
-
-  // REVERSED: Regular view now uses the coordinator API logic
   const fetchInterviews = async () => {
     try {
       setLoading(true);
-      
-      // First get the team lead ID for regular view
-      const teamLeadId = await getTeamLeadId();
-      
-      // Use team lead ID for regular view
+
       const response = await httpService.get(
-        `/candidate/interviews/teamlead/${teamLeadId}`
+        `/candidate/interviews/interviewsByUserId/${userId}?coordinator=true`
       );
-      
-      const teamInterviews = response.data?.teamInterviews || [];
-      const processedData = processInterviewData(teamInterviews);
+      const data = response.data;
+
+      const processedData = processInterviewData(data || []);
       setInterviews(processedData);
       setError(null);
     } catch (err) {
@@ -169,13 +148,6 @@ const CoordinatorInterviews = () => {
     filterInterviewsForCoordinator,
     filterInterviewsForTeamLeadTeam,
   ]);
-
-  // Create a custom date change handler for team view
-  const handleTeamViewDateChange = (startDate, endDate) => {
-    if (startDate && endDate && teamLeadId) {
-      console.log("Team view date filter applied with teamLeadId:", teamLeadId);
-    }
-  };
 
   const filterInterviewsByLevel = (interviews) => {
     if (levelFilter === "ALL") return interviews;
@@ -283,16 +255,16 @@ const CoordinatorInterviews = () => {
         return coordinatorInterviews;
       }
     } 
-    // For team view: check if team lead filter is active
+    // For team view: use coordinator-scoped filtered data
     else {
-      if (isTeamLeadFilterActive && filterInterviewsForTeamLeadTeam?.length > 0) {
-        console.log("Using filtered team lead data");
-        return processInterviewData(filterInterviewsForTeamLeadTeam);
-      } else if (isTeamLeadFilterActive && filterInterviewsForTeamLeadTeam?.length === 0) {
+      if (isCoordinatorFilterActive && filterInterviewsForCoordinator?.length > 0) {
+        console.log("Using filtered coordinator team data");
+        return processInterviewData(filterInterviewsForCoordinator);
+      } else if (isCoordinatorFilterActive && filterInterviewsForCoordinator?.length === 0) {
         console.log("Filter active but no results");
         return [];
       } else {
-        console.log("Using regular team lead data");
+        console.log("Using regular coordinator team data");
         return interviews;
       }
     }
@@ -300,11 +272,7 @@ const CoordinatorInterviews = () => {
 
   // Add function to clear filters
   const handleClearFilters = () => {
-    if (showCoordinatorView) {
-      dispatch(clearCoordinatorFilter());
-    } else {
-      dispatch(clearTeamLeadFilter());
-    }
+    dispatch(clearCoordinatorFilter());
     // Also clear the level filter
     setLevelFilter("ALL");
   };
@@ -610,9 +578,8 @@ const CoordinatorInterviews = () => {
                 {showCoordinatorView ? "Team View" : "Self View"}
               </Button>
               <DateRangeFilter 
-                component={showCoordinatorView ? "InterviewsForCoordinator" : "InterviewsForTeamLead"}
+                component="InterviewsForCoordinator"
                 onClearFilter={handleClearFilters}
-                teamLeadId={!showCoordinatorView ? teamLeadId : null}
               />
             </Box>
           </Stack>
