@@ -41,7 +41,7 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import httpService from '../../Services/httpService';
 import { inactiveExternalUsers, activeExternalUsers } from '../../redux/employeesSlice';
-
+import { fetchPlacements } from '../../redux/placementSlice'
 // Main TimeSheetsForAdmin Component
 const TimeSheetsForAdmin = () => {
   return (
@@ -88,12 +88,14 @@ const TimesheetList = () => {
 
   const { role } = useSelector((state) => state.auth);
   const { externalActive } = useSelector((state) => state.employee);
+  const { placements } = useSelector((state) => state.placement);
 
   const dispatch = useDispatch();
 
   // Fetch active external users
   useEffect(() => {
     dispatch(activeExternalUsers());
+    dispatch(fetchPlacements());
   }, []);
 
   console.log("Active external users:", externalActive);
@@ -118,6 +120,16 @@ const TimesheetList = () => {
     sessionStorage.setItem('timesheetsAdmin_selectedMonth', selectedMonth.toString());
     sessionStorage.setItem('timesheetsAdmin_selectedYear', selectedYear.toString());
   }, [selectedMonth, selectedYear]);
+
+  const vendorMap = useMemo(() => {
+    const map = {};
+    placements.forEach(p => {
+      if (p.candidateFullName) {
+        map[p.candidateFullName.toLowerCase().trim()] = p.vendorName || '—';
+      }
+    });
+    return map;
+  }, [placements]);
 
   // ✅ Always compute based on state
   const monthStart = dayjs(`${selectedYear}-${selectedMonth + 1}-01`)
@@ -175,11 +187,11 @@ const TimesheetList = () => {
     const filtered = totalTimesheetData.filter(row => {
       const employeeName = row.employeeName?.toLowerCase().trim();
       const isActive = activeEmployeeNames.has(employeeName);
-      
+
       if (!isActive) {
         console.log(`Filtering out inactive employee: ${row.employeeName}`);
       }
-      
+
       return isActive;
     });
 
@@ -285,6 +297,20 @@ const TimesheetList = () => {
           </Typography>
         </Box>
       ),
+      width: 140
+    },
+    {
+      label: 'Vendor',
+      key: 'vendor',
+      render: row => {
+        const vendor = vendorMap[row.employeeName?.toLowerCase().trim()] || '—';
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Business sx={{ fontSize: 18, color: 'text.secondary' }} />
+            <Typography variant="body2">{vendor}</Typography>
+          </Box>
+        );
+      },
       width: 140
     },
     {

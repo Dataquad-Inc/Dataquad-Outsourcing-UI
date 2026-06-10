@@ -768,7 +768,8 @@ const fetchOrCreateTimesheet = async () => {
             const tsWeekStart = new Date(ts.weekStartDate);
             const tsWeekEnd = new Date(ts.weekEndDate);
             const hasProjectEntries = ts.workingEntries?.some(entry => entry.project === selectedProject) ||
-                                     ts.nonWorkingEntries?.some(entry => entry.project === selectedProject);
+                                     ts.nonWorkingEntries?.some(entry => entry.project === selectedProject) ||
+                                     ts.holidays?.some(entry => entry.project === selectedProject);
             
             // Check if there's any overlap between the timesheet's date range and selected week
             const hasOverlap = (tsWeekStart <= weekEnd && tsWeekEnd >= weekStart);
@@ -972,7 +973,8 @@ const fetchOrCreateTimesheet = async () => {
           const tsWeekStart = new Date(ts.weekStartDate);
           const tsWeekEnd = new Date(ts.weekEndDate);
           const hasProjectEntries = ts.workingEntries?.some(entry => entry.project === selectedProject) ||
-                                   ts.nonWorkingEntries?.some(entry => entry.project === selectedProject);
+                                   ts.nonWorkingEntries?.some(entry => entry.project === selectedProject) ||
+                                   ts.holidays?.some(entry => entry.project === selectedProject);
           
           // Check if there's any overlap between the timesheet's date range and selected week
           const hasOverlap = (tsWeekStart <= weekEnd && tsWeekEnd >= weekStart);
@@ -1125,6 +1127,10 @@ const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
     const entryDate = new Date(entry.date);
     return entryDate.getMonth() === currentMonth && 
            entryDate.getFullYear() === currentYear;
+  }) || apiTimesheet.holidays?.some(entry => {
+    const entryDate = new Date(entry.date);
+    return entryDate.getMonth() === currentMonth && 
+           entryDate.getFullYear() === currentYear;
   });
 
   if (hasAnyEntriesInCurrentMonth && apiTimesheet.status && apiTimesheet.status !== 'DRAFT') {
@@ -1162,6 +1168,7 @@ const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
     notes: apiTimesheet.notes || '',
     workingEntries: apiTimesheet.workingEntries || [],
     nonWorkingEntries: apiTimesheet.nonWorkingEntries || [],
+    holidays: apiTimesheet.holidays || [],
     isEditable: isEditMode || (!submitted && (currentMonthStatus === 'DRAFT' || !currentMonthStatus)),
     percentageOfTarget: apiTimesheet.percentageOfTarget || 0,
     dayStatuses: {
@@ -1614,6 +1621,25 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
     });
   }
 
+  // Process holidays array - ONLY for current month
+if (apiTimesheet.holidays) {
+  apiTimesheet.holidays.forEach(entry => {
+    const entryDate = new Date(entry.date);
+
+    if (entryDate.getMonth() !== currentMonth || entryDate.getFullYear() !== currentYear) {
+      return;
+    }
+
+    const dayOfWeek = entryDate.getDay();
+    const dayName = days[dayOfWeek];
+    const hours = parseFloat(entry.hours) || 0;
+
+    if (dayName) {
+      transformed.companyHoliday[dayName] = hours;
+    }
+  });
+}
+
   return transformed;
 };
 
@@ -1898,7 +1924,8 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
         sunday: 0
       },
       workingEntries: [],
-      nonWorkingEntries: []
+      nonWorkingEntries: [],
+      holidays: []
     };
 
     const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
@@ -1945,6 +1972,7 @@ const transformTimesheetForMonthlyView = (apiTimesheet, currentCalendarMonth) =>
         monday: 0, tuesday: 0, wednesday: 0, thursday: 0,
         friday: 0, saturday: 0, sunday: 0
       },
+      holidays:[],
       isEditable: true,
       status: 'DRAFT'
     };
@@ -1980,6 +2008,7 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
         // Create working entries - for edit mode, process ONLY enabled days
         const workingEntries = [];
         const nonWorkingEntries = [];
+        const holidays = [];
         const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
         days.forEach((day, index) => {
@@ -2037,7 +2066,7 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
 
             // Company holiday - only if > 0
             if (hasHoliday) {
-              nonWorkingEntries.push({
+              holidays.push({
                 date: dateStr,
                 hours: currentTimesheet.companyHoliday[day],
                 description: 'Company Holiday',
@@ -2051,6 +2080,7 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
           date: selectedWeekStart,
           workingEntries,
           nonWorkingEntries,
+          holidays,
           notes: notes || '',
         };
 
@@ -2117,6 +2147,7 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
         // Create working entries - ONLY for enabled days
         const workingEntries = [];
         const nonWorkingEntries = [];
+        const holidays = [];
         const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
         days.forEach((day, index) => {
@@ -2161,7 +2192,7 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
 
             // Company holiday - only if > 0
             if (hasHoliday) {
-              nonWorkingEntries.push({
+              holidays.push({
                 date: dateStr,
                 hours: currentTimesheet.companyHoliday[day],
                 description: 'Company Holiday',
@@ -2172,7 +2203,7 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
         });
 
         // Validate that we have at least some data (can be 0 hours for all days)
-        const hasAnyData = workingEntries.length > 0 || nonWorkingEntries.length > 0;
+        const hasAnyData = workingEntries.length > 0 || nonWorkingEntries.length > 0 || holidays.length > 0;
         if (!hasAnyData) {
           ToastService.error("Cannot save timesheet with no data");
           setLoading(false);
@@ -2183,6 +2214,7 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
           date: selectedWeekStart,
           workingEntries,
           nonWorkingEntries,
+          holidays,
           notes: notes || ''
         };
 
@@ -2219,6 +2251,7 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
                 project: selectedProject,
                 workingEntries: workingEntries,
                 nonWorkingEntries: nonWorkingEntries,
+                holidays: holidays,
                 notes: notes || '',
                 timesheetType: 'MONTHLY',
                 monday: currentTimesheet.monday, // Direct from current state
@@ -2327,6 +2360,7 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
       // Create working entries - handle rejected timesheets specially
       const workingEntries = [];
       const nonWorkingEntries = [];
+      const holidays = [];
       const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
       days.forEach((day, index) => {
@@ -2393,7 +2427,7 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
 
           // Company holiday - only if > 0
           if (hasHoliday) {
-            nonWorkingEntries.push({
+            holidays.push({
               date: dateStr,
               hours: currentTimesheet.companyHoliday[day],
               description: 'Company Holiday',
@@ -2404,7 +2438,7 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
       });
 
       // If it's a rejected timesheet and we have no entries, check if user intended to save
-      if (workingEntries.length === 0 && nonWorkingEntries.length === 0) {
+      if (workingEntries.length === 0 && nonWorkingEntries.length === 0 && holidays.length === 0) {
         if (isRejectedTimesheet) {
           const hasAnyHours = days.some(day => {
             const weekStartDate = new Date(selectedWeekStart);
@@ -2440,6 +2474,7 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
         date: selectedWeekStart,
         workingEntries,
         nonWorkingEntries,
+        holidays,
         notes: notes || ''
       };
 
@@ -2511,6 +2546,7 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
             project: selectedProject,
             workingEntries: workingEntries,
             nonWorkingEntries: nonWorkingEntries,
+            holidays: holidays,
             notes: notes || '',
             timesheetType: 'MONTHLY',
             monday: currentTimesheet.monday,

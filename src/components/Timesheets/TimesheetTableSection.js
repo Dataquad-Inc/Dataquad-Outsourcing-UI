@@ -301,7 +301,7 @@ const TimesheetTableSection = ({
                 {/* Work Hours Row */}
                 <TableRow>
                   <TableCell sx={{ fontWeight: 'bold', color: 'text.primary', pl: 2, py: 1 }}>
-                    Work Hours / Company Holiday
+                    Work Hours
                   </TableCell>
                   {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => {
                     const dayDate = getDateForDay(selectedWeekStart, day);
@@ -346,6 +346,57 @@ const TimesheetTableSection = ({
                     );
                   })}
                 </TableRow>
+
+                <TableRow>
+                          <TableCell sx={{ fontWeight: 'bold', color: 'warning.main', pl: 2, py: 1 }}>
+                            Holiday
+                          </TableCell>
+                          {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => {
+                            const isWeekend = day === 'saturday' || day === 'sunday';
+                            const dayDate = getDateForDay(selectedWeekStart, day);
+                            const isInCalendarMonth = dayDate ? isDateInCalendarMonth(dayDate, calendarValue) : false;
+                            const isEditable = safeIsFieldEditable(currentTimesheet, day, 'companyHoliday', calendarValue, isEditMode) && !isWeekend;
+                            return (
+                              <TableCell key={day} align="center" sx={{
+                                py: 1,
+                                px: 0.5,
+                                backgroundColor: !isInCalendarMonth ? 'grey.50' : 'transparent'
+                              }}>
+                                <TextField
+                                  type="text"
+                                  value={currentTimesheet.companyHoliday?.[day] || 0}
+                                  onChange={(e) => {
+                                    const value = Number(e.target.value);
+                                    handleHourChange(day, value === 8 ? value : '', 'companyHoliday');
+                                  }}
+                                  disabled={!isEditable || (isAddingNewTimesheet && isSubmitted)}
+                                  inputProps={{
+                                    min: 0,
+                                    max: 8,
+                                    step: 1,
+                                    style: {
+                                      textAlign: 'center',
+                                      fontWeight: currentTimesheet.companyHoliday?.[day] > 0 ? 'bold' : 'normal',
+                                      padding: '4px',
+                                      width: '50px'
+                                    }
+                                  }}
+                                  sx={{
+                                    '& .MuiInputBase-root': {
+                                      backgroundColor: !isEditable ? 'grey.100' : 'white',
+                                      '&.Mui-disabled': {
+                                        backgroundColor: 'grey.50',
+                                        color: 'text.secondary'
+                                      }
+                                    }
+                                  }}
+                                  variant="outlined"
+                                  size="small"
+                                />
+                              </TableCell>
+                            );
+                          })}
+                        </TableRow>
 
                 {/* Sick Leave Row */}
                 <TableRow>
