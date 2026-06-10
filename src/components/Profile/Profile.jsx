@@ -149,6 +149,28 @@ const getPayload = (response) => {
   return payload?.profile || payload?.user || payload?.employee || payload || {};
 };
 
+const normalizeArrayPayload = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+
+  const body = getResponseBody(value);
+  const payload = body?.payload || body?.data || body;
+
+  if (Array.isArray(payload)) return payload.filter(Boolean);
+  if (Array.isArray(payload?.users)) return payload.users.filter(Boolean);
+  if (Array.isArray(payload?.employees)) return payload.employees.filter(Boolean);
+  if (Array.isArray(payload?.data)) return payload.data.filter(Boolean);
+  return [];
+};
+
+const hasRole = (user, roleName) => {
+  const roles = Array.isArray(user?.roles) ? user.roles : [user?.roles || user?.role];
+  return roles
+    .filter(Boolean)
+    .map((nextRole) => String(nextRole).toUpperCase())
+    .includes(roleName);
+};
+
 const normalizeDocumentsPayload = (documents) => {
   if (!documents) return [];
   if (Array.isArray(documents)) return documents.filter(Boolean);
@@ -629,6 +651,7 @@ const Profile = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [viewDocument, setViewDocument] = useState(null);
   const [viewLoading, setViewLoading] = useState(false);
+  const [teamLeadOptions, setTeamLeadOptions] = useState([]);
 
   const avatarText = useMemo(() => getInitials(profile.name), [profile.name]);
   const canEditProfile = profile.isEditable !== false;
@@ -734,6 +757,46 @@ const Profile = () => {
       showToast("Unable to load profile details", "error");
     });
   }, [fetchProfile]);
+
+  useEffect(() => {
+    const fetchTeamLeads = async () => {
+      try {
+        const response = await httpService.get("/users/employee", { entity: entity || "IN" });
+        const options = normalizeArrayPayload(response)
+          .filter((employee) => hasRole(employee, "TEAMLEAD") && employee.status === "ACTIVE")
+          .map((employee) => {
+            const employeeId = employee.employeeId || employee.userId || "";
+            const userName = employee.userName || employee.name || employee.email || employeeId;
+
+            return {
+              label: userName,
+              value: userName,
+            };
+          });
+
+        setTeamLeadOptions(options);
+      } catch (error) {
+        setTeamLeadOptions([]);
+        showToast("Unable to load reporting managers", "error");
+      }
+    };
+
+    fetchTeamLeads();
+  }, [entity]);
+
+  const reportingManagerOptions = useMemo(() => {
+    if (
+      !profile.reportingManager ||
+      teamLeadOptions.some((option) => option.value === profile.reportingManager)
+    ) {
+      return teamLeadOptions;
+    }
+
+    return [
+      { label: profile.reportingManager, value: profile.reportingManager },
+      ...teamLeadOptions,
+    ];
+  }, [profile.reportingManager, teamLeadOptions]);
 
   const handleChange = (field) => (event) => {
     if (!canEditProfile) return;
@@ -1260,9 +1323,6 @@ const Profile = () => {
                 <TextField label="Role" value={profile.role} fullWidth disabled />
               </Grid>
               <Grid item xs={12} sm={6}>
-                <TextField label="Entity" value={profile.entity} fullWidth disabled />
-              </Grid>
-              <Grid item xs={12}>
                 <TextField
                   label="Emergency Contact No"
                   value={profile.emergencyContactNo}
@@ -1360,7 +1420,14 @@ const Profile = () => {
                 onChange={handleChange("reportingManager")}
                 fullWidth
                 disabled={!canEditProfile}
-              />
+                select
+              >
+                {reportingManagerOptions.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </TextField>
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField

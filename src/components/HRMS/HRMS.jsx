@@ -26,6 +26,7 @@ import {
   TableHead,
   TablePagination,
   TableRow,
+  TableSortLabel,
   TextField,
   Tooltip,
   Typography,
@@ -33,6 +34,7 @@ import {
 import {
   BadgeOutlined,
   Close,
+  DeleteOutline,
   DescriptionOutlined,
   DownloadOutlined,
   EmailOutlined,
@@ -47,6 +49,7 @@ import {
 import { useSelector } from "react-redux";
 import httpService, { API_BASE_URL } from "../../Services/httpService";
 import { showToast } from "../../utils/ToastNotification";
+import ConfirmDialog from "../muiComponents/ConfirmDialog";
 
 const emptyProfile = {
   photo: "",
@@ -97,6 +100,22 @@ const departmentOptions = ["Sales", "Recruitment", "Coordination", "Admin", "Fin
 );
 
 const isTruthyFlag = (value) => value === true || value === "true";
+
+const normalizeSortValue = (value) => {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "number") return value;
+
+  const stringValue = String(value).trim();
+  if (!stringValue) return "";
+
+  const numericValue = Number(stringValue);
+  if (!Number.isNaN(numericValue) && stringValue !== "") return numericValue;
+
+  const dateValue = Date.parse(stringValue);
+  if (!Number.isNaN(dateValue) && /^\d{4}-\d{2}-\d{2}/.test(stringValue)) return dateValue;
+
+  return stringValue.toLowerCase();
+};
 
 const hrmsTableColumns = [
   { label: "Employee ID", getValue: (profile) => profile.employeeId },
@@ -850,7 +869,6 @@ const Section = ({ title, children }) => (
 
 const HRMS = () => {
   const fileInputRef = useRef(null);
-  const profileDetailsLoadingRef = useRef(new Set());
   const { entity } = useSelector((state) => state.auth);
   const activeEntity = (entity || "IN").toUpperCase();
   const [users, setUsers] = useState([]);
@@ -869,8 +887,12 @@ const HRMS = () => {
   const [viewLoading, setViewLoading] = useState(false);
   const [downloadedDocumentKeys, setDownloadedDocumentKeys] = useState({});
   const [savingVerifiedDocumentKeys, setSavingVerifiedDocumentKeys] = useState({});
+  const [deletingDocumentKeys, setDeletingDocumentKeys] = useState({});
+  const [documentToDelete, setDocumentToDelete] = useState(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [order, setOrder] = useState("asc");
+  const [orderBy, setOrderBy] = useState("Employee ID");
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -878,7 +900,6 @@ const HRMS = () => {
       const response = await httpService.get("/users/employee", { entity: activeEntity });
       setUsers(normalizeArrayPayload(response));
       setProfileDetailsByEmployeeId({});
-      profileDetailsLoadingRef.current.clear();
       setPage(0);
     } catch (error) {
       showToast("Unable to load HRMS users", "error");
@@ -907,59 +928,47 @@ const HRMS = () => {
     });
   }, [profileDetailsByEmployeeId, query, users]);
 
+  const sortedUsers = useMemo(() => {
+    const sortColumn = hrmsTableColumns.find((column) => column.label === orderBy);
+    const getSortValue =
+      orderBy === "Status"
+        ? (user) => user.status
+        : sortColumn
+        ? (user) => {
+            const employeeId = getEmployeeId(user);
+            const rowProfile = profileFromData({
+              ...user,
+              ...(profileDetailsByEmployeeId[employeeId] || {}),
+            });
+            return sortColumn.getValue(rowProfile, user);
+          }
+        : null;
+
+    if (!getSortValue) return filteredUsers;
+
+    return [...filteredUsers].sort((a, b) => {
+      const aValue = normalizeSortValue(getSortValue(a));
+      const bValue = normalizeSortValue(getSortValue(b));
+
+      if (aValue < bValue) return order === "asc" ? -1 : 1;
+      if (aValue > bValue) return order === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [filteredUsers, order, orderBy, profileDetailsByEmployeeId]);
+
   const paginatedUsers = useMemo(() => {
     const start = page * rowsPerPage;
-    return filteredUsers.slice(start, start + rowsPerPage);
-  }, [filteredUsers, page, rowsPerPage]);
+    return sortedUsers.slice(start, start + rowsPerPage);
+  }, [page, rowsPerPage, sortedUsers]);
+
+  const handleSort = (columnLabel) => {
+    const isAsc = orderBy === columnLabel && order === "asc";
+    setOrder(isAsc ? "desc" : "asc");
+    setOrderBy(columnLabel);
+    setPage(0);
+  };
 
   const groupedDocuments = useMemo(() => groupDocumentsForHRMS(documents), [documents]);
-
-  useEffect(() => {
-    const missingEmployeeIds = paginatedUsers
-      .map(getEmployeeId)
-      .filter(
-        (employeeId) =>
-          employeeId &&
-          !profileDetailsByEmployeeId[employeeId] &&
-          !profileDetailsLoadingRef.current.has(employeeId)
-      );
-
-    if (!missingEmployeeIds.length) return;
-
-    missingEmployeeIds.forEach((employeeId) => {
-      profileDetailsLoadingRef.current.add(employeeId);
-    });
-
-    Promise.all(
-      missingEmployeeIds.map(async (employeeId) => {
-        try {
-          const response = await fetch(`https://mymulya.com/users/profile/${employeeId}`, {
-            method: "GET",
-            credentials: "include",
-          });
-          if (!response.ok) return null;
-
-          const responseBody = await response.json();
-          return [employeeId, getPayload(responseBody)];
-        } catch (error) {
-          return null;
-        } finally {
-          profileDetailsLoadingRef.current.delete(employeeId);
-        }
-      })
-    ).then((entries) => {
-      const loadedProfiles = entries.filter(Boolean);
-      if (!loadedProfiles.length) return;
-
-      setProfileDetailsByEmployeeId((currentProfiles) => {
-        const nextProfiles = { ...currentProfiles };
-        loadedProfiles.forEach(([employeeId, profileDetails]) => {
-          nextProfiles[employeeId] = profileDetails;
-        });
-        return nextProfiles;
-      });
-    });
-  }, [paginatedUsers, profileDetailsByEmployeeId]);
 
   const fetchUserProfile = async (user) => {
     const employeeId = getEmployeeId(user);
@@ -1064,13 +1073,72 @@ const HRMS = () => {
     }
   };
 
+  const handleDeleteDocumentClick = (document, index) => {
+    setDocumentToDelete({ document, index });
+  };
+
+  const handleCloseDeleteDocumentDialog = () => {
+    setDocumentToDelete(null);
+  };
+
+  const handleConfirmDeleteDocument = async () => {
+    if (!documentToDelete) return;
+
+    const { document, index } = documentToDelete;
+    const documentKey = getDocumentKey(document, index);
+    const employeeId = profile.employeeId || selectedUser?.employeeId || selectedUser?.userId;
+    const documentId = document?.id || document?.documentId || document?.fileId;
+
+    if (!employeeId || !documentId) {
+      showToast("Unable to identify document for delete", "error");
+      return;
+    }
+
+    setDeletingDocumentKeys((currentKeys) => ({
+      ...currentKeys,
+      [documentKey]: true,
+    }));
+
+    try {
+      const formData = new FormData();
+      appendProfileFields(formData, profile);
+      formData.append("deleteDocumentIds", String(documentId));
+
+      await httpService.put(`/users/update/${employeeId}`, formData);
+
+      setDocuments((currentDocuments) =>
+        currentDocuments.filter((currentDocument) => {
+          const currentDocumentId =
+            currentDocument?.id || currentDocument?.documentId || currentDocument?.fileId;
+          return currentDocumentId !== documentId;
+        })
+      );
+      setDownloadedDocumentKeys((currentKeys) => {
+        const nextKeys = { ...currentKeys };
+        delete nextKeys[documentKey];
+        return nextKeys;
+      });
+      showToast("Document deleted successfully", "success");
+      setDocumentToDelete(null);
+      await fetchUserProfile({ ...selectedUser, employeeId });
+    } catch (error) {
+      showToast("Unable to delete document", "error");
+    } finally {
+      setDeletingDocumentKeys((currentKeys) => ({
+        ...currentKeys,
+        [documentKey]: false,
+      }));
+    }
+  };
+
   const renderDocumentRow = ({ document, originalIndex }, showDivider = false) => {
     const documentName = getDocumentName(document);
     const source = getDocumentSource(document);
     const documentKey = getDocumentKey(document, originalIndex);
     const isDownloaded = Boolean(downloadedDocumentKeys[documentKey]);
     const savingVerification = Boolean(savingVerifiedDocumentKeys[documentKey]);
-    const canVerifyDocument = Boolean(document?.id || document?.documentId || document?.fileId);
+    const canManageDocument = Boolean(document?.id || document?.documentId || document?.fileId);
+    const deletingDocument = Boolean(deletingDocumentKeys[documentKey]);
 
     return (
       <React.Fragment key={`${documentKey}-${originalIndex}`}>
@@ -1103,7 +1171,7 @@ const HRMS = () => {
               <Checkbox
                 size="small"
                 checked={isDocumentVerified(document)}
-                disabled={!isDownloaded || savingVerification || !canVerifyDocument}
+                disabled={!isDownloaded || savingVerification || !canManageDocument || deletingDocument}
                 onChange={handleDocumentVerifiedChange(document, originalIndex)}
                 inputProps={{ "aria-label": `Verify ${documentName}` }}
               />
@@ -1113,10 +1181,21 @@ const HRMS = () => {
             <span>
               <IconButton
                 color="info"
-                disabled={!source || viewLoading}
+                disabled={!source || viewLoading || deletingDocument}
                 onClick={() => handleViewDocument(document)}
               >
                 <Visibility />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title="Delete">
+            <span>
+              <IconButton
+                color="error"
+                disabled={!canManageDocument || deletingDocument}
+                onClick={() => handleDeleteDocumentClick(document, originalIndex)}
+              >
+                {deletingDocument ? <CircularProgress size={20} /> : <DeleteOutline />}
               </IconButton>
             </span>
           </Tooltip>
@@ -1245,6 +1324,8 @@ const HRMS = () => {
     setSelectedFiles([]);
     setDownloadedDocumentKeys({});
     setSavingVerifiedDocumentKeys({});
+    setDeletingDocumentKeys({});
+    setDocumentToDelete(null);
     closeDocumentViewer();
   };
 
@@ -1302,24 +1383,62 @@ const HRMS = () => {
                     {hrmsTableColumns.map((column) => (
                       <TableCell
                         key={column.label}
+                        sortDirection={orderBy === column.label ? order : false}
                         sx={{
                           color: "primary.contrastText",
                           fontWeight: 700,
                           whiteSpace: "nowrap",
+                          "& .MuiTableSortLabel-root": {
+                            color: "primary.contrastText",
+                            "&:hover": {
+                              color: "primary.contrastText",
+                            },
+                            "&.Mui-active": {
+                              color: "primary.contrastText",
+                            },
+                          },
+                          "& .MuiTableSortLabel-icon": {
+                            color: "primary.contrastText !important",
+                          },
                         }}
                       >
-                        {column.label}
+                        <TableSortLabel
+                          active={orderBy === column.label}
+                          direction={orderBy === column.label ? order : "asc"}
+                          onClick={() => handleSort(column.label)}
+                        >
+                          {column.label}
+                        </TableSortLabel>
                       </TableCell>
                     ))}
                     <TableCell
+                      sortDirection={orderBy === "Status" ? order : false}
                       sx={{
                         ...stickyStatusColumnSx,
                         color: "primary.contrastText",
                         fontWeight: 700,
                         bgcolor: "primary.main",
+                        "& .MuiTableSortLabel-root": {
+                          color: "primary.contrastText",
+                          "&:hover": {
+                            color: "primary.contrastText",
+                          },
+                          "&.Mui-active": {
+                            color: "primary.contrastText",
+                          },
+                        },
+                        "& .MuiTableSortLabel-icon": {
+                          color: "primary.contrastText !important",
+                        },
                       }}
                     >
-                      Status
+                      <TableSortLabel
+                        active={orderBy === "Status"}
+                        direction={orderBy === "Status" ? order : "asc"}
+                        onClick={() => handleSort("Status")}
+                      >
+                        Status
+                      </TableSortLabel>
                     </TableCell>
                     <TableCell
                       align="center"
@@ -1393,7 +1512,7 @@ const HRMS = () => {
                   })}
                   {!paginatedUsers.length && (
                     <TableRow>
-                      <TableCell colSpan={hrmsTableColumns.length + 1}>
+                      <TableCell colSpan={hrmsTableColumns.length + 2}>
                         <Alert severity="info">No users found.</Alert>
                       </TableCell>
                     </TableRow>
@@ -1403,7 +1522,7 @@ const HRMS = () => {
             </TableContainer>
             <TablePagination
               component="div"
-              count={filteredUsers.length}
+              count={sortedUsers.length}
               page={page}
               onPageChange={(event, nextPage) => setPage(nextPage)}
               rowsPerPage={rowsPerPage}
@@ -1468,8 +1587,6 @@ const HRMS = () => {
                 <EditableField label="Email" field="email" value={profile.email} onChange={handleProfileChange} />
                 <EditableField label="Personal Email" field="personalemail" value={profile.personalemail} onChange={handleProfileChange} />
                 <EditableField label="Phone Number" field="phoneNumber" value={profile.phoneNumber} onChange={handleProfileChange} />
-                <EditableField label="PAN" field="pan" value={profile.pan} onChange={handleProfileChange} />
-                <EditableField label="Aadhar" field="adhar" value={profile.adhar} onChange={handleProfileChange} />
                 <EditableField label="Father / Spouse Name" field="fatherOrSpouseName" value={profile.fatherOrSpouseName} onChange={handleProfileChange} />
                 <EditableField label="Mother Name" field="motherName" value={profile.motherName} onChange={handleProfileChange} />
                 <EditableField label="DOB" field="dob" value={profile.dob} onChange={handleProfileChange} type="date" />
@@ -1484,7 +1601,6 @@ const HRMS = () => {
               <Section title="Job Profile">
                 <EditableField label="Employee ID" field="employeeId" value={profile.employeeId} onChange={handleProfileChange} />
                 <EditableField label="Role" field="role" value={profile.role} onChange={handleProfileChange} />
-                <EditableField label="Entity" field="entity" value={profile.entity} onChange={handleProfileChange} />
                 <EditableField label="Joining Date" field="joiningDate" value={formatDateForInput(profile.joiningDate)} onChange={handleProfileChange} type="date" />
                 <EditableField label="Official Number" field="officialNumber" value={profile.officialNumber} onChange={handleProfileChange} />
                 <EditableField label="Official Email" field="officialEmailId" value={profile.officialEmailId} onChange={handleProfileChange} />
@@ -1723,6 +1839,16 @@ const HRMS = () => {
           <Button onClick={closeDocumentViewer}>Close</Button>
         </DialogActions>
       </Dialog>
+
+      <ConfirmDialog
+        open={Boolean(documentToDelete)}
+        title="Delete Document"
+        content={`Are you sure you want to delete "${
+          documentToDelete ? getDocumentName(documentToDelete.document) : "this document"
+        }"?`}
+        onClose={handleCloseDeleteDocumentDialog}
+        onConfirm={handleConfirmDeleteDocument}
+      />
     </Box>
   );
 };
