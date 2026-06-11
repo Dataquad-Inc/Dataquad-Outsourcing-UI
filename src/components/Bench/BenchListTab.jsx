@@ -589,7 +589,7 @@ const BenchListTab = ({ onAddClick }) => {
       };
 
       // Replace with your actual email API endpoint
-      const response = await axios.post("https://your-api-endpoint/send-email", emailPayload);
+      const response = await axios.post("https://mymulya.com/candidate/send-jd", emailPayload);
 
       ToastService.success(
         response.data.message || `Email sent successfully to ${selectedEmails.length} candidate(s)!`
@@ -675,13 +675,13 @@ const BenchListTab = ({ onAddClick }) => {
 
     return (
       <Paper
-        elevation={3}
+        elevation={1}
         sx={{
           mb: 2,
           p: 1.5,
           borderRadius: 2,
-          bgcolor: "primary.main",
-          color: "primary.contrastText",
+          bgcolor: "",
+          color: "black",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
