@@ -1228,6 +1228,28 @@ const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
     });
   }
 
+   console.log('🔄 Processing', apiTimesheet.holidays?.length || 0, 'holiday entries');
+  if (apiTimesheet.holidays) {
+    apiTimesheet.holidays.forEach((entry, idx) => {
+      const entryDateStr = entry.date;
+      const dayName = dateToDayMap[entryDateStr];
+
+      if (dayName) {
+        const entryDate = new Date(entry.date);
+        const isInCurrentMonth = entryDate.getMonth() === currentMonth &&
+                                 entryDate.getFullYear() === currentYear;
+
+        if (isInCurrentMonth) {
+          const hours = parseFloat(entry.hours) || 0;
+          transformed.companyHoliday[dayName] = hours;
+          daysWithNonWorkingData.add(dayName);
+          console.log(`✅ Set ${hours}h holiday for ${dayName}`);
+        }
+      }
+    });
+  }
+
+
   // Process working entries
   console.log('🔄 Processing', apiTimesheet.workingEntries?.length || 0, 'working entries');
   if (apiTimesheet.workingEntries) {
@@ -1258,6 +1280,7 @@ const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
     });
   }
 
+
   // Set defaults for empty days
   if (currentMonthStatus === 'DRAFT' || (currentMonthStatus === 'REJECTED' && !isEditMode)) {
     console.log(' Setting default hours for DRAFT/REJECTED status');
@@ -1274,7 +1297,8 @@ const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
         
         const dayDateStr = formatDateToYMD(dayDate);
         const hasEntry = apiTimesheet.workingEntries?.some(e => e.date === dayDateStr && e.project === selectedProject) ||
-                        apiTimesheet.nonWorkingEntries?.some(e => e.date === dayDateStr);
+                        apiTimesheet.nonWorkingEntries?.some(e => e.date === dayDateStr)||
+                        apiTimesheet.holidays?.some(e => e.date === dayDateStr);
 
         if (!hasEntry) {
           transformed[day] = 8;
