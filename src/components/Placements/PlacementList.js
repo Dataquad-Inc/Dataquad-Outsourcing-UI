@@ -178,6 +178,20 @@ const PlacementsList = () => {
     }
   };
 
+  // Helper function to get filter params for export
+  const getExportFilterParams = () => {
+    switch (activeFilter) {
+      case "active":
+        return { status: "active" };
+      case "inactive":
+        return { status: "inactive" };
+      case "fulltime":
+        return { employmentType: "Full-time" };
+      default:
+        return {};
+    }
+  };
+
   const handleOpenDrawer = (placement = null) => {
     if (placement) {
       const originalPlacement = {
@@ -546,6 +560,33 @@ const PlacementsList = () => {
     );
   };
 
+  // Get dynamic export URL based on active filter
+  const getExportUrl = () => {
+    const baseUrl = "/candidate/placement/placements-list";
+    const filterParams = getExportFilterParams();
+    
+    if (Object.keys(filterParams).length === 0) {
+      return baseUrl;
+    }
+    
+    const queryParams = new URLSearchParams(filterParams).toString();
+    return `${baseUrl}?${queryParams}`;
+  };
+
+  // Get dynamic filename based on active filter
+  const getExportFileName = () => {
+    switch (activeFilter) {
+      case "active":
+        return "placements_active";
+      case "inactive":
+        return "placements_inactive";
+      case "fulltime":
+        return "placements_fulltime";
+      default:
+        return "placements_all";
+    }
+  };
+
   return (
     <>
       <Stack
@@ -574,10 +615,10 @@ const PlacementsList = () => {
         >
           <DateRangeFilter component="placements" />
 
-          {/* ✅ Export Button — CSV or XLSX */}
+          {/* ✅ Export Button — CSV or XLSX with filter support */}
           <ExportButton
-            apiUrl="/candidate/placement/placements-list" 
-            fileName="placements"
+            apiUrl={getExportUrl()}
+            fileName={getExportFileName()}
           />
 
           <Button
