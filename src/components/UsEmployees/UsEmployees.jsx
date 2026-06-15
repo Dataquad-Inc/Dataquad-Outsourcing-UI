@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from "react";
 import { Button, MenuItem, TextField, Stack } from "@mui/material";
+import { useSelector } from "react-redux";
 import CustomDataTable from "../../ui-lib/CustomDataTable";
 import getEmployeeColumns from "./EmployeeTableColumnConfig";
 import {
@@ -11,6 +12,8 @@ import showDeleteConfirm from "../../utils/showDeleteConfirm";
 import { CustomModal } from "../../ui-lib/CustomModal";
 
 const UsEmployees = () => {
+  const { role } = useSelector((state) => state.auth);
+  const canManageEmployees = role !== "COORDINATOR";
   const [refreshKey, setRefreshKey] = useState(0);
   const [loading, setLoading] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
@@ -33,6 +36,7 @@ const UsEmployees = () => {
     { value: "RECRUITER", label: "Recruiter" },
     { value: "SALESEXECUTIVE", label: "Sales Executive" },
     { value: "GRANDSALES", label: "Grand Sales" },
+    { value: "COORDINATOR", label: "Coordinator" },
     { value: "HRMS", label: "HRMS" },
   ];
 
@@ -160,7 +164,12 @@ const UsEmployees = () => {
   };
 
   /** ---------------- Columns ---------------- */
-  const columns = getEmployeeColumns({ handleEdit, handleDelete, loading });
+  const columns = getEmployeeColumns({
+    handleEdit,
+    handleDelete,
+    loading,
+    canManage: canManageEmployees,
+  });
 
   /** ---------------- Render ---------------- */
   return (

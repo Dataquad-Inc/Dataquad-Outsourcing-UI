@@ -54,6 +54,7 @@ const UsSubmissionsList = () => {
   const [filterOptions, setFilterOptions] = useState({});
 
   const { userId, role } = useSelector((state) => state.auth);
+  const isCoordinator = role === "COORDINATOR";
 
   // Confirm Dialog state
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -138,6 +139,11 @@ const UsSubmissionsList = () => {
         params.keyword = debouncedSearch.trim();
       }
 
+      if (isCoordinator) {
+        params.userId = userId;
+        params.coordinator = true;
+      }
+
       // Log the params for debugging
       console.log("API Request Params:", params);
 
@@ -198,6 +204,7 @@ const UsSubmissionsList = () => {
     buildFilterParams,
     filterOptions,
     role,
+    isCoordinator,
     userId,
   ]);
 
@@ -428,7 +435,7 @@ const UsSubmissionsList = () => {
   return (
     <>
       <CustomDataTable
-        title="US Submissions"
+        title={isCoordinator ? "US Coordinator Submissions" : "US Submissions"}
         columns={columns}
         rows={submissions}
         total={total}

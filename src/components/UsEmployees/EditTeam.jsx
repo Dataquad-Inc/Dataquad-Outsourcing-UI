@@ -50,6 +50,17 @@ const getTeamFormSections = (employees) => {
             value: emp.employeeId,
           })),
         },
+        {
+          name: "coordinators",
+          label: "Select Coordinators",
+          type: "multiselect",
+          required: false,
+          icon: "people",
+          options: employees.COORDINATOR.map((emp) => ({
+            label: emp.employeeName,
+            value: emp.employeeId,
+          })),
+        },
       ],
     },
   ];
@@ -70,6 +81,7 @@ const EditTeam = () => {
     TEAMLEAD: [],
     RECRUITER: [],
     SALESEXECUTIVE: [],
+    COORDINATOR: [],
   });
 
   // Find employee ID by name
@@ -98,6 +110,8 @@ const EditTeam = () => {
         team.recruiters?.map(rec => rec.userName) || [], "RECRUITER"),
       salesExecutives: findEmployeeIdsByNames(employees, 
         team.salesExecutives?.map(exec => exec.userName) || [], "SALESEXECUTIVE"),
+      coordinators: findEmployeeIdsByNames(employees,
+        team.coordinators?.map(coord => coord.userName) || [], "COORDINATOR"),
     };
   };
 
@@ -138,12 +152,14 @@ const EditTeam = () => {
       const teamleads = await fetchEmployeesByRole("TEAMLEAD");
       const recruiters = await fetchEmployeesByRole("RECRUITER");
       const salesexecutives = await fetchEmployeesByRole("SALESEXECUTIVE");
+      const coordinators = await fetchEmployeesByRole("COORDINATOR");
 
       const transformed = {
         SUPERADMIN: superadmins,
         TEAMLEAD: teamleads,
         RECRUITER: recruiters,
         SALESEXECUTIVE: salesexecutives,
+        COORDINATOR: coordinators,
       };
 
       console.log("Fetched employees by role:", transformed);

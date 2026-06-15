@@ -32,7 +32,7 @@ const roleColors = {
   GRANDSALES: "#f57c00", // Dark Orange
 };
 
-const getEmployeeColumns = ({ handleEdit, handleDelete, loading }) => [
+const getEmployeeColumns = ({ handleEdit, handleDelete, loading, canManage = true }) => [
   {
     id: "userId",
     label: iconLabel(AssignmentInd, "Employee ID"),
@@ -126,30 +126,34 @@ const getEmployeeColumns = ({ handleEdit, handleDelete, loading }) => [
         />
       ),
   },
-  {
-    id: "actions",
-    label: iconLabel(Edit, "Actions"),
-    render: (_, row) =>
-      loading ? (
-        <Box sx={{ display: "flex", gap: 1 }}>
-          <Skeleton variant="circular" width={32} height={32} />
-          <Skeleton variant="circular" width={32} height={32} />
-        </Box>
-      ) : (
-        <Box sx={{ display: "flex", gap: 1 }}>
-          <Tooltip title="Edit Employee">
-            <IconButton color="primary" onClick={() => handleEdit(row)}>
-              <Edit fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Delete Employee">
-            <IconButton color="error" onClick={() => handleDelete(row)}>
-              <Delete fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Box>
-      ),
-  },
+  ...(canManage
+    ? [
+        {
+          id: "actions",
+          label: iconLabel(Edit, "Actions"),
+          render: (_, row) =>
+            loading ? (
+              <Box sx={{ display: "flex", gap: 1 }}>
+                <Skeleton variant="circular" width={32} height={32} />
+                <Skeleton variant="circular" width={32} height={32} />
+              </Box>
+            ) : (
+              <Box sx={{ display: "flex", gap: 1 }}>
+                <Tooltip title="Edit Employee">
+                  <IconButton color="primary" onClick={() => handleEdit(row)}>
+                    <Edit fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Delete Employee">
+                  <IconButton color="error" onClick={() => handleDelete(row)}>
+                    <Delete fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            ),
+        },
+      ]
+    : []),
 ];
 
 export default getEmployeeColumns;

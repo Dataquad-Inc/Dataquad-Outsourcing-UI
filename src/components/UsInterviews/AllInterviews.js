@@ -47,7 +47,8 @@ const AllInterviews = () => {
   const [editingInterview, setEditingInterview] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
-  const { userId } = useSelector(state => state.auth);
+  const { userId, role } = useSelector(state => state.auth);
+  const isCoordinator = role === "COORDINATOR";
 
     const {rtrInterviews = []} = useSelector(state => state.interview);
  
@@ -116,6 +117,11 @@ const AllInterviews = () => {
         ...filterParams
       };
 
+      if (isCoordinator) {
+        params.userId = userId;
+        params.coordinator = true;
+      }
+
       console.log('📊 Interview API Params:', params);
 
       const response = await interviewsAPI.getAllInterviews(params);
@@ -140,7 +146,7 @@ const AllInterviews = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, debouncedSearch, filters, refreshKey]);
+  }, [page, rowsPerPage, debouncedSearch, filters, refreshKey, isCoordinator, userId]);
 
   // Handle edit save
   const handleEditSave = async (updatedInterview) => {
@@ -269,7 +275,7 @@ const AllInterviews = () => {
   return (
     <Box sx={{ padding: 2 }}>
       <CustomDataTable
-        title="All Interviews"
+        title={isCoordinator ? "Coordinator Interviews" : "All Interviews"}
         columns={columns}
         rows={transformedRows}
         total={total}
