@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Box,
   Typography,
@@ -24,25 +24,36 @@ const Teamlist = () => {
   const [loading, setLoading] = useState(false);
   const theme = useTheme();
   const navigate = useNavigate();
-  const {role} = useSelector(state=>state.auth);
+  const { role, userId } = useSelector((state) => state.auth);
+  const isCoordinator = role === "COORDINATOR";
+
+  const isCurrentCoordinatorTeam = useCallback((team) => {
+    if (!isCoordinator) return true;
+
+    return (team.coordinators || []).some((coordinator) => {
+      const coordinatorId = coordinator.userId || coordinator.employeeId;
+      return coordinatorId === userId;
+    });
+  }, [isCoordinator, userId]);
 
   // Fetch Teams
-  const fetchTeams = async () => {
+  const fetchTeams = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("https://mymulya.com/users/AllAssociatedUsers");
       const data = await res.json();
-      setTeams(data || []);
+      const allTeams = Array.isArray(data) ? data : [];
+      setTeams(allTeams.filter(isCurrentCoordinatorTeam));
     } catch (error) {
       console.error("Error fetching teams:", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [isCurrentCoordinatorTeam]);
 
   useEffect(() => {
     fetchTeams();
-  }, []);
+  }, [fetchTeams]);
 
   // Delete Team Member
   const handleDeleteMember = async (teamLeadId, memberId) => {
@@ -144,7 +155,8 @@ const Teamlist = () => {
           {teams.map((team, index) => {
             const recruiters = team.recruiters || [];
             const salesExecs = team.salesExecutives || [];
-            const membersCount = recruiters.length + salesExecs.length;
+            const coordinators = team.coordinators || [];
+            const membersCount = recruiters.length + salesExecs.length + coordinators.length;
 
             return (
               <Grid item xs={12} sm={6} md={4} key={index}>
@@ -204,6 +216,7 @@ const Teamlist = () => {
                   <CardContent sx={{ flexGrow: 1 }}>
                     {renderMembers(recruiters, team.teamLeadId, "Recruiters")}
                     {renderMembers(salesExecs, team.teamLeadId, "Sales Executives")}
+                    {renderMembers(coordinators, team.teamLeadId, "Coordinators")}
 
                     <Box>
                       <Typography variant="subtitle2" fontWeight="bold" gutterBottom>

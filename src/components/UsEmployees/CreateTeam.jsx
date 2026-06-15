@@ -56,6 +56,17 @@ const getTeamFormSections = (employees) => {
             value: emp.employeeId,
           })),
         },
+        {
+          name: "coordinators",
+          label: "Select Coordinators",
+          type: "multiselect",
+          required: false,
+          icon: "people",
+          options: employees.COORDINATOR.map((emp) => ({
+            label: emp.employeeName,
+            value: emp.employeeId,
+          })),
+        },
       ],
     },
   ];
@@ -72,6 +83,7 @@ const CreateTeam = () => {
     TEAMLEAD: [],
     RECRUITER: [],
     SALESEXECUTIVE: [],
+    COORDINATOR: [],
   });
 
   const formInitialValues = {
@@ -80,6 +92,7 @@ const CreateTeam = () => {
     teamLead: "",
     recruiters: [],
     salesExecutives: [],
+    coordinators: [],
   };
 
   const handleCancel = () => {
@@ -129,12 +142,16 @@ const CreateTeam = () => {
       await delay(1000);
 
       const salesexecutives = await fetchEmployeesByRole("SALESEXECUTIVE");
+      await delay(1000);
+
+      const coordinators = await fetchEmployeesByRole("COORDINATOR");
 
       const transformed = {
         SUPERADMIN: superadmins,
         TEAMLEAD: teamleads,
         RECRUITER: recruiters,
         SALESEXECUTIVE: salesexecutives,
+        COORDINATOR: coordinators,
       };
 
       console.log("Fetched employees by role:", transformed);
