@@ -816,6 +816,7 @@ const routeConfig = [
                   "EMPLOYEE",
                   "RECRUITER",
                   "SALESEXECUTIVE",
+                  "COORDINATOR",
                 ]}
                 allowedEntities={["US"]}
               />

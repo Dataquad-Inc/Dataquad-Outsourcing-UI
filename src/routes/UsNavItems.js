@@ -72,7 +72,7 @@ export const usNavItems = (role) => [
     text: "RTR",
     path: "rtr/rtr-list",
     icon: <ListAltIcon />,
-    roles: commonRoles,
+    roles: [...commonRoles, "COORDINATOR"],
   },
   {
     text: "Submissions",

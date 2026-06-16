@@ -105,6 +105,12 @@ const RtrList = React.memo(() => {
       let result;
       if (role === "SUPERADMIN" || role === "ADMIN") {
         result = await rightToRepresentAPI.getAllRTR(params);
+      } else if (role === "COORDINATOR") {
+        result = await rightToRepresentAPI.getAllRTR({
+          ...params,
+          coordinator: true,
+          userId,
+        });
       } else if (role === "SALESEXECUTIVE" || role === "GRANDSALES") {
         result = await rightToRepresentAPI.getSalesRtr(userId, params);
       } else if (role === "TEAMLEAD") {
@@ -186,6 +192,12 @@ const RtrList = React.memo(() => {
       let result;
       if (role === "SUPERADMIN" ) {
         result = await rightToRepresentAPI.getTodaysRtr(params);
+      } else if (role === "COORDINATOR") {
+        result = await rightToRepresentAPI.getTodaysRtr({
+          ...params,
+          coordinator: true,
+          userId,
+        });
       } else if (role === "TEAMLEAD") {
         result = await rightToRepresentAPI.getTodaysTeamRtr(userId, params);
       }
