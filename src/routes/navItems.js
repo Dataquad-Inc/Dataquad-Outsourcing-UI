@@ -13,6 +13,7 @@ import AutorenewIcon from "@mui/icons-material/Autorenew";
 import TableChartIcon from "@mui/icons-material/TableChart";
 import BarChartIcon from "@mui/icons-material/BarChart";
 import ManageAccountsIcon from "@mui/icons-material/ManageAccounts";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 
 export const inNavItems = [
   {
@@ -152,6 +153,12 @@ export const inNavItems = [
     text: "HRMS",
     path: "hrms",
     icon: <ManageAccountsIcon />,
+    roles: ["SUPERADMIN", "HRMS"],
+  },
+   {
+    text: "Attendance",
+    path: "attendance",
+    icon: <CalendarMonthIcon />,
     roles: ["SUPERADMIN", "HRMS"],
   },
 ];

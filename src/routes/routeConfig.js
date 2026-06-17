@@ -214,6 +214,10 @@ const InProgressData = lazy(
   () => import("../components/InProgress/InProgress"),
 );
 
+// Attendance 
+// const AttendanceList = lazy(() => import("../components/attendance/AttendanceList"));
+const AttendanceManagement = lazy(() => import("../components/attendance/AttendanceManagement"));
+
 const routeConfig = [
   {
     path: "/dashboard",
@@ -692,6 +696,16 @@ const routeConfig = [
               />
             ),
             children: [{ index: true, element: Loadable(HRMS) }],
+          },
+          {
+            path: "attendance",
+            element: (
+              <ProtectedRoute
+                allowedRoles={["SUPERADMIN", "HRMS"]}
+                allowedEntities={["IN", "US"]}
+              />
+            ),
+            children: [{ index: true, element: Loadable(AttendanceManagement) }],
           },
 
           {
