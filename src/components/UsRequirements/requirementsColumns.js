@@ -194,8 +194,30 @@ const getRequirementsColumns = ({
     align: "center",
     exportValue: (v) =>
       !v || v.length === 0 ? "N/A" : Array.isArray(v) ? v.map((user) => user.userName).join(", ") : "Invalid Data",
-    render: (v) =>
-      v && v?.length && <small>{v?.map((user) => user.userName).join(", ") || "-"}</small>,
+    render: (v) => {
+      if (!v || !v.length) return "-";
+      const names = Array.isArray(v) ? v.map((user) => user.userName || "").filter(Boolean) : [];
+      const displayNames = names.slice(0, 2).join(", ");
+      const moreCount = Math.max(0, names.length - 2);
+      const label = moreCount > 0 ? `${displayNames} +${moreCount} more` : displayNames;
+
+      return (
+        <Tooltip title={names.join(", ")}>
+          <Typography
+            component="span"
+            sx={{
+              display: "inline-block",
+              maxWidth: 140,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {label || "-"}
+          </Typography>
+        </Tooltip>
+      );
+    },
   },
   {
     id: "submissions",
