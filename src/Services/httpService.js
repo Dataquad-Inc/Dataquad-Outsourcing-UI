@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // PROD
-const PROD_API_BASE_URL = "http://localhost:8083";
+const PROD_API_BASE_URL = "https://mymulya.com";
 export const API_BASE_URL = PROD_API_BASE_URL;
 
 // Set axios default to send cookies on all requests

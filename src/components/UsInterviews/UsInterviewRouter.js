@@ -10,7 +10,7 @@ const UsInterviewsRouter = () => {
   console.log('Current role:', role);
   
   // Check user role and render appropriate component
-  if (role === 'SUPERADMIN' || role === 'ADMIN') {
+  if (role === 'SUPERADMIN' || role === 'ADMIN' || role === 'COORDINATOR') {
     return <AllInterviews />;
   } else if (role === 'SALESEXECUTIVE') {
     return <SalesInterviews />;

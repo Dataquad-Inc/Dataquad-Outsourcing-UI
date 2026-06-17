@@ -50,6 +50,16 @@ const roleConfig = {
     icon: BusinessIcon,
     label: "Grand Sales",
   },
+  HRMS: {
+    color: "#00796b",
+    icon: AdminPanelSettingsIcon,
+    label: "HRMS",
+  },
+  COORDINATOR: {
+    color: "#00695c",
+    icon: GroupsIcon,
+    label: "Coordinator",
+  },
 };
 
 const jobTypeConfig = {
@@ -105,7 +115,8 @@ const CustomChip = ({
   let config;
 
   if (role) {
-    config = roleConfig[role?.toUpperCase()] || {
+    const normalizedRole = String(role).trim().toUpperCase();
+    config = roleConfig[normalizedRole] || {
       color: "#616161",
       icon: PersonIcon,
       label: "Unknown Role",

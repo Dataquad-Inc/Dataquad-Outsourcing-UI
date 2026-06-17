@@ -194,7 +194,7 @@ const TimesheetTableSection = ({
                         {/* Work Hours Row */}
                         <TableRow>
                           <TableCell sx={{ fontWeight: 'bold', color: 'text.primary', pl: 2, py: 1 }}>
-                            Work Hours/ Company Holiday
+                            Work Hours
                           </TableCell>
                           {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => (
                             <TableCell key={day} align="center" sx={{ py: 1, px: 0.5 }}>
@@ -205,15 +205,29 @@ const TimesheetTableSection = ({
                           ))}
                         </TableRow>
 
-                        {/* Leave Hours Row */}
+                        {/* Holidays Row */}
                         <TableRow>
-                          <TableCell sx={{ fontWeight: 'bold', color: 'primary.main', pl: 2, py: 1 }}>
-                            Leave Hours
+                          <TableCell sx={{ fontWeight: 'bold', color: 'warning.main', pl: 2, py: 1 }}>
+                            Holidays
                           </TableCell>
                           {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => (
                             <TableCell key={day} align="center" sx={{ py: 1, px: 0.5 }}>
                               <Typography variant="body2" sx={{ fontWeight: 'bold', textAlign: 'center' }}>
-                                {(weekData.timesheet.sickLeave?.[day] || 0) + (weekData.timesheet.companyHoliday?.[day] || 0)}
+                                {weekData.timesheet.companyHoliday?.[day] || 0}
+                              </Typography>
+                            </TableCell>
+                          ))}
+                        </TableRow>
+
+                        {/* Sick Leave Row */}
+                        <TableRow>
+                          <TableCell sx={{ fontWeight: 'bold', color: 'primary.main', pl: 2, py: 1 }}>
+                            Sick Leave
+                          </TableCell>
+                          {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => (
+                            <TableCell key={day} align="center" sx={{ py: 1, px: 0.5 }}>
+                              <Typography variant="body2" sx={{ fontWeight: 'bold', textAlign: 'center' }}>
+                                {weekData.timesheet.sickLeave?.[day] || 0}
                               </Typography>
                             </TableCell>
                           ))}
@@ -301,7 +315,7 @@ const TimesheetTableSection = ({
                 {/* Work Hours Row */}
                 <TableRow>
                   <TableCell sx={{ fontWeight: 'bold', color: 'text.primary', pl: 2, py: 1 }}>
-                    Work Hours / Company Holiday
+                    Work Hours
                   </TableCell>
                   {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => {
                     const dayDate = getDateForDay(selectedWeekStart, day);
@@ -326,6 +340,57 @@ const TimesheetTableSection = ({
                             style: {
                               textAlign: 'center',
                               fontWeight: currentTimesheet[day] > 0 ? 'bold' : 'normal',
+                              padding: '4px',
+                              width: '50px'
+                            }
+                          }}
+                          sx={{
+                            '& .MuiInputBase-root': {
+                              backgroundColor: !isEditable ? 'grey.100' : 'white',
+                              '&.Mui-disabled': {
+                                backgroundColor: 'grey.50',
+                                color: 'text.secondary'
+                              }
+                            }
+                          }}
+                          variant="outlined"
+                          size="small"
+                        />
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 'bold', color: 'warning.main', pl: 2, py: 1 }}>
+                    Holiday
+                  </TableCell>
+                  {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => {
+                    const isWeekend = day === 'saturday' || day === 'sunday';
+                    const dayDate = getDateForDay(selectedWeekStart, day);
+                    const isInCalendarMonth = dayDate ? isDateInCalendarMonth(dayDate, calendarValue) : false;
+                    const isEditable = safeIsFieldEditable(currentTimesheet, day, 'companyHoliday', calendarValue, isEditMode) && !isWeekend;
+                    return (
+                      <TableCell key={day} align="center" sx={{
+                        py: 1,
+                        px: 0.5,
+                        backgroundColor: !isInCalendarMonth ? 'grey.50' : 'transparent'
+                      }}>
+                        <TextField
+                          type="text"
+                          value={currentTimesheet.companyHoliday?.[day] || 0}
+                          onChange={(e) => {
+                            const value = Number(e.target.value);
+                            handleHourChange(day, value === 8 ? value : '', 'companyHoliday');
+                          }}
+                          disabled={!isEditable || (isAddingNewTimesheet && isSubmitted)}
+                          inputProps={{
+                            min: 0,
+                            max: 8,
+                            step: 1,
+                            style: {
+                              textAlign: 'center',
+                              fontWeight: currentTimesheet.companyHoliday?.[day] > 0 ? 'bold' : 'normal',
                               padding: '4px',
                               width: '50px'
                             }
@@ -406,29 +471,29 @@ const TimesheetTableSection = ({
 
       {isCreateMode || isAddingNewTimesheet || role === "EXTERNALEMPLOYEE" && (
         <>
-        <Box sx={{ mt: 4, p: 3 ,border: '1px solid', borderColor: 'divider' }}>
-        <Typography variant="h6" gutterBottom>
-          Notes & Additional Information
-        </Typography>
+          <Box sx={{ mt: 4, p: 3, border: '1px solid', borderColor: 'divider' }}>
+            <Typography variant="h6" gutterBottom>
+              Notes & Additional Information
+            </Typography>
 
-        <TextField
-          multiline
-          rows={3}
-          value={notes}
-          onChange={(e) => {
-            // Only allow editing for EXTERNALEMPLOYEE or in create/add modes
-            if (role === 'EXTERNALEMPLOYEE' || isCreateMode || isAddingNewTimesheet) {
-              handleNotesChange(e.target.value);
-            }
-          }}
-          placeholder="Notes and comments about this timesheet..."
-          // disabled={role === 'EXTERNALEMPLOYEE' ? (isSubmitted || currentTimesheet.isEditable) : false}
-          disabled={currentTimesheet?.status === "PENDING_APPROVAL" || currentTimesheet?.status === "APPROVED"}
-          sx={{ mb: 3, width: '100%' }}
-        />
-        </Box>
-      </> 
-    )}
+            <TextField
+              multiline
+              rows={3}
+              value={notes}
+              onChange={(e) => {
+                // Only allow editing for EXTERNALEMPLOYEE or in create/add modes
+                if (role === 'EXTERNALEMPLOYEE' || isCreateMode || isAddingNewTimesheet) {
+                  handleNotesChange(e.target.value);
+                }
+              }}
+              placeholder="Notes and comments about this timesheet..."
+              // disabled={role === 'EXTERNALEMPLOYEE' ? (isSubmitted || currentTimesheet.isEditable) : false}
+              disabled={currentTimesheet?.status === "PENDING_APPROVAL" || currentTimesheet?.status === "APPROVED"}
+              sx={{ mb: 3, width: '100%' }}
+            />
+          </Box>
+        </>
+      )}
 
 
       {/* Notes and Actions Section - Always render notes field for all roles, but conditionally show actions */}

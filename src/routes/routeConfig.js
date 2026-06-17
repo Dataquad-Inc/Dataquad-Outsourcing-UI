@@ -215,7 +215,8 @@ const InProgressData = lazy(
 );
 
 // Attendance 
-const AttendanceList = lazy(() => import("../components/attendance/AttendanceList"));
+// const AttendanceList = lazy(() => import("../components/attendance/AttendanceList"));
+const AttendanceManagement = lazy(() => import("../components/attendance/AttendanceManagement"));
 
 const routeConfig = [
   {
@@ -284,6 +285,7 @@ const routeConfig = [
                   "ADMIN",
                   "SALESEXECUTIVE",
                   "GRANDSALES",
+                  "COORDINATOR",
                 ]}
                 allowedEntities={["US"]}
               />
@@ -703,7 +705,7 @@ const routeConfig = [
                 allowedEntities={["IN", "US"]}
               />
             ),
-            children: [{ index: true, element: Loadable(AttendanceList) }],
+            children: [{ index: true, element: Loadable(AttendanceManagement) }],
           },
 
           {
@@ -828,6 +830,7 @@ const routeConfig = [
                   "EMPLOYEE",
                   "RECRUITER",
                   "SALESEXECUTIVE",
+                  "COORDINATOR",
                 ]}
                 allowedEntities={["US"]}
               />
@@ -946,7 +949,13 @@ const routeConfig = [
             path: "us-employees",
             element: (
               <ProtectedRoute
-                allowedRoles={["SUPERADMIN", "ADMIN", "GRANDSALES", "HRMS"]}
+                allowedRoles={[
+                  "SUPERADMIN",
+                  "ADMIN",
+                  "GRANDSALES",
+                  "HRMS",
+                  "COORDINATOR",
+                ]}
                 allowedEntities={["US"]}
               />
             ),
@@ -965,19 +974,55 @@ const routeConfig = [
                   },
                   {
                     path: "onboardemployee", // /dashboard/us-employees/employeeslist
-                    element: Loadable(OnBoardNewEmployee),
+                    element: (
+                      <ProtectedRoute
+                        allowedRoles={["SUPERADMIN", "ADMIN", "GRANDSALES", "HRMS"]}
+                        allowedEntities={["US"]}
+                      />
+                    ),
+                    children: [{ index: true, element: Loadable(OnBoardNewEmployee) }],
                   },
                   {
                     path: "create-team", // /dashboard/us-employees/employeeslist
-                    element: Loadable(CreateTeam),
+                    element: (
+                      <ProtectedRoute
+                        allowedRoles={["SUPERADMIN", "ADMIN", "GRANDSALES", "HRMS"]}
+                        allowedEntities={["US"]}
+                      />
+                    ),
+                    children: [{ index: true, element: Loadable(CreateTeam) }],
                   },
                   {
                     path: "teamlist", // /dashboard/us-employees/teamlist
-                    element: Loadable(Teamlist),
+                    element: (
+                      <ProtectedRoute
+                        allowedRoles={[
+                          "SUPERADMIN",
+                          "ADMIN",
+                          "GRANDSALES",
+                          "HRMS",
+                          "COORDINATOR",
+                        ]}
+                        allowedEntities={["US"]}
+                      />
+                    ),
+                    children: [{ index: true, element: Loadable(Teamlist) }],
                   },
                   {
                     path: "editteam", // /dashboard/us-employees/teamlist
-                    element: Loadable(EditTeam),
+                    element: (
+                      <ProtectedRoute
+                        allowedRoles={[
+                          "SUPERADMIN",
+                          "ADMIN",
+                          "GRANDSALES",
+                          "HRMS",
+                          "COORDINATOR",
+                        ]}
+                        allowedEntities={["US"]}
+                      />
+                    ),
+                    children: [{ index: true, element: Loadable(EditTeam) }],
                   },
                 ],
               },
@@ -1024,7 +1069,7 @@ const routeConfig = [
             path: "us-interviews",
             element: (
               <ProtectedRoute
-                allowedRoles={["SUPERADMIN", "SALESEXECUTIVE", "TEAMLEAD"]}
+                allowedRoles={["SUPERADMIN", "SALESEXECUTIVE", "TEAMLEAD", "COORDINATOR"]}
                 allowedEntities={["US"]}
               />
             ),
@@ -1055,6 +1100,7 @@ const routeConfig = [
                   "RECRUITER",
                   "SALESEXECUTIVE",
                   "GRANDSALES",
+                  "COORDINATOR",
                 ]}
                 allowedEntities={["US"]}
               />
