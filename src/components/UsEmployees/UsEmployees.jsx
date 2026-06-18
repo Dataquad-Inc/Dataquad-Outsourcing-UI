@@ -22,7 +22,9 @@ const UsEmployees = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [search, setSearch] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState("all");
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState(null); // "active" or "inactive"
+  const [selectedTypeFilter, setSelectedTypeFilter] = useState(null); // "internal" or "external"
+  const [showAll, setShowAll] = useState(true); // "all" filter is independent
 
   const BASE_URL = "https://mymulya.com";
   const roleOptions = [
@@ -41,10 +43,15 @@ const UsEmployees = () => {
     try {
       setLoading(true);
       const apiPage = Math.max(page, 0);
-      const categoryQuery =
-        selectedFilter && selectedFilter !== "all"
-          ? `&category=${encodeURIComponent(selectedFilter)}`
-          : "";
+      
+      // Build query params for selected filters
+      const categoryParams = [];
+      if (!showAll) {
+        if (selectedStatusFilter) categoryParams.push(`category=${encodeURIComponent(selectedStatusFilter)}`);
+        if (selectedTypeFilter) categoryParams.push(`category=${encodeURIComponent(selectedTypeFilter)}`);
+      }
+      
+      const categoryQuery = categoryParams.length ? `&${categoryParams.join("&")}` : "";
 
       const response = await fetch(
         `${BASE_URL}/hotlist/user/allUsers?page=${apiPage}&size=${rowsPerPage}&search=${encodeURIComponent(
@@ -70,7 +77,7 @@ const UsEmployees = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, search, selectedFilter]);
+  }, [page, rowsPerPage, search, showAll, selectedStatusFilter, selectedTypeFilter]);
 
   React.useEffect(() => {
     fetchData();
@@ -107,7 +114,32 @@ const UsEmployees = () => {
   };
 
   const handleCategoryFilterChange = (filterKey) => {
-    setSelectedFilter(filterKey);
+    const statusBatch = ["active", "inactive"];
+    const typeBatch = ["internal", "external"];
+
+    if (filterKey === "all") {
+      // When "All" is clicked, toggle it and disable specific filters
+      if (showAll) {
+        setShowAll(false);
+      } else {
+        setShowAll(true);
+        setSelectedStatusFilter(null);
+        setSelectedTypeFilter(null);
+      }
+    } else if (statusBatch.includes(filterKey)) {
+      // When status filter clicked, disable "All"
+      setShowAll(false);
+      setSelectedStatusFilter(
+        selectedStatusFilter === filterKey ? null : filterKey
+      );
+    } else if (typeBatch.includes(filterKey)) {
+      // When type filter clicked, disable "All"
+      setShowAll(false);
+      setSelectedTypeFilter(
+        selectedTypeFilter === filterKey ? null : filterKey
+      );
+    }
+
     setPage(0);
     setRefreshKey((prev) => prev + 1);
   };
@@ -172,17 +204,30 @@ const UsEmployees = () => {
           { key: "inactive", label: "In-Active" },
           { key: "internal", label: "Internal" },
           { key: "external", label: "External" },
-          // { key: "external-placed", label: "External Placed" },
-        ].map((filter) => (
-          <Button
-            key={filter.key}
-            variant={selectedFilter === filter.key ? "contained" : "outlined"}
-            onClick={() => handleCategoryFilterChange(filter.key)}
-            sx={{ textTransform: "none", minWidth: 150 }}
-          >
-            {filter.label}
-          </Button>
-        ))}
+        ].map((filter) => {
+          const statusBatch = ["active", "inactive"];
+          const typeBatch = ["internal", "external"];
+          
+          let isSelected = false;
+          if (filter.key === "all") {
+            isSelected = showAll;
+          } else if (statusBatch.includes(filter.key)) {
+            isSelected = selectedStatusFilter === filter.key;
+          } else if (typeBatch.includes(filter.key)) {
+            isSelected = selectedTypeFilter === filter.key;
+          }
+
+          return (
+            <Button
+              key={filter.key}
+              variant={isSelected ? "contained" : "outlined"}
+              onClick={() => handleCategoryFilterChange(filter.key)}
+              sx={{ textTransform: "none", minWidth: 150 }}
+            >
+              {filter.label}
+            </Button>
+          );
+        })}
       </Stack>
 
       <CustomDataTable
