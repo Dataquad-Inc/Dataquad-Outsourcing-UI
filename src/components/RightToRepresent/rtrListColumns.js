@@ -135,7 +135,7 @@ const getRTRListColumns = ({
     filterOptions: filterOptions.salesExecutive || [],
     render: (v) => renderValue(v, 100, loading),
   },
-  (userRole === "TEAMLEAD" || userRole === "SUPERADMIN") && {
+  (userRole === "TEAMLEAD" || userRole === "SUPERADMIN" || userRole === "COORDINATOR") && {
     id: "createdByName",
     label: "Submitted By",
     filterType: "text",
