@@ -233,6 +233,7 @@ const RtrList = React.memo(() => {
       vendorName: [],
       implementationPartner: [],
       clientName: [],
+      createdByName: [],
     };
 
     data.forEach((item) => {
