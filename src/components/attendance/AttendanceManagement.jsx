@@ -1,12 +1,11 @@
 // src/components/AttendanceManagement.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Tab,
   Tabs,
   Paper,
   Typography,
-  Container,
 } from '@mui/material';
 import { Calendar, Briefcase, Gift, Settings } from 'lucide-react';
 import AttendanceCycleTab from './AttendanceCycleTab';
@@ -34,28 +33,26 @@ const AttendanceManagement = () => {
   ];
 
   return (
-    <Container maxWidth="xl" >
-      <Paper >
-        <Box sx={{ borderBottom: 1, borderColor: 'divider'}}>
-          <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
-            {tabs.map((tab, idx) => (
-              <Tab
-                key={idx}
-                label={tab.label}
-                icon={<tab.icon size={18} />}
-                iconPosition="start"
-              />
-            ))}
-          </Tabs>
-        </Box>
+    <Paper sx={{ height: '100vh', borderRadius: 0 }}>
+      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
+          {tabs.map((tab, idx) => (
+            <Tab
+              key={idx}
+              label={tab.label}
+              icon={<tab.icon size={18} />}
+              iconPosition="start"
+            />
+          ))}
+        </Tabs>
+      </Box>
 
-        {tabs.map((tab, idx) => (
-          <TabPanel key={idx} value={activeTab} index={idx}>
-            <tab.component />
-          </TabPanel>
-        ))}
-      </Paper>
-    </Container>
+      {tabs.map((tab, idx) => (
+        <TabPanel key={idx} value={activeTab} index={idx}>
+          <tab.component />
+        </TabPanel>
+      ))}
+    </Paper>
   );
 };
 

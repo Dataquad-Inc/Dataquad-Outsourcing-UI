@@ -1,4 +1,5 @@
 // src/components/AttendanceGridTab.jsx
+// Server-side pagination + search (name / ID / reporting manager) via API
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
@@ -59,12 +60,13 @@ const STATUS = {
   '':   { label: 'Unmarked',        color: '#d1d5db', bg: 'transparent', border: '#d1d5db' },
 };
 
-// Statuses the user can cycle through on click (WO and PH are locked, not clickable)
 const CYCLE_ORDER = ['P', 'WFH', 'CL', 'SL', 'SP', 'HD', 'LOP', ''];
-const ROWS_OPTIONS = [5, 10, 20, 50];
+const ROWS_OPTIONS = [10, 20, 50];
+
+const EMPLOYEES_TO_SKIP = ['ADRTIN001', 'ADRTIN002'];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function useDebounce(value, delay = 5000) {
+function useDebounce(value, delay = 400) {
   const [d, setD] = useState(value);
   useEffect(() => {
     const t = setTimeout(() => setD(value), delay);
@@ -77,9 +79,7 @@ function getCurrentUserId() {
   try {
     const stored = JSON.parse(localStorage.getItem('authUser'));
     return stored?.userId || 'SYSTEM_ADMIN';
-  } catch {
-    return 'SYSTEM_ADMIN';
-  }
+  } catch { return 'SYSTEM_ADMIN'; }
 }
 
 // ─── StatusChip ───────────────────────────────────────────────────────────────
@@ -91,8 +91,7 @@ function StatusChip({ code }) {
       minWidth: 28, height: 20, px: 0.5,
       borderRadius: '4px', fontSize: '9px', fontWeight: 700,
       letterSpacing: '0.03em', fontFamily: 'monospace',
-      userSelect: 'none',
-      transition: 'all 0.15s',
+      userSelect: 'none', transition: 'all 0.15s',
       '&:hover': { opacity: 0.75, transform: 'scale(1.1)' },
       bgcolor: s.bg, color: s.color,
       border: `1px ${code === '' ? 'dashed' : 'solid'} ${s.border}`,
@@ -134,12 +133,13 @@ function RowSkeleton({ dayCount, W0, W1, W2, SUMMARY_W, CELL_W }) {
 
 // ─── PaginationBar ────────────────────────────────────────────────────────────
 function PaginationBar({ page, totalPages, totalRows, rowsPerPage, onPageChange, onRowsPerPageChange }) {
+  // page here is 1-based for display; we convert to 0-based when calling API
   const start = totalRows === 0 ? 0 : (page - 1) * rowsPerPage + 1;
-  const end = Math.min(page * rowsPerPage, totalRows);
+  const end   = Math.min(page * rowsPerPage, totalRows);
   const delta = 2;
-  const lo = Math.max(1, page - delta);
-  const hi = Math.min(totalPages, page + delta);
-  const nums = [];
+  const lo    = Math.max(1, page - delta);
+  const hi    = Math.min(totalPages, page + delta);
+  const nums  = [];
   for (let i = lo; i <= hi; i++) nums.push(i);
 
   const base = {
@@ -205,30 +205,48 @@ function PaginationBar({ page, totalPages, totalRows, rowsPerPage, onPageChange,
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 const AttendanceGridTab = () => {
+  // ── Cycle state ───────────────────────────────────────────────────────────
   const [cycles, setCycles]               = useState([]);
   const [selectedCycle, setSelectedCycle] = useState(null);
   const [loadingCycles, setLoadingCycles] = useState(false);
-  const [bulkData, setBulkData]           = useState(null);
+
+  // ── Server-side page data ─────────────────────────────────────────────────
+  const [bulkData, setBulkData]           = useState(null);   // one page of API response
   const [loading, setLoading]             = useState(false);
   const [error, setError]                 = useState(null);
-  const [localEdits, setLocalEdits]       = useState({});
-  const [searchInput, setSearchInput]     = useState('');
-  const debouncedSearch                   = useDebounce(searchInput);
-  const [page, setPage]                   = useState(1);
+
+  // ── Pagination state (1-based for UI, converted to 0-based for API) ───────
+  const [page, setPage]                   = useState(1);       // 1-based
   const [rowsPerPage, setRowsPerPage]     = useState(10);
-  const [snackbar, setSnackbar]           = useState({ open: false, message: '', severity: 'success' });
+
+  // ── Search ────────────────────────────────────────────────────────────────
+  const [searchInput, setSearchInput]     = useState('');
+  const debouncedSearch                   = useDebounce(searchInput, 2200);
+
+  // ── Optimistic edits / pending updates ───────────────────────────────────
+  const [localEdits, setLocalEdits]       = useState({});
   const [pendingUpdates, setPendingUpdates] = useState({});
-  const debounceTimerRef = useRef(null);
-  const DEBOUNCE_DELAY = 800;
+  const debounceTimerRef                  = useRef(null);
+  const DEBOUNCE_DELAY                    = 800;
+
+  // ── Snackbar ──────────────────────────────────────────────────────────────
+  const [snackbar, setSnackbar]           = useState({ open: false, message: '', severity: 'success' });
 
   const showSnackbar = (message, severity = 'success') =>
     setSnackbar({ open: true, message, severity });
 
+  // Layout constants
+  const W0 = 48, W1 = 190, W2 = 155, SUMMARY_W = 65, CELL_W = 44, CELL_H = 44;
+  const stickyBase = { position: 'sticky', zIndex: 3 };
+  const col0 = { ...stickyBase, left: 0,       width: W0, minWidth: W0, maxWidth: W0, borderRight: `1px solid ${T.border}` };
+  const col1 = { ...stickyBase, left: W0,       width: W1, minWidth: W1, maxWidth: W1, borderRight: `1px solid ${T.border}` };
+  const col2 = { ...stickyBase, left: W0 + W1,  width: W2, minWidth: W2, maxWidth: W2, borderRight: `2px solid ${T.borderStrong}` };
+
+  // ── Flush pending attendance updates ──────────────────────────────────────
   const processPendingUpdates = useCallback(async () => {
     const updates = { ...pendingUpdates };
     if (Object.keys(updates).length === 0) return;
     setPendingUpdates({});
-
     try {
       await Promise.all(
         Object.entries(updates).map(([, { empId, date, status }]) =>
@@ -242,17 +260,17 @@ const AttendanceGridTab = () => {
         )
       );
       const count = Object.keys(updates).length;
-      ToastService.success(`Updated ${count} attendance record${count > 1 ? 's' : ''} successfully`);
-      showSnackbar(`Updated ${count} attendance record${count > 1 ? 's' : ''} successfully`, 'success');
+      ToastService.success(`Updated ${count} record${count > 1 ? 's' : ''} successfully`);
+      showSnackbar(`Updated ${count} record${count > 1 ? 's' : ''} successfully`, 'success');
     } catch (e) {
       setLocalEdits(prev => {
         const rolled = { ...prev };
         Object.keys(updates).forEach(k => delete rolled[k]);
         return rolled;
       });
-      const errorMsg = e?.response?.data?.message || 'Failed to update attendance';
-      ToastService.error(errorMsg);
-      showSnackbar(errorMsg, 'error');
+      const msg = e?.response?.data?.message || 'Failed to update attendance';
+      ToastService.error(msg);
+      showSnackbar(msg, 'error');
     }
   }, [pendingUpdates]);
 
@@ -264,14 +282,7 @@ const AttendanceGridTab = () => {
     return () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); };
   }, [pendingUpdates, processPendingUpdates]);
 
-  // Layout constants
-  const W0 = 48, W1 = 190, W2 = 155, SUMMARY_W = 65, CELL_W = 44, CELL_H = 44;
-  const stickyBase = { position: 'sticky', zIndex: 3 };
-  const col0 = { ...stickyBase, left: 0,       width: W0, minWidth: W0, maxWidth: W0, borderRight: `1px solid ${T.border}` };
-  const col1 = { ...stickyBase, left: W0,       width: W1, minWidth: W1, maxWidth: W1, borderRight: `1px solid ${T.border}` };
-  const col2 = { ...stickyBase, left: W0 + W1,  width: W2, minWidth: W2, maxWidth: W2, borderRight: `2px solid ${T.borderStrong}` };
-
-  // ── Fetch cycles ──────────────────────────────────────────────────────────
+  // ── Fetch cycle list ──────────────────────────────────────────────────────
   const fetchCycles = useCallback(async () => {
     setLoadingCycles(true);
     try {
@@ -286,7 +297,7 @@ const AttendanceGridTab = () => {
         list.find(c => c.status === 'OPEN') ||
         list[0] || null;
       setSelectedCycle(auto);
-    } catch (error) {
+    } catch {
       ToastService.error('Failed to load cycles');
       showSnackbar('Failed to load cycles', 'error');
     } finally {
@@ -294,16 +305,28 @@ const AttendanceGridTab = () => {
     }
   }, []);
 
-  // ── Fetch bulk attendance ─────────────────────────────────────────────────
-  const fetchBulkData = useCallback(async () => {
-    if (!selectedCycle) return;
+  // ── Core data fetch — one API page ────────────────────────────────────────
+  // apiPage is 0-based; UI page state is 1-based
+  const fetchBulkData = useCallback(async (apiPage, search, rpp, cycleId) => {
+    if (!cycleId) return;
     setLoading(true);
     setError(null);
-    setLocalEdits({});
-    setPendingUpdates({});
     try {
-      const { data } = await attendanceCycleAPI.getCycleById(`${selectedCycle.cycleId}/bulk`);
-      setBulkData(data);
+      // The controller URL is: GET /cycles/{cycleId}/bulk?page=&size=&search=
+      const qs = new URLSearchParams({
+        page: apiPage,
+        size: rpp,
+        ...(search ? { search } : {}),
+      }).toString();
+
+      const { data } = await attendanceCycleAPI.getCycleById(`${cycleId}/bulk?${qs}`);
+
+      // Filter out the two system accounts that should never appear
+      const employees = (data.employees || []).filter(
+        emp => !EMPLOYEES_TO_SKIP.includes(emp.employeeId)
+      );
+
+      setBulkData({ ...data, employees });
     } catch (e) {
       const msg = e?.response?.data?.message || e.message || 'Failed to load attendance';
       setError(msg);
@@ -312,13 +335,34 @@ const AttendanceGridTab = () => {
     } finally {
       setLoading(false);
     }
-  }, [selectedCycle?.cycleId]);
+  }, []);
 
+  // ── Initial cycle load ────────────────────────────────────────────────────
   useEffect(() => { fetchCycles(); }, [fetchCycles]);
-  useEffect(() => { if (selectedCycle?.cycleId) { setPage(1); fetchBulkData(); } }, [selectedCycle?.cycleId]);
+
+  // ── Whenever cycle / page / search / rowsPerPage changes → fetch ──────────
+  useEffect(() => {
+    if (selectedCycle?.cycleId) {
+      // Convert 1-based UI page to 0-based API page
+      fetchBulkData(page - 1, debouncedSearch || null, rowsPerPage, selectedCycle.cycleId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCycle?.cycleId, page, debouncedSearch, rowsPerPage]);
+
+  // ── When search changes, reset to page 1 ─────────────────────────────────
   useEffect(() => { setPage(1); }, [debouncedSearch]);
 
-  // ── Date formatting (timezone-safe) ──────────────────────────────────────
+  // ── When cycle changes, reset everything ─────────────────────────────────
+  const handleCycleChange = (cycleId) => {
+    const c = cycles.find(x => x.cycleId === cycleId);
+    setSelectedCycle(c || null);
+    setPage(1);
+    setSearchInput('');
+    setLocalEdits({});
+    setPendingUpdates({});
+  };
+
+  // ── Day metadata ──────────────────────────────────────────────────────────
   const formatDate = (date) => {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -326,79 +370,54 @@ const AttendanceGridTab = () => {
     return `${y}-${m}-${d}`;
   };
 
-  // ── Day metadata ──────────────────────────────────────────────────────────
   const dayMetas = useMemo(() => {
     if (!bulkData?.startDate || !bulkData?.endDate) return [];
-
     const holidaySet     = new Set(bulkData.holidayDates || []);
     const weekOffSet     = new Set(bulkData.weekOffDays  || []);
     const holidayNameMap = bulkData.holidayNames || {};
-
     const metas = [];
     const [sy, sm, sd] = bulkData.startDate.split('-').map(Number);
     const [ey, em, ed] = bulkData.endDate.split('-').map(Number);
-
     const cur = new Date(Date.UTC(sy, sm - 1, sd));
     const end = new Date(Date.UTC(ey, em - 1, ed));
-
     while (cur <= end) {
       const dateStr = formatDate(cur);
       const jsDow   = cur.getUTCDay();
       const isoDow  = jsDow === 0 ? 7 : jsDow;
-
       const isHoliday = holidaySet.has(dateStr);
       const isWeekend = weekOffSet.has(isoDow);
-
       metas.push({
-        date:         dateStr,
+        date: dateStr,
         dayNumber:    cur.getUTCDate(),
         shortDay:     cur.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }).slice(0, 2).toUpperCase(),
         fullDay:      cur.toLocaleDateString('en-US', { weekday: 'long',  timeZone: 'UTC' }),
-        isWeekend,
-        isHoliday,
+        isWeekend, isHoliday,
         defaultStatus: isHoliday ? 'PH' : isWeekend ? 'WO' : null,
-        lockReason:    isHoliday
+        lockReason: isHoliday
           ? `Public Holiday: ${holidayNameMap[dateStr] || 'Holiday'}`
           : isWeekend ? 'Week Off' : null,
       });
       cur.setUTCDate(cur.getUTCDate() + 1);
     }
     return metas;
-  }, [bulkData]);
+  }, [bulkData?.startDate, bulkData?.endDate, bulkData?.holidayDates, bulkData?.weekOffDays]);
 
-  // ── Filtered & paged employees ────────────────────────────────────────────
-  const allEmployees = bulkData?.employees ?? [];
-
-  const filtered = useMemo(() => {
-    if (!debouncedSearch) return allEmployees;
-    const q = debouncedSearch.toLowerCase();
-    return allEmployees.filter(e =>
-      (e.employeeName  || '').toLowerCase().includes(q) ||
-      (e.employeeId    || '').toLowerCase().includes(q) ||
-      (e.designation   || '').toLowerCase().includes(q) ||
-      (e.department    || '').toLowerCase().includes(q)
-    );
-  }, [allEmployees, debouncedSearch]);
-
-  const totalEmployees = filtered.length;
-  const totalPages     = Math.max(1, Math.ceil(totalEmployees / rowsPerPage));
+  // ── Pagination values (come from server response) ─────────────────────────
+  const totalEmployees = bulkData?.totalEmployees ?? 0;
+  const totalPages     = Math.max(1, bulkData?.totalPages ?? 1);
   const safePage       = Math.min(page, totalPages);
-  const paged          = filtered.slice((safePage - 1) * rowsPerPage, safePage * rowsPerPage);
+  const pageEmployees  = bulkData?.employees ?? [];
 
-  // ── getDisplayStatus ─────────────────────────────────────────────────────
+  // ── Status helpers ────────────────────────────────────────────────────────
   const getDisplayStatus = (emp, dm) => {
     const key = `${emp.employeeId}_${dm.date}`;
-
     if (pendingUpdates[key]) return pendingUpdates[key].status;
     if (localEdits[key] !== undefined) return localEdits[key];
-
     const dbValue = emp.attendance?.[dm.date];
     if (dbValue !== undefined && dbValue !== null && dbValue !== '') return dbValue;
-
     return dm.defaultStatus ?? '';
   };
 
-  // ── isCellLocked ──────────────────────────────────────────────────────────
   const isCellLocked = (emp, dm) => {
     const status = getDisplayStatus(emp, dm);
     return status === 'WO' || status === 'PH';
@@ -411,7 +430,6 @@ const AttendanceGridTab = () => {
     return null;
   };
 
-  // ── Cell click → queue status update ─────────────────────────────────────
   const handleCellClick = async (emp, dm) => {
     if (isCellLocked(emp, dm)) {
       const reason = getCellLockReason(emp, dm);
@@ -424,11 +442,9 @@ const AttendanceGridTab = () => {
       showSnackbar(`Cycle is ${bulkData?.cycleStatus} — read only`, 'warning');
       return;
     }
-
     const key = `${emp.employeeId}_${dm.date}`;
     const currentStatus = getDisplayStatus(emp, dm);
     const next = CYCLE_ORDER[(CYCLE_ORDER.indexOf(currentStatus) + 1) % CYCLE_ORDER.length];
-
     setLocalEdits(prev => ({ ...prev, [key]: next }));
     setPendingUpdates(prev => ({
       ...prev,
@@ -436,40 +452,74 @@ const AttendanceGridTab = () => {
     }));
   };
 
-  // ── CSV export ────────────────────────────────────────────────────────────
-  const exportCSV = () => {
-    const header = [
-      'S.No', 'Employee ID', 'Employee Name', 'Designation', 'Dept',
-      'PF', 'ESI', 'Probation',
-      'Present', 'Leaves', 'CL', 'SL', 'SP', 'LOP', 'Pay Days', 'Att %',
-      ...dayMetas.map(d => d.date),
-    ].join(',');
+  // ── CSV export — fetches ALL pages for the current search ─────────────────
+  const exportCSV = async () => {
+    ToastService.info('Preparing CSV…');
+    try {
+      // Fetch ALL data for the current search term (no size limit — use a large page)
+      const qs = new URLSearchParams({
+        page: 0,
+        size: 5000,
+        ...(debouncedSearch ? { search: debouncedSearch } : {}),
+      }).toString();
+      const { data } = await attendanceCycleAPI.getCycleById(
+        `${selectedCycle.cycleId}/bulk?${qs}`
+      );
+      const allEmps = (data.employees || []).filter(
+        emp => !EMPLOYEES_TO_SKIP.includes(emp.employeeId)
+      );
 
-    const csvRows = filtered.map((emp, i) => {
-      const s    = emp.summary || {};
-      const days = dayMetas.map(dm => `"${getDisplayStatus(emp, dm)}"`);
-      return [
-        i + 1, `"${emp.employeeId}"`, `"${emp.employeeName || ''}"`,
-        `"${emp.designation || ''}"`, `"${emp.department || ''}"`,
-        emp.hasPF ? 'YES' : 'NO', emp.hasESI ? 'YES' : 'NO',
-        emp.isOnProbation ? 'YES' : 'NO',
-        s.totalWorkedDays   ?? 0, s.totalLeavesTaken ?? 0,
-        s.casualLeaves      ?? 0, s.sickLeaves       ?? 0,
-        s.specialLeaves     ?? 0, s.lossOfPayLeaves  ?? 0,
-        s.totalPayDays      ?? 0, s.attendancePercentage ?? 0,
-        ...days,
+      const header = [
+        'S.No', 'Employee ID', 'Employee Name', 'Designation', 'Dept',
+        'PF', 'ESI', 'Probation',
+        'Present', 'Leaves', 'CL', 'SL', 'SP', 'LOP', 'Pay Days', 'Att %',
+        ...dayMetas.map(d => d.date),
       ].join(',');
-    });
 
-    const csv = [header, ...csvRows].join('\n');
-    const a   = document.createElement('a');
-    a.href    = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-    a.download = `attendance_${bulkData?.attendanceMonth}_${bulkData?.attendanceYear}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    ToastService.success('CSV exported successfully');
-    showSnackbar('CSV exported', 'success');
+      const csvRows = allEmps.map((emp, i) => {
+        const s    = emp.summary || {};
+        // For CSV we use DB attendance directly (no local edits)
+        const days = dayMetas.map(dm => {
+          const dbVal = emp.attendance?.[dm.date];
+          const val   = (dbVal !== undefined && dbVal !== null && dbVal !== '')
+            ? dbVal
+            : dm.defaultStatus ?? '';
+          return `"${val}"`;
+        });
+        return [
+          i + 1, `"${emp.employeeId}"`, `"${emp.employeeName || ''}"`,
+          `"${emp.designation || ''}"`, `"${emp.department || ''}"`,
+          emp.hasPF ? 'YES' : 'NO', emp.hasESI ? 'YES' : 'NO',
+          emp.isOnProbation ? 'YES' : 'NO',
+          s.totalWorkedDays   ?? 0, s.totalLeavesTaken ?? 0,
+          s.casualLeaves      ?? 0, s.sickLeaves       ?? 0,
+          s.specialLeaves     ?? 0, s.lossOfPayLeaves  ?? 0,
+          s.totalPayDays      ?? 0, s.attendancePercentage ?? 0,
+          ...days,
+        ].join(',');
+      });
+
+      const csv = [header, ...csvRows].join('\n');
+      const a   = document.createElement('a');
+      a.href    = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+      a.download = `attendance_${data.attendanceMonth}_${data.attendanceYear}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      ToastService.success('CSV exported successfully');
+      showSnackbar('CSV exported', 'success');
+    } catch (e) {
+      const msg = e?.response?.data?.message || 'CSV export failed';
+      ToastService.error(msg);
+      showSnackbar(msg, 'error');
+    }
+  };
+
+  // ── Refresh ───────────────────────────────────────────────────────────────
+  const handleRefresh = () => {
+    setLocalEdits({});
+    setPendingUpdates({});
+    fetchBulkData(safePage - 1, debouncedSearch || null, rowsPerPage, selectedCycle?.cycleId);
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -477,7 +527,7 @@ const AttendanceGridTab = () => {
     <Box sx={{ bgcolor: T.bg }}>
 
       {/* ── Toolbar ──────────────────────────────────────────────────────── */}
-      <Paper variant="outlined" sx={{ borderRadius: 2, p: 2, mb: 2, borderColor: T.border }}>
+      <Paper variant="outlined" sx={{ borderRadius: 2, p: 2, mb: 1.5, borderColor: T.border }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', sm: 'center' }}>
 
           {/* Cycle selector */}
@@ -486,10 +536,7 @@ const AttendanceGridTab = () => {
             <Select
               label="Attendance Cycle"
               value={selectedCycle?.cycleId || ''}
-              onChange={e => {
-                const c = cycles.find(x => x.cycleId === e.target.value);
-                setSelectedCycle(c || null);
-              }}
+              onChange={e => handleCycleChange(e.target.value)}
               disabled={loadingCycles}
               sx={{ fontSize: '13px' }}
             >
@@ -510,10 +557,10 @@ const AttendanceGridTab = () => {
             </Select>
           </FormControl>
 
-          {/* Search */}
+          {/* Search — sent to server */}
           <TextField
             size="small"
-            placeholder="Search by name, ID, designation or dept…"
+            placeholder="Search by name, ID or reporting manager…"
             value={searchInput}
             onChange={e => setSearchInput(e.target.value)}
             InputProps={{
@@ -522,6 +569,11 @@ const AttendanceGridTab = () => {
                   <SearchIcon fontSize="small" sx={{ color: T.textDisabled }} />
                 </InputAdornment>
               ),
+              endAdornment: loading && searchInput ? (
+                <InputAdornment position="end">
+                  <CircularProgress size={14} />
+                </InputAdornment>
+              ) : null,
             }}
             sx={{ flex: 2, '& .MuiInputBase-input': { fontSize: '13px' } }}
           />
@@ -543,7 +595,7 @@ const AttendanceGridTab = () => {
             <Button
               variant="outlined" size="small"
               startIcon={loading ? <CircularProgress size={13} /> : <RefreshIcon />}
-              onClick={fetchBulkData}
+              onClick={handleRefresh}
               disabled={loading}
               sx={{
                 textTransform: 'none', fontSize: '12px', height: 40,
@@ -557,7 +609,7 @@ const AttendanceGridTab = () => {
               variant="outlined" size="small"
               startIcon={<FileDownloadOutlinedIcon />}
               onClick={exportCSV}
-              disabled={!paged.length}
+              disabled={!bulkData || totalEmployees === 0}
               sx={{
                 textTransform: 'none', fontSize: '12px', height: 40,
                 borderColor: T.border, color: T.textPrimary,
@@ -576,6 +628,11 @@ const AttendanceGridTab = () => {
               label={`${bulkData.startDate} → ${bulkData.endDate}`}
               size="small"
               sx={{ height: 22, fontSize: '10px', bgcolor: T.accentLight, color: T.accent, fontWeight: 600 }}
+            />
+            <Chip
+              label={`${totalEmployees} employee${totalEmployees !== 1 ? 's' : ''}${debouncedSearch ? ' (filtered)' : ''}`}
+              size="small"
+              sx={{ height: 22, fontSize: '10px', bgcolor: T.greenLight, color: T.green, fontWeight: 600 }}
             />
             {(bulkData.weekOffDays || []).map(d => {
               const names = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -653,7 +710,6 @@ const AttendanceGridTab = () => {
                   </Typography>
                 </TableCell>
 
-                {/* Summary columns */}
                 {['Present', 'Leaves', 'CL', 'SL', 'SP', 'LOP', 'Pay Days', 'Att %'].map(h => (
                   <TableCell key={h} align="center" sx={{
                     width: SUMMARY_W, minWidth: SUMMARY_W,
@@ -666,13 +722,11 @@ const AttendanceGridTab = () => {
                   </TableCell>
                 ))}
 
-                {/* Day columns */}
                 {dayMetas.map(dm => {
                   let bgCol   = T.surfaceAlt;
                   let textCol = T.textPrimary;
                   if (dm.isHoliday)      { bgCol = T.amberLight;  textCol = T.amber;  }
                   else if (dm.isWeekend) { bgCol = T.accentLight; textCol = T.accent; }
-
                   return (
                     <TableCell key={dm.date} align="center" sx={{
                       width: CELL_W, minWidth: CELL_W, maxWidth: CELL_W, p: 0,
@@ -701,20 +755,21 @@ const AttendanceGridTab = () => {
                   <RowSkeleton key={i} dayCount={dayMetas.length || 31}
                     W0={W0} W1={W1} W2={W2} SUMMARY_W={SUMMARY_W} CELL_W={CELL_W} />
                 ))
-              ) : paged.length === 0 ? (
+              ) : pageEmployees.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={dayMetas.length + 11} align="center" sx={{ py: 8 }}>
                     <CalendarMonthIcon sx={{ fontSize: 48, color: T.textDisabled, mb: 1, display: 'block', mx: 'auto' }} />
                     <Typography color={T.textDisabled}>
-                      {allEmployees.length === 0
-                        ? 'No employees found for this cycle.'
-                        : `No employees match "${debouncedSearch}".`}
+                      {debouncedSearch
+                        ? `No employees match "${debouncedSearch}".`
+                        : 'No employees found for this cycle.'}
                     </Typography>
                   </TableCell>
                 </TableRow>
               ) : (
-                paged.map((emp, idx) => {
+                pageEmployees.map((emp, idx) => {
                   const rowBg = idx % 2 === 0 ? T.surface : T.surfaceAlt;
+                  // Serial number considers server-side offset
                   const sNo   = (safePage - 1) * rowsPerPage + idx + 1;
                   const s     = emp.summary || {};
 
@@ -762,13 +817,13 @@ const AttendanceGridTab = () => {
 
                       {/* Summary values */}
                       {[
-                        { val: s.totalWorkedDays,     color: T.green },
-                        { val: s.totalLeavesTaken,    color: (s.totalLeavesTaken  ?? 0) > 0 ? T.amber   : T.textDisabled },
-                        { val: s.casualLeaves,        color: (s.casualLeaves      ?? 0) > 0 ? '#be123c' : T.textDisabled },
-                        { val: s.sickLeaves,          color: (s.sickLeaves        ?? 0) > 0 ? '#c2410c' : T.textDisabled },
-                        { val: s.specialLeaves,       color: (s.specialLeaves     ?? 0) > 0 ? '#8b5cf6' : T.textDisabled },
-                        { val: s.lossOfPayLeaves,     color: (s.lossOfPayLeaves   ?? 0) > 0 ? T.red     : T.textDisabled },
-                        { val: s.totalPayDays,        color: T.accent },
+                        { val: s.totalWorkedDays,  color: T.green },
+                        { val: s.totalLeavesTaken, color: (s.totalLeavesTaken ?? 0) > 0 ? T.amber   : T.textDisabled },
+                        { val: s.casualLeaves,     color: (s.casualLeaves     ?? 0) > 0 ? '#be123c' : T.textDisabled },
+                        { val: s.sickLeaves,       color: (s.sickLeaves       ?? 0) > 0 ? '#c2410c' : T.textDisabled },
+                        { val: s.specialLeaves,    color: (s.specialLeaves    ?? 0) > 0 ? '#8b5cf6' : T.textDisabled },
+                        { val: s.lossOfPayLeaves,  color: (s.lossOfPayLeaves  ?? 0) > 0 ? T.red     : T.textDisabled },
+                        { val: s.totalPayDays,     color: T.accent },
                         {
                           val:   s.attendancePercentage != null ? `${s.attendancePercentage}%` : '—',
                           color: (s.attendancePercentage ?? 0) >= 80 ? T.green : T.red,
@@ -783,18 +838,14 @@ const AttendanceGridTab = () => {
 
                       {/* Day attendance cells */}
                       {dayMetas.map(dm => {
-                        const status   = getDisplayStatus(emp, dm);
-                        const locked   = isCellLocked(emp, dm);
-                        const isPending = !!pendingUpdates[`${emp.employeeId}_${dm.date}`];
+                        const status     = getDisplayStatus(emp, dm);
+                        const locked     = isCellLocked(emp, dm);
+                        const isPending  = !!pendingUpdates[`${emp.employeeId}_${dm.date}`];
 
                         let bgColor = rowBg;
-                        if (status === 'LOP') {
-                          bgColor = idx % 2 === 0 ? '#fff5f5' : '#fef2f2';
-                        } else if (dm.isHoliday) {
-                          bgColor = idx % 2 === 0 ? '#fff9e6' : T.amberLight;
-                        } else if (dm.isWeekend) {
-                          bgColor = idx % 2 === 0 ? '#f1f2ff' : T.accentLight;
-                        }
+                        if (status === 'LOP')       bgColor = idx % 2 === 0 ? '#fff5f5' : '#fef2f2';
+                        else if (dm.isHoliday)      bgColor = idx % 2 === 0 ? '#fff9e6' : T.amberLight;
+                        else if (dm.isWeekend)      bgColor = idx % 2 === 0 ? '#f1f2ff' : T.accentLight;
 
                         const tipText = isPending
                           ? 'Update pending...'
@@ -855,7 +906,16 @@ const AttendanceGridTab = () => {
         />
       </Paper>
 
-      
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar(s => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar(s => ({ ...s, open: false }))}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
