@@ -50,6 +50,7 @@ import { useSelector } from "react-redux";
 import httpService, { API_BASE_URL } from "../../Services/httpService";
 import { showToast } from "../../utils/ToastNotification";
 import ConfirmDialog from "../muiComponents/ConfirmDialog";
+import * as XLSX from 'xlsx';
 
 const emptyProfile = {
   photo: "",
@@ -312,6 +313,33 @@ const calculateProbationStatus = (joiningDate) => {
   } else {
     return "Completed";
   }
+};
+
+const generateExcelData = (users, profileDetailsByEmployeeId) => {
+  if (!users || users.length === 0) return [];
+
+  return users.map((user) => {
+    const employeeId = getEmployeeId(user);
+    const rowProfile = profileFromData({
+      ...user,
+      ...(profileDetailsByEmployeeId[employeeId] || {}),
+    });
+    
+    const rowData = {};
+    hrmsTableColumns.forEach((column) => {
+      let value = column.getValue(rowProfile, user);
+      if (value === undefined || value === null) {
+        value = "-";
+      }
+      if (column.label === "Probation" && rowProfile.joiningDate) {
+        value = calculateProbationStatus(rowProfile.joiningDate);
+      }
+      rowData[column.label] = value;
+    });
+    
+    rowData["Status"] = user.status || "-";
+    return rowData;
+  });
 };
 
 const getInitials = (name) => {
@@ -970,6 +998,44 @@ const HRMS = () => {
 
   const groupedDocuments = useMemo(() => groupDocumentsForHRMS(documents), [documents]);
 
+  const handleDownloadExcel = useCallback(() => {
+    try {
+      const excelData = generateExcelData(filteredUsers, profileDetailsByEmployeeId);
+      
+      if (!excelData || excelData.length === 0) {
+        showToast("No data available to export", "warning");
+        return;
+      }
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
+      
+      const columnWidths = [];
+      const headers = Object.keys(excelData[0] || {});
+      headers.forEach((header) => {
+        let maxLength = header.length;
+        excelData.forEach((row) => {
+          const cellValue = String(row[header] || "");
+          maxLength = Math.max(maxLength, cellValue.length);
+        });
+        columnWidths.push({ wch: Math.min(maxLength + 2, 50) });
+      });
+      ws['!cols'] = columnWidths;
+
+      XLSX.utils.book_append_sheet(wb, ws, "HRMS Data");
+      
+      const date = new Date();
+      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      const filename = `HRMS_${activeEntity}_${dateStr}.xlsx`;
+      
+      XLSX.writeFile(wb, filename);
+      showToast("Excel file downloaded successfully", "success");
+    } catch (error) {
+      console.error("Error generating Excel:", error);
+      showToast("Failed to generate Excel file", "error");
+    }
+  }, [filteredUsers, profileDetailsByEmployeeId, activeEntity]);
+
   const fetchUserProfile = async (user) => {
     const employeeId = getEmployeeId(user);
     if (!employeeId) {
@@ -1363,6 +1429,15 @@ const HRMS = () => {
               ),
             }}
           />
+          <Button 
+            variant="contained" 
+            color="primary"
+            startIcon={<DownloadOutlined />} 
+            onClick={handleDownloadExcel}
+            disabled={loading || filteredUsers.length === 0}
+          >
+            Download Excel
+          </Button>
           <Button variant="outlined" startIcon={<Refresh />} onClick={fetchUsers} disabled={loading}>
             Refresh
           </Button>
