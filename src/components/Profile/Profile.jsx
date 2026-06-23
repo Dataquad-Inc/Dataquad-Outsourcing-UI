@@ -104,6 +104,7 @@ const documentUploadSections = [
   { key: "adhar", label: "Aadhar", documentType: "Aadhar" },
   { key: "bankPassbook", label: "Bank Passbook", documentType: "Bank Passbook" },
   { key: "insurance", label: "Insurance", documentType: "Insurance" },
+  { key: "form16", label: "Form-16", documentType: "Form-16", employeeUploadDisabled: true },
 ];
 
 const otherDocumentType = "Other Documents";
@@ -369,7 +370,15 @@ const normalizeDocumentType = (value = "") =>
 
 const getDocumentSectionKey = (document) => {
   const documentType = normalizeDocumentType(
-    typeof document === "object" ? document?.documentType || "" : ""
+    typeof document === "object"
+      ? document?.documentType ||
+          document?.documentTypes ||
+          document?.type ||
+          document?.fileType ||
+          document?.category ||
+          document?.documentCategory ||
+          ""
+      : ""
   );
 
   const matchedByType = documentUploadSections.find(
@@ -381,11 +390,18 @@ const getDocumentSectionKey = (document) => {
     [
       typeof document === "string" ? document : "",
       typeof document === "object" ? document?.documentType : "",
+      typeof document === "object" ? document?.documentTypes : "",
+      typeof document === "object" ? document?.type : "",
+      typeof document === "object" ? document?.fileType : "",
+      typeof document === "object" ? document?.category : "",
+      typeof document === "object" ? document?.documentCategory : "",
       typeof document === "object" ? document?.fileName : "",
       typeof document === "object" ? document?.documentName : "",
       typeof document === "object" ? document?.name : "",
       typeof document === "object" ? document?.originalFileName : "",
       typeof document === "object" ? document?.originalName : "",
+      typeof document === "object" ? document?.filename : "",
+      typeof document === "object" ? document?.file_name : "",
     ]
       .filter(Boolean)
       .join(" ")
@@ -403,6 +419,7 @@ const getDocumentSectionKey = (document) => {
     return "bankPassbook";
   }
   if (searchText.includes("insurance")) return "insurance";
+  if (searchText.includes("form16")) return "form16";
 
   return "";
 };
@@ -647,6 +664,7 @@ const Profile = () => {
   const [existingDocuments, setExistingDocuments] = useState([]);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [profileInitialized, setProfileInitialized] = useState(false);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [viewDocument, setViewDocument] = useState(null);
@@ -665,9 +683,16 @@ const Profile = () => {
       }, {}),
     [existingDocuments]
   );
+  const additionalDocuments = useMemo(
+    () => existingDocuments.filter((document) => !getDocumentSectionKey(document)),
+    [existingDocuments]
+  );
 
   const fetchProfile = useCallback(async ({ showLoader = true } = {}) => {
-    if (!userId) return;
+    if (!userId) {
+      setProfileInitialized(true);
+      return;
+    }
 
     if (showLoader) {
       setLoading(true);
@@ -748,6 +773,7 @@ const Profile = () => {
     } finally {
       if (showLoader) {
         setLoading(false);
+        setProfileInitialized(true);
       }
     }
   }, [userId, role, entity]);
@@ -1076,7 +1102,25 @@ const Profile = () => {
   };
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 } }}>
+    <Box sx={{ p: { xs: 2, md: 3 }, position: "relative", minHeight: "calc(100vh - 120px)" }}>
+      {(loading || !profileInitialized) && (
+        <Box
+          sx={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            bgcolor: "rgba(255, 255, 255, 0.7)",
+            zIndex: 10,
+          }}
+        >
+          <CircularProgress color="primary" />
+        </Box>
+      )}
       <Stack
         direction={{ xs: "column", sm: "row" }}
         alignItems={{ xs: "flex-start", sm: "center" }}
@@ -1092,14 +1136,6 @@ const Profile = () => {
             View your account details and update editable information.
           </Typography>
         </Box>
-        {loading && (
-          <Stack direction="row" alignItems="center" gap={1}>
-            <CircularProgress size={18} />
-            <Typography variant="body2" color="text.secondary">
-              Loading profile
-            </Typography>
-          </Stack>
-        )}
       </Stack>
 
       <Paper
@@ -1621,7 +1657,7 @@ const Profile = () => {
               <Box>
                 <Typography variant="h6">Documents</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Upload PAN, Aadhar, Bank Passbook, Insurance, and other profile documents.
+                  Upload PAN, Aadhar, Bank Passbook, Insurance, Form-16, and other profile documents.
                 </Typography>
               </Box>
               <input
@@ -1671,17 +1707,21 @@ const Profile = () => {
                           hidden
                           id={`profile-${section.key}-document`}
                           onChange={handleSectionDocumentChange(section)}
-                          disabled={!canEditProfile}
+                          disabled={!canEditProfile || section.employeeUploadDisabled}
                         />
                         <Button
                           variant="outlined"
                           startIcon={<UploadFileOutlined />}
                           component="label"
                           htmlFor={`profile-${section.key}-document`}
-                          disabled={!canEditProfile || hasExistingDocument}
+                          disabled={!canEditProfile || hasExistingDocument || section.employeeUploadDisabled}
                           fullWidth
                         >
-                          {hasExistingDocument ? "Document Uploaded" : "Select Document"}
+                          {hasExistingDocument
+                            ? "Document Uploaded"
+                            : section.employeeUploadDisabled
+                              ? "Upload Disabled"
+                              : "Select Document"}
                         </Button>
                         <Typography
                           variant="caption"
@@ -1778,13 +1818,13 @@ const Profile = () => {
                 }}
               >
                 <Typography variant="subtitle2">
-                  Existing Documents ({existingDocuments.length})
+                  Additional Documents ({additionalDocuments.length})
                 </Typography>
               </Box>
 
-              {existingDocuments.length > 0 ? (
+              {additionalDocuments.length > 0 ? (
                 <Grid container spacing={0}>
-                  {existingDocuments.map((document, index) => {
+                  {additionalDocuments.map((document, index) => {
                     const documentName = getDocumentName(document);
                     const meta = getDocumentMeta(document);
                     const source = getDocumentSource(document);
@@ -1873,7 +1913,7 @@ const Profile = () => {
                 </Grid>
               ) : (
                 <Alert severity="info" sx={{ borderRadius: 0 }}>
-                  No existing documents found.
+                  No additional documents found.
                 </Alert>
               )}
             </Box>
