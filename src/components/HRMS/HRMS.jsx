@@ -521,7 +521,7 @@ const primaryDocumentSections = [
   { key: "pan", label: "PAN", documentType: "PAN" },
   { key: "adhar", label: "Aadhar", documentType: "Aadhar" },
   { key: "bankPassbook", label: "Bank Passbook", documentType: "Bank Passbook" },
-  { key: "insurance", label: "Insurance", documentType: "Insurance" },
+  { key: "insurance", label: "Insurance", documentType: "Insurance", allowSectionUpload: true },
   { key: "form16", label: "Form-16", documentType: "Form-16", allowSectionUpload: true },
 ];
 

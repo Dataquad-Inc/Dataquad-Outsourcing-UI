@@ -103,7 +103,7 @@ const documentUploadSections = [
   { key: "pan", label: "PAN", documentType: "PAN" },
   { key: "adhar", label: "Aadhar", documentType: "Aadhar" },
   { key: "bankPassbook", label: "Bank Passbook", documentType: "Bank Passbook" },
-  { key: "insurance", label: "Insurance", documentType: "Insurance" },
+  { key: "insurance", label: "Insurance", documentType: "Insurance", employeeUploadDisabled: true },
   { key: "form16", label: "Form-16", documentType: "Form-16", employeeUploadDisabled: true },
 ];
 
@@ -1657,7 +1657,7 @@ const Profile = () => {
               <Box>
                 <Typography variant="h6">Documents</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Upload PAN, Aadhar, Bank Passbook, Insurance, Form-16, and other profile documents.
+                  Upload PAN, Aadhar, Bank Passbook, and other profile documents. Insurance and Form-16 are available for view/download.
                 </Typography>
               </Box>
               <input
