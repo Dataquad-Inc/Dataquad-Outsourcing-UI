@@ -522,6 +522,7 @@ const primaryDocumentSections = [
   { key: "adhar", label: "Aadhar", documentType: "Aadhar" },
   { key: "bankPassbook", label: "Bank Passbook", documentType: "Bank Passbook" },
   { key: "insurance", label: "Insurance", documentType: "Insurance" },
+  { key: "form16", label: "Form-16", documentType: "Form-16", allowSectionUpload: true },
 ];
 
 const otherDocumentType = "Other Documents";
@@ -543,8 +544,11 @@ const getDocumentSearchText = (document) => {
     document.filename,
     document.file_name,
     document.documentType,
+    document.documentTypes,
     document.fileType,
     document.type,
+    document.category,
+    document.documentCategory,
   ]
     .filter(Boolean)
     .join(" ")
@@ -553,7 +557,15 @@ const getDocumentSearchText = (document) => {
 
 const getPrimaryDocumentSectionKey = (document) => {
   const documentType = normalizeDocumentType(
-    typeof document === "object" ? document?.documentType || "" : ""
+    typeof document === "object"
+      ? document?.documentType ||
+          document?.documentTypes ||
+          document?.type ||
+          document?.fileType ||
+          document?.category ||
+          document?.documentCategory ||
+          ""
+      : ""
   );
   const matchedByType = primaryDocumentSections.find(
     (section) => normalizeDocumentType(section.documentType) === documentType
@@ -570,6 +582,14 @@ const getPrimaryDocumentSectionKey = (document) => {
     return "bankPassbook";
   }
   if (searchText.includes("insurance")) return "insurance";
+  if (
+    searchText.includes("form-16") ||
+    searchText.includes("form 16") ||
+    searchText.includes("form_16") ||
+    normalizeDocumentType(searchText).includes("form16")
+  ) {
+    return "form16";
+  }
 
   return "";
 };
@@ -910,6 +930,7 @@ const HRMS = () => {
   const [profileLoading, setProfileLoading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadingSectionKey, setUploadingSectionKey] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [viewDocument, setViewDocument] = useState(null);
   const [viewLoading, setViewLoading] = useState(false);
@@ -1382,12 +1403,37 @@ const HRMS = () => {
     }
   };
 
+  const handleSectionDocumentUpload = (section) => async (event) => {
+    const employeeId = profile.employeeId || selectedUser?.employeeId || selectedUser?.userId;
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!employeeId || !file) return;
+
+    setUploadingSectionKey(section.key);
+    try {
+      const formData = new FormData();
+      appendProfileFields(formData, profile);
+      formData.append("documents", file);
+      formData.append("documentTypes", section.documentType);
+
+      await httpService.put(`/users/update/${employeeId}`, formData);
+      showToast(`${section.label} uploaded successfully`, "success");
+      await fetchUserProfile({ ...selectedUser, employeeId });
+    } catch (error) {
+      showToast(`Unable to upload ${section.label}`, "error");
+    } finally {
+      setUploadingSectionKey("");
+    }
+  };
+
   const closeDrawer = () => {
     setDrawerOpen(false);
     setSelectedUser(null);
     setProfile(emptyProfile);
     setDocuments([]);
     setSelectedFiles([]);
+    setUploadingSectionKey("");
     setDownloadedDocumentKeys({});
     setSavingVerifiedDocumentKeys({});
     setDeletingDocumentKeys({});
@@ -1768,10 +1814,45 @@ const HRMS = () => {
 
                     return (
                       <Paper variant="outlined" sx={{ borderRadius: 1, overflow: "hidden" }} key={section.key}>
-                        <Box sx={{ px: 2, py: 1.25, bgcolor: "background.default", borderBottom: "1px solid", borderColor: "divider" }}>
+                        <Box
+                          sx={{
+                            px: 2,
+                            py: 1.25,
+                            bgcolor: "background.default",
+                            borderBottom: "1px solid",
+                            borderColor: "divider",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 1,
+                          }}
+                        >
                           <Typography variant="subtitle2" fontWeight={700}>
                             {section.label}
                           </Typography>
+                          {section.allowSectionUpload && (
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              component="label"
+                              startIcon={
+                                uploadingSectionKey === section.key ? (
+                                  <CircularProgress size={16} color="inherit" />
+                                ) : (
+                                  <UploadFileOutlined />
+                                )
+                              }
+                              disabled={Boolean(uploadingSectionKey)}
+                            >
+                              Upload
+                              <input
+                                type="file"
+                                hidden
+                                onChange={handleSectionDocumentUpload(section)}
+                                disabled={Boolean(uploadingSectionKey)}
+                              />
+                            </Button>
+                          )}
                         </Box>
                         {sectionDocuments.length ? (
                           sectionDocuments.map((documentWithIndex, index) =>
