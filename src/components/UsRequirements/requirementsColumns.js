@@ -20,7 +20,49 @@ import CustomChip from "../../ui-lib/CustomChip";
 import DialogValueViewer from "../../ui-lib/DialogValueViewer";
 import { renderStatus } from "../../utils/requirementsStatusChip";
 
-const renderValue = (value) => value || "-";
+// Safe render function for any value type
+const renderValue = (value) => {
+  if (value === null || value === undefined) return "-";
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return String(value);
+  if (typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) {
+    return value.map(item => {
+      if (typeof item === 'object' && item !== null) {
+        return item.userName || item.name || JSON.stringify(item);
+      }
+      return String(item);
+    }).join(", ");
+  }
+  if (typeof value === 'object') {
+    if (value.userName) return value.userName;
+    if (value.name) return value.name;
+    return JSON.stringify(value);
+  }
+  return String(value);
+};
+
+// Helper function to safely get string value for DialogValueViewer
+const getSafeValue = (value) => {
+  if (value === null || value === undefined) return "-";
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return String(value);
+  if (typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) {
+    return value.map(item => {
+      if (typeof item === 'object' && item !== null) {
+        return item.userName || item.name || JSON.stringify(item);
+      }
+      return String(item);
+    }).join(", ");
+  }
+  if (typeof value === 'object') {
+    if (value.userName) return value.userName;
+    if (value.name) return value.name;
+    return JSON.stringify(value);
+  }
+  return String(value);
+};
 
 const getRequirementsColumns = ({
   handleEdit,
@@ -30,7 +72,8 @@ const getRequirementsColumns = ({
   handleViewDescription,
   handleSubmitCandidate,
   userRole,
-  filterOptions = {}, // Pass filter options from parent component
+  filterOptions = {},
+  handleColumnClick = null,
 }) => [
   {
     id: "createdAt",
@@ -43,7 +86,7 @@ const getRequirementsColumns = ({
   {
     id: "updatedAt",
     label: "Updated Date",
-    applyFilter: false, // Changed to false to disable filtering
+    applyFilter: false,
     align: "center",
     render: (v) => (v ? formatDateTime(v) : "-"),
   },
@@ -73,7 +116,32 @@ const getRequirementsColumns = ({
     filterType: "text",
     align: "center",
     filterOptions: filterOptions.clientName || [],
-    render: (v) => renderValue(v),
+    render: (v, row) =>
+      v ? (
+        <Box sx={{ display: "flex", justifyContent: "center" }}>
+          <DialogValueViewer
+            value={getSafeValue(v)}
+            label="Client"
+            renderTrigger={(onClick) => (
+              <span
+                onClick={(e) => {
+                  onClick(e);
+                  if (handleColumnClick) {
+                    handleColumnClick('clientName', v, row, e);
+                  }
+                }}
+                style={{
+                  display: "inline-flex",
+                  whiteSpace: "nowrap",
+                  cursor: "pointer",
+                }}
+              >
+                {renderValue(v)}
+              </span>
+            )}
+          />
+        </Box>
+      ) : "-",
   },
   {
     id: "jobTitle",
@@ -84,17 +152,31 @@ const getRequirementsColumns = ({
     width: 50,
     render: (v, row) =>
       v ? (
-        <Link
-          component="button"
-          onClick={() => handleNagivateToReqProfile(row)}
-          underline="hover"
-          sx={{ textAlign: "center" }}
-        >
-          {v}
-        </Link>
-      ) : (
-        "-"
-      ),
+        <Box sx={{ display: "flex", justifyContent: "center" }}>
+          <DialogValueViewer
+            value={getSafeValue(v)}
+            label="Job Title"
+            renderTrigger={(onClick) => (
+              <span
+                onClick={(e) => {
+                  handleNagivateToReqProfile(row);
+                  onClick(e);
+                  if (handleColumnClick) {
+                    handleColumnClick('jobTitle', v, row, e);
+                  }
+                }}
+                style={{
+                  display: "inline-flex",
+                  whiteSpace: "nowrap",
+                  cursor: "pointer",
+                }}
+              >
+                {v}
+              </span>
+            )}
+          />
+        </Box>
+      ) : "-",
   },
   {
     id: "status",
@@ -109,7 +191,32 @@ const getRequirementsColumns = ({
       { label: "On Hold", value: "On Hold" },
       { label: "Cancelled", value: "Cancelled" },
     ],
-    render: (v) => renderStatus(v),
+    render: (v) =>
+      v ? (
+        <Box sx={{ display: "flex", justifyContent: "center" }}>
+          <DialogValueViewer
+            value={getSafeValue(v)}
+            label="Status"
+            renderTrigger={(onClick) => (
+              <span
+                onClick={(e) => {
+                  onClick(e);
+                  if (handleColumnClick) {
+                    handleColumnClick('status', v, null, e);
+                  }
+                }}
+                style={{
+                  display: "inline-flex",
+                  whiteSpace: "nowrap",
+                  cursor: "pointer",
+                }}
+              >
+                {renderStatus(v)}
+              </span>
+            )}
+          />
+        </Box>
+      ) : "-",
   },
   {
     id: "jobDescription",
@@ -118,6 +225,7 @@ const getRequirementsColumns = ({
     align: "center",
     render: (v, row) => {
       if (v) {
+        const displayText = typeof v === 'string' ? v : renderValue(v);
         return (
           <Box
             sx={{
@@ -128,17 +236,18 @@ const getRequirementsColumns = ({
             }}
           >
             <Typography variant="body2" noWrap sx={{ maxWidth: 120 }}>
-              {v.length > 50 ? `${v.substring(0, 50)}...` : v}
+              {typeof displayText === 'string' && displayText.length > 50 
+                ? `${displayText.substring(0, 50)}...` 
+                : displayText}
             </Typography>
 
-            {/* "More" as icon + text button */}
-            {v.length > 50 && (
+            {typeof displayText === 'string' && displayText.length > 50 && (
               <Button
                 variant="text"
                 size="small"
                 color="primary"
                 startIcon={<Visibility fontSize="small" />}
-                onClick={() => handleViewDescription(v, row.jobTitle)}
+                onClick={() => handleViewDescription(displayText, row.jobTitle)}
                 sx={{
                   textTransform: "none",
                   fontSize: "0.75rem",
@@ -177,7 +286,31 @@ const getRequirementsColumns = ({
     align: "center",
     filterOptions: filterOptions.jobType || [],
     render: (value) =>
-      value ? <CustomChip jobType={value} size="small" /> : "-",
+      value ? (
+        <Box sx={{ display: "flex", justifyContent: "center" }}>
+          <DialogValueViewer
+            value={getSafeValue(value)}
+            label="Job Type"
+            renderTrigger={(onClick) => (
+              <span
+                onClick={(e) => {
+                  onClick(e);
+                  if (handleColumnClick) {
+                    handleColumnClick('jobType', value, null, e);
+                  }
+                }}
+                style={{
+                  display: "inline-flex",
+                  whiteSpace: "nowrap",
+                  cursor: "pointer",
+                }}
+              >
+                <CustomChip jobType={value} size="small" />
+              </span>
+            )}
+          />
+        </Box>
+      ) : "-",
   },
   {
     id: "assignedByName",
@@ -185,17 +318,88 @@ const getRequirementsColumns = ({
     applyFilter: true,
     filterType: "text",
     align: "center",
-    render: (v) => renderValue(v),
+    render: (v) =>
+      v ? (
+        <Box sx={{ display: "flex", justifyContent: "center" }}>
+          <DialogValueViewer
+            value={getSafeValue(v)}
+            label="Assigned By"
+            renderTrigger={(onClick) => (
+              <span
+                onClick={(e) => {
+                  onClick(e);
+                  if (handleColumnClick) {
+                    handleColumnClick('assignedByName', v, null, e);
+                  }
+                }}
+                style={{
+                  display: "inline-flex",
+                  whiteSpace: "nowrap",
+                  cursor: "pointer",
+                }}
+              >
+                {renderValue(v)}
+              </span>
+            )}
+          />
+        </Box>
+      ) : "-",
   },
   {
     id: "assignedUsers",
     label: "Assigned Users",
     applyFilter: true,
     align: "center",
-    exportValue: (v) =>
-      !v || v.length === 0 ? "N/A" : Array.isArray(v) ? v.map((user) => user.userName).join(", ") : "Invalid Data",
-    render: (v) =>
-      v && v?.length && <small>{v?.map((user) => user.userName).join(", ") || "-"}</small>,
+    exportValue: (v) => {
+      if (!v || v.length === 0) return "N/A";
+      if (Array.isArray(v)) {
+        return v.map((user) => {
+          if (typeof user === 'object' && user !== null) {
+            return user.userName || user.name || JSON.stringify(user);
+          }
+          return String(user);
+        }).join(", ");
+      }
+      return String(v);
+    },
+    render: (v) => {
+      if (!v || v.length === 0) return "-";
+      if (Array.isArray(v)) {
+        const displayText = v.map((user) => {
+          if (typeof user === 'object' && user !== null) {
+            return user.userName || user.name || JSON.stringify(user);
+          }
+          return String(user);
+        }).join(", ");
+        
+        return (
+          <Box sx={{ display: "flex", justifyContent: "center" }}>
+            <DialogValueViewer
+              value={displayText}
+              label="Assigned Users"
+              renderTrigger={(onClick) => (
+                <span
+                  onClick={(e) => {
+                    onClick(e);
+                    if (handleColumnClick) {
+                      handleColumnClick('assignedUsers', v, null, e);
+                    }
+                  }}
+                  style={{
+                    display: "inline-flex",
+                    whiteSpace: "nowrap",
+                    cursor: "pointer",
+                  }}
+                >
+                  <small>{displayText}</small>
+                </span>
+              )}
+            />
+          </Box>
+        );
+      }
+      return "-";
+    },
   },
   {
     id: "submissions",
@@ -254,13 +458,18 @@ const getRequirementsColumns = ({
       value ? (
         <Box sx={{ display: "flex", justifyContent: "center" }}>
           <DialogValueViewer
-            value={value}
+            value={getSafeValue(value)}
             label="Visa Type"
             renderTrigger={(onClick) => (
               <CustomChip
                 visaType={value}
                 size="small"
-                onClick={onClick}
+                onClick={(e) => {
+                  onClick(e);
+                  if (handleColumnClick) {
+                    handleColumnClick('visaType', value, null, e);
+                  }
+                }}
                 sx={{
                   maxWidth: "100px",
                   overflow: "hidden",
@@ -272,9 +481,7 @@ const getRequirementsColumns = ({
             )}
           />
         </Box>
-      ) : (
-        "-"
-      ),
+      ) : "-",
   },
   {
     id: "experienceRequired",
@@ -282,7 +489,7 @@ const getRequirementsColumns = ({
     applyFilter: true,
     filterType: "number",
     align: "center",
-    render: (v) => renderValue(v),
+    render: (v) => renderValue(v), // No click handler - just displays value
   },
   {
     id: "noticePeriod",
@@ -290,7 +497,7 @@ const getRequirementsColumns = ({
     applyFilter: true,
     filterType: "number",
     align: "center",
-    render: (v) => renderValue(v),
+    render: (v) => renderValue(v), // No click handler - just displays value
   },
   {
     id: "qualification",
@@ -303,34 +510,36 @@ const getRequirementsColumns = ({
       v ? (
         <Box sx={{ display: "flex", justifyContent: "center" }}>
           <DialogValueViewer
-            value={v} // ✅ FULL RAW DATA
+            value={getSafeValue(v)}
             label="Qualification"
             renderTrigger={(onClick) => (
               <span
-                onClick={onClick}
+                onClick={(e) => {
+                  onClick(e);
+                  if (handleColumnClick) {
+                    handleColumnClick('qualification', v, null, e);
+                  }
+                }}
                 style={{
                   display: "inline-flex",
                   whiteSpace: "nowrap",
                   cursor: "pointer",
                 }}
               >
-                {renderValue(v)} {/* ✅ TRUNCATED / FORMATTED */}
+                {renderValue(v)}
               </span>
             )}
           />
         </Box>
-      ) : (
-        "-"
-      ),
+      ) : "-",
   },
-
   {
     id: "noOfPositions",
     label: "No. of Positions",
     applyFilter: true,
     filterType: "number",
     align: "center",
-    render: (v) => renderValue(v),
+    render: (v) => renderValue(v), // No click handler - just displays value
   },
   {
     id: "location",
@@ -339,14 +548,39 @@ const getRequirementsColumns = ({
     filterType: "text",
     align: "center",
     filterOptions: filterOptions.location || [],
-    render: (v) => renderValue(v),
+    render: (v) =>
+      v ? (
+        <Box sx={{ display: "flex", justifyContent: "center" }}>
+          <DialogValueViewer
+            value={getSafeValue(v)}
+            label="Location"
+            renderTrigger={(onClick) => (
+              <span
+                onClick={(e) => {
+                  onClick(e);
+                  if (handleColumnClick) {
+                    handleColumnClick('location', v, null, e);
+                  }
+                }}
+                style={{
+                  display: "inline-flex",
+                  whiteSpace: "nowrap",
+                  cursor: "pointer",
+                }}
+              >
+                {renderValue(v)}
+              </span>
+            )}
+          />
+        </Box>
+      ) : "-",
   },
   {
     id: "actions",
     label: "Actions",
     applyFilter: true,
     align: "center",
-    width: "180px", // Adjusted width for compact layout
+    width: "180px",
     render: (_, row) => (
       <Box
         sx={{
