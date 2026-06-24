@@ -161,20 +161,35 @@ const hrmsTableColumns = [
   { label: "Last Working Day", getValue: (profile) => formatDateForInput(profile.lastWorkingDay) },
 ];
 
-const stickyStatusColumnSx = {
-  position: "sticky",
-  right: 72,
-  minWidth: 120,
-  bgcolor: "background.paper",
-  zIndex: 2,
-};
-
+// Sticky columns - positioned from right to left
+// Actions column is the rightmost (right: 0)
 const stickyActionsColumnSx = {
   position: "sticky",
   right: 0,
   minWidth: 72,
+  width: 72,
+  bgcolor: "background.paper",
+  zIndex: 3, // Highest z-index for rightmost column
+};
+
+// Editable Access column is second from right (right: 72)
+const stickyEditableColumnSx = {
+  position: "sticky",
+  right: 72,
+  minWidth: 130,
+  width: 130,
   bgcolor: "background.paper",
   zIndex: 2,
+};
+
+// Status column is third from right (right: 202 = 72 + 130)
+const stickyStatusColumnSx = {
+  position: "sticky",
+  right: 202,
+  minWidth: 100,
+  width: 100,
+  bgcolor: "background.paper",
+  zIndex: 1, // Lowest z-index among sticky columns
 };
 
 const getBody = (response) => response?.data || response || {};
@@ -338,6 +353,7 @@ const generateExcelData = (users, profileDetailsByEmployeeId) => {
     });
     
     rowData["Status"] = user.status || "-";
+    rowData["Editable Access"] = isTruthyFlag(user.isEditable) ? "Locked" : "Editable";
     return rowData;
   });
 };
@@ -982,6 +998,8 @@ const HRMS = () => {
     const getSortValue =
       orderBy === "Status"
         ? (user) => user.status
+        : orderBy === "Editable Access"
+        ? (user) => isTruthyFlag(user.isEditable) ? "Locked" : "Editable"
         : sortColumn
         ? (user) => {
             const employeeId = getEmployeeId(user);
@@ -1562,6 +1580,35 @@ const HRMS = () => {
                       </TableSortLabel>
                     </TableCell>
                     <TableCell
+                      sortDirection={orderBy === "Editable Access" ? order : false}
+                      sx={{
+                        ...stickyEditableColumnSx,
+                        color: "primary.contrastText",
+                        fontWeight: 700,
+                        bgcolor: "primary.main",
+                        "& .MuiTableSortLabel-root": {
+                          color: "primary.contrastText",
+                          "&:hover": {
+                            color: "primary.contrastText",
+                          },
+                          "&.Mui-active": {
+                            color: "primary.contrastText",
+                          },
+                        },
+                        "& .MuiTableSortLabel-icon": {
+                          color: "primary.contrastText !important",
+                        },
+                      }}
+                    >
+                      <TableSortLabel
+                        active={orderBy === "Editable Access"}
+                        direction={orderBy === "Editable Access" ? order : "asc"}
+                        onClick={() => handleSort("Editable Access")}
+                      >
+                        Editable Access
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell
                       align="center"
                       sx={{
                         ...stickyActionsColumnSx,
@@ -1621,6 +1668,14 @@ const HRMS = () => {
                             color={String(user.status).toLowerCase() === "active" ? "success" : "default"}
                           />
                         </TableCell>
+                        <TableCell sx={stickyEditableColumnSx}>
+                          <Chip
+                            size="small"
+                            label={isTruthyFlag(user.isEditable) ? "Locked" : "Editable"}
+                            color={isTruthyFlag(user.isEditable) ? "warning" : "success"}
+                            sx={{ minWidth: 70 }}
+                          />
+                        </TableCell>
                         <TableCell align="center" sx={stickyActionsColumnSx}>
                           <Tooltip title="View HRMS profile">
                             <IconButton color="primary" size="small" onClick={() => fetchUserProfile(user)}>
@@ -1633,7 +1688,7 @@ const HRMS = () => {
                   })}
                   {!paginatedUsers.length && (
                     <TableRow>
-                      <TableCell colSpan={hrmsTableColumns.length + 2}>
+                      <TableCell colSpan={hrmsTableColumns.length + 3}>
                         <Alert severity="info">No users found.</Alert>
                       </TableCell>
                     </TableRow>
