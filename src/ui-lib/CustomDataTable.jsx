@@ -489,10 +489,11 @@ const CustomDataTable = ({
             sx={{
               display: "flex",
               gap: 1,
-              flexDirection: "column",
-              minWidth: FILTER_FIELD_WIDTH,
-              maxWidth: FILTER_FIELD_WIDTH,
-              width: FILTER_FIELD_WIDTH,
+              flexDirection: "row",
+              alignItems: "center",
+              minWidth: 300,
+              maxWidth: 350,
+              width: "auto",
             }}
           >
             <LocalizationProvider dateAdapter={AdapterDateFns}>
@@ -510,7 +511,14 @@ const CustomDataTable = ({
                   )
                 }
                 renderInput={(params) => (
-                  <TextField {...params} size="small" sx={{ width: "100%" }} />
+                  <TextField 
+                    {...params} 
+                    size="small" 
+                    sx={{ 
+                      width: 130,
+                      minWidth: 120,
+                    }} 
+                  />
                 )}
               />
               <DatePicker
@@ -527,7 +535,14 @@ const CustomDataTable = ({
                   )
                 }
                 renderInput={(params) => (
-                  <TextField {...params} size="small" sx={{ width: "100%" }} />
+                  <TextField 
+                    {...params} 
+                    size="small" 
+                    sx={{ 
+                      width: 130,
+                      minWidth: 120,
+                    }} 
+                  />
                 )}
               />
             </LocalizationProvider>
@@ -793,16 +808,26 @@ const CustomDataTable = ({
             <Box
               key={column.id}
               sx={{
-                minWidth: FILTER_FIELD_WIDTH,
-                maxWidth: FILTER_FIELD_WIDTH,
-                width: FILTER_FIELD_WIDTH,
+                ...(column.filterType === "dateRange" 
+                  ? { 
+                      minWidth: 300,
+                      maxWidth: 350,
+                      width: "auto",
+                      flexShrink: 0,
+                    }
+                  : {
+                      minWidth: FILTER_FIELD_WIDTH,
+                      maxWidth: FILTER_FIELD_WIDTH,
+                      width: FILTER_FIELD_WIDTH,
+                    }
+                ),
               }}
             >
               {renderFilterInput(column)}
             </Box>
           ))}
 
-          <Box sx={{ display: "flex", gap: 1 }}>
+          <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexShrink: 0 }}>
             <Button
               variant="outlined"
               size="small"
@@ -827,6 +852,7 @@ const CustomDataTable = ({
               size="small"
               startIcon={showFilters ? <ExpandLessIcon /> : <ExpandMoreIcon />}
               onClick={() => setShowFilters(!showFilters)}
+              sx={{ flexShrink: 0 }}
             >
               {showFilters ? "Hide More" : "More Filters"}
             </Button>
@@ -861,9 +887,19 @@ const CustomDataTable = ({
                 <Box
                   key={column.id}
                   sx={{
-                    minWidth: FILTER_FIELD_WIDTH,
-                    maxWidth: FILTER_FIELD_WIDTH,
-                    width: FILTER_FIELD_WIDTH,
+                    ...(column.filterType === "dateRange" 
+                      ? { 
+                          gridColumn: "span 1.5",
+                          minWidth: 300,
+                          maxWidth: 350,
+                          width: "auto",
+                        }
+                      : {
+                          minWidth: FILTER_FIELD_WIDTH,
+                          maxWidth: FILTER_FIELD_WIDTH,
+                          width: FILTER_FIELD_WIDTH,
+                        }
+                    ),
                   }}
                 >
                   {renderFilterInput(column)}
@@ -938,49 +974,41 @@ const CustomDataTable = ({
             <TableHead>
               <TableRow sx={{ backgroundColor: theme.palette.primary.main }}>
                 {visibleTableColumns.map((col, index) => (
-                    <TableCell
-                      key={col.id}
-                      sx={{
-                        backgroundColor: theme.palette.primary.main,
-                        color: theme.palette.primary.contrastText,
-                        fontWeight: 600,
-                        whiteSpace: "nowrap",
-                        "&:first-of-type": {
-                          borderTopLeftRadius: "8px",
-                        },
-                        "&:last-of-type": {
-                          borderTopRightRadius: "8px",
-                        },
-                      }}
+                  <TableCell
+                    key={col.id}
+                    sx={{
+                      backgroundColor: theme.palette.primary.main,
+                      color: theme.palette.primary.contrastText,
+                      fontWeight: 600,
+                      whiteSpace: "nowrap",
+                      "&:first-of-type": {
+                        borderTopLeftRadius: "8px",
+                      },
+                      "&:last-of-type": {
+                        borderTopRightRadius: "8px",
+                      },
+                    }}
+                  >
+                    <Box
+                      sx={{ display: "flex", alignItems: "center", gap: 1 }}
                     >
-                      <Box
-                        sx={{ display: "flex", alignItems: "center", gap: 1 }}
-                      >
-                        <TableSortLabel
-                          active={sortBy === col.id}
-                          direction={sortBy === col.id ? sortDirection : "asc"}
-                          onClick={() => handleSortRequest(col.id)}
-                          disabled={col.sortable === false || col.id === "actions"}
-                          sx={{
+                      <TableSortLabel
+                        active={sortBy === col.id}
+                        direction={sortBy === col.id ? sortDirection : "asc"}
+                        onClick={() => handleSortRequest(col.id)}
+                        disabled={col.sortable === false || col.id === "actions"}
+                        sx={{
+                          color: "inherit !important",
+                          "& .MuiTableSortLabel-icon": {
                             color: "inherit !important",
-                            "& .MuiTableSortLabel-icon": {
-                              color: "inherit !important",
-                            },
-                          }}
-                        >
-                          {col.label}
-                        </TableSortLabel>
-                        {/* {col.applyFilter && (
-                          <FilterListIcon
-                            sx={{
-                              fontSize: 16,
-                              opacity: localFilters[col.id] ? 1 : 0.5,
-                            }}
-                          />
-                        )} */}
-                      </Box>
-                    </TableCell>
-                  ))}
+                          },
+                        }}
+                      >
+                        {col.label}
+                      </TableSortLabel>
+                    </Box>
+                  </TableCell>
+                ))}
               </TableRow>
             </TableHead>
 
@@ -1009,17 +1037,17 @@ const CustomDataTable = ({
                     }}
                   >
                     {visibleTableColumns.map((col) => (
-                        <TableCell
-                          key={col.id}
-                          sx={{
-                            borderBottom: `1px solid ${theme.palette.divider}`,
-                          }}
-                        >
-                          {col.render
-                            ? col.render(row[col.id], row)
-                            : row[col.id]}
-                        </TableCell>
-                      ))}
+                      <TableCell
+                        key={col.id}
+                        sx={{
+                          borderBottom: `1px solid ${theme.palette.divider}`,
+                        }}
+                      >
+                        {col.render
+                          ? col.render(row[col.id], row)
+                          : row[col.id]}
+                      </TableCell>
+                    ))}
                   </TableRow>
                 ))
               )}
