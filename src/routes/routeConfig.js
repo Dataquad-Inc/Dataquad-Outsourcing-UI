@@ -146,6 +146,9 @@ const RequirementsContainer = lazy(
 const RequirementsList = lazy(
   () => import("../components/UsRequirements/RequirementsList"),
 );
+const AllRequirementsList = lazy(
+  () => import("../components/UsRequirements/AllRequirementsList"),
+);
 const CreateJobRequirement = lazy(
   () => import("../components/UsRequirements/CreateJobRequirement"),
 );
@@ -923,6 +926,25 @@ const routeConfig = [
                   {
                     index: true,
                     element: Loadable(RequirementsList),
+                  },
+                  {
+                    path: "all-requirements",
+                    element: (
+                      <ProtectedRoute
+                        allowedRoles={[
+                          "RECRUITER",
+                          "SALESEXECUTIVE",
+                          "TEAMLEAD",
+                          "GRANDSALES",
+                          "ADMIN",
+                          "EMPLOYEE",
+                        ]}
+                        allowedEntities={["US"]}
+                      />
+                    ),
+                    children: [{ index: true, element: Loadable(AllRequirementsList) }]
+                  },
+                  {
                   },
                   {
                     path: "create-requirement",
