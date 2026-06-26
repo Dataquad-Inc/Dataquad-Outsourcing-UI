@@ -66,7 +66,7 @@ export const usNavItems = (role) => [
     text: "Requirements",
     path: "us-requirements",
     icon: <AssignmentIcon />,
-    roles: ["SUPERADMIN", "TEAMLEAD", "ADMIN", "GRANDSALES", "RECRUITER"],
+    roles: ["SUPERADMIN", "TEAMLEAD", "GRANDSALES", "RECRUITER"],
   },
   {
     text: "RTR",

@@ -45,7 +45,7 @@ export const STATUS = {
 };
 
 // Statuses the user can choose from (WO / PH are system-locked)
-export const EDITABLE_STATUSES = ['P', 'WFH', 'CL', 'SL', 'SP', 'HD', 'LOP', ''];
+export const EDITABLE_STATUSES = ['P', 'WFH', 'CL', 'SL', 'SP', 'HD', 'LOP', 'WO',''];
 
 // ─── StatusChip ───────────────────────────────────────────────────────────────
 export function StatusChip({ code, size = 'sm' }) {
@@ -69,7 +69,7 @@ export function StatusChip({ code, size = 'sm' }) {
 
 // ─── DayCard — one day tile in the calendar strip ────────────────────────────
 function DayCard({ dm, currentStatus, isSelected, isPendingChange, onClick, cycleReadOnly }) {
-  const locked = currentStatus === 'WO' || currentStatus === 'PH';
+  const locked = currentStatus === 'PH';
   const s      = STATUS[currentStatus] ?? STATUS[''];
 
   return (

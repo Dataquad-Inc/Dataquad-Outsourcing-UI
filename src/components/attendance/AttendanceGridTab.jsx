@@ -323,7 +323,7 @@ const AttendanceGridTab = () => {
         defaultStatus: isHoliday ? 'PH' : isWeekend ? 'WO' : null,
         lockReason:    isHoliday
           ? `Public Holiday: ${holidayNameMap[dateStr] || 'Holiday'}`
-          : isWeekend ? 'Week Off' : null,
+          : null,
       });
       cur.setUTCDate(cur.getUTCDate() + 1);
     }
