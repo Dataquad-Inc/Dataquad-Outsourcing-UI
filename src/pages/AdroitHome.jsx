@@ -302,6 +302,22 @@ const AdroitHome = () => {
 
     const baseCards = [
       {
+        id: "totalPlacementsOverall",
+        title: "Placements",
+        value: parseInt(data.totalPlacementsOverall) || 0,
+        icon: GroupIcon,
+        color: theme.palette.primary.main,
+        bgColor: alpha(theme.palette.primary.main, 0.1),
+        change: "+5%",
+        changeType: "positive",
+        description: "Total Placements for US projects",
+        roles: [
+          "SUPERADMIN",
+        ],
+        suffix: "",
+        navigateTo: "/dashboard/us-placements",
+      },
+      {
         id: "totalHotlistExceptFullTime",
         title: "Total Hotlist (Excl. Full Time)",
         value: parseInt(data.totalHotlistExceptFullTime) || 0,

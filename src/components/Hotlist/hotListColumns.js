@@ -5,6 +5,7 @@ import Delete from "@mui/icons-material/Delete";
 import Visibility from "@mui/icons-material/Visibility";
 import AssignmentTurnedInIcon from "@mui/icons-material/AssignmentTurnedIn";
 import CustomChip from "../../ui-lib/CustomChip";
+import DialogValueViewer from "../../ui-lib/DialogValueViewer";
 
 // ✅ Permission logic
 const hasPermission = (userRole) => {
@@ -22,6 +23,53 @@ const formatDate = (date) => {
 
 const renderValue = (value, width = 100, loading) =>
   loading ? <Skeleton width={width} /> : value;
+
+// Helper to safely coerce any value to a string for DialogValueViewer
+const getSafeValue = (value) => {
+  if (value === null || value === undefined) return "-";
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  if (typeof value === "boolean") return String(value);
+  if (Array.isArray(value))
+    return value
+      .map((item) =>
+        typeof item === "object" && item !== null
+          ? item.userName || item.name || JSON.stringify(item)
+          : String(item)
+      )
+      .join(", ");
+  if (typeof value === "object") {
+    if (value.userName) return value.userName;
+    if (value.name) return value.name;
+    return JSON.stringify(value);
+  }
+  return String(value);
+};
+
+// Renders a string column cell with DialogValueViewer truncation.
+// Falls back to plain renderValue when loading.
+const renderStringCell = (v, loading, width = 100) => {
+  if (loading) return <Skeleton width={width} />;
+  if (v === null || v === undefined || v === "") return "-";
+  return (
+    <DialogValueViewer
+      value={getSafeValue(v)}
+      label=""
+      renderTrigger={(onClick) => (
+        <span
+          onClick={onClick}
+          style={{
+            display: "inline-flex",
+            whiteSpace: "nowrap",
+            cursor: "pointer",
+          }}
+        >
+          {getSafeValue(v)}
+        </span>
+      )}
+    />
+  );
+};
 
 const getHotListColumns = ({
   handleNavigate,
@@ -63,26 +111,14 @@ const getHotListColumns = ({
     label: "Consultant Name",
     filterType: "text",
     applyFilter: true,
-    render: (v) => renderValue(v, 120, loading),
+    render: (v) => renderStringCell(v, loading, 120),
   },
-  // {
-  //   id: "status",
-  //   label: "status",
-  //   filterType: "select",
-  //   applyFilter: true,
-  //   filterOptions: [
-  //     { label: "Active", value: "Active" },
-  //     { label: "InActive", value: "InActive" },
-  //     { label: "Hold", value: "Hold" },
-  //   ],
-  //   render: (v) => renderValue(v, 120, loading),
-  // },
   {
     id: "technology",
     label: "Technology",
     filterType: "text",
     applyFilter: true,
-    render: (v) => renderValue(v, 100, loading),
+    render: (v) => renderStringCell(v, loading, 100),
   },
   {
     id: "teamleadName",
@@ -90,7 +126,7 @@ const getHotListColumns = ({
     filterType: "text",
     applyFilter: true,
     filterOptions: filterOptions.teamleadName || [],
-    render: (v) => renderValue(v, 80, loading),
+    render: (v) => renderStringCell(v, loading, 80),
   },
   {
     id: "salesExecutive",
@@ -98,7 +134,7 @@ const getHotListColumns = ({
     filterType: "text",
     applyFilter: true,
     filterOptions: filterOptions.salesExecutive || [],
-    render: (v) => renderValue(v, 100, loading),
+    render: (v) => renderStringCell(v, loading, 100),
   },
   {
     id: "recruiterName",
@@ -106,7 +142,7 @@ const getHotListColumns = ({
     filterType: "text",
     applyFilter: true,
     filterOptions: filterOptions.recruiterName || [],
-    render: (v) => renderValue(v, 80, loading),
+    render: (v) => renderStringCell(v, loading, 80),
   },
   {
     id: "reference",
@@ -114,7 +150,7 @@ const getHotListColumns = ({
     filterType: "text",
     applyFilter: true,
     filterOptions: filterOptions.reference || [],
-    render: (v) => renderValue(v, 80, loading),
+    render: (v) => renderStringCell(v, loading, 80),
   },
   {
     id: "remoteOnsite",
@@ -140,7 +176,7 @@ const getHotListColumns = ({
     label: "Location",
     filterType: "text",
     applyFilter: true,
-    render: (v) => renderValue(v, 50, loading),
+    render: (v) => renderStringCell(v, loading, 50),
   },
   {
     id: "billRate",
@@ -197,7 +233,7 @@ const getHotListColumns = ({
   },
   {
     id: "originalDOB",
-    label: "Original DOB",
+    label: "DOB",
     filterType: "text",
     applyFilter: true,
     render: (v) => (loading ? <Skeleton width={80} /> : formatDate(v)),
@@ -209,14 +245,13 @@ const getHotListColumns = ({
     applyFilter: true,
     render: (v) => (loading ? <Skeleton width={80} /> : formatDate(v)),
   },
-
   {
     id: "approvalStatus",
     label: "Approval Status",
     filterType: "text",
     applyFilter: true,
     filterOptions: filterOptions.approvalStatus || [],
-    render: (v) => renderValue(v, 50, loading),
+    render: (v) => renderStringCell(v, loading, 50),
   },
   {
     id: "Yet-To-OnBoard",
@@ -361,26 +396,14 @@ export const getW2HotlistColumns = ({
     label: "Consultant Name",
     filterType: "text",
     applyFilter: true,
-    render: (v) => renderValue(v, 120, loading),
+    render: (v) => renderStringCell(v, loading, 120),
   },
-  // {
-  //   id: "status",
-  //   label: "status",
-  //   filterType: "select",
-  //   applyFilter: true,
-  //   filterOptions: [
-  //     { label: "Active", value: "Active" },
-  //     { label: "InActive", value: "InActive" },
-  //     { label: "Hold", value: "Hold" },
-  //   ],
-  //   render: (v) => renderValue(v, 120, loading),
-  // },
   {
     id: "technology",
     label: "Technology",
     filterType: "text",
     applyFilter: true,
-    render: (v) => renderValue(v, 100, loading),
+    render: (v) => renderStringCell(v, loading, 100),
   },
   {
     id: "teamleadName",
@@ -388,7 +411,7 @@ export const getW2HotlistColumns = ({
     filterType: "text",
     applyFilter: true,
     filterOptions: filterOptions.teamleadName || [],
-    render: (v) => renderValue(v, 80, loading),
+    render: (v) => renderStringCell(v, loading, 80),
   },
   {
     id: "salesExecutive",
@@ -396,7 +419,7 @@ export const getW2HotlistColumns = ({
     filterType: "text",
     applyFilter: true,
     filterOptions: filterOptions.salesExecutive || [],
-    render: (v) => renderValue(v, 100, loading),
+    render: (v) => renderStringCell(v, loading, 100),
   },
   {
     id: "recruiterName",
@@ -404,16 +427,15 @@ export const getW2HotlistColumns = ({
     filterType: "text",
     applyFilter: true,
     filterOptions: filterOptions.recruiterName || [],
-    render: (v) => renderValue(v, 80, loading),
+    render: (v) => renderStringCell(v, loading, 80),
   },
-
   {
     id: "reference",
     label: "Reference",
     filterType: "text",
     applyFilter: true,
     filterOptions: filterOptions.reference || [],
-    render: (v) => renderValue(v, 80, loading),
+    render: (v) => renderStringCell(v, loading, 80),
   },
   {
     id: "originalDOB",
@@ -421,7 +443,7 @@ export const getW2HotlistColumns = ({
     filterType: "text",
     applyFilter: true,
     filterOptions: filterOptions.originalDOB || [],
-    render: (v) => renderValue(v, 80, loading),
+    render: (v) => (loading ? <Skeleton width={80} /> : formatDate(v)),
   },
   {
     id: "editedDOB",
@@ -429,7 +451,7 @@ export const getW2HotlistColumns = ({
     filterType: "text",
     applyFilter: true,
     filterOptions: filterOptions.editedDOB || [],
-    render: (v) => renderValue(v, 80, loading),
+    render: (v) => (loading ? <Skeleton width={80} /> : formatDate(v)),
   },
   {
     id: "remoteOnsite",
@@ -455,7 +477,7 @@ export const getW2HotlistColumns = ({
     label: "Location",
     filterType: "text",
     applyFilter: true,
-    render: (v) => renderValue(v, 50, loading),
+    render: (v) => renderStringCell(v, loading, 50),
   },
   {
     id: "billRate",
@@ -491,7 +513,6 @@ export const getW2HotlistColumns = ({
     ],
     render: (v) => renderValue(v, 80, loading),
   },
-
   {
     id: "actualVisa",
     label: "Actual Visa",
@@ -511,14 +532,13 @@ export const getW2HotlistColumns = ({
     ],
     render: (v) => renderValue(v, 80, loading),
   },
-
   {
     id: "approvalStatus",
     label: "Approval Status",
     filterType: "text",
     applyFilter: true,
     filterOptions: filterOptions.approvalStatus || [],
-    render: (v) => renderValue(v, 50, loading),
+    render: (v) => renderStringCell(v, loading, 50),
   },
   {
     id: "actions",
