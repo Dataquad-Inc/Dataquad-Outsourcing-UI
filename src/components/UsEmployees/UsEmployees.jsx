@@ -11,6 +11,16 @@ import {
 import showDeleteConfirm from "../../utils/showDeleteConfirm";
 import { CustomModal } from "../../ui-lib/CustomModal";
 
+const formatDateForInput = (value) => {
+  if (!value) return "";
+  if (typeof value === "string") return value.slice(0, 10);
+  if (Array.isArray(value) && value.length >= 3) {
+    const [year, month, day] = value;
+    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+  return "";
+};
+
 const UsEmployees = () => {
   const { role } = useSelector((state) => state.auth);
   const canManageEmployees = role !== "COORDINATOR";
@@ -18,7 +28,14 @@ const UsEmployees = () => {
   const [loading, setLoading] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
-  const [formValues, setFormValues] = useState({ roles: "", status: "" });
+  const [formValues, setFormValues] = useState({
+    userName: "",
+    joiningDate: "",
+    phoneNumber: "",
+    personalemail: "",
+    roles: "",
+    status: "",
+  });
 
   const [employees, setEmployees] = useState([]);
   const [total, setTotal] = useState(0);
@@ -121,19 +138,52 @@ const UsEmployees = () => {
     const currentRole = Array.isArray(row.roles) ? row.roles[0] || "" : row.roles || "";
     setSelectedEmployee(row);
     setFormValues({
+      userName: row.userName || "",
+      joiningDate: formatDateForInput(row.joiningDate),
+      phoneNumber: row.phoneNumber || "",
+      personalemail: row.personalemail || "",
       roles: currentRole,
       status: row.status || "",
     });
     setOpenEdit(true);
   };
 
+  const handleEditFieldChange = (field) => (event) => {
+    const value = event.target.value;
+    setFormValues((currentValues) => ({
+      ...currentValues,
+      [field]: field === "phoneNumber" ? value.replace(/\D/g, "").slice(0, 10) : value,
+    }));
+  };
+
   const handleSave = async () => {
     try {
+      if (!formValues.userName.trim()) {
+        showErrorToast("Name is required");
+        return;
+      }
+
+      if (!formValues.joiningDate) {
+        showErrorToast("Joining date is required");
+        return;
+      }
+
+      if (!/^\d{10}$/.test(formValues.phoneNumber)) {
+        showErrorToast("Phone number must be 10 digits");
+        return;
+      }
+
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formValues.personalemail)) {
+        showErrorToast("Enter a valid personal email");
+        return;
+      }
+
       const payload = {
         ...selectedEmployee,
         ...formValues,
         // ✅ FIX: Send roles as string, not array
         roles: formValues.roles,
+        phoneNumber: formValues.phoneNumber.replace(/\D/g, ""),
       };
 
       delete payload.password;
@@ -238,12 +288,42 @@ const UsEmployees = () => {
       >
         <Stack spacing={2} sx={{ mt: 1 }}>
           <TextField
+            label="Name"
+            value={formValues.userName}
+            onChange={handleEditFieldChange("userName")}
+            fullWidth
+          />
+
+          <TextField
+            label="Joining Date"
+            type="date"
+            value={formValues.joiningDate}
+            onChange={handleEditFieldChange("joiningDate")}
+            InputLabelProps={{ shrink: true }}
+            fullWidth
+          />
+
+          <TextField
+            label="Phone Number"
+            value={formValues.phoneNumber}
+            onChange={handleEditFieldChange("phoneNumber")}
+            inputProps={{ maxLength: 10 }}
+            fullWidth
+          />
+
+          <TextField
+            label="Personal Email"
+            type="email"
+            value={formValues.personalemail}
+            onChange={handleEditFieldChange("personalemail")}
+            fullWidth
+          />
+
+          <TextField
             select
             label="Role"
             value={formValues.roles}
-            onChange={(e) =>
-              setFormValues({ ...formValues, roles: e.target.value })
-            }
+            onChange={handleEditFieldChange("roles")}
             fullWidth
           >
             {roleOptions.map((option) => (
@@ -257,9 +337,7 @@ const UsEmployees = () => {
             select
             label="Status"
             value={formValues.status}
-            onChange={(e) =>
-              setFormValues({ ...formValues, status: e.target.value })
-            }
+            onChange={handleEditFieldChange("status")}
             fullWidth
           >
             <MenuItem value="ACTIVE">Active</MenuItem>
