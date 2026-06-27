@@ -11,7 +11,7 @@ import UsInterviewsRouter from "../components/UsInterviews/UsInterviewRouter";
 import { Navigate } from "react-router-dom";
 import { element } from "prop-types";
 
-const Loadable = (Component) => (
+const Loadable = (Component, props = {}) => (
   <Suspense
     fallback={
       <Box
@@ -29,7 +29,7 @@ const Loadable = (Component) => (
       </Box>
     }
   >
-    <Component />
+    <Component {...props} />
   </Suspense>
 );
 
@@ -561,6 +561,36 @@ const routeConfig = [
               />
             ),
             children: [{ index: true, element: Loadable(InProgressData) }],
+          },
+
+          // IN PROGRESS (US)
+          {
+            path: "us-inprogress",
+            element: (
+              <ProtectedRoute
+                allowedRoles={[
+                  "SUPERADMIN",
+                  "ADMIN",
+                  "TEAMLEAD",
+                  "EMPLOYEE",
+                  "RECRUITER",
+                  "SALESEXECUTIVE",
+                  "GRANDSALES",
+                  "COORDINATOR",
+                ]}
+                allowedEntities={["US"]}
+              />
+            ),
+            children: [
+              {
+                index: true,
+                element: Loadable(InProgressData, {
+                  entity: "US",
+                  detailsBasePath: "/dashboard/us-requirements",
+                  fromPath: "/dashboard/us-inprogress",
+                }),
+              },
+            ],
           },
 
           // BENCH USERS (IN)

@@ -69,6 +69,12 @@ export const usNavItems = (role) => [
     roles: ["SUPERADMIN", "TEAMLEAD", "GRANDSALES", "RECRUITER"],
   },
   {
+    text: "InProgress",
+    path: "us-inprogress",
+    icon: <AutorenewIcon />,
+    roles: [...commonRoles, "COORDINATOR"],
+  },
+  {
     text: "RTR",
     path: "rtr/rtr-list",
     icon: <ListAltIcon />,
