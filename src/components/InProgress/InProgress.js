@@ -1,13 +1,17 @@
 import React, { useEffect, useRef, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchInProgressData, clearFilterData, sendingUsersData, setPage, setRowsPerPage, setSearchQuery, filterInProgressDataByDateRange } from '../../redux/inProgressSlice';
+import { fetchInProgressData, clearFilterData, sendingUsersData, setPage, setRowsPerPage, setSearchQuery, setActiveDateRange, filterInProgressDataByDateRange } from '../../redux/inProgressSlice';
 import DataTablePaginated from '../muiComponents/DataTablePaginated';
 import DateRangeFilter from '../muiComponents/DateRangeFilter';
 import { Stack, Typography, Alert, Snackbar, Link, Chip } from '@mui/material';
 import { formatDateTime } from '../../utils/dateformate';
 import { useNavigate } from 'react-router-dom';
 
-const InProgress = () => {
+const InProgress = ({
+    entity = 'IN',
+    detailsBasePath = '/dashboard/requirements/job-details',
+    fromPath = '/dashboard/InProgress',
+}) => {
     const dispatch = useDispatch();
     const navigate=useNavigate();
     const { 
@@ -42,10 +46,11 @@ const InProgress = () => {
     dispatch(fetchInProgressData({
         page: currentPage,
         size: rowsPerPage,
-        search: searchQuery
+        search: searchQuery,
+        entity
     }));
     setTimeout(() => { isUpdating.current = false; }, 0);
-    }, [currentPage, rowsPerPage, searchQuery]);
+    }, [currentPage, rowsPerPage, searchQuery, entity]);
 
 
    useEffect(() => {
@@ -57,9 +62,10 @@ const InProgress = () => {
         endDate: activeDateRange.endDate,
         page: currentPage,
         size: rowsPerPage,
-        search: searchQuery
+        search: searchQuery,
+        entity
     }));
-    }, [currentPage, rowsPerPage, searchQuery, isFiltered]);
+    }, [currentPage, rowsPerPage, searchQuery, isFiltered, entity]);
         
         // Enhanced sorting function
 const customSort = (a, b, key) => {
@@ -167,8 +173,8 @@ const processedData = useMemo(() => {
 
 
  const handleJobIdClick = (jobId) => {
-  navigate(`/dashboard/requirements/job-details/${jobId}`, {
-    state: { from: "/dashboard/InProgress" }
+  navigate(`${detailsBasePath}/${jobId}`, {
+    state: { from: fromPath }
   });
 };
 
@@ -213,11 +219,29 @@ const processedData = useMemo(() => {
         dispatch(setSearchQuery(value)); 
     };
 
+    const handleDateChange = (startDate, endDate) => {
+        if (!startDate || !endDate) {
+            dispatch(clearFilterData());
+            return;
+        }
+
+        dispatch(setPage(0));
+        dispatch(setActiveDateRange({ startDate, endDate }));
+        dispatch(filterInProgressDataByDateRange({
+            startDate,
+            endDate,
+            page: 0,
+            size: rowsPerPage,
+            search: searchQuery,
+            entity,
+        }));
+    };
+
 
     const columns = [
-         {
+        {
             key: "recruiterName",
-            label: "Recruiter",
+            label: entity === 'US' ? "Sales Executive" : "Recruiter",
             type: "text",
             sortable: true,
             filterable: true,
@@ -371,7 +395,7 @@ const processedData = useMemo(() => {
         if (currentPage !== 0) dispatch(setPage(0));
         if (searchQuery !== '') dispatch(setSearchQuery(''));
         if (currentPage === 0 && searchQuery === '') {
-            dispatch(fetchInProgressData({ page: 0, size: rowsPerPage, search: '' }));
+            dispatch(fetchInProgressData({ page: 0, size: rowsPerPage, search: '', entity }));
         }
     };
 
@@ -394,7 +418,7 @@ const processedData = useMemo(() => {
 
                 <Typography variant='h6' color='primary'>In-Progress Management</Typography>
                 <Stack direction="row" alignItems="center" spacing={2} sx={{ ml: 'auto' }}>
-                    <DateRangeFilter component="InProgress" onClearFilter={handleRefresh}  />
+                    <DateRangeFilter component="InProgress" onDateChange={handleDateChange} onClearFilter={handleRefresh}  />
                 </Stack>
             </Stack>
 

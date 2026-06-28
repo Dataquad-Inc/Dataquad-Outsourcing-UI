@@ -3,11 +3,11 @@ import httpService from '../Services/httpService';
 
 export const fetchInProgressData = createAsyncThunk(
     'inProgress/fetchInProgressDate',
-    async ({ page = 0, size = 20, search = '' } = {}, { rejectWithValue }) => {
+    async ({ page = 0, size = 20, search = '', entity = 'IN' } = {}, { rejectWithValue }) => {
         try {
             const searchParam = search.trim() ? `&search=${encodeURIComponent(search.trim())}` : '';
             const response = await httpService.get(
-                `/requirements/inprogress?page=${page}&size=${size}${searchParam}`
+                `/requirements/inprogress?page=${page}&size=${size}&entity=${encodeURIComponent(entity)}${searchParam}`
             );
             return response.data;
         } catch (error) {
@@ -18,10 +18,10 @@ export const fetchInProgressData = createAsyncThunk(
 
 export const filterInProgressDataByDateRange = createAsyncThunk(
     'inProgress/filterInProgressDataByDateRange',
-    async ({ startDate, endDate, page = 0, size = 20, search = '' }, { rejectWithValue }) => {
+    async ({ startDate, endDate, page = 0, size = 20, search = '', entity = 'IN' }, { rejectWithValue }) => {
         try {
             const searchParam = search.trim() ? `&search=${encodeURIComponent(search.trim())}` : '';
-            const response = await httpService.get(`/requirements/inprogress/filterByDate?startDate=${startDate}&endDate=${endDate}&page=${page}&size=${size}${searchParam}`);
+            const response = await httpService.get(`/requirements/inprogress/filterByDate?startDate=${startDate}&endDate=${endDate}&page=${page}&size=${size}&entity=${encodeURIComponent(entity)}${searchParam}`);
             return response.data
         }
         catch (error) {
