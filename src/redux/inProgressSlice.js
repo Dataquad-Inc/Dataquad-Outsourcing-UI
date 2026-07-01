@@ -1,11 +1,68 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import httpService from '../Services/httpService';
 
+const mapUsRequirementToInProgress = (item) => ({
+    recruiterId: item.assignedById,
+    recruiterName: item.assignedByName,
+    jobId: item.jobId,
+    clientName: item.clientName,
+    bdm: item.assignedByName,
+    teamlead: Array.isArray(item.assignedUsers)
+        ? item.assignedUsers.map((user) => user.userName).filter(Boolean).join(', ')
+        : '',
+    technology: item.jobTitle,
+    postedDate: item.createdAt,
+    updatedDateTime: item.updatedAt,
+    numberOfSubmissions: Number(item.submissions) || 0,
+    numberOfScreenReject: 0,
+    jobTitle: item.jobTitle,
+    jobMode: item.jobMode,
+    jobType: item.jobType,
+    experienceRequired: item.experienceRequired,
+    relevantExperience: item.relevantExperience,
+    last_login_time: null,
+});
+
+const mapUsRequirementsResponse = (data) => ({
+    content: (data?.content || []).map(mapUsRequirementToInProgress),
+    totalElements: data?.totalElements || 0,
+    totalPages: data?.totalPages || 0,
+    currentPage: data?.currentPage || 0,
+    pageSize: data?.size || data?.pageSize || 20,
+});
+
+const formatUsDateParam = (value = new Date()) => {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`;
+};
+
+const getYesterdayDate = () => {
+    const date = new Date();
+    date.setDate(date.getDate() - 1);
+    return date;
+};
+
 export const fetchInProgressData = createAsyncThunk(
     'inProgress/fetchInProgressDate',
     async ({ page = 0, size = 20, search = '', entity = 'IN' } = {}, { rejectWithValue }) => {
         try {
-            const searchParam = search.trim() ? `&search=${encodeURIComponent(search.trim())}` : '';
+            const trimmedSearch = search.trim();
+            if (entity === 'US') {
+                const searchParam = trimmedSearch ? `&keyword=${encodeURIComponent(trimmedSearch)}` : '';
+                const today = formatUsDateParam();
+                const yesterday = formatUsDateParam(getYesterdayDate());
+                const response = await httpService.get(
+                    `/api/us/requirements/v2/get-all-requirements?page=${page}&size=${size}&status=IN%20PROGRESS&fromDate=${yesterday}&toDate=${today}${searchParam}`
+                );
+                return mapUsRequirementsResponse(response.data);
+            }
+
+            const searchParam = trimmedSearch ? `&search=${encodeURIComponent(trimmedSearch)}` : '';
             const response = await httpService.get(
                 `/requirements/inprogress?page=${page}&size=${size}&entity=${encodeURIComponent(entity)}${searchParam}`
             );
@@ -20,7 +77,18 @@ export const filterInProgressDataByDateRange = createAsyncThunk(
     'inProgress/filterInProgressDataByDateRange',
     async ({ startDate, endDate, page = 0, size = 20, search = '', entity = 'IN' }, { rejectWithValue }) => {
         try {
-            const searchParam = search.trim() ? `&search=${encodeURIComponent(search.trim())}` : '';
+            const trimmedSearch = search.trim();
+            if (entity === 'US') {
+                const searchParam = trimmedSearch ? `&keyword=${encodeURIComponent(trimmedSearch)}` : '';
+                const fromDate = formatUsDateParam(startDate);
+                const toDate = formatUsDateParam(endDate);
+                const response = await httpService.get(
+                    `/api/us/requirements/v2/get-all-requirements?page=${page}&size=${size}&status=IN%20PROGRESS&fromDate=${fromDate}&toDate=${toDate}${searchParam}`
+                );
+                return mapUsRequirementsResponse(response.data);
+            }
+
+            const searchParam = trimmedSearch ? `&search=${encodeURIComponent(trimmedSearch)}` : '';
             const response = await httpService.get(`/requirements/inprogress/filterByDate?startDate=${startDate}&endDate=${endDate}&page=${page}&size=${size}&entity=${encodeURIComponent(entity)}${searchParam}`);
             return response.data
         }
