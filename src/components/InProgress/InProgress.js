@@ -241,7 +241,7 @@ const processedData = useMemo(() => {
     const columns = [
         {
             key: "recruiterName",
-            label: entity === 'US' ? "Sales Executive" : "Recruiter",
+            label: "Recruiter",
             type: "text",
             sortable: true,
             filterable: true,

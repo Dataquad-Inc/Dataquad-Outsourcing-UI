@@ -178,6 +178,10 @@ const DataTablePaginated = ({
 
   const tableHeight = customTableHeight || "100%";
   const tableWidth = customTableWidth || "100%";
+  const getRowId = useCallback(
+    (row) => (typeof uniqueId === "function" ? uniqueId(row) : row[uniqueId]),
+    [uniqueId],
+  );
 
   const tableStyles = {
     headerBackground: darkMode ? alpha(primaryColor, 0.8) : primaryColor,
@@ -391,7 +395,7 @@ const DataTablePaginated = ({
     if (event.target.checked) {
       const dataToSelect = serverSide ? data : filteredData;
       const currentPageData = displayData;
-      const newSelected = currentPageData.map((row) => row[uniqueId]);
+      const newSelected = currentPageData.map((row) => getRowId(row));
       setSelectedRows(newSelected);
     } else {
       setSelectedRows([]);
@@ -406,7 +410,7 @@ const DataTablePaginated = ({
       // This would typically trigger an API call to select all records
       // For now, we'll just select all on current page
       const dataToSelect = serverSide ? data : filteredData;
-      const newSelected = dataToSelect.map((row) => row[uniqueId]);
+      const newSelected = dataToSelect.map((row) => getRowId(row));
       setSelectedRows(newSelected);
       
       // Optional: Call a callback if provided
@@ -628,10 +632,10 @@ const DataTablePaginated = ({
 
   // Determine if all rows on current page are selected
   const isAllSelectedOnPage = displayData.length > 0 && 
-    displayData.every(row => selectedRows.includes(row[uniqueId]));
+    displayData.every(row => selectedRows.includes(getRowId(row)));
 
   // Determine if some rows on current page are selected
-  const isSomeSelectedOnPage = displayData.some(row => selectedRows.includes(row[uniqueId])) && 
+  const isSomeSelectedOnPage = displayData.some(row => selectedRows.includes(getRowId(row))) && 
     !isAllSelectedOnPage;
 
   return (
@@ -1140,7 +1144,7 @@ const DataTablePaginated = ({
                 </TableRow>
               ) : (
                 displayData.map((row) => {
-                  const rowId = row[uniqueId];
+                  const rowId = getRowId(row);
                   const isItemSelected = isRowSelected(rowId);
                   const isExpanded = expandedRow === rowId;
 

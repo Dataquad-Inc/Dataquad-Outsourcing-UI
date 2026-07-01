@@ -1,35 +1,112 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import httpService from '../Services/httpService';
 
-const mapUsRequirementToInProgress = (item) => ({
-    recruiterId: item.assignedById,
-    recruiterName: item.assignedByName,
-    jobId: item.jobId,
-    clientName: item.clientName,
-    bdm: item.assignedByName,
-    teamlead: Array.isArray(item.assignedUsers)
-        ? item.assignedUsers.map((user) => user.userName).filter(Boolean).join(', ')
-        : '',
-    technology: item.jobTitle,
-    postedDate: item.createdAt,
-    updatedDateTime: item.updatedAt,
-    numberOfSubmissions: Number(item.submissions) || 0,
+const getUserLastLoginTime = (user) => user?.last_login_time || user?.lastLoginTime || null;
+
+const mapUsRequirementToInProgress = (item, recruiter, recruiterById = new Map()) => {
+    const employee = recruiterById.get(recruiter?.userId) || recruiterById.get(recruiter?.employeeId);
+
+    return {
+        recruiterId: recruiter?.userId || recruiter?.employeeId || item.assignedById,
+        recruiterName: recruiter?.userName || recruiter?.employeeName || item.assignedByName,
+        jobId: item.jobId,
+        clientName: item.clientName,
+        bdm: item.assignedByName,
+        teamlead: item.assignedByName,
+        technology: item.jobTitle,
+        postedDate: item.createdAt,
+        updatedDateTime: item.updatedAt,
+        numberOfSubmissions: Number(item.submissions) || 0,
+        numberOfScreenReject: 0,
+        jobTitle: item.jobTitle,
+        jobMode: item.jobMode,
+        jobType: item.jobType,
+        experienceRequired: item.experienceRequired,
+        relevantExperience: item.relevantExperience,
+        last_login_time: getUserLastLoginTime(employee),
+    };
+};
+
+const mapUsEmptyRecruiterRow = (user) => ({
+    recruiterId: user.employeeId,
+    recruiterName: user.userName,
+    jobId: null,
+    clientName: null,
+    bdm: null,
+    teamlead: null,
+    technology: null,
+    postedDate: null,
+    updatedDateTime: null,
+    numberOfSubmissions: 0,
     numberOfScreenReject: 0,
-    jobTitle: item.jobTitle,
-    jobMode: item.jobMode,
-    jobType: item.jobType,
-    experienceRequired: item.experienceRequired,
-    relevantExperience: item.relevantExperience,
-    last_login_time: null,
+    jobTitle: null,
+    jobMode: null,
+    jobType: null,
+    experienceRequired: null,
+    relevantExperience: null,
+    last_login_time: getUserLastLoginTime(user),
 });
 
-const mapUsRequirementsResponse = (data) => ({
-    content: (data?.content || []).map(mapUsRequirementToInProgress),
-    totalElements: data?.totalElements || 0,
-    totalPages: data?.totalPages || 0,
-    currentPage: data?.currentPage || 0,
-    pageSize: data?.size || data?.pageSize || 20,
-});
+const rowMatchesSearch = (row, search) => {
+    if (!search) return true;
+    const query = search.toLowerCase();
+    return [
+        row.recruiterId,
+        row.recruiterName,
+        row.jobId,
+        row.clientName,
+        row.bdm,
+        row.teamlead,
+        row.jobTitle,
+        row.jobMode,
+        row.jobType,
+    ].some((value) => String(value || '').toLowerCase().includes(query));
+};
+
+const buildUsInProgressResponse = (requirementsData, recruitersData, page, size, search = '') => {
+    const recruiters = Array.isArray(recruitersData) ? recruitersData : recruitersData?.value || [];
+    const recruiterById = new Map(
+        recruiters
+            .filter((user) => user?.employeeId)
+            .map((user) => [user.employeeId, user])
+    );
+    const recruiterRows = [];
+    const recruitersWithRequirements = new Set();
+
+    for (const item of requirementsData?.content || []) {
+        const assignedRecruiters = Array.isArray(item.assignedUsers) ? item.assignedUsers : [];
+
+        if (assignedRecruiters.length === 0) {
+            recruiterRows.push(mapUsRequirementToInProgress(item, null, recruiterById));
+            continue;
+        }
+
+        assignedRecruiters.forEach((recruiter) => {
+            const recruiterId = recruiter?.userId || recruiter?.employeeId;
+            if (recruiterId) recruitersWithRequirements.add(recruiterId);
+            recruiterRows.push(mapUsRequirementToInProgress(item, recruiter, recruiterById));
+        });
+    }
+
+    const emptyRecruiterRows = recruiters
+        .filter((user) => user?.employeeId && !recruitersWithRequirements.has(user.employeeId))
+        .map(mapUsEmptyRecruiterRow);
+
+    const combined = [...recruiterRows, ...emptyRecruiterRows]
+        .filter((row) => rowMatchesSearch(row, search))
+        .sort((a, b) => String(a.recruiterName || '').localeCompare(String(b.recruiterName || ''), undefined, { sensitivity: 'base' }));
+
+    const start = page * size;
+    const pagedContent = combined.slice(start, start + size);
+
+    return {
+        content: pagedContent,
+        totalElements: combined.length,
+        totalPages: Math.ceil(combined.length / size),
+        currentPage: page,
+        pageSize: size,
+    };
+};
 
 const formatUsDateParam = (value = new Date()) => {
     const date = value instanceof Date ? value : new Date(value);
@@ -47,19 +124,33 @@ const getYesterdayDate = () => {
     return date;
 };
 
+const fetchUsInProgressData = async ({ page, size, search, startDate, endDate }) => {
+    const fromDate = formatUsDateParam(startDate);
+    const toDate = formatUsDateParam(endDate);
+
+    const [requirementsResponse, recruitersResponse] = await Promise.all([
+        httpService.get(
+            `/api/us/requirements/v2/get-all-requirements?page=0&size=1000&status=IN%20PROGRESS&fromDate=${fromDate}&toDate=${toDate}`
+        ),
+        httpService.get('/users/employee?entity=US&roleName=RECRUITER'),
+    ]);
+
+    return buildUsInProgressResponse(requirementsResponse.data, recruitersResponse.data, page, size, search);
+};
+
 export const fetchInProgressData = createAsyncThunk(
     'inProgress/fetchInProgressDate',
     async ({ page = 0, size = 20, search = '', entity = 'IN' } = {}, { rejectWithValue }) => {
         try {
             const trimmedSearch = search.trim();
             if (entity === 'US') {
-                const searchParam = trimmedSearch ? `&keyword=${encodeURIComponent(trimmedSearch)}` : '';
-                const today = formatUsDateParam();
-                const yesterday = formatUsDateParam(getYesterdayDate());
-                const response = await httpService.get(
-                    `/api/us/requirements/v2/get-all-requirements?page=${page}&size=${size}&status=IN%20PROGRESS&fromDate=${yesterday}&toDate=${today}${searchParam}`
-                );
-                return mapUsRequirementsResponse(response.data);
+                return fetchUsInProgressData({
+                    page,
+                    size,
+                    search: trimmedSearch,
+                    startDate: getYesterdayDate(),
+                    endDate: new Date(),
+                });
             }
 
             const searchParam = trimmedSearch ? `&search=${encodeURIComponent(trimmedSearch)}` : '';
@@ -79,13 +170,13 @@ export const filterInProgressDataByDateRange = createAsyncThunk(
         try {
             const trimmedSearch = search.trim();
             if (entity === 'US') {
-                const searchParam = trimmedSearch ? `&keyword=${encodeURIComponent(trimmedSearch)}` : '';
-                const fromDate = formatUsDateParam(startDate);
-                const toDate = formatUsDateParam(endDate);
-                const response = await httpService.get(
-                    `/api/us/requirements/v2/get-all-requirements?page=${page}&size=${size}&status=IN%20PROGRESS&fromDate=${fromDate}&toDate=${toDate}${searchParam}`
-                );
-                return mapUsRequirementsResponse(response.data);
+                return fetchUsInProgressData({
+                    page,
+                    size,
+                    search: trimmedSearch,
+                    startDate,
+                    endDate,
+                });
             }
 
             const searchParam = trimmedSearch ? `&search=${encodeURIComponent(trimmedSearch)}` : '';
