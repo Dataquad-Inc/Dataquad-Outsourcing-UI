@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchInProgressData, clearFilterData, sendingUsersData, setPage, setRowsPerPage, setSearchQuery, setActiveDateRange, filterInProgressDataByDateRange } from '../../redux/inProgressSlice';
 import DataTablePaginated from '../muiComponents/DataTablePaginated';
 import DateRangeFilter from '../muiComponents/DateRangeFilter';
-import { Stack, Typography, Alert, Snackbar, Link, Chip } from '@mui/material';
+import { Stack, Typography, Alert, Snackbar, Link, Chip, Tooltip, Box } from '@mui/material';
 import { formatDateTime } from '../../utils/dateformate';
 import { useNavigate } from 'react-router-dom';
 
@@ -273,9 +273,31 @@ const processedData = useMemo(() => {
             key: "teamlead",
             label: "Team Lead",
             type: "text",
+            render: (row) => {
+                const teamlead = row.teamlead || '';
+                return (
+                    <Tooltip title={teamlead} arrow disableHoverListener={!teamlead}>
+                        <Box
+                            component="span"
+                            sx={{
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'normal',
+                                lineHeight: 1.35,
+                                maxWidth: 220,
+                            }}
+                        >
+                            {teamlead || '-'}
+                        </Box>
+                    </Tooltip>
+                );
+            },
             sortable: true,
             filterable: true,
-            width: 120,
+            width: 220,
             isSorted: sortConfig.key === 'teamlead',
             isSortedDesc: sortConfig.key === 'teamlead' && sortConfig.direction === 'desc',
             onSort: () => handleSort('teamlead')
@@ -350,6 +372,7 @@ const processedData = useMemo(() => {
             key: "relevantExperience",
             label: "Relevant Exp",
             type: "text",
+            render: (row) => row.relevantExperience || '-',
             sortable: true,
             filterable: true,
             align:'center',
