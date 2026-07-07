@@ -344,6 +344,10 @@ export const hotlistAPI = {
      return apiGet("/hotlist/all-guest-house-Consultants", params);
   },
 
+  getDirectHotlistConsultants: async (params = {}) => {
+    return apiGet("/hotlist/direct-rtr-consultants", params);
+  },
+
   // Get consultants by user ID
   getConsultantsByUserId: async (userId, params = {}) => {
     if (!userId) throw new Error("User ID is required");

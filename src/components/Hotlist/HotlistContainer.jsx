@@ -41,6 +41,11 @@ const HotlistContainer = () => {
         icon: <ListAltIcon />,
         path: "/dashboard/hotlist/gurest-consultants",
       },
+      {
+        label:"Direct-Hotlist",
+        icon:<ListAltIcon/>,
+        path:"/dashboard/hotlist/direct-hotlist-consultants"
+      }
 
       // {
       //   label: "Add Consultant",

@@ -131,6 +131,10 @@ const GuestHouseConsultants = lazy(
   () => import("../components/Hotlist/GuestHouseConsultants"),
 );
 
+const DirectHotlistConsultants = lazy(
+  () => import("../components/Hotlist/DirectHotlistConsultants")
+);
+
 const W2Hotlist = lazy(() => import("../components/Hotlist/W2Hotlist"));
 //yet-to-bonboard
 const YetToOnBoardContainer = lazy(
@@ -808,6 +812,10 @@ const routeConfig = [
                   {
                     path: "gurest-consultants", // /dashboard/hotlist/full-time`
                     element: Loadable(GuestHouseConsultants),
+                  },
+                  {
+                    path: "direct-hotlist-consultants", // /dashboard/hotlist/direct-hotlist-consultants
+                    element: Loadable(DirectHotlistConsultants),
                   },
                   {
                     path: "master/:consultantId", // /dashboard/hotlist/master/:consultantId
