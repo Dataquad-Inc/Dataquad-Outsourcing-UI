@@ -134,6 +134,12 @@ const PlacementsList = () => {
           (placement) => placement.employmentType === "Full-time"
         );
         break;
+      case "Pending":
+        // Filter all pending placements regardless of status
+        filtered = processedPlacements.filter(
+          (placement) => placement.status === "Pending"
+        );
+        break;
       default:
         // Show all placements
         filtered = processedPlacements;
@@ -172,6 +178,10 @@ const PlacementsList = () => {
       case "fulltime":
         return processedPlacements.filter(
           (placement) => placement.employmentType === "Full-time"
+        ).length;
+      case "Pending":
+        return processedPlacements.filter(
+          (placement) => placement.status === "Pending"
         ).length;
       default:
         return processedPlacements.length;
@@ -691,6 +701,14 @@ const PlacementsList = () => {
             >
               Full-time ({getFilterCount("fulltime")})
             </Button>
+            <Button
+              variant={getFilterButtonColor("Pending")}
+              color="warning"
+              onClick={() => handleFilterChange("Pending")}
+              sx={{ minWidth: 110 }}
+            >
+              Pending ({getFilterCount("Pending")})
+            </Button>
           </ButtonGroup>
 
           {activeFilter !== "all" && (
@@ -719,6 +737,8 @@ const PlacementsList = () => {
               "Showing inactive placements (excludes full-time employment)"}
             {activeFilter === "fulltime" &&
               "Showing all full-time placements (active and inactive)"}
+            {activeFilter === "Pending" &&
+              "Showing all pending placements"}
           </Typography>
         )}
       </Box>

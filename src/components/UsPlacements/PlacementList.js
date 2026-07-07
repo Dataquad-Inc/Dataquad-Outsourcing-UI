@@ -146,6 +146,12 @@ console.log("Placements data from Redux:", usPlacements);
           (placement) => placement.employmentType === "Full-time"
         );
         break;
+      case "pending":
+        // Filter all pending placements regardless of status
+        filtered = processedPlacements.filter(
+          (placement) => placement.status === "Pending"
+        );
+        break;
       default:
         // Show all placements
         filtered = processedPlacements;
@@ -185,6 +191,10 @@ console.log("Placements data from Redux:", usPlacements);
       case "fulltime":
         return processedPlacements.filter(
           (placement) => placement.employmentType === "Full-time"
+        ).length;
+      case "pending":
+        return processedPlacements.filter(
+          (placement) => placement.status === "Pending"
         ).length;
       default:
         return processedPlacements.length;
@@ -752,6 +762,14 @@ console.log("Placements data from Redux:", usPlacements);
               sx={{ minWidth: 110 }}
             >
               Full-time ({getFilterCount("fulltime")})
+            </Button>
+            <Button
+              variant={getFilterButtonColor("pedning")}
+              color="info"
+              onClick={() => handleFilterChange("pending")}
+              sx={{ minWidth: 110 }}
+            >
+              Pending ({getFilterCount("pending")})
             </Button>
           </ButtonGroup>
 
