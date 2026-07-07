@@ -143,6 +143,46 @@ export const fetchUsPlacements = createAsyncThunk(
   }
 );
 
+export const fetchUsPlacementCounts = createAsyncThunk(
+  "placement/fetchUsPlacementCounts",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await httpService.get(
+        "/candidate/us-placement/placements-list",
+        { page: 0, size: 10000 }
+      );
+      const rawData = response?.data?.data || response?.data || [];
+
+      return rawData.reduce(
+        (counts, placement) => {
+          const status = String(placement.status || "").toLowerCase();
+          const employmentType = String(placement.employmentType || "").toLowerCase();
+          const isFullTime = employmentType === "full-time";
+
+          counts.all += 1;
+
+          if (isFullTime) {
+            counts.fulltime += 1;
+          } else if (status === "active") {
+            counts.active += 1;
+          } else if (status === "pending") {
+            counts.pending += 1;
+          } else {
+            counts.inactive += 1;
+          }
+
+          return counts;
+        },
+        { all: 0, active: 0, inactive: 0, fulltime: 0, pending: 0 }
+      );
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch US placement counts"
+      );
+    }
+  }
+);
+
 // Async thunk to create a new placement
 export const createPlacement = createAsyncThunk(
   "placement/createPlacement",
@@ -256,6 +296,7 @@ export const createUsPlacement = createAsyncThunk(
         ToastService.success("New US placement created successfully!");
         // Refetch US placements after creating a new one
         dispatch(fetchUsPlacements());
+        dispatch(fetchUsPlacementCounts());
         
         // Fetch RTR interviews from hotlist/rtrInterviews-list
         dispatch(fetchRTRInterviews());
@@ -305,6 +346,7 @@ export const updateUsPlacement = createAsyncThunk(
         );
         // Refetch US placements after updating
         dispatch(fetchUsPlacements());
+        dispatch(fetchUsPlacementCounts());
         return response;
       } else {
         throw new Error(response.data.error || "Failed to update US placement");
@@ -363,6 +405,7 @@ export const deleteUsPlacement = createAsyncThunk(
         ToastService.success("US Placement deleted successfully!");
         // Refetch US placements after deleting
         dispatch(fetchUsPlacements());
+        dispatch(fetchUsPlacementCounts());
         return response;
       } else {
         throw new Error(response.error || "Failed to delete US placement");
@@ -415,6 +458,13 @@ const initialState = {
     isLast: true,
     totalElements: 0,
     currentPage: 0,
+  },
+  usPlacementCounts: {
+    all: 0,
+    active: 0,
+    inactive: 0,
+    fulltime: 0,
+    pending: 0,
   },
   loading: false,
   error: null,
@@ -504,6 +554,10 @@ const placementSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
         state.actionType = null;
+      })
+
+      .addCase(fetchUsPlacementCounts.fulfilled, (state, action) => {
+        state.usPlacementCounts = action.payload;
       })
 
       // Create placement

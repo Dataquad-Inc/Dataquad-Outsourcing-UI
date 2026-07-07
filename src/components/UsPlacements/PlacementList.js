@@ -35,6 +35,7 @@ import PlacementCard from "./PlacementCard";
 import ConfirmDialog from "../muiComponents/ConfirmDialog";
 import {
   fetchUsPlacements,
+  fetchUsPlacementCounts,
   deleteUsPlacement,
   setSelectedPlacement,
   resetPlacementState,
@@ -50,6 +51,7 @@ const PlacementsList = () => {
   const {
     usPlacements,
     usPlacementsPagination,
+    usPlacementCounts,
     loading,
     selectedPlacement,
   } = useSelector(
@@ -146,6 +148,13 @@ console.log("Placements data from Redux:", usPlacements);
           (placement) => placement.employmentType === "Full-time"
         );
         break;
+      case "pending":
+        filtered = processedPlacements.filter(
+          (placement) =>
+            String(placement.status || "").toLowerCase() === "pending" &&
+            placement.employmentType !== "Full-time"
+        );
+        break;
       default:
         // Show all placements
         filtered = processedPlacements;
@@ -159,6 +168,10 @@ console.log("Placements data from Redux:", usPlacements);
     dispatch(fetchUsPlacements({ page, size: rowsPerPage }));
   }, [dispatch, page, rowsPerPage]);
 
+  useEffect(() => {
+    dispatch(fetchUsPlacementCounts());
+  }, [dispatch]);
+
   const handleFilterChange = (filterType) => {
     setActiveFilter(filterType);
     setPage(0);
@@ -169,26 +182,7 @@ console.log("Placements data from Redux:", usPlacements);
   };
 
   const getFilterCount = (filterType) => {
-    switch (filterType) {
-      case "active":
-        return processedPlacements.filter(
-          (placement) =>
-            placement.status === "Active" &&
-            placement.employmentType !== "Full-time"
-        ).length;
-      case "inactive":
-        return processedPlacements.filter(
-          (placement) =>
-            placement.status !== "Active" &&
-            placement.employmentType !== "Full-time"
-        ).length;
-      case "fulltime":
-        return processedPlacements.filter(
-          (placement) => placement.employmentType === "Full-time"
-        ).length;
-      default:
-        return processedPlacements.length;
-    }
+    return usPlacementCounts?.[filterType] || 0;
   };
 
   const handleOpenDrawer = (placement = null) => {
@@ -753,6 +747,15 @@ console.log("Placements data from Redux:", usPlacements);
             >
               Full-time ({getFilterCount("fulltime")})
             </Button>
+
+            <Button
+              variant={getFilterButtonColor("pending")}
+              color="info"
+              onClick={() => handleFilterChange("pending")}
+              sx={{ minWidth: 100 }}
+            >
+              Pending ({getFilterCount("pending")})
+            </Button>
           </ButtonGroup>
 
           {activeFilter !== "all" && (
@@ -783,6 +786,9 @@ console.log("Placements data from Redux:", usPlacements);
             }
             {activeFilter === "fulltime" &&
               "Showing all full-time placements (active and inactive)"
+            }
+            {activeFilter === "pending" &&
+              "Showing pending placements (excludes full-time employment)"
             }
           </Typography>
         )}
