@@ -843,9 +843,16 @@ const Profile = () => {
   const handleCheckboxChange = (field) => (event) => {
     if (!canEditProfile) return;
 
+    const checked = event.target.checked;
     setProfile((currentProfile) => ({
       ...currentProfile,
-      [field]: event.target.checked,
+      [field]: checked,
+      ...(field === "isEmployeeHavingPF" && !checked
+        ? { uanNumber: "", pfNumber: "" }
+        : {}),
+      ...(field === "isEmployeeHavingESI" && !checked
+        ? { esiNumber: "" }
+        : {}),
     }));
   };
 
@@ -1041,13 +1048,15 @@ const Profile = () => {
       formData.append("branch", profile.branch || "");
       formData.append("accountHolderName", profile.accountHolderName || "");
       formData.append("ifscCode", profile.ifscCode || "");
-      formData.append("isEmployeeHavingPF", String(Boolean(profile.isEmployeeHavingPF)));
-      formData.append("uanNumber", profile.uanNumber || "");
-      formData.append("pfNumber", profile.pfNumber || "");
-      formData.append("isEmployeeHavingESI", String(Boolean(profile.isEmployeeHavingESI)));
-      formData.append("employeeHavingESI", String(Boolean(profile.isEmployeeHavingESI)));
-      formData.append("esiNumber", profile.esiNumber || "");
-      formData.append("esi", profile.esiNumber || "");
+      const hasPF = Boolean(profile.isEmployeeHavingPF);
+      const hasESI = Boolean(profile.isEmployeeHavingESI);
+      formData.append("isEmployeeHavingPF", String(hasPF));
+      formData.append("uanNumber", hasPF ? profile.uanNumber || "" : "");
+      formData.append("pfNumber", hasPF ? profile.pfNumber || "" : "");
+      formData.append("isEmployeeHavingESI", String(hasESI));
+      formData.append("employeeHavingESI", String(hasESI));
+      formData.append("esiNumber", hasESI ? profile.esiNumber || "" : "");
+      formData.append("esi", hasESI ? profile.esiNumber || "" : "");
       formData.append("payrollPanNumber", profile.payrollPanNumber || "");
       formData.append("payrollAadharNumber", profile.payrollAadharNumber || "");
       formData.append("fAndF", profile.fAndF || "");

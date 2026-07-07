@@ -304,7 +304,7 @@ const processedData = useMemo(() => {
         },
         {
             key: "bdm",
-            label: "BDM",
+            label: entity === 'US' ? "Sales Executive" : "BDM",
             type: "text",
             sortable: true,
             filterable: true,
