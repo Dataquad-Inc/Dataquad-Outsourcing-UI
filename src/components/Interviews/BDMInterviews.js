@@ -39,6 +39,8 @@ import InternalFeedbackCell from "./FeedBack";
 import DownloadResume from "../../utils/DownloadResume";
 import MoveToBench from "./MoveToBench";
 import InterviewFormWrapper from "./InterviewFormWrapper";
+import { useDispatch } from "react-redux";
+import { clearRecruiterFilter, clearCoordinatorFilter } from "../../redux/interviewSlice";
 
 const processInterviewData = (interviews) => {
   if (!Array.isArray(interviews)) return [];
@@ -52,6 +54,22 @@ const processInterviewData = (interviews) => {
 
 const BDMInterviews = () => {
   const { userId } = useSelector((state) => state.auth);
+  const dispatch = useDispatch();
+  
+  // Get filtered data from Redux
+  const filterInterviewsForRecruiter = useSelector(
+    (state) => state.interview.filterInterviewsForRecruiter
+  );
+  const filterInterviewsForCoordinator = useSelector(
+    (state) => state.interview.filterInterviewsForCoordinator
+  );
+  const isRecruiterFilterActive = useSelector(
+    (state) => state.interview.isRecruiterFilterActive
+  );
+  const isCoordinatorFilterActive = useSelector(
+    (state) => state.interview.isCoordinatorFilterActive
+  );
+
   const [interviews, setInterviews] = useState([]);
   const [coordinatorInterviews, setCoordinatorInterviews] = useState([]);
   const [showCoordinatorView, setShowCoordinatorView] = useState(false);
@@ -114,12 +132,21 @@ const BDMInterviews = () => {
 
   useEffect(() => {
     fetchInterviews();
-  }, [userId]);
+    // Clear filters when component mounts
+    dispatch(clearRecruiterFilter());
+    dispatch(clearCoordinatorFilter());
+  }, [userId, dispatch]);
 
   const handleToggleCoordinatorView = () => {
     setShowCoordinatorView(!showCoordinatorView);
     if (!showCoordinatorView && coordinatorInterviews.length === 0) {
       fetchCoordinatorInterviews();
+    }
+    // Clear coordinator filter when toggling view
+    if (showCoordinatorView) {
+      dispatch(clearCoordinatorFilter());
+    } else {
+      dispatch(clearRecruiterFilter());
     }
   };
 
@@ -166,7 +193,7 @@ const BDMInterviews = () => {
       open: true,
       data: {
         ...row,
-        formType, // This is now explicitly set
+        formType,
         isReschedule,
         isScheduleJoining,
         fromView: showCoordinatorView ? "coordinator" : "recruiter",
@@ -182,8 +209,11 @@ const BDMInterviews = () => {
   const handleInterviewUpdated = () => {
     if (showCoordinatorView) {
       fetchCoordinatorInterviews();
+      // Clear filter after update to show fresh data
+      dispatch(clearCoordinatorFilter());
     } else {
       fetchInterviews();
+      dispatch(clearRecruiterFilter());
     }
     handleCloseEditDrawer();
   };
@@ -208,8 +238,10 @@ const BDMInterviews = () => {
       await httpService.delete(deleteEndpoint);
       if (showCoordinatorView) {
         await fetchCoordinatorInterviews();
+        dispatch(clearCoordinatorFilter());
       } else {
         await fetchInterviews();
+        dispatch(clearRecruiterFilter());
       }
       ToastService.update(toastId, "Interview deleted successfully", "success");
     } catch (error) {
@@ -219,8 +251,6 @@ const BDMInterviews = () => {
       setConfirmDialog({ open: false, interview: null });
     }
   };
-
-
 
   const handleOpenFeedbackDialog = (interview) => {
     setFeedbackDialog({
@@ -263,8 +293,10 @@ const BDMInterviews = () => {
         handleCloseFeedbackDialog();
         if (showCoordinatorView) {
           fetchCoordinatorInterviews();
+          dispatch(clearCoordinatorFilter());
         } else {
           fetchInterviews();
+          dispatch(clearRecruiterFilter());
         }
       } else {
         throw new Error(response.data.message || "Failed to submit feedback");
@@ -277,7 +309,18 @@ const BDMInterviews = () => {
     }
   };
 
-
+  // Clear filter handler for DateRangeFilter
+  const handleClearFilter = () => {
+    if (showCoordinatorView) {
+      dispatch(clearCoordinatorFilter());
+      // Refresh coordinator data
+      fetchCoordinatorInterviews();
+    } else {
+      dispatch(clearRecruiterFilter());
+      // Refresh recruiter data
+      fetchInterviews();
+    }
+  };
 
   const getColumns = () => {
     const baseColumns = [
@@ -428,8 +471,6 @@ const BDMInterviews = () => {
 
     return (
       <Box sx={{ display: "flex", gap: 1 }}>
-       
-
         <IconButton
           onClick={() => handleEdit(row)}
           color="primary"
@@ -483,26 +524,41 @@ const BDMInterviews = () => {
     },
   ];
 
+  // Determine which data to display
   const getDisplayData = () => {
-    const data = showCoordinatorView ? coordinatorInterviews : interviews;
+    let data;
+    
+    if (showCoordinatorView) {
+      // Check if coordinator filter is active
+      if (isCoordinatorFilterActive && filterInterviewsForCoordinator.length > 0) {
+        data = filterInterviewsForCoordinator;
+      } else {
+        data = coordinatorInterviews;
+      }
+    } else {
+      // Check if recruiter filter is active
+      if (isRecruiterFilterActive && filterInterviewsForRecruiter.length > 0) {
+        data = filterInterviewsForRecruiter;
+      } else {
+        data = interviews;
+      }
+    }
+    
     return filterInterviewsByLevel(data);
   };
 
-  const processedData =
-    (loading && !showCoordinatorView) ||
-    (coordinatorLoading && showCoordinatorView)
-      ? []
-      : getDisplayData().map((row) => ({
-          ...row,
-        
-        }));
+  const displayData = getDisplayData();
+  const processedData = displayData.map((row) => ({
+    ...row,
+  }));
+
+  // Loading state for filtered data
+  const isLoading = (showCoordinatorView && coordinatorLoading) || 
+                   (!showCoordinatorView && loading);
 
   return (
     <Box sx={{ p: 1 }}>
-      {(loading && interviews.length === 0 && !showCoordinatorView) ||
-      (coordinatorLoading &&
-        coordinatorInterviews.length === 0 &&
-        showCoordinatorView) ? (
+      {(isLoading && displayData.length === 0) ? (
         <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
           <CircularProgress sx={{ color: "#1976d2" }} />
         </Box>
@@ -545,6 +601,17 @@ const BDMInterviews = () => {
               {showCoordinatorView
                 ? "Coordinator View - Interviews"
                 : "My Scheduled Interviews"}
+              {/* Show filter indicator */}
+              {((showCoordinatorView && isCoordinatorFilterActive) || 
+                (!showCoordinatorView && isRecruiterFilterActive)) && (
+                <Typography 
+                  component="span" 
+                  variant="caption" 
+                  sx={{ ml: 2, color: 'primary.main', fontWeight: 'bold' }}
+                >
+                  (Filtered)
+                </Typography>
+              )}
             </Typography>
             <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
               <Button
@@ -567,7 +634,10 @@ const BDMInterviews = () => {
               >
                 {showCoordinatorView ? "Regular View" : "Coordinator View"}
               </Button>
-              <DateRangeFilter component="InterviewsForRecruiter" />
+              <DateRangeFilter 
+                component={showCoordinatorView ? "InterviewsForCoordinator" : "InterviewsForRecruiter"}
+                onClearFilter={handleClearFilter}
+              />
             </Box>
           </Stack>
           {!showCoordinatorView && (
@@ -646,7 +716,6 @@ const BDMInterviews = () => {
               rowHover: "#f5f5f5",
               selectedRow: "#e3f2fd",
             }}
-           
           />
 
           <Drawer
