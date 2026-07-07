@@ -44,6 +44,9 @@ const Registration = ({ onSwitchView }) => {
             } else if (entity === "US") {
               return /^ADRTUS\d{2,4}$/.test(value);
             }
+            else if (entity === "ADRTBIN"){
+              return /^ADRTBIN\d{2,4}$/.test(value);
+            }
 
             return false;
           }

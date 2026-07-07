@@ -23,6 +23,11 @@ export const formValidation = {
       return userIdRegex.test(userId)
         ? ""
         : "For US entity, User ID must start with 'ADRTUS' followed by 2 to 4 digits";
+    } else if (entity === "ADRTBIN") {
+      const userIdRegex = /^ADRTBIN\d{2,4}$/;
+      return userIdRegex.test(userId)
+        ? ""
+        : "For ADRTB entity, User ID must start with 'ADRTB' followed by 2 to 4 digits";
     }
 
     return "Please select an entity first";
