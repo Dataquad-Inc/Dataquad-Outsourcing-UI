@@ -161,37 +161,6 @@ const hrmsTableColumns = [
   { label: "Last Working Day", getValue: (profile) => formatDateForInput(profile.lastWorkingDay) },
 ];
 
-// Sticky columns - positioned from right to left
-// Actions column is the rightmost (right: 0)
-const stickyActionsColumnSx = {
-  position: "sticky",
-  right: 0,
-  minWidth: 72,
-  width: 72,
-  bgcolor: "background.paper",
-  zIndex: 3, // Highest z-index for rightmost column
-};
-
-// Editable Access column is second from right (right: 72)
-const stickyEditableColumnSx = {
-  position: "sticky",
-  right: 72,
-  minWidth: 130,
-  width: 130,
-  bgcolor: "background.paper",
-  zIndex: 2,
-};
-
-// Status column is third from right (right: 202 = 72 + 130)
-const stickyStatusColumnSx = {
-  position: "sticky",
-  right: 202,
-  minWidth: 100,
-  width: 100,
-  bgcolor: "background.paper",
-  zIndex: 1, // Lowest z-index among sticky columns
-};
-
 const getBody = (response) => response?.data || response || {};
 
 const getPayload = (response) => {
@@ -933,7 +902,7 @@ const Section = ({ title, children }) => (
 
 const HRMS = () => {
   const fileInputRef = useRef(null);
-  const { entity } = useSelector((state) => state.auth);
+  const { entity, role } = useSelector((state) => state.auth);
   const activeEntity = (entity || "IN").toUpperCase();
   const [users, setUsers] = useState([]);
   const [profileDetailsByEmployeeId, setProfileDetailsByEmployeeId] = useState({});
@@ -958,6 +927,8 @@ const HRMS = () => {
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [order, setOrder] = useState("asc");
   const [orderBy, setOrderBy] = useState("Employee ID");
+
+  const isAdmin = role === "ADMIN";
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -1091,7 +1062,6 @@ const HRMS = () => {
     if (fileInputRef.current) fileInputRef.current.value = "";
 
     try {
-      // const response = await httpService.get(`/users/profile/${employeeId}`);
       const response = await fetch(`https://mymulya.com/users/profile/${employeeId}`, {
         method: "GET",
         credentials: "include",
@@ -1150,11 +1120,6 @@ const HRMS = () => {
     }));
 
     try {
-      // await httpService.patch(
-      //   `/users/profile/${employeeId}/documents/${documentId}/verify`,
-      //   null,
-      //   { params: { isVerified: nextVerified } }
-      // );
       await fetch(`https://mymulya.com/users/profile/${employeeId}/documents/${documentId}/verify?isVerified=${nextVerified}`, {
         method: "PATCH",
         credentials: "include",
@@ -1459,6 +1424,61 @@ const HRMS = () => {
     closeDocumentViewer();
   };
 
+  // Dynamic sticky styles based on role
+  const getStickyStyles = () => {
+    if (isAdmin) {
+      // When admin, Editable Access is the rightmost column
+      return {
+        stickyEditableColumnSx: {
+          position: "sticky",
+          right: 0,
+          minWidth: 130,
+          width: 130,
+          bgcolor: "background.paper",
+          zIndex: 3,
+        },
+        stickyStatusColumnSx: {
+          position: "sticky",
+          right: 130,
+          minWidth: 100,
+          width: 100,
+          bgcolor: "background.paper",
+          zIndex: 2,
+        },
+        stickyActionsColumnSx: null // No actions column for admin
+      };
+    }
+    // Non-admin: Actions is rightmost, Editable Access is second, Status is third
+    return {
+      stickyEditableColumnSx: {
+        position: "sticky",
+        right: 72,
+        minWidth: 130,
+        width: 130,
+        bgcolor: "background.paper",
+        zIndex: 2,
+      },
+      stickyStatusColumnSx: {
+        position: "sticky",
+        right: 202,
+        minWidth: 100,
+        width: 100,
+        bgcolor: "background.paper",
+        zIndex: 1,
+      },
+      stickyActionsColumnSx: {
+        position: "sticky",
+        right: 0,
+        minWidth: 72,
+        width: 72,
+        bgcolor: "background.paper",
+        zIndex: 3,
+      }
+    };
+  };
+
+  const stickyStyles = getStickyStyles();
+
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
       <Stack
@@ -1553,7 +1573,7 @@ const HRMS = () => {
                     <TableCell
                       sortDirection={orderBy === "Status" ? order : false}
                       sx={{
-                        ...stickyStatusColumnSx,
+                        ...stickyStyles.stickyStatusColumnSx,
                         color: "primary.contrastText",
                         fontWeight: 700,
                         bgcolor: "primary.main",
@@ -1582,7 +1602,7 @@ const HRMS = () => {
                     <TableCell
                       sortDirection={orderBy === "Editable Access" ? order : false}
                       sx={{
-                        ...stickyEditableColumnSx,
+                        ...stickyStyles.stickyEditableColumnSx,
                         color: "primary.contrastText",
                         fontWeight: 700,
                         bgcolor: "primary.main",
@@ -1608,17 +1628,19 @@ const HRMS = () => {
                         Editable Access
                       </TableSortLabel>
                     </TableCell>
-                    <TableCell
-                      align="center"
-                      sx={{
-                        ...stickyActionsColumnSx,
-                        color: "primary.contrastText",
-                        fontWeight: 700,
-                        bgcolor: "primary.main",
-                      }}
-                    >
-                      Actions
-                    </TableCell>
+                    {!isAdmin && (
+                      <TableCell
+                        align="center"
+                        sx={{
+                          ...stickyStyles.stickyActionsColumnSx,
+                          color: "primary.contrastText",
+                          fontWeight: 700,
+                          bgcolor: "primary.main",
+                        }}
+                      >
+                        Actions
+                      </TableCell>
+                    )}
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -1661,14 +1683,14 @@ const HRMS = () => {
                             </TableCell>
                           );
                         })}
-                        <TableCell sx={stickyStatusColumnSx}>
+                        <TableCell sx={stickyStyles.stickyStatusColumnSx}>
                           <Chip
                             size="small"
                             label={user.status || "-"}
                             color={String(user.status).toLowerCase() === "active" ? "success" : "default"}
                           />
                         </TableCell>
-                        <TableCell sx={stickyEditableColumnSx}>
+                        <TableCell sx={stickyStyles.stickyEditableColumnSx}>
                           <Chip
                             size="small"
                             label={isTruthyFlag(user.isEditable) ? "Locked" : "Editable"}
@@ -1676,19 +1698,21 @@ const HRMS = () => {
                             sx={{ minWidth: 70 }}
                           />
                         </TableCell>
-                        <TableCell align="center" sx={stickyActionsColumnSx}>
-                          <Tooltip title="View HRMS profile">
-                            <IconButton color="primary" size="small" onClick={() => fetchUserProfile(user)}>
-                              <Visibility fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </TableCell>
+                        {!isAdmin && (
+                          <TableCell align="center" sx={stickyStyles.stickyActionsColumnSx}>
+                            <Tooltip title="View HRMS profile">
+                              <IconButton color="primary" size="small" onClick={() => fetchUserProfile(user)}>
+                                <Visibility fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </TableCell>
+                        )}
                       </TableRow>
                     );
                   })}
                   {!paginatedUsers.length && (
                     <TableRow>
-                      <TableCell colSpan={hrmsTableColumns.length + 3}>
+                      <TableCell colSpan={!isAdmin ? hrmsTableColumns.length + 3 : hrmsTableColumns.length + 1}>
                         <Alert severity="info">No users found.</Alert>
                       </TableCell>
                     </TableRow>

@@ -153,7 +153,7 @@ export const inNavItems = [
     text: "HRMS",
     path: "hrms",
     icon: <ManageAccountsIcon />,
-    roles: ["SUPERADMIN", "HRMS"],
+    roles: ["SUPERADMIN", "HRMS","ADMIN"],
   },
    {
     text: "Attendance",

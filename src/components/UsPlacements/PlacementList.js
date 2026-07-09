@@ -44,7 +44,6 @@ import DateRangeFilter from "../muiComponents/DateRangeFilter";
 import CryptoJS from "crypto-js";
 import httpService from "../../Services/httpService";
 import ToastService from "../../Services/toastService";
-import { pl } from "date-fns/locale";
 
 const PlacementsList = () => {
   const dispatch = useDispatch();
@@ -58,7 +57,7 @@ const PlacementsList = () => {
     (state) => state.placement
   );
 
-console.log("Placements data from Redux:", usPlacements);  
+  console.log("Placements data from Redux:", usPlacements);  
 
   const { userId, encryptionKey } = useSelector((state) => state.auth);
 
@@ -70,7 +69,7 @@ console.log("Placements data from Redux:", usPlacements);
   const [isLoading, setIsLoading] = useState(false);
 
   // Filter states
-  const [activeFilter, setActiveFilter] = useState("all"); // "all", "active", "inactive", "fulltime"
+  const [activeFilter, setActiveFilter] = useState("all"); // "all", "active", "inactive", "fulltime", "pending"
   const [filteredPlacements, setFilteredPlacements] = useState([]);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
@@ -121,7 +120,7 @@ console.log("Placements data from Redux:", usPlacements);
     });
   }, [usPlacements]);
 
-  // Filter placements based on active filter
+  // Filter placements based on active filter - LOCAL FILTERING
   useEffect(() => {
     let filtered = [...processedPlacements];
 
@@ -139,7 +138,7 @@ console.log("Placements data from Redux:", usPlacements);
         filtered = processedPlacements.filter(
           (placement) =>
             placement.status !== "Active" &&
-            placement.employmentType !== "Full-time"
+            placement.employmentType !== "Full-time" && placement.status !== "Pending"
         );
         break;
       case "fulltime":
@@ -164,9 +163,10 @@ console.log("Placements data from Redux:", usPlacements);
     setFilteredPlacements(filtered);
   }, [processedPlacements, activeFilter]);
 
+  // Fetch all placements once when component mounts
   useEffect(() => {
-    dispatch(fetchUsPlacements({ page, size: rowsPerPage }));
-  }, [dispatch, page, rowsPerPage]);
+    dispatch(fetchUsPlacements({ page: 0, size: 1000 })); // Fetch all data
+  }, [dispatch]);
 
   useEffect(() => {
     dispatch(fetchUsPlacementCounts());
@@ -175,6 +175,8 @@ console.log("Placements data from Redux:", usPlacements);
   const handleFilterChange = (filterType) => {
     setActiveFilter(filterType);
     setPage(0);
+    setSearch("");
+    setTableFilters({});
   };
 
   const getFilterButtonColor = (filterType) => {
@@ -182,7 +184,32 @@ console.log("Placements data from Redux:", usPlacements);
   };
 
   const getFilterCount = (filterType) => {
-    return usPlacementCounts?.[filterType] || 0;
+    switch (filterType) {
+      case "active":
+        return processedPlacements.filter(
+          (placement) =>
+            placement.status === "Active" &&
+            placement.employmentType !== "Full-time"
+        ).length;
+      case "inactive":
+        return processedPlacements.filter(
+          (placement) =>
+            placement.status !== "Active" &&
+            placement.employmentType !== "Full-time"
+        ).length;
+      case "fulltime":
+        return processedPlacements.filter(
+          (placement) => placement.employmentType === "Full-time"
+        ).length;
+      case "pending":
+        return processedPlacements.filter(
+          (placement) =>
+            String(placement.status || "").toLowerCase() === "pending" &&
+            placement.employmentType !== "Full-time"
+        ).length;
+      default:
+        return processedPlacements.length;
+    }
   };
 
   const handleOpenDrawer = (placement = null) => {
@@ -229,6 +256,11 @@ console.log("Placements data from Redux:", usPlacements);
     if (placementToDelete) {
       dispatch(deleteUsPlacement(placementToDelete.id));
       handleCloseDeleteDialog();
+      // Refresh data after deletion
+      setTimeout(() => {
+        dispatch(fetchUsPlacements({ page: 0, size: 1000 }));
+        dispatch(fetchUsPlacementCounts());
+      }, 500);
     }
   };
 
@@ -236,7 +268,6 @@ console.log("Placements data from Redux:", usPlacements);
     setIsLoading(true);
 
     try {
-      // ✅ Show loading toast ONLY when loading starts
       ToastService.loading("Sending Link...", {
         toastId: "sendLink",
         autoClose: false,
@@ -251,17 +282,15 @@ console.log("Placements data from Redux:", usPlacements);
           )
         );
 
-        // ✅ Stop loading toast BEFORE showing success
         ToastService.dismiss("sendLink");
-
         ToastService.success("Link has been sent to email.", {
           autoClose: 4000,
         });
+        // Refresh data after user registration
+        dispatch(fetchUsPlacements({ page: 0, size: 1000 }));
       }
     } catch (error) {
-      // ✅ Stop loading toast BEFORE showing error
       ToastService.dismiss("sendLink");
-
       ToastService.error(
         error?.response?.data?.message ||
         "Failed to send Link. Please try again.",
@@ -271,7 +300,6 @@ console.log("Placements data from Redux:", usPlacements);
       setIsLoading(false);
     }
   };
-
 
   const getColor = (status) => {
     switch (status) {
@@ -582,6 +610,7 @@ console.log("Placements data from Redux:", usPlacements);
     []
   );
 
+  // Apply search and table filters to filtered placements
   const tableFilteredPlacements = React.useMemo(() => {
     let result = [...filteredPlacements];
 
@@ -614,20 +643,16 @@ console.log("Placements data from Redux:", usPlacements);
     return result;
   }, [filteredPlacements, keyword, tableFilters, customTableColumns]);
 
-  const hasLocalTableFilters =
-    activeFilter !== "all" ||
-    keyword.trim() !== "" ||
-    Object.keys(tableFilters).length > 0;
+  // Calculate total for pagination
+  const totalPlacements = tableFilteredPlacements.length;
 
-  const totalPlacements = hasLocalTableFilters
-    ? tableFilteredPlacements.length
-    : usPlacementsPagination?.totalElements || tableFilteredPlacements.length;
-
+  // Reset page when total changes
   useEffect(() => {
-    if (page > 0 && page * rowsPerPage >= totalPlacements) {
+    const totalPages = Math.ceil(totalPlacements / rowsPerPage);
+    if (page > 0 && page >= totalPages) {
       setPage(0);
     }
-  }, [page, rowsPerPage, totalPlacements]);
+  }, [totalPlacements, rowsPerPage, page]);
 
   const handlePageChange = (_event, newPage) => {
     setPage(newPage);
@@ -652,6 +677,13 @@ console.log("Placements data from Redux:", usPlacements);
     setTableFilters(newFilters);
     setPage(0);
   };
+
+  // Get paginated data
+  const paginatedData = React.useMemo(() => {
+    const start = page * rowsPerPage;
+    const end = start + rowsPerPage;
+    return tableFilteredPlacements.slice(start, end);
+  }, [tableFilteredPlacements, page, rowsPerPage]);
 
   return (
     <>
@@ -750,7 +782,7 @@ console.log("Placements data from Redux:", usPlacements);
 
             <Button
               variant={getFilterButtonColor("pending")}
-              color="info"
+              color="warning"
               onClick={() => handleFilterChange("pending")}
               sx={{ minWidth: 100 }}
             >
@@ -794,8 +826,8 @@ console.log("Placements data from Redux:", usPlacements);
         )}
       </Box>
 
-        <CustomDataTable
-        rows={tableFilteredPlacements}
+      <CustomDataTable
+        rows={paginatedData}
         columns={customTableColumns}
         total={totalPlacements}
         page={page}
@@ -810,7 +842,8 @@ console.log("Placements data from Redux:", usPlacements);
         onSearchChange={handleSearchChange}
         onSearchClear={handleSearchClear}
         onRefresh={() => {
-          dispatch(fetchUsPlacements({ page, size: rowsPerPage }));
+          dispatch(fetchUsPlacements({ page: 0, size: 1000 }));
+          dispatch(fetchUsPlacementCounts());
         }}
         onFiltersChange={handleTableFiltersChange}
       />
