@@ -14,22 +14,17 @@ export const formValidation = {
     }
 
     if (entity === "IN") {
-      const userIdRegex = /^(DQIND|ADRTIN)\d{2,4}$/;
+      const userIdRegex = /^(DQIND|ADRTIN|ADRTBIN)\d{2,4}$/;
       return userIdRegex.test(userId)
         ? ""
-        : "For IN entity, User ID must start with 'DQIND' or 'ADRTIN' followed by 2 to 4 digits";
+        : "For IN entity, User ID must start with 'DQIND' or 'ADRTIN' or 'ADRTBIN' followed by 2 to 4 digits";
     } else if (entity === "US") {
       const userIdRegex = /^ADRTUS\d{2,4}$/;
       return userIdRegex.test(userId)
         ? ""
         : "For US entity, User ID must start with 'ADRTUS' followed by 2 to 4 digits";
-    } else if (entity === "ADRTBIN") {
-      const userIdRegex = /^ADRTBIN\d{2,4}$/;
-      return userIdRegex.test(userId)
-        ? ""
-        : "For ADRTB entity, User ID must start with 'ADRTB' followed by 2 to 4 digits";
-    }
-
+    } 
+    
     return "Please select an entity first";
   },
 
