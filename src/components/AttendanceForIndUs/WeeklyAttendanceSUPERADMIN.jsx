@@ -646,7 +646,7 @@ const WeeklyAttendanceSUPERADMIN = () => {
                         onPageChange={handleChangePage}
                         rowsPerPage={rowsPerPage}
                         onRowsPerPageChange={handleChangeRowsPerPage}
-                        rowsPerPageOptions={[5, 10, 25, 50]}
+                        rowsPerPageOptions={[5, 10, 25, 50,100]}
                         sx={{
                             borderBottom: 'none',
                             '& .MuiTablePagination-select': {
