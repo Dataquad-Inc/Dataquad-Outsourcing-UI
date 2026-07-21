@@ -223,7 +223,7 @@ const InProgressData = lazy(
 
 // Attendance 
 // const AttendanceList = lazy(() => import("../components/attendance/AttendanceList"));
-const AttendanceManagement = lazy(() => import("../components/attendance/AttendanceManagement"));
+const AttendanceManagement = lazy(() => import("../components/AttendanceForIndUs/AttendanceTabs"));
 
 const routeConfig = [
   {

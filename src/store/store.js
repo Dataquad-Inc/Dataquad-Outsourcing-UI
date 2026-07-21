@@ -15,6 +15,7 @@ import timesheetReducer from "../redux/timesheetSlice";
 import usEmployeess from "../redux/usEmployees";
 import hotlistReducer from "../redux/hotlist";
 import usClientsReducer from "../redux/usClientsSlice";
+import attendanceReducer from '../redux/attendanceSlice';
 
 export const store = configureStore({
   reducer: {
@@ -35,6 +36,7 @@ export const store = configureStore({
     hotlist: hotlistReducer,
     usEmployees: usEmployeess,
     usClients: usClientsReducer,
+    attendance: attendanceReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

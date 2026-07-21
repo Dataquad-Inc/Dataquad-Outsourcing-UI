@@ -30,6 +30,8 @@ import {
   TextField,
   Tooltip,
   Typography,
+  Tabs,
+  Tab,
 } from "@mui/material";
 import {
   BadgeOutlined,
@@ -927,6 +929,7 @@ const HRMS = () => {
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [order, setOrder] = useState("asc");
   const [orderBy, setOrderBy] = useState("Employee ID");
+  const [activeTab, setActiveTab] = useState(0);
 
   const isAdmin = role === "ADMIN";
 
@@ -948,10 +951,33 @@ const HRMS = () => {
     fetchUsers();
   }, [fetchUsers]);
 
+  // Filter users based on active tab
+  const filteredUsersByTab = useMemo(() => {
+    if (activeTab === 0) {
+      // INTERNAL tab - users with role NOT containing "EXTERNALEMPLOYEE"
+      return users.filter((user) => {
+        const userRole = user.role || user.roles || "";
+        if (Array.isArray(userRole)) {
+          return !userRole.some(role => role.toUpperCase().includes("EXTERNALEMPLOYEE"));
+        }
+        return !String(userRole).toUpperCase().includes("EXTERNALEMPLOYEE");
+      });
+    } else {
+      // EXTERNAL tab - users with role containing "EXTERNALEMPLOYEE"
+      return users.filter((user) => {
+        const userRole = user.role || user.roles || "";
+        if (Array.isArray(userRole)) {
+          return userRole.some(role => role.toUpperCase().includes("EXTERNALEMPLOYEE"));
+        }
+        return String(userRole).toUpperCase().includes("EXTERNALEMPLOYEE");
+      });
+    }
+  }, [users, activeTab]);
+
   const filteredUsers = useMemo(() => {
     const nextQuery = query.trim().toLowerCase();
-    if (!nextQuery) return users;
-    return users.filter((user) => {
+    if (!nextQuery) return filteredUsersByTab;
+    return filteredUsersByTab.filter((user) => {
       const employeeId = getEmployeeId(user);
       const rowProfile = profileFromData({
         ...user,
@@ -962,7 +988,7 @@ const HRMS = () => {
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(nextQuery));
     });
-  }, [profileDetailsByEmployeeId, query, users]);
+  }, [filteredUsersByTab, profileDetailsByEmployeeId, query]);
 
   const sortedUsers = useMemo(() => {
     const sortColumn = hrmsTableColumns.find((column) => column.label === orderBy);
@@ -1004,6 +1030,14 @@ const HRMS = () => {
     setOrder(isAsc ? "desc" : "asc");
     setOrderBy(columnLabel);
     setPage(0);
+  };
+
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+    setQuery("");
+    setPage(0);
+    setOrder("asc");
+    setOrderBy("Employee ID");
   };
 
   const groupedDocuments = useMemo(() => groupDocumentsForHRMS(documents), [documents]);
@@ -1529,6 +1563,34 @@ const HRMS = () => {
       </Stack>
 
       <Paper variant="outlined" sx={{ borderRadius: 1, overflow: "hidden" }}>
+        {/* Tabs */}
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
+          <Tabs 
+            value={activeTab} 
+            onChange={handleTabChange}
+            sx={{ px: 2 }}
+          >
+            <Tab 
+              label={`INTERNAL (${users.filter(user => {
+                const userRole = user.role || user.roles || "";
+                if (Array.isArray(userRole)) {
+                  return !userRole.some(role => role.toUpperCase().includes("EXTERNALEMPLOYEE"));
+                }
+                return !String(userRole).toUpperCase().includes("EXTERNALEMPLOYEE");
+              }).length})`} 
+            />
+            <Tab 
+              label={`EXTERNAL (${users.filter(user => {
+                const userRole = user.role || user.roles || "";
+                if (Array.isArray(userRole)) {
+                  return userRole.some(role => role.toUpperCase().includes("EXTERNALEMPLOYEE"));
+                }
+                return String(userRole).toUpperCase().includes("EXTERNALEMPLOYEE");
+              }).length})`} 
+            />
+          </Tabs>
+        </Box>
+
         {loading ? (
           <Box sx={{ py: 8, textAlign: "center" }}>
             <CircularProgress />
@@ -1713,7 +1775,10 @@ const HRMS = () => {
                   {!paginatedUsers.length && (
                     <TableRow>
                       <TableCell colSpan={!isAdmin ? hrmsTableColumns.length + 3 : hrmsTableColumns.length + 1}>
-                        <Alert severity="info">No users found.</Alert>
+                        <Alert severity="info">
+                          No {activeTab === 0 ? "internal" : "external"} employees found.
+                          {query && " Try adjusting your search."}
+                        </Alert>
                       </TableCell>
                     </TableRow>
                   )}
