@@ -83,6 +83,7 @@ import {
   selectWeeklyLoading,
   selectWeeklyDialogOpen,
   selectSelectedWeekNumber,
+  clearAttendanceData,
 } from "../../redux/attendanceSlice";
 
 // Import EmployeeAttendanceDialog
@@ -599,6 +600,8 @@ const AttendanceDashboard = () => {
 
   useEffect(() => {
     if (authEntity) {
+      // Clear old data when entity changes
+      dispatch(clearAttendanceData());
       dispatch(setEntity(authEntity));
     }
   }, [authEntity, dispatch]);
@@ -611,9 +614,12 @@ const AttendanceDashboard = () => {
     dispatch(fetchAttendanceData({ month: selectedMonth, year: selectedYear, entity }));
   }, [dispatch, selectedMonth, selectedYear, entity]);
 
+  // Clear data when month, year, or entity changes and fetch new data
   useEffect(() => {
+    // Clear old data when filters change
+    dispatch(clearAttendanceData());
     fetchData();
-  }, [fetchData]);
+  }, [selectedMonth, selectedYear, entity, dispatch, fetchData]);
 
   // ============================================================
   // HANDLERS
