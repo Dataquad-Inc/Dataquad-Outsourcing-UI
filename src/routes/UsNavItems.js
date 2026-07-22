@@ -31,7 +31,7 @@ export const usNavItems = (role) => [
     text: "Home",
     path: "us-home",
     icon: <HomeIcon />,
-    roles: [...commonRoles, "COORDINATOR"],
+    roles: [...commonRoles, "COORDINATOR","SUPERSALES"],
   },
   {
     text: "Hotlist",
@@ -55,13 +55,13 @@ export const usNavItems = (role) => [
     text: "Employees",
     path: "us-employees/employeeslist",
     icon: <BadgeIcon />,
-    roles: ["SUPERADMIN", "ADMIN", "HRMS", "COORDINATOR"],
+    roles: ["SUPERADMIN", "ADMIN", "HRMS", "COORDINATOR","SUPERSALES"],
   },
   {
     text: "HRMS",
     path: "hrms",
     icon: <ManageAccountsIcon />,
-    roles: ["SUPERADMIN", "HRMS"],
+    roles: ["SUPERADMIN", "HRMS","SUPERSALES"],
   },
   {
     text: "Requirements",
@@ -110,6 +110,6 @@ export const usNavItems = (role) => [
     text: "Attendance",
     path: "attendance",
     icon: <CalendarMonthIcon />,
-    roles: ["SUPERADMIN", "HRMS"],
+    roles: ["SUPERADMIN", "HRMS","SUPERSALES"],
   },
 ];

@@ -245,6 +245,7 @@ const routeConfig = [
           "EXTERNALEMPLOYEE",
           "ACCOUNTS",
           "GRANDSALES",
+          "SUPERSALES"
         ]}
       />
     ),
@@ -272,6 +273,7 @@ const routeConfig = [
                   "COORDINATOR",
                   "EXTERNALEMPLOYEE",
                   "ACCOUNTS",
+                  "SUPERSALES"
                 ]}
                 allowedEntities={["IN"]}
               />
@@ -293,6 +295,7 @@ const routeConfig = [
                   "SALESEXECUTIVE",
                   "GRANDSALES",
                   "COORDINATOR",
+                  "SUPERSALES"
                 ]}
                 allowedEntities={["US"]}
               />
@@ -429,7 +432,7 @@ const routeConfig = [
             path: "users",
             element: (
               <ProtectedRoute
-                allowedRoles={["ADMIN", "SUPERADMIN", "HRMS", "INVOICE"]}
+                allowedRoles={["ADMIN", "SUPERADMIN", "HRMS", "INVOICE","SUPERSALES"]}
                 allowedEntities={["IN"]}
               />
             ),
@@ -728,7 +731,7 @@ const routeConfig = [
             path: "hrms",
             element: (
               <ProtectedRoute
-                allowedRoles={["SUPERADMIN", "HRMS","ADMIN"]}
+                allowedRoles={["SUPERADMIN", "HRMS","ADMIN","SUPERSALES"]}
                 allowedEntities={["IN", "US"]}
               />
             ),
@@ -738,7 +741,7 @@ const routeConfig = [
             path: "attendance",
             element: (
               <ProtectedRoute
-                allowedRoles={["SUPERADMIN", "HRMS"]}
+                allowedRoles={["SUPERADMIN", "HRMS","SUPERSALES"]}
                 allowedEntities={["IN", "US"]}
               />
             ),
@@ -764,6 +767,7 @@ const routeConfig = [
                   "EXTERNALEMPLOYEE",
                   "ACCOUNTS",
                   "GRANDSALES",
+                  "SUPERSALES"
                 ]}
               />
             ),
@@ -1015,6 +1019,7 @@ const routeConfig = [
                   "GRANDSALES",
                   "HRMS",
                   "COORDINATOR",
+                  "SUPERSALES"
                 ]}
                 allowedEntities={["US"]}
               />

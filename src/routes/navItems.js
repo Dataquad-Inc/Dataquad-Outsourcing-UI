@@ -29,13 +29,14 @@ export const inNavItems = [
       "PARTNER",
       "INVOICE",
       "COORDINATOR",
+      "SUPERSALES",
     ],
   },
   {
     text: "Users",
     path: "users",
     icon: <GroupIcon />,
-    roles: ["ADMIN", "SUPERADMIN", "HRMS", "INVOICE"],
+    roles: ["ADMIN", "SUPERADMIN", "HRMS", "INVOICE","SUPERSALES"],
   },
   {
     text: "Team-list",
@@ -153,12 +154,12 @@ export const inNavItems = [
     text: "HRMS",
     path: "hrms",
     icon: <ManageAccountsIcon />,
-    roles: ["SUPERADMIN", "HRMS","ADMIN"],
+    roles: ["SUPERADMIN", "HRMS","ADMIN","SUPERSALES"],
   },
    {
     text: "Attendance",
     path: "attendance",
     icon: <CalendarMonthIcon />,
-    roles: ["SUPERADMIN", "HRMS"],
+    roles: ["SUPERADMIN", "HRMS","SUPERSALES"],
   },
 ];
