@@ -57,7 +57,7 @@ const AttendanceTabs = () => {
         label: 'Summary', 
         icon: BarChart3, 
         component: AttendanceSummary,
-        showFor: ['HRMS', 'SUPERADMIN', 'EMPLOYEE'],
+        showFor: ['HRMS', 'SUPERADMIN', 'EMPLOYEE','SUPERSALES'],
       },
     ];
 

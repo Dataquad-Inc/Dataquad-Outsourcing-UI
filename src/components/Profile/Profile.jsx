@@ -789,7 +789,7 @@ const Profile = () => {
       try {
         const response = await httpService.get("/users/employee", { entity: entity || "IN" });
         const options = normalizeArrayPayload(response)
-          .filter((employee) => hasRole(employee, "TEAMLEAD") && employee.status === "ACTIVE")
+          .filter((employee) => hasRole(employee, "TEAMLEAD") || hasRole(employee, "BDM") || hasRole(employee, "SUPERADMIN") && employee.status === "ACTIVE")
           .map((employee) => {
             const employeeId = employee.employeeId || employee.userId || "";
             const userName = employee.userName || employee.name || employee.email || employeeId;

@@ -65,6 +65,15 @@ const AdroitHome = () => {
       canEdit: true,
       canDelete: true,
     },
+    SUPERSALES: {
+      name: "Super Sales",
+      color: theme.palette.error.main,
+      permissions: ["all"],
+      dashboardView: "full",
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    },
     ADMIN: {
       name: "Admin",
       color: theme.palette.warning.main,
