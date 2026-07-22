@@ -651,7 +651,7 @@ const attendanceSlice = createSlice({
     // ===== Holiday CRUD (Local - for optimistic updates) =====
     addHolidayLocal: (state, action) => {
       state.holidays.push(action.payload);
-      state.isConfigured = state.holidays.length > 0;
+      state.isConfigured = true; // Once a holiday is added, it's configured
       state.snackbar = {
         open: true,
         message: 'Holiday added successfully',
@@ -660,7 +660,8 @@ const attendanceSlice = createSlice({
     },
     deleteHolidayLocal: (state, action) => {
       state.holidays = state.holidays.filter(h => h.id !== action.payload);
-      state.isConfigured = state.holidays.length > 0;
+      // Keep isConfigured as true even if holidays become empty
+      // because the configuration still exists
     },
     
     // ===== Configuration Dialog =====
@@ -877,7 +878,9 @@ const attendanceSlice = createSlice({
           date: date,
         }));
         
-        state.isConfigured = state.holidays.length > 0;
+        // CRITICAL FIX: Set isConfigured to true when API returns success (even with empty data)
+        // This indicates the month has been configured, just with no holidays
+        state.isConfigured = true;
         state.message = action.payload.message || 'Holidays loaded successfully';
 
         if (state.holidays.length > 0) {
@@ -886,12 +889,25 @@ const attendanceSlice = createSlice({
             message: `Loaded ${state.holidays.length} holidays`,
             severity: 'success',
           };
+        } else {
+          state.snackbar = {
+            open: true,
+            message: 'Month is configured with no holidays',
+            severity: 'info',
+          };
         }
       })
       .addCase(fetchHolidays.rejected, (state, action) => {
         state.loading = false;
         state.holidays = [];
-        state.isConfigured = false;
+        // Only set isConfigured to false if it's a 404 (not found) error
+        // This means the month hasn't been configured yet
+        if (action.payload === 'No holidays found' || action.error?.message?.includes('404')) {
+          state.isConfigured = false;
+        } else {
+          // For other errors, keep the existing configuration state
+          state.isConfigured = state.isConfigured || false;
+        }
         state.error = action.payload || 'Failed to fetch holidays';
         
         if (action.payload !== 'No holidays found') {
@@ -1002,7 +1018,8 @@ const attendanceSlice = createSlice({
         
         const deletedDate = action.payload.deletedDate;
         state.holidays = state.holidays.filter(h => h.date !== deletedDate);
-        state.isConfigured = state.holidays.length > 0;
+        // Keep isConfigured as true even if holidays become empty
+        state.isConfigured = true;
         
         state.snackbar = {
           open: true,
