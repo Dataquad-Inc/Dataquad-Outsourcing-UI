@@ -10,7 +10,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
   Select,
   MenuItem,
   FormControl,
@@ -40,7 +39,6 @@ import {
 } from "@mui/material";
 import {
   Calendar,
-  Plus,
   Trash2,
   Save,
   X,
@@ -51,7 +49,6 @@ import {
   CalendarDays,
   Clock,
   Hash,
-  Sparkles,
 } from "lucide-react";
 
 // Import from single attendance slice
@@ -60,15 +57,9 @@ import {
   setupAttendanceMonth,
   updateAttendanceMonth,
   deleteAttendanceMonth,
-  deleteHoliday,
-  openHolidayForm,
-  closeHolidayForm,
-  setHolidayFormData,
   openConfigDialog,
   closeConfigDialog,
   setConfigData,
-  addHolidayLocal,
-  deleteHolidayLocal,
   setSelectedMonth,
   setSelectedYear,
   clearSnackbar,
@@ -76,18 +67,17 @@ import {
   selectHolidays,
   selectLoading,
   selectError,
-  selectHolidayFormOpen,
-  selectHolidayFormData,
   selectConfigOpen,
   selectConfigData,
   selectIsConfigured,
   selectConfiguring,
-  selectDeletingHoliday,
   selectSelectedMonth,
   selectSelectedYear,
   selectSnackbar,
   selectEntity,
 } from "../../redux/attendanceSlice";
+
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const HolidayTab = () => {
   const dispatch = useDispatch();
@@ -97,26 +87,18 @@ const HolidayTab = () => {
   const holidays = useSelector(selectHolidays);
   const loading = useSelector(selectLoading);
   const error = useSelector(selectError);
-  const holidayFormOpen = useSelector(selectHolidayFormOpen);
-  const holidayFormData = useSelector(selectHolidayFormData);
   const configOpen = useSelector(selectConfigOpen);
   const configData = useSelector(selectConfigData);
   const isConfigured = useSelector(selectIsConfigured);
   const configuring = useSelector(selectConfiguring);
-  const deletingHoliday = useSelector(selectDeletingHoliday);
   const selectedMonth = useSelector(selectSelectedMonth);
   const selectedYear = useSelector(selectSelectedYear);
   const snackbar = useSelector(selectSnackbar);
   const entity = useSelector(selectEntity);
 
-  // State for hover effects
-  const [hoveredRow, setHoveredRow] = useState(null);
-  
-  // State to track if there are any pending local changes
-  const [hasLocalChanges, setHasLocalChanges] = useState(false);
-
-  // Track dialog mode: 'configure' or 'edit'
-  const [dialogMode, setDialogMode] = useState('configure');
+  // Dates the user has picked/unpicked on the calendar for THIS dialog session.
+  // Seeded from the GET-fetched `holidays` list whenever the dialog opens.
+  const [selectedDates, setSelectedDates] = useState(new Set());
 
   // ============================================================
   // FETCH HOLIDAYS ON MOUNT AND MONTH/YEAR CHANGE
@@ -126,148 +108,57 @@ const HolidayTab = () => {
     dispatch(fetchHolidays({ month: selectedMonth, year: selectedYear, entity: entity }));
   }, [dispatch, selectedMonth, selectedYear, entity]);
 
-  // Reset local changes flag when month/year changes or configuration status changes
-  useEffect(() => {
-    setHasLocalChanges(false);
-  }, [selectedMonth, selectedYear, isConfigured]);
-
   // ============================================================
-  // HOLIDAY CRUD OPERATIONS
+  // CONFIGURE / EDIT ATTENDANCE MONTH — SINGLE BUTTON, SINGLE DIALOG
   // ============================================================
 
-  const handleAddHoliday = () => {
-    if (!holidayFormData.date) {
-      dispatch(setSnackbar({
-        open: true,
-        message: 'Please select a holiday date',
-        severity: 'error',
-      }));
-      return;
-    }
-
-    const existingHoliday = holidays.find(h => h.date === holidayFormData.date);
-    if (existingHoliday) {
-      dispatch(setSnackbar({
-        open: true,
-        message: 'A holiday already exists for this date',
-        severity: 'warning',
-      }));
-      return;
-    }
-
-    const newHoliday = {
-      id: `local-${Date.now()}`,
-      date: holidayFormData.date,
-    };
-
-    dispatch(addHolidayLocal(newHoliday));
-    dispatch(closeHolidayForm());
-    setHasLocalChanges(true);
-    
-    dispatch(setSnackbar({
-      open: true,
-      message: 'Holiday added successfully! Click "Configure Month" or "Edit Configuration" to save changes.',
-      severity: 'success',
-    }));
-  };
-
-  const handleDeleteHoliday = (holidayId, date) => {
-    // Check if it's a local (unsaved) holiday
-    if (String(holidayId).startsWith('local-')) {
-      // Remove locally
-      dispatch(deleteHolidayLocal(holidayId));
-      setHasLocalChanges(true);
-      dispatch(setSnackbar({
-        open: true,
-        message: 'Holiday removed locally. Click "Configure Month" or "Edit Configuration" to save changes.',
-        severity: 'info',
-      }));
-      return;
-    }
-
-    // Confirm deletion for saved holidays
-    if (window.confirm(`Are you sure you want to delete this holiday (${date})?`)) {
-      dispatch(deleteHoliday({ 
-        month: selectedMonth, 
-        year: selectedYear, 
-        entity: entity,
-        date: date 
-      })).then((result) => {
-        if (result.payload?.success) {
-          // Refetch holidays to get the updated list
-          dispatch(fetchHolidays({ month: selectedMonth, year: selectedYear, entity: entity }));
-        }
-      });
-    }
-  };
-
-  const handleOpenHolidayForm = () => {
-    dispatch(setHolidayFormData({ date: '' }));
-    dispatch(openHolidayForm());
-  };
-
-  const handleCloseHolidayForm = () => {
-    dispatch(closeHolidayForm());
-  };
-
-  // ============================================================
-  // CONFIGURE / EDIT ATTENDANCE MONTH - SEPARATE HANDLERS
-  // ============================================================
-
-  // Open Configure Dialog
-  const handleOpenConfigureDialog = () => {
-    setDialogMode('configure');
-    dispatch(setConfigData({ 
-      month: selectedMonth, 
-      year: selectedYear 
-    }));
+  const handleOpenConfigDialog = () => {
+    // Seed the calendar with whatever is already saved for this month/year
+    setSelectedDates(new Set(holidays.map((h) => h.date)));
+    dispatch(setConfigData({ month: selectedMonth, year: selectedYear }));
     dispatch(openConfigDialog());
   };
 
-  // Open Edit Configuration Dialog
-  const handleOpenEditDialog = () => {
-    setDialogMode('edit');
-    dispatch(setConfigData({ 
-      month: selectedMonth, 
-      year: selectedYear 
-    }));
-    dispatch(openConfigDialog());
+  const handleCloseConfigDialog = () => {
+    if (configuring) return;
+    dispatch(closeConfigDialog());
   };
 
-  // Handle Configure/Edit Save
+  const toggleDate = (dateStr) => {
+    setSelectedDates((prev) => {
+      const next = new Set(prev);
+      if (next.has(dateStr)) {
+        next.delete(dateStr);
+      } else {
+        next.add(dateStr);
+      }
+      return next;
+    });
+  };
+
   const handleSaveConfiguration = async () => {
-    // Get the current holidays (including local ones)
-    const publicHolidays = holidays.map(h => h.date);
-    
+    const publicHolidays = Array.from(selectedDates).sort();
+
     const payload = {
-      month: configData.month,
-      year: configData.year,
-      publicHolidays: publicHolidays,
-      entity: entity,
+      month: selectedMonth,
+      year: selectedYear,
+      publicHolidays,
+      entity,
     };
 
-    let result;
-    
-    // Check mode to determine which action to dispatch
-    if (dialogMode === 'edit') {
-      // If in edit mode, use update
-      result = await dispatch(updateAttendanceMonth(payload));
-    } else {
-      // Otherwise, use setup (configure)
-      result = await dispatch(setupAttendanceMonth(payload));
-    }
+    // Use isConfigured to determine POST vs PUT
+    const result = isConfigured
+      ? await dispatch(updateAttendanceMonth(payload))
+      : await dispatch(setupAttendanceMonth(payload));
 
     if (result.payload?.success) {
       dispatch(closeConfigDialog());
-      setHasLocalChanges(false);
-      setDialogMode('configure'); // Reset mode
-      // Refetch to get the latest data from backend
       dispatch(fetchHolidays({ month: selectedMonth, year: selectedYear, entity: entity }));
-      
+
       dispatch(setSnackbar({
         open: true,
-        message: dialogMode === 'edit' 
-          ? 'Configuration updated successfully!' 
+        message: isConfigured
+          ? 'Configuration updated successfully!'
           : 'Month configured successfully!',
         severity: 'success',
       }));
@@ -288,35 +179,30 @@ const HolidayTab = () => {
 
       if (result.payload?.success) {
         dispatch(fetchHolidays({ month: selectedMonth, year: selectedYear, entity: entity }));
-        setHasLocalChanges(false);
-        setDialogMode('configure'); // Reset mode
       }
     }
   };
 
   // ============================================================
-  // HANDLE MONTH/YEAR CHANGE
+  // HANDLE MONTH/YEAR CHANGE (outside the dialog)
   // ============================================================
 
   const handleMonthChange = (event) => {
     const newMonth = parseInt(event.target.value);
     dispatch(setSelectedMonth(newMonth));
-    dispatch(setConfigData({ month: newMonth }));
   };
 
   const handleYearChange = (event) => {
     const newYear = parseInt(event.target.value);
     dispatch(setSelectedYear(newYear));
-    dispatch(setConfigData({ year: newYear }));
   };
 
   const handleRefresh = () => {
     dispatch(fetchHolidays({ month: selectedMonth, year: selectedYear, entity: entity }));
-    setHasLocalChanges(false);
   };
 
   // ============================================================
-  // FORMAT DATE
+  // DATE HELPERS WITH ATTENDANCE CYCLE (26th to 25th)
   // ============================================================
 
   const formatDate = (dateString) => {
@@ -339,12 +225,117 @@ const HolidayTab = () => {
     return new Date(2026, month - 1).toLocaleString('default', { month: 'long' });
   };
 
+  /**
+   * Convert date to string format YYYY-MM-DD
+   * Ensures proper date formatting for the attendance cycle
+   */
+  const toDateStr = (year, month, day) => {
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  };
+
+  /**
+   * Get the attendance cycle range for a given month/year
+   * Attendance cycle: 26th of previous month to 25th of current month
+   * For example, July 2026 cycle: June 26, 2026 to July 25, 2026
+   */
+  const getAttendanceCycleRange = (month, year) => {
+    // Start date: 26th of previous month
+    let startMonth = month - 1;
+    let startYear = year;
+    if (startMonth < 1) {
+      startMonth = 12;
+      startYear = year - 1;
+    }
+    const startDate = new Date(startYear, startMonth - 1, 26);
+    
+    // End date: 25th of current month
+    const endDate = new Date(year, month - 1, 25);
+    
+    return { startDate, endDate };
+  };
+
+  /**
+   * Check if a date falls within the attendance cycle
+   */
+  const isDateInAttendanceCycle = (date, month, year) => {
+    const { startDate, endDate } = getAttendanceCycleRange(month, year);
+    const checkDate = new Date(date);
+    
+    // Reset time to compare dates only
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(23, 59, 59, 999);
+    checkDate.setHours(0, 0, 0, 0);
+    
+    return checkDate >= startDate && checkDate <= endDate;
+  };
+
+  /**
+   * Get all dates in the attendance cycle (26th previous month to 25th current month)
+   */
+  const getAttendanceCycleDates = (month, year) => {
+    const { startDate, endDate } = getAttendanceCycleRange(month, year);
+    const dates = [];
+    const current = new Date(startDate);
+    
+    while (current <= endDate) {
+      dates.push(new Date(current));
+      current.setDate(current.getDate() + 1);
+    }
+    
+    return dates;
+  };
+
+  /**
+   * Build calendar grid for the attendance cycle
+   * Shows dates from 26th of previous month to 25th of current month
+   * Arranged in a weekly grid starting from Sunday
+   */
+  const getAttendanceCycleCalendar = (month, year) => {
+    const cycleDates = getAttendanceCycleDates(month, year);
+    const calendar = [];
+    let week = [];
+    
+    // Get the first day of the week for the first date
+    const firstDate = cycleDates[0];
+    const firstDayOfWeek = firstDate.getDay(); // 0 = Sunday
+    
+    // Add padding for days before the first date
+    for (let i = 0; i < firstDayOfWeek; i++) {
+      week.push(null);
+    }
+    
+    // Add all cycle dates
+    cycleDates.forEach((date) => {
+      week.push(date);
+      if (week.length === 7) {
+        calendar.push(week);
+        week = [];
+      }
+    });
+    
+    // Add padding for remaining days in the last week
+    while (week.length > 0 && week.length < 7) {
+      week.push(null);
+    }
+    if (week.length > 0) {
+      calendar.push(week);
+    }
+    
+    return calendar;
+  };
+
+  const calendarWeeks = getAttendanceCycleCalendar(selectedMonth, selectedYear);
+  const sortedSelectedDates = Array.from(selectedDates).sort();
+
+  // Get cycle range for display
+  const { startDate, endDate } = getAttendanceCycleRange(selectedMonth, selectedYear);
+
   // ============================================================
   // RENDER
   // ============================================================
 
   return (
-    <Box sx={{ p: 4, maxWidth: 1400, margin: '0 auto' }}>
+    <Box sx={{ p: 2, maxWidth: 1400, margin: '0 auto' }}>
       {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
@@ -377,12 +368,12 @@ const HolidayTab = () => {
         </Alert>
       </Snackbar>
 
-      {/* Hero Section */}
+      {/* Hero Section - Reduced padding */}
       <Paper
         elevation={0}
         sx={{
-          p: 4,
-          mb: 4,
+          p: 2,
+          mb: 2,
           borderRadius: 3,
           background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)} 0%, ${alpha(theme.palette.secondary.main, 0.05)} 100%)`,
           border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
@@ -393,58 +384,58 @@ const HolidayTab = () => {
         <Box sx={{ position: 'relative', zIndex: 1 }}>
           <Grid container alignItems="center" justifyContent="space-between">
             <Grid item>
-              <Box display="flex" alignItems="center" gap={2}>
+              <Box display="flex" alignItems="center" gap={1.5}>
                 <Avatar
                   sx={{
                     bgcolor: alpha(theme.palette.primary.main, 0.1),
                     color: theme.palette.primary.main,
-                    width: 56,
-                    height: 56,
+                    width: 44,
+                    height: 44,
                   }}
                 >
-                  <CalendarDays size={28} />
+                  <CalendarDays size={22} />
                 </Avatar>
                 <Box>
-                  <Typography variant="h4" fontWeight="700" color="text.primary">
+                  <Typography variant="h6" fontWeight="700" color="text.primary">
                     Holiday Management
                   </Typography>
-                  <Typography variant="body1" color="text.secondary">
-                    Manage public holidays for {getMonthName(selectedMonth)} {selectedYear}
+                  <Typography variant="caption" color="text.secondary">
+                    Attendance Cycle: {formatDate(toDateStr(startDate.getFullYear(), startDate.getMonth() + 1, startDate.getDate()))} - {formatDate(toDateStr(endDate.getFullYear(), endDate.getMonth() + 1, endDate.getDate()))}
                   </Typography>
                 </Box>
               </Box>
             </Grid>
             <Grid item>
-              <Stack direction="row" spacing={2} alignItems="center">
-                <Box display="flex" gap={1}>
-                  <FormControl size="small" sx={{ minWidth: 140 }}>
-                    <InputLabel>Month</InputLabel>
+              <Stack direction="row" spacing={1.5} alignItems="center">
+                <Box display="flex" gap={0.5}>
+                  <FormControl size="small" sx={{ minWidth: 120 }}>
+                    <InputLabel sx={{ fontSize: '0.8rem' }}>Month</InputLabel>
                     <Select
                       value={selectedMonth}
                       onChange={handleMonthChange}
                       label="Month"
                       disabled={loading || configuring}
-                      sx={{ borderRadius: 2 }}
+                      sx={{ borderRadius: 2, fontSize: '0.8rem', height: 36 }}
                     >
                       {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
-                        <MenuItem key={month} value={month}>
+                        <MenuItem key={month} value={month} sx={{ fontSize: '0.8rem' }}>
                           {getMonthName(month)}
                         </MenuItem>
                       ))}
                     </Select>
                   </FormControl>
 
-                  <FormControl size="small" sx={{ minWidth: 110 }}>
-                    <InputLabel>Year</InputLabel>
+                  <FormControl size="small" sx={{ minWidth: 90 }}>
+                    <InputLabel sx={{ fontSize: '0.8rem' }}>Year</InputLabel>
                     <Select
                       value={selectedYear}
                       onChange={handleYearChange}
                       label="Year"
                       disabled={loading || configuring}
-                      sx={{ borderRadius: 2 }}
+                      sx={{ borderRadius: 2, fontSize: '0.8rem', height: 36 }}
                     >
                       {[2024, 2025, 2026, 2027, 2028].map((year) => (
-                        <MenuItem key={year} value={year}>
+                        <MenuItem key={year} value={year} sx={{ fontSize: '0.8rem' }}>
                           {year}
                         </MenuItem>
                       ))}
@@ -454,96 +445,68 @@ const HolidayTab = () => {
                   <IconButton
                     onClick={handleRefresh}
                     disabled={loading || configuring}
+                    size="small"
                     sx={{
                       borderRadius: 2,
                       border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+                      width: 36,
+                      height: 36,
                       '&:hover': {
                         backgroundColor: alpha(theme.palette.primary.main, 0.05),
                       },
                     }}
                   >
-                    {loading ? <CircularProgress size={20} /> : <RefreshCw size={18} />}
+                    {loading ? <CircularProgress size={18} /> : <RefreshCw size={16} />}
                   </IconButton>
                 </Box>
 
-                {/* ALL BUTTONS RENDERED SEPARATELY - NO CONDITIONS */}
-                {/* Configure Month Button - Always visible */}
                 <Button
                   variant="contained"
-                  startIcon={<Calendar size={18} />}
-                  onClick={handleOpenConfigureDialog}
+                  startIcon={isConfigured ? <Edit2 size={16} /> : <Calendar size={16} />}
+                  onClick={handleOpenConfigDialog}
                   disabled={loading || configuring}
+                  size="medium"
                   sx={{
                     borderRadius: 2,
-                    background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
-                    boxShadow: theme.shadows[4],
+                    py: 0.6,
+                    px: 2.5,
+                    background: isConfigured
+                      ? `linear-gradient(135deg, ${theme.palette.info.main} 0%, ${theme.palette.info.dark} 100%)`
+                      : `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
+                    boxShadow: theme.shadows[1],
                     '&:hover': {
-                      boxShadow: theme.shadows[8],
-                      transform: 'translateY(-2px)',
+                      boxShadow: theme.shadows[3],
+                      transform: 'translateY(-1px)',
                     },
                     transition: 'all 0.2s',
+                    fontSize: '0.8rem',
+                    fontWeight: 500,
                   }}
                 >
-                  Configure Month
+                  {isConfigured ? 'Edit Configuration' : 'Configure Month'}
                 </Button>
 
-                {/* Edit Configuration Button - Always visible */}
-                <Button
-                  variant="contained"
-                  startIcon={<Edit2 size={18} />}
-                  onClick={handleOpenEditDialog}
-                  disabled={loading || configuring}
-                  sx={{
-                    borderRadius: 2,
-                    background: `linear-gradient(135deg, ${theme.palette.info.main} 0%, ${theme.palette.info.dark} 100%)`,
-                    boxShadow: theme.shadows[4],
-                    '&:hover': {
-                      boxShadow: theme.shadows[8],
-                      transform: 'translateY(-2px)',
-                    },
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  Edit Configuration
-                </Button>
-
-                {/* Delete Config Button - Always visible */}
                 <Button
                   variant="outlined"
-                  startIcon={<Trash2 size={18} />}
+                  startIcon={<Trash2 size={16} />}
                   onClick={handleDeleteConfiguration}
-                  disabled={loading || configuring}
+                  // disabled={loading || configuring || !isConfigured}
+                  size="medium"
                   sx={{
                     borderRadius: 2,
+                    py: 0.6,
+                    px: 2.5,
                     borderColor: theme.palette.error.main,
                     color: theme.palette.error.main,
                     '&:hover': {
                       borderColor: theme.palette.error.dark,
                       backgroundColor: alpha(theme.palette.error.main, 0.05),
                     },
+                    fontSize: '0.8rem',
+                    fontWeight: 500,
                   }}
                 >
                   Delete Config
-                </Button>
-
-                {/* Add Holiday Button - Always visible */}
-                <Button
-                  variant="contained"
-                  startIcon={<Plus size={18} />}
-                  onClick={handleOpenHolidayForm}
-                  disabled={loading || configuring}
-                  sx={{
-                    borderRadius: 2,
-                    background: `linear-gradient(135deg, ${theme.palette.success.main} 0%, ${theme.palette.success.dark} 100%)`,
-                    boxShadow: theme.shadows[4],
-                    '&:hover': {
-                      boxShadow: theme.shadows[8],
-                      transform: 'translateY(-2px)',
-                    },
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  Add Holiday
                 </Button>
               </Stack>
             </Grid>
@@ -554,10 +517,10 @@ const HolidayTab = () => {
         <Box
           sx={{
             position: 'absolute',
-            top: -50,
-            right: -50,
-            width: 200,
-            height: 200,
+            top: -40,
+            right: -40,
+            width: 120,
+            height: 120,
             borderRadius: '50%',
             background: `radial-gradient(circle, ${alpha(theme.palette.primary.main, 0.05)} 0%, transparent 70%)`,
             pointerEvents: 'none',
@@ -566,10 +529,10 @@ const HolidayTab = () => {
         <Box
           sx={{
             position: 'absolute',
-            bottom: -80,
-            left: -80,
-            width: 300,
-            height: 300,
+            bottom: -40,
+            left: -40,
+            width: 150,
+            height: 150,
             borderRadius: '50%',
             background: `radial-gradient(circle, ${alpha(theme.palette.secondary.main, 0.03)} 0%, transparent 70%)`,
             pointerEvents: 'none',
@@ -580,12 +543,12 @@ const HolidayTab = () => {
       {/* Error Display */}
       {error && (
         <Fade in={!!error}>
-          <Alert 
-            severity="error" 
-            sx={{ 
-              mb: 3, 
+          <Alert
+            severity="error"
+            sx={{
+              mb: 1.5,
               borderRadius: 2,
-              boxShadow: theme.shadows[2],
+              boxShadow: theme.shadows[1],
             }}
           >
             {error}
@@ -593,84 +556,52 @@ const HolidayTab = () => {
         </Fade>
       )}
 
-      {/* Configuration Status Banner */}
+      {/* Configuration Status Banner - Compact */}
       {!isConfigured ? (
         <Alert
           severity="info"
-          sx={{ mb: 3, borderRadius: 2 }}
-          icon={<AlertCircle size={18} />}
+          sx={{ mb: 1.5, borderRadius: 2, py: 0.5 }}
+          icon={<AlertCircle size={16} />}
         >
-          This month is not configured yet. Add holidays and click <strong>"Configure Month"</strong> to set up the attendance for {getMonthName(selectedMonth)} {selectedYear}.
-          {holidays.length > 0 && ` You have ${holidays.length} holiday(s) that will be applied.`}
-          {hasLocalChanges && (
-            <span style={{ display: 'block', marginTop: '8px' }}>
-              <Chip
-                label="Unsaved Changes"
-                size="small"
-                color="warning"
-                sx={{ fontWeight: 'bold' }}
-              />
-              {' Click "Configure Month" to save your changes.'}
-            </span>
-          )}
+          <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+            This attendance cycle is not configured yet. Click <strong>"Configure Month"</strong> to set up attendance and add holidays.
+          </Typography>
         </Alert>
       ) : (
         <Alert
           severity="success"
-          sx={{ mb: 3, borderRadius: 2 }}
-          icon={<CheckCircle size={18} />}
+          sx={{ mb: 1.5, borderRadius: 2, py: 0.5 }}
+          icon={<CheckCircle size={16} />}
         >
-          This month is configured. You can add or remove holidays and click <strong>"Edit Configuration"</strong> to update the attendance settings.
-          {hasLocalChanges && (
-            <span style={{ display: 'block', marginTop: '8px' }}>
-              <Chip
-                label="Unsaved Changes"
-                size="small"
-                color="warning"
-                sx={{ fontWeight: 'bold' }}
-              />
-              {' Click "Edit Configuration" to save your changes.'}
-            </span>
-          )}
+          <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+            This attendance cycle is configured with <strong>{holidays.length}</strong> public holiday(s). Click <strong>"Edit Configuration"</strong> to add or remove holidays.
+          </Typography>
         </Alert>
       )}
 
-      {/* Stats Cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
+      {/* Stats Cards - Compact */}
+      <Grid container spacing={1.5} sx={{ mb: 2 }}>
+        <Grid item xs={12} sm={6} md={4}>
           <Zoom in style={{ transitionDelay: '100ms' }}>
             <Card
               sx={{
-                borderRadius: 3,
+                borderRadius: 2,
                 background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)} 0%, ${alpha(theme.palette.primary.main, 0.02)} 100%)`,
                 border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-                transition: 'all 0.3s',
-                '&:hover': {
-                  transform: 'translateY(-4px)',
-                  boxShadow: theme.shadows[4],
-                },
               }}
             >
-              <CardContent>
+              <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
                 <Box display="flex" alignItems="center" justifyContent="space-between">
                   <Box>
-                    <Typography variant="caption" color="text.secondary" fontWeight="500">
+                    <Typography variant="caption" color="text.secondary" fontWeight="500" sx={{ fontSize: '0.7rem' }}>
                       Total Holidays
                     </Typography>
-                    <Typography variant="h3" fontWeight="700" color="primary.main">
+                    <Typography variant="h5" fontWeight="700" color="primary.main">
                       {holidays.length}
                     </Typography>
-                    {hasLocalChanges && (
-                      <Chip
-                        label="Unsaved"
-                        size="small"
-                        color="warning"
-                        sx={{ mt: 0.5, height: 20, fontSize: '0.6rem' }}
-                      />
-                    )}
                   </Box>
-                  <Avatar sx={{ bgcolor: alpha(theme.palette.primary.main, 0.1), color: theme.palette.primary.main }}>
-                    <Calendar size={24} />
+                  <Avatar sx={{ bgcolor: alpha(theme.palette.primary.main, 0.1), color: theme.palette.primary.main, width: 36, height: 36 }}>
+                    <Calendar size={18} />
                   </Avatar>
                 </Box>
               </CardContent>
@@ -678,40 +609,27 @@ const HolidayTab = () => {
           </Zoom>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={4}>
           <Zoom in style={{ transitionDelay: '200ms' }}>
             <Card
               sx={{
-                borderRadius: 3,
+                borderRadius: 2,
                 background: `linear-gradient(135deg, ${alpha(theme.palette.success.main, 0.05)} 0%, ${alpha(theme.palette.success.main, 0.02)} 100%)`,
                 border: `1px solid ${alpha(theme.palette.success.main, 0.1)}`,
-                transition: 'all 0.3s',
-                '&:hover': {
-                  transform: 'translateY(-4px)',
-                  boxShadow: theme.shadows[4],
-                },
               }}
             >
-              <CardContent>
+              <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
                 <Box display="flex" alignItems="center" justifyContent="space-between">
                   <Box>
-                    <Typography variant="caption" color="text.secondary" fontWeight="500">
+                    <Typography variant="caption" color="text.secondary" fontWeight="500" sx={{ fontSize: '0.7rem' }}>
                       Status
                     </Typography>
-                    <Typography variant="h6" fontWeight="600" color={isConfigured ? 'success.main' : 'warning.main'}>
+                    <Typography variant="body2" fontWeight="600" color={isConfigured ? 'success.main' : 'warning.main'}>
                       {isConfigured ? 'Configured ✓' : 'Not Configured'}
                     </Typography>
-                    {isConfigured && hasLocalChanges && (
-                      <Chip
-                        label="Pending Save"
-                        size="small"
-                        color="warning"
-                        sx={{ mt: 0.5, height: 20, fontSize: '0.6rem' }}
-                      />
-                    )}
                   </Box>
-                  <Avatar sx={{ bgcolor: alpha(theme.palette.success.main, 0.1), color: isConfigured ? theme.palette.success.main : theme.palette.warning.main }}>
-                    {isConfigured ? <CheckCircle size={24} /> : <AlertCircle size={24} />}
+                  <Avatar sx={{ bgcolor: alpha(theme.palette.success.main, 0.1), color: isConfigured ? theme.palette.success.main : theme.palette.warning.main, width: 36, height: 36 }}>
+                    {isConfigured ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
                   </Avatar>
                 </Box>
               </CardContent>
@@ -719,65 +637,27 @@ const HolidayTab = () => {
           </Zoom>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={4}>
           <Zoom in style={{ transitionDelay: '300ms' }}>
             <Card
               sx={{
-                borderRadius: 3,
+                borderRadius: 2,
                 background: `linear-gradient(135deg, ${alpha(theme.palette.info.main, 0.05)} 0%, ${alpha(theme.palette.info.main, 0.02)} 100%)`,
                 border: `1px solid ${alpha(theme.palette.info.main, 0.1)}`,
-                transition: 'all 0.3s',
-                '&:hover': {
-                  transform: 'translateY(-4px)',
-                  boxShadow: theme.shadows[4],
-                },
               }}
             >
-              <CardContent>
+              <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
                 <Box display="flex" alignItems="center" justifyContent="space-between">
                   <Box>
-                    <Typography variant="caption" color="text.secondary" fontWeight="500">
-                      Month
+                    <Typography variant="caption" color="text.secondary" fontWeight="500" sx={{ fontSize: '0.7rem' }}>
+                      Cycle Period
                     </Typography>
-                    <Typography variant="h6" fontWeight="600">
-                      {getMonthName(selectedMonth)}
-                    </Typography>
-                  </Box>
-                  <Avatar sx={{ bgcolor: alpha(theme.palette.info.main, 0.1), color: theme.palette.info.main }}>
-                    <Clock size={24} />
-                  </Avatar>
-                </Box>
-              </CardContent>
-            </Card>
-          </Zoom>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Zoom in style={{ transitionDelay: '400ms' }}>
-            <Card
-              sx={{
-                borderRadius: 3,
-                background: `linear-gradient(135deg, ${alpha(theme.palette.warning.main, 0.05)} 0%, ${alpha(theme.palette.warning.main, 0.02)} 100%)`,
-                border: `1px solid ${alpha(theme.palette.warning.main, 0.1)}`,
-                transition: 'all 0.3s',
-                '&:hover': {
-                  transform: 'translateY(-4px)',
-                  boxShadow: theme.shadows[4],
-                },
-              }}
-            >
-              <CardContent>
-                <Box display="flex" alignItems="center" justifyContent="space-between">
-                  <Box>
-                    <Typography variant="caption" color="text.secondary" fontWeight="500">
-                      Year
-                    </Typography>
-                    <Typography variant="h6" fontWeight="600">
-                      {selectedYear}
+                    <Typography variant="caption" fontWeight="600" display="block">
+                      {formatDate(toDateStr(startDate.getFullYear(), startDate.getMonth() + 1, startDate.getDate()))} - {formatDate(toDateStr(endDate.getFullYear(), endDate.getMonth() + 1, endDate.getDate()))}
                     </Typography>
                   </Box>
-                  <Avatar sx={{ bgcolor: alpha(theme.palette.warning.main, 0.1), color: theme.palette.warning.main }}>
-                    <Hash size={24} />
+                  <Avatar sx={{ bgcolor: alpha(theme.palette.info.main, 0.1), color: theme.palette.info.main, width: 36, height: 36 }}>
+                    <Clock size={18} />
                   </Avatar>
                 </Box>
               </CardContent>
@@ -786,37 +666,33 @@ const HolidayTab = () => {
         </Grid>
       </Grid>
 
-      {/* Holiday Table */}
+      {/* Holiday List - Compact */}
       <TableContainer
         component={Paper}
         elevation={0}
         sx={{
-          borderRadius: 3,
+          borderRadius: 2,
           border: `1px solid ${alpha(theme.palette.primary.main, 0.08)}`,
           overflow: 'hidden',
+          maxHeight: 300,
         }}
       >
-        <Table>
+        <Table size="small" stickyHeader>
           <TableHead sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
             <TableRow>
-              <TableCell sx={{ py: 2 }}>
-                <Typography fontWeight="600" color="text.secondary" display="flex" alignItems="center" gap={1}>
-                  <Hash size={16} /> #
+              <TableCell sx={{ py: 1 }}>
+                <Typography fontWeight="600" color="text.secondary" display="flex" alignItems="center" gap={1} variant="caption">
+                  <Hash size={14} /> #
                 </Typography>
               </TableCell>
-              <TableCell sx={{ py: 2 }}>
-                <Typography fontWeight="600" color="text.secondary" display="flex" alignItems="center" gap={1}>
-                  <Calendar size={16} /> Date
+              <TableCell sx={{ py: 1 }}>
+                <Typography fontWeight="600" color="text.secondary" display="flex" alignItems="center" gap={1} variant="caption">
+                  <Calendar size={14} /> Date
                 </Typography>
               </TableCell>
-              <TableCell sx={{ py: 2 }}>
-                <Typography fontWeight="600" color="text.secondary" display="flex" alignItems="center" gap={1}>
-                  <Clock size={16} /> Day
-                </Typography>
-              </TableCell>
-              <TableCell align="center" sx={{ py: 2 }}>
-                <Typography fontWeight="600" color="text.secondary">
-                  Actions
+              <TableCell sx={{ py: 1 }}>
+                <Typography fontWeight="600" color="text.secondary" display="flex" alignItems="center" gap={1} variant="caption">
+                  <Clock size={14} /> Day
                 </Typography>
               </TableCell>
             </TableRow>
@@ -824,414 +700,326 @@ const HolidayTab = () => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 8 }}>
-                  <CircularProgress size={40} />
-                  <Typography color="text.secondary" sx={{ mt: 2 }}>
+                <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
+                  <CircularProgress size={32} />
+                  <Typography color="text.secondary" variant="caption" sx={{ mt: 1, display: 'block' }}>
                     Loading holidays...
                   </Typography>
                 </TableCell>
               </TableRow>
             ) : holidays.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 8 }}>
-                  <Box display="flex" flexDirection="column" alignItems="center" gap={2}>
-                    <CalendarDays size={48} color={theme.palette.text.secondary} opacity={0.3} />
-                    <Typography color="text.secondary" variant="h6" fontWeight="500">
+                <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
+                  <Box display="flex" flexDirection="column" alignItems="center" gap={0.5}>
+                    <CalendarDays size={32} color={theme.palette.text.secondary} opacity={0.3} />
+                    <Typography color="text.secondary" variant="body2" fontWeight="500">
                       No holidays found
                     </Typography>
-                    <Typography color="text.secondary" variant="body2">
-                      Click "Add Holiday" to add a new holiday, then click "Configure Month" to save
-                    </Typography>
+                    {isConfigured ? (
+                      <Typography color="text.secondary" variant="caption">
+                        Click "Edit Configuration" to add public holidays
+                      </Typography>
+                    ) : (
+                      <Typography color="text.secondary" variant="caption">
+                        Click "Configure Month" to set up attendance and add holidays
+                      </Typography>
+                    )}
                   </Box>
                 </TableCell>
               </TableRow>
             ) : (
-              holidays.map((holiday, index) => {
-                const isLocal = String(holiday.id).startsWith('local-');
-                const isDeleting = deletingHoliday;
-                return (
-                  <Grow
-                    in
-                    key={holiday.id || index}
-                    style={{ transitionDelay: `${index * 50}ms` }}
+              holidays.map((holiday, index) => (
+                <Grow
+                  in
+                  key={holiday.id || index}
+                  style={{ transitionDelay: `${index * 50}ms` }}
+                >
+                  <TableRow
+                    hover
+                    sx={{
+                      transition: 'all 0.2s',
+                      '&:hover': {
+                        backgroundColor: alpha(theme.palette.primary.main, 0.02),
+                      },
+                    }}
                   >
-                    <TableRow
-                      hover
-                      onMouseEnter={() => setHoveredRow(index)}
-                      onMouseLeave={() => setHoveredRow(null)}
-                      sx={{
-                        transition: 'all 0.2s',
-                        '&:hover': {
-                          backgroundColor: alpha(theme.palette.primary.main, 0.02),
-                        },
-                      }}
-                    >
-                      <TableCell>
-                        <Chip
-                          label={index + 1}
-                          size="small"
+                    <TableCell>
+                      <Chip
+                        label={index + 1}
+                        size="small"
+                        sx={{
+                          bgcolor: alpha(theme.palette.primary.main, 0.08),
+                          color: theme.palette.primary.main,
+                          fontWeight: '600',
+                          height: 22,
+                          '& .MuiChip-label': { fontSize: '0.65rem', px: 1 },
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Box
                           sx={{
-                            bgcolor: alpha(theme.palette.primary.main, 0.08),
-                            color: theme.palette.primary.main,
-                            fontWeight: '600',
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Box display="flex" alignItems="center" gap={2}>
-                          <Box
-                            sx={{
-                              p: 1,
-                              borderRadius: 2,
-                              bgcolor: alpha(theme.palette.primary.main, 0.06),
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                          >
-                            <Calendar size={18} color={theme.palette.primary.main} />
-                          </Box>
-                          <Typography variant="body2" fontWeight="500">
-                            {formatDate(holiday.date)}
-                          </Typography>
-                          {isLocal && (
-                            <Chip
-                              label="Unsaved"
-                              size="small"
-                              color="warning"
-                              sx={{ height: 20, fontSize: '0.6rem' }}
-                            />
-                          )}
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={getDayName(holiday.date)}
-                          size="small"
-                          variant="outlined"
-                          sx={{
-                            borderRadius: 1.5,
-                            borderColor: alpha(theme.palette.text.primary, 0.15),
-                            color: theme.palette.text.secondary,
-                            fontWeight: '500',
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <IconButton
-                          onClick={() => handleDeleteHoliday(holiday.id, holiday.date)}
-                          disabled={isDeleting}
-                          sx={{
-                            color: theme.palette.error.main,
-                            transition: 'all 0.2s',
-                            opacity: (hoveredRow === index) ? 1 : 0.6,
-                            '&:hover': {
-                              backgroundColor: alpha(theme.palette.error.main, 0.08),
-                              transform: 'scale(1.1)',
-                            },
-                            '&.Mui-disabled': {
-                              opacity: 0.3,
-                            },
+                            p: 0.3,
+                            borderRadius: 1,
+                            bgcolor: alpha(theme.palette.primary.main, 0.06),
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
                           }}
                         >
-                          {isDeleting ? <CircularProgress size={18} /> : <Trash2 size={18} />}
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  </Grow>
-                );
-              })
+                          <Calendar size={14} color={theme.palette.primary.main} />
+                        </Box>
+                        <Typography variant="caption" fontWeight="500">
+                          {formatDate(holiday.date)}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={getDayName(holiday.date)}
+                        size="small"
+                        variant="outlined"
+                        sx={{
+                          borderRadius: 1.5,
+                          borderColor: alpha(theme.palette.text.primary, 0.15),
+                          color: theme.palette.text.secondary,
+                          fontWeight: '500',
+                          height: 22,
+                          '& .MuiChip-label': { fontSize: '0.65rem', px: 1 },
+                        }}
+                      />
+                    </TableCell>
+                  </TableRow>
+                </Grow>
+              ))
             )}
           </TableBody>
         </Table>
       </TableContainer>
 
-      {/* Holiday Form Dialog */}
-      <Dialog
-        open={holidayFormOpen}
-        onClose={handleCloseHolidayForm}
-        maxWidth="sm"
-        fullWidth
-        TransitionComponent={Zoom}
-        PaperProps={{
-          sx: {
-            borderRadius: 3,
-            boxShadow: theme.shadows[20],
-          },
-        }}
-      >
-        <DialogTitle sx={{ p: 3, pb: 2 }}>
-          <Box display="flex" alignItems="center" justifyContent="space-between">
-            <Box display="flex" alignItems="center" gap={2}>
-              <Avatar sx={{ bgcolor: alpha(theme.palette.primary.main, 0.1), color: theme.palette.primary.main }}>
-                <Plus size={20} />
-              </Avatar>
-              <Typography variant="h6" fontWeight="600">
-                Add New Holiday
-              </Typography>
-            </Box>
-            <IconButton onClick={handleCloseHolidayForm} size="small">
-              <X size={20} />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent sx={{ p: 3, pt: 1 }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <Alert
-              severity="info"
-              sx={{ borderRadius: 2 }}
-              icon={<Sparkles size={18} />}
-            >
-              Select a date to mark as a public holiday for {getMonthName(selectedMonth)} {selectedYear}
-            </Alert>
-
-            <TextField
-              fullWidth
-              type="date"
-              label="Holiday Date"
-              InputLabelProps={{ shrink: true }}
-              value={holidayFormData.date || ''}
-              onChange={(e) => dispatch(setHolidayFormData({ date: e.target.value }))}
-              required
-              inputProps={{
-                min: `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`,
-                max: `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${new Date(selectedYear, selectedMonth, 0).getDate()}`,
-              }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 2,
-                },
-              }}
-              helperText={`Select a date within ${getMonthName(selectedMonth)} ${selectedYear}`}
-            />
-
-            {holidayFormData.date && (
-              <Fade in={!!holidayFormData.date}>
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: 2,
-                    borderRadius: 2,
-                    bgcolor: alpha(theme.palette.success.main, 0.04),
-                    border: `1px solid ${alpha(theme.palette.success.main, 0.15)}`,
-                  }}
-                >
-                  <Box display="flex" alignItems="center" gap={2}>
-                    <CheckCircle size={20} color={theme.palette.success.main} />
-                    <Typography variant="body2" color="text.secondary">
-                      You are adding <strong>{formatDate(holidayFormData.date)}</strong> ({getDayName(holidayFormData.date)}) as a public holiday
-                    </Typography>
-                  </Box>
-                </Paper>
-              </Fade>
-            )}
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ p: 3, pt: 0 }}>
-          <Button
-            onClick={handleCloseHolidayForm}
-            sx={{
-              borderRadius: 2,
-              px: 3,
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleAddHoliday}
-            variant="contained"
-            disabled={!holidayFormData.date}
-            startIcon={<CheckCircle size={18} />}
-            sx={{
-              borderRadius: 2,
-              px: 4,
-              background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
-              boxShadow: theme.shadows[4],
-              '&:hover': {
-                boxShadow: theme.shadows[8],
-                transform: 'translateY(-2px)',
-              },
-              '&.Mui-disabled': {
-                bgcolor: alpha(theme.palette.primary.main, 0.3),
-              },
-              transition: 'all 0.2s',
-            }}
-          >
-            Add Holiday
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Configuration Dialog - Updated with mode-based rendering */}
+      {/* Configure / Edit Dialog - Optimized size */}
       <Dialog
         open={configOpen}
-        onClose={() => !configuring && dispatch(closeConfigDialog())}
+        onClose={handleCloseConfigDialog}
         maxWidth="sm"
         fullWidth
         TransitionComponent={Zoom}
         PaperProps={{
           sx: {
-            borderRadius: 3,
+            borderRadius: 2,
             boxShadow: theme.shadows[20],
+            maxWidth: 580,
           },
         }}
       >
-        <DialogTitle sx={{ p: 3, pb: 2 }}>
+        <DialogTitle sx={{ p: 2.5, pb: 1.5 }}>
           <Box display="flex" alignItems="center" justifyContent="space-between">
-            <Box display="flex" alignItems="center" gap={2}>
-              <Avatar sx={{ bgcolor: alpha(theme.palette.primary.main, 0.1), color: theme.palette.primary.main }}>
-                {dialogMode === 'edit' ? <Edit2 size={20} /> : <Calendar size={20} />}
+            <Box display="flex" alignItems="center" gap={1.5}>
+              <Avatar sx={{ bgcolor: alpha(theme.palette.primary.main, 0.1), color: theme.palette.primary.main, width: 40, height: 40 }}>
+                {isConfigured ? <Edit2 size={20} /> : <Calendar size={20} />}
               </Avatar>
-              <Typography variant="h6" fontWeight="600">
-                {dialogMode === 'edit' ? 'Edit Configuration' : 'Configure Month'}
-              </Typography>
+              <Box>
+                <Typography variant="h6" fontWeight="600" sx={{ fontSize: '1.1rem' }}>
+                  {isConfigured ? 'Edit Configuration' : 'Configure Month'}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                  Cycle: {formatDate(toDateStr(startDate.getFullYear(), startDate.getMonth() + 1, startDate.getDate()))} - {formatDate(toDateStr(endDate.getFullYear(), endDate.getMonth() + 1, endDate.getDate()))}
+                </Typography>
+              </Box>
             </Box>
-            <IconButton
-              onClick={() => !configuring && dispatch(closeConfigDialog())}
-              disabled={configuring}
-              size="small"
-            >
+            <IconButton onClick={handleCloseConfigDialog} disabled={configuring} size="small">
               <X size={20} />
             </IconButton>
           </Box>
         </DialogTitle>
-        <DialogContent sx={{ p: 3, pt: 1 }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <Alert
-              severity={dialogMode === 'edit' ? 'info' : 'warning'}
-              sx={{ borderRadius: 2 }}
-            >
-              {dialogMode === 'edit'
-                ? `This will update the attendance configuration for ${getMonthName(configData.month)} ${configData.year} with ${holidays.length} public holiday(s).`
-                : `This will configure the attendance for ${getMonthName(configData.month)} ${configData.year} with ${holidays.length} public holiday(s).`
-              }
-              {holidays.length === 0 && dialogMode === 'configure' && (
-                <span style={{ display: 'block', marginTop: '8px' }}>
-                  <strong>Note:</strong> You can configure the month even without any holidays.
-                </span>
-              )}
-              {hasLocalChanges && (
-                <span style={{ display: 'block', marginTop: '8px' }}>
-                  <Chip
-                    label="Unsaved Changes"
-                    size="small"
-                    color="warning"
-                    sx={{ fontWeight: 'bold' }}
-                  />
-                  {' Click Save to apply your changes.'}
-                </span>
-              )}
+        <DialogContent sx={{ p: 2.5, pt: 1 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <Alert severity={isConfigured ? 'info' : 'warning'} sx={{ borderRadius: 2, py: 0.5 }} icon={<AlertCircle size={16} />}>
+              <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                Tap a date to mark as holiday, tap again to remove.
+                {' '}Currently <strong>{sortedSelectedDates.length}</strong> date(s) selected.
+              </Typography>
             </Alert>
 
-            <Grid container spacing={2}>
-              <Grid item xs={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Month</InputLabel>
-                  <Select
-                    value={configData.month}
-                    onChange={(e) =>
-                      dispatch(setConfigData({ month: parseInt(e.target.value) }))
-                    }
-                    label="Month"
-                    disabled={configuring}
-                    sx={{ borderRadius: 2 }}
+            {/* Calendar grid with optimized size */}
+            <Paper
+              elevation={0}
+              sx={{
+                p: 1.5,
+                borderRadius: 2,
+                border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+                bgcolor: alpha(theme.palette.primary.main, 0.02),
+                overflow: 'auto',
+              }}
+            >
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(7, 1fr)',
+                  gap: 0.3,
+                  mb: 0.4,
+                }}
+              >
+                {DAY_LABELS.map((label) => (
+                  <Typography
+                    key={label}
+                    variant="caption"
+                    align="center"
+                    fontWeight="600"
+                    color="text.secondary"
+                    sx={{ fontSize: '0.65rem' }}
                   >
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
-                      <MenuItem key={month} value={month}>
-                        {getMonthName(month)}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Year</InputLabel>
-                  <Select
-                    value={configData.year}
-                    onChange={(e) =>
-                      dispatch(setConfigData({ year: parseInt(e.target.value) }))
-                    }
-                    label="Year"
-                    disabled={configuring}
-                    sx={{ borderRadius: 2 }}
+                    {label}
+                  </Typography>
+                ))}
+              </Box>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 0.3,
+                }}
+              >
+                {calendarWeeks.map((week, weekIndex) => (
+                  <Box
+                    key={weekIndex}
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(7, 1fr)',
+                      gap: 0.3,
+                    }}
                   >
-                    {[2024, 2025, 2026, 2027, 2028].map((year) => (
-                      <MenuItem key={year} value={year}>
-                        {year}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
-
-            <Divider sx={{ my: 1 }} />
-
-            <Box>
-              <Typography variant="subtitle2" fontWeight="600" gutterBottom>
-                Public Holidays to be applied:
-              </Typography>
-              {holidays.length > 0 ? (
-                <Stack spacing={1.5}>
-                  {holidays.map((holiday, index) => {
-                    const isLocal = String(holiday.id).startsWith('local-');
-                    return (
-                      <Paper
-                        key={index}
-                        elevation={0}
-                        sx={{
-                          p: 1.5,
-                          borderRadius: 2,
-                          bgcolor: isLocal ? alpha(theme.palette.warning.main, 0.08) : alpha(theme.palette.primary.main, 0.04),
-                          border: `1px solid ${isLocal ? alpha(theme.palette.warning.main, 0.2) : alpha(theme.palette.primary.main, 0.08)}`,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 1.5,
-                          transition: 'all 0.2s',
-                          '&:hover': {
-                            bgcolor: alpha(theme.palette.primary.main, 0.08),
-                            transform: 'translateX(4px)',
-                          },
-                        }}
-                      >
-                        <CheckCircle size={16} color={isLocal ? theme.palette.warning.main : theme.palette.success.main} />
-                        <Typography variant="body2">
-                          <strong>{formatDate(holiday.date)}</strong>
-                          <Typography
-                            component="span"
-                            variant="caption"
-                            color="text.secondary"
-                            sx={{ ml: 1 }}
+                    {week.map((date, dayIndex) => {
+                      if (date === null) {
+                        return <Box key={`blank-${weekIndex}-${dayIndex}`} />;
+                      }
+                      
+                      const year = date.getFullYear();
+                      const month = date.getMonth() + 1;
+                      const day = date.getDate();
+                      const dateStr = toDateStr(year, month, day);
+                      const isSelected = selectedDates.has(dateStr);
+                      const isInCycle = isDateInAttendanceCycle(dateStr, selectedMonth, selectedYear);
+                      
+                      return (
+                        <Box
+                          key={dateStr}
+                          onClick={() => !configuring && isInCycle && toggleDate(dateStr)}
+                          sx={{
+                            width: 38,
+                            height: 38,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderRadius: '4px',
+                            cursor: configuring || !isInCycle ? 'default' : 'pointer',
+                            userSelect: 'none',
+                            fontSize: '10px',
+                            fontWeight: isSelected ? 700 : 500,
+                            color: isSelected 
+                              ? theme.palette.primary.contrastText 
+                              : !isInCycle 
+                                ? theme.palette.text.disabled 
+                                : theme.palette.text.primary,
+                            bgcolor: isSelected 
+                              ? theme.palette.primary.main 
+                              : !isInCycle 
+                                ? alpha(theme.palette.text.disabled, 0.05)
+                                : 'transparent',
+                            border: `1px solid ${isSelected 
+                              ? theme.palette.primary.main 
+                              : !isInCycle 
+                                ? alpha(theme.palette.text.disabled, 0.1)
+                                : alpha(theme.palette.text.primary, 0.08)}`,
+                            transition: 'all 0.15s',
+                            opacity: !isInCycle ? 0.5 : 1,
+                            margin: '0 auto',
+                            '&:hover': configuring || !isInCycle ? {} : {
+                              bgcolor: isSelected ? theme.palette.primary.dark : alpha(theme.palette.primary.main, 0.08),
+                              transform: 'scale(1.1)',
+                              boxShadow: `0 0 0 2px ${isSelected ? theme.palette.primary.main : theme.palette.primary.light}, 0 4px 12px rgba(0,0,0,0.15)`,
+                            },
+                          }}
+                        >
+                          <Typography 
+                            variant="caption" 
+                            sx={{ 
+                              fontSize: '10px', 
+                              fontWeight: 'inherit',
+                              lineHeight: 1,
+                            }}
                           >
-                            ({getDayName(holiday.date)})
+                            {day}
                           </Typography>
-                          {isLocal && (
-                            <Chip
-                              label="Unsaved"
-                              size="small"
-                              color="warning"
-                              sx={{ ml: 1, height: 20, fontSize: '0.6rem' }}
-                            />
+                          {month !== selectedMonth && (
+                            <Typography 
+                              variant="caption" 
+                              sx={{ 
+                                fontSize: '5.5px', 
+                                opacity: 0.7, 
+                                lineHeight: 1,
+                                mt: 0.2,
+                              }}
+                            >
+                              {getMonthName(month).slice(0, 3)}
+                            </Typography>
                           )}
-                        </Typography>
-                      </Paper>
-                    );
-                  })}
-                </Stack>
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                ))}
+              </Box>
+            </Paper>
+
+            <Divider sx={{ my: 0.3 }} />
+
+            {/* Selected dates summary */}
+            <Box>
+              <Typography variant="subtitle2" fontWeight="600" gutterBottom sx={{ fontSize: '0.8rem' }}>
+                Public holidays to be saved:
+              </Typography>
+              {sortedSelectedDates.length > 0 ? (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {sortedSelectedDates.map((dateStr) => (
+                    <Chip
+                      key={dateStr}
+                      label={`${formatDate(dateStr)} · ${getDayName(dateStr).slice(0, 3)}`}
+                      size="small"
+                      onDelete={configuring ? undefined : () => toggleDate(dateStr)}
+                      sx={{
+                        borderRadius: 1.5,
+                        bgcolor: alpha(theme.palette.primary.main, 0.08),
+                        color: theme.palette.primary.main,
+                        fontWeight: '500',
+                        height: 24,
+                        '& .MuiChip-label': { fontSize: '0.65rem', px: 1 },
+                      }}
+                    />
+                  ))}
+                </Box>
               ) : (
-                <Typography color="text.secondary" variant="body2" sx={{ py: 2, textAlign: 'center' }}>
-                  No holidays to apply. Click "Add Holiday" to add holidays, then save configuration.
+                <Typography color="text.secondary" variant="body2" sx={{ fontSize: '0.75rem', py: 0.3 }}>
+                  No dates selected yet — tap dates on the calendar above to add holidays.
                 </Typography>
               )}
             </Box>
           </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 3, pt: 0 }}>
+        <DialogActions sx={{ p: 2.5, pt: 0, gap: 1 }}>
           <Button
-            onClick={() => dispatch(closeConfigDialog())}
+            onClick={handleCloseConfigDialog}
             disabled={configuring}
-            sx={{ borderRadius: 2, px: 3 }}
+            size="medium"
+            sx={{ 
+              borderRadius: 2, 
+              px: 2.5, 
+              py: 0.6,
+              fontSize: '0.8rem',
+              fontWeight: 500,
+            }}
           >
             Cancel
           </Button>
@@ -1239,26 +1027,29 @@ const HolidayTab = () => {
             onClick={handleSaveConfiguration}
             variant="contained"
             disabled={configuring}
-            startIcon={configuring ? <CircularProgress size={20} /> : <Save size={18} />}
+            size="medium"
+            startIcon={configuring ? <CircularProgress size={18} /> : <Save size={18} />}
             sx={{
               borderRadius: 2,
-              px: 4,
+              px: 3,
+              py: 0.6,
               background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
-              boxShadow: theme.shadows[4],
+              boxShadow: theme.shadows[2],
               '&:hover': {
-                boxShadow: theme.shadows[8],
-                transform: 'translateY(-2px)',
+                boxShadow: theme.shadows[4],
+                transform: 'translateY(-1px)',
               },
               '&.Mui-disabled': {
                 bgcolor: alpha(theme.palette.primary.main, 0.3),
               },
               transition: 'all 0.2s',
+              fontSize: '0.8rem',
+              fontWeight: 500,
             }}
           >
             {configuring
-              ? (dialogMode === 'edit' ? 'Updating...' : 'Configuring...')
-              : (dialogMode === 'edit' ? 'Update Configuration' : 'Save Configuration')
-            }
+              ? (isConfigured ? 'Updating...' : 'Configuring...')
+              : (isConfigured ? 'Update Configuration' : 'Save Configuration')}
           </Button>
         </DialogActions>
       </Dialog>
