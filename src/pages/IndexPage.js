@@ -56,13 +56,13 @@ const HomePage = () => {
     inProgress: ['COORDINATOR'],
     clients: ['ADMIN', 'SUPERADMIN', 'BDM', 'PARTNER', 'COORDINATOR'],
     placements: ['ADMIN', 'SUPERADMIN', 'PARTNER',"INVOICE"],
-    users: ['ADMIN', 'SUPERADMIN', 'PARTNER',"INVOICE",'COORDINATOR','SUPERSALES'],
+    users: ['ADMIN', 'SUPERADMIN', 'PARTNER',"INVOICE",'COORDINATOR','SUPERACCOUNTS'],
     teamList: ['COORDINATOR'],
     bench: ['ADMIN', 'SUPERADMIN', 'BDM', 'TEAMLEAD', 'PARTNER', 'EMPLOYEE'],
     timesheet:['EXTERNALEMPLOYEE']
   };
 
-  const allowedRoles = ['ADMIN', 'SUPERADMIN', 'HRMS', 'EMPLOYEE', 'BDM', 'TEAMLEAD', 'PARTNER','INVOICE','COORDINATOR','EXTERNALEMPLOYEE',"ACCOUNTS","SUPERSALES"];
+  const allowedRoles = ['ADMIN', 'SUPERADMIN', 'HRMS', 'EMPLOYEE', 'BDM', 'TEAMLEAD', 'PARTNER','INVOICE','COORDINATOR','EXTERNALEMPLOYEE',"ACCOUNTS","SUPERACCOUNTS"];
 
   // Helper function to format placements data
   const formatPlacements = (data) => {
@@ -322,7 +322,7 @@ useEffect(() => {
     else if(role === 'COORDINATOR'){
       return ['requirements', 'interviews', 'submissions', 'inProgress', 'clients', 'teamList'].includes(card.key);
   }
-  else if(role === 'SUPERSALES'){
+  else if(role === 'SUPERACCOUNTS'){
     return ['users'].includes(card.key);
   }
     return card.key !== 'assigned';
