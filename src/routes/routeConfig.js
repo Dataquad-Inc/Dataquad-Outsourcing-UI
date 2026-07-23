@@ -245,7 +245,7 @@ const routeConfig = [
           "EXTERNALEMPLOYEE",
           "ACCOUNTS",
           "GRANDSALES",
-          "SUPERSALES"
+          "SUPERACCOUNTS"
         ]}
       />
     ),
@@ -273,7 +273,7 @@ const routeConfig = [
                   "COORDINATOR",
                   "EXTERNALEMPLOYEE",
                   "ACCOUNTS",
-                  "SUPERSALES"
+                  "SUPERACCOUNTS"
                 ]}
                 allowedEntities={["IN"]}
               />
@@ -295,7 +295,7 @@ const routeConfig = [
                   "SALESEXECUTIVE",
                   "GRANDSALES",
                   "COORDINATOR",
-                  "SUPERSALES"
+                  "SUPERACCOUNTS"
                 ]}
                 allowedEntities={["US"]}
               />
@@ -432,7 +432,7 @@ const routeConfig = [
             path: "users",
             element: (
               <ProtectedRoute
-                allowedRoles={["ADMIN", "SUPERADMIN", "HRMS", "INVOICE","SUPERSALES"]}
+                allowedRoles={["ADMIN", "SUPERADMIN", "HRMS", "INVOICE","SUPERACCOUNTS"]}
                 allowedEntities={["IN"]}
               />
             ),
@@ -731,7 +731,7 @@ const routeConfig = [
             path: "hrms",
             element: (
               <ProtectedRoute
-                allowedRoles={["SUPERADMIN", "HRMS","ADMIN","SUPERSALES"]}
+                allowedRoles={["SUPERADMIN", "HRMS","ADMIN","SUPERACCOUNTS"]}
                 allowedEntities={["IN", "US"]}
               />
             ),
@@ -741,7 +741,7 @@ const routeConfig = [
             path: "attendance",
             element: (
               <ProtectedRoute
-                allowedRoles={["SUPERADMIN", "HRMS","SUPERSALES"]}
+                allowedRoles={["SUPERADMIN", "HRMS","SUPERACCOUNTS"]}
                 allowedEntities={["IN", "US"]}
               />
             ),
@@ -767,7 +767,7 @@ const routeConfig = [
                   "EXTERNALEMPLOYEE",
                   "ACCOUNTS",
                   "GRANDSALES",
-                  "SUPERSALES"
+                  "SUPERACCOUNTS"
                 ]}
               />
             ),
@@ -1019,7 +1019,7 @@ const routeConfig = [
                   "GRANDSALES",
                   "HRMS",
                   "COORDINATOR",
-                  "SUPERSALES"
+                  "SUPERACCOUNTS"
                 ]}
                 allowedEntities={["US"]}
               />

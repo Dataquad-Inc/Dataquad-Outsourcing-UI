@@ -194,7 +194,7 @@ const UserForm = ({
           { value: "INVOICE", label: "Invoice" },
           { value: "FINANCE", label: "Finance" }, // Added Finance
           { value: "COORDINATOR", label: "Coordinator" },
-          {value:"SUPERSALES", label:"Super Sales"},
+          {value:"SUPERACCOUNTS", label:"Super Accounts"},
         ],
       },
       {

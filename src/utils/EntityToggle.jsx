@@ -5,7 +5,7 @@ const EntityToggle = ({ role, entity, handleEntityToggle }) => {
 
   return (
     <>
-      {(role === "SUPERADMIN" || role === "SUPERSALES") && (
+      {(role === "SUPERADMIN" || role === "SUPERACCOUNTS") && (
         <Box sx={{ display: "flex", alignItems: "center", mr: 2 }}>
           <Tooltip title="Toggle between US and IN entities">
             <FormControlLabel

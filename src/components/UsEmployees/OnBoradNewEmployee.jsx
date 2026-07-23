@@ -67,7 +67,7 @@ const roleOptions = [
   { value: "FINANCE", label: "Finance" },
   { value: "COORDINATOR", label: "Coordinator" }, 
   { value: "HRMS", label: "HRMS" },
-  { value: "SUPERSALES", label: "Super Sales" },
+  { value: "SUPERACCOUNTS", label: "Super Accounts" },
 ];
 
   const genderOptions = [

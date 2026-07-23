@@ -203,7 +203,7 @@ const Header = ({
 
   const handleEntityToggle = (event) => {
     const newEntity = event.target.checked ? "US" : "IN";
-    if (role === "SUPERADMIN" || role === "SUPERSALES") {
+    if (role === "SUPERADMIN" || role === "SUPERACCOUNTS") {
       dispatch(setEntity(newEntity));
 
       // Redirect based on newEntity value
@@ -410,7 +410,7 @@ const Header = ({
               </Box>
             </Stack>
 
-            {(role === "SUPERADMIN" || role === "SUPERSALES") && (
+            {(role === "SUPERADMIN" || role === "SUPERACCOUNTS") && (
               <EntityToggle
                 role={role}
                 entity={entity}
