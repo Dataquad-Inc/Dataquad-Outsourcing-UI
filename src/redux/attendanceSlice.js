@@ -210,6 +210,7 @@ export const updateAttendanceMonth = createAsyncThunk(
         `${API_BASE_URL}/users/attendance/month/edit`,
         payload,
         {
+          params:{entity},
           headers: { 'Content-Type': 'application/json' },
         }
       );
