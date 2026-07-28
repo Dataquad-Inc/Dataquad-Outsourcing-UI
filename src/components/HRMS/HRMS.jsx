@@ -126,8 +126,6 @@ const hrmsTableColumns = [
   { label: "Email", getValue: (profile) => profile.email },
   { label: "Personal Email", getValue: (profile) => profile.personalemail },
   { label: "Phone Number", getValue: (profile) => profile.phoneNumber },
-  // { label: "PAN", getValue: (profile) => profile.pan },
-  // { label: "Aadhar", getValue: (profile) => profile.adhar },
   { label: "Father / Spouse Name", getValue: (profile) => profile.fatherOrSpouseName },
   { label: "Mother Name", getValue: (profile) => profile.motherName },
   { label: "DOB", getValue: (profile) => formatDateForInput(profile.dob) },
@@ -138,7 +136,6 @@ const hrmsTableColumns = [
   { label: "Current Address", getValue: (profile) => profile.currentAddress },
   { label: "Permanent Address", getValue: (profile) => profile.permanentAddress },
   { label: "Role", getValue: (profile) => profile.role },
-  // { label: "Entity", getValue: (profile) => profile.entity },
   { label: "Joining Date", getValue: (profile) => formatDateForInput(profile.joiningDate) },
   { label: "Official Number", getValue: (profile) => profile.officialNumber },
   { label: "Official Email", getValue: (profile) => profile.officialEmailId },
@@ -299,6 +296,46 @@ const calculateProbationStatus = (joiningDate) => {
   } else {
     return "Completed";
   }
+};
+
+// Function to determine row color based on employee status - with much darker colors
+const getRowColor = (user, profile) => {
+  const today = new Date();
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
+  
+  // Check if employee has last working day - RED (much darker)
+  if (profile.lastWorkingDay) {
+    const lastWorkingDate = new Date(profile.lastWorkingDay);
+    if (!isNaN(lastWorkingDate.getTime())) {
+      return '#ef9a9a'; // Much darker red
+    }
+  }
+  
+  // Check if employee joined in current month - GREEN (much darker)
+  if (profile.joiningDate) {
+    const joiningDate = new Date(profile.joiningDate);
+    if (!isNaN(joiningDate.getTime())) {
+      if (joiningDate.getMonth() === currentMonth && joiningDate.getFullYear() === currentYear) {
+        return '#a5d6a7'; // Much darker green
+      }
+    }
+  }
+  
+  // Check if employee is on probation (not completed) - YELLOW (much darker)
+  if (profile.joiningDate) {
+    const joiningDate = new Date(profile.joiningDate);
+    if (!isNaN(joiningDate.getTime())) {
+      const probationEndDate = new Date(joiningDate);
+      probationEndDate.setMonth(probationEndDate.getMonth() + 3);
+      
+      if (probationEndDate > today) {
+        return '#ffe082'; // Much darker yellow
+      }
+    }
+  }
+  
+  return 'transparent';
 };
 
 const generateExcelData = (users, profileDetailsByEmployeeId) => {
@@ -714,7 +751,7 @@ const appendProfileFields = (formData, profile) => {
   formData.append("finalSettlement", profile.fAndF || "");
   formData.append("exitFromPfDate", profile.exitFromPfDate || "");
   formData.append("existFromPfDate", profile.exitFromPfDate || "");
-  formData.append("exitFromPFDate", profile.exitFromPfDate || "");
+  formData.append("exitFromPFDate", profile.exitFromPFDate || "");
   formData.append("existFromPFDate", profile.exitFromPfDate || "");
   formData.append("lastWorkingDay", profile.lastWorkingDay || "");
   formData.append("lastWorkingDate", profile.lastWorkingDay || "");
@@ -1712,8 +1749,23 @@ const HRMS = () => {
                       ...user,
                       ...(profileDetailsByEmployeeId[employeeId] || {}),
                     });
+                    
+                    // Get row color based on employee status
+                    const rowColor = getRowColor(user, rowProfile);
+                    
                     return (
-                      <TableRow key={employeeId || user.email} hover>
+                      <TableRow 
+                        key={employeeId || user.email}
+                        sx={{
+                          backgroundColor: rowColor,
+                          '&:hover': {
+                            backgroundColor: rowColor !== 'transparent' ? rowColor : 'rgba(0, 0, 0, 0.04)',
+                          },
+                          '& td': {
+                            backgroundColor: rowColor !== 'transparent' ? rowColor : undefined,
+                          }
+                        }}
+                      >
                         {hrmsTableColumns.map((column) => {
                           const cellValue = column.getValue(rowProfile, user) || "-";
 
@@ -1745,14 +1797,20 @@ const HRMS = () => {
                             </TableCell>
                           );
                         })}
-                        <TableCell sx={stickyStyles.stickyStatusColumnSx}>
+                        <TableCell sx={{ 
+                          ...stickyStyles.stickyStatusColumnSx,
+                          backgroundColor: rowColor !== 'transparent' ? rowColor : undefined,
+                        }}>
                           <Chip
                             size="small"
                             label={user.status || "-"}
                             color={String(user.status).toLowerCase() === "active" ? "success" : "default"}
                           />
                         </TableCell>
-                        <TableCell sx={stickyStyles.stickyEditableColumnSx}>
+                        <TableCell sx={{ 
+                          ...stickyStyles.stickyEditableColumnSx,
+                          backgroundColor: rowColor !== 'transparent' ? rowColor : undefined,
+                        }}>
                           <Chip
                             size="small"
                             label={isTruthyFlag(user.isEditable) ? "Locked" : "Editable"}
@@ -1761,7 +1819,10 @@ const HRMS = () => {
                           />
                         </TableCell>
                         {!isAdmin && (
-                          <TableCell align="center" sx={stickyStyles.stickyActionsColumnSx}>
+                          <TableCell align="center" sx={{ 
+                            ...stickyStyles.stickyActionsColumnSx,
+                            backgroundColor: rowColor !== 'transparent' ? rowColor : undefined,
+                          }}>
                             <Tooltip title="View HRMS profile">
                               <IconButton color="primary" size="small" onClick={() => fetchUserProfile(user)}>
                                 <Visibility fontSize="small" />
