@@ -15,6 +15,18 @@ import {
   Stack,
   Badge,
   ButtonGroup,
+  Tab,
+  Tabs,
+  Card,
+  CardContent,
+  CardHeader,
+  Avatar,
+  Divider,
+  Grid,
+  Paper,
+  TextField,
+  InputAdornment,
+  Collapse,
 } from "@mui/material";
 import {
   Edit,
@@ -26,6 +38,15 @@ import {
   HowToRegRounded,
   FilterList,
   Clear,
+  Search,
+  Business,
+  People,
+  AttachMoney,
+  Person,
+  ExpandMore,
+  ExpandLess,
+  FilterAlt,
+  Dashboard,
 } from "@mui/icons-material";
 import { useDispatch, useSelector } from "react-redux";
 
@@ -45,6 +66,56 @@ import httpService from "../../Services/httpService";
 import ToastService from "../../Services/toastService";
 import ExportButton from "../../utils/ExportButton";
 
+// Tab panel component
+const TabPanel = ({ children, value, index, ...other }) => {
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`dashboard-tabpanel-${index}`}
+      aria-labelledby={`dashboard-tab-${index}`}
+      {...other}
+    >
+      {value === index && <Box sx={{ p: 2 }}>{children}</Box>}
+    </div>
+  );
+};
+
+// Dashboard Card component
+const DashboardCard = ({ title, count, icon, color, subtitle }) => {
+  return (
+    <Card 
+      sx={{ 
+        height: '100%',
+        transition: 'all 0.3s ease',
+        '&:hover': {
+          transform: 'translateY(-4px)',
+          boxShadow: (theme) => theme.shadows[8],
+        },
+        borderLeft: `4px solid ${color}`,
+        backgroundColor: 'white',
+      }}
+    >
+      <CardContent>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <Avatar sx={{ bgcolor: color, mr: 2 }}>
+            {icon}
+          </Avatar>
+          <Typography variant="subtitle1" fontWeight="bold" noWrap>
+            {title}
+          </Typography>
+        </Box>
+        <Typography variant="h4" fontWeight="bold" color="primary">
+          {count}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {subtitle || 'Placements'}
+        </Typography>
+      </CardContent>
+    </Card>
+  );
+};
+
 const PlacementsList = () => {
   const dispatch = useDispatch();
   const { placements, loading, selectedPlacement } = useSelector(
@@ -60,8 +131,19 @@ const PlacementsList = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   // Filter states
-  const [activeFilter, setActiveFilter] = useState("all"); // "all", "active", "inactive", "fulltime"
+  const [activeFilter, setActiveFilter] = useState("all");
   const [filteredPlacements, setFilteredPlacements] = useState([]);
+
+  // Dashboard states
+  const [showDashboard, setShowDashboard] = useState(false);
+  const [dashboardTabValue, setDashboardTabValue] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dashboardData, setDashboardData] = useState({
+    clients: [],
+    vendors: [],
+    sales: [],
+    recruiters: []
+  });
 
   const decoded = atob(encryptionKey);
   const FINANCIAL_SECRET_KEY = decoded;
@@ -84,7 +166,6 @@ const PlacementsList = () => {
 
   // Process placements data to decrypt financial fields
   const processedPlacements = React.useMemo(() => {
-    // Check if placements is an array before calling map
     if (!Array.isArray(placements)) {
       console.error("placements is not an array:", placements);
       return [];
@@ -107,13 +188,73 @@ const PlacementsList = () => {
     });
   }, [placements]);
 
+  // Extract dashboard data from placements
+  useEffect(() => {
+    if (processedPlacements.length > 0) {
+      // Extract unique clients
+      const clientMap = new Map();
+      processedPlacements.forEach(p => {
+        if (p.clientName) {
+          const key = p.clientName.trim();
+          if (!clientMap.has(key)) {
+            clientMap.set(key, { name: key, count: 0 });
+          }
+          clientMap.get(key).count += 1;
+        }
+      });
+
+      // Extract unique vendors
+      const vendorMap = new Map();
+      processedPlacements.forEach(p => {
+        if (p.vendorName) {
+          const key = p.vendorName.trim();
+          if (!vendorMap.has(key)) {
+            vendorMap.set(key, { name: key, count: 0 });
+          }
+          vendorMap.get(key).count += 1;
+        }
+      });
+
+      // Extract unique sales persons
+      const salesMap = new Map();
+      processedPlacements.forEach(p => {
+        if (p.sales) {
+          const key = p.sales.trim();
+          if (!salesMap.has(key)) {
+            salesMap.set(key, { name: key, count: 0 });
+          }
+          salesMap.get(key).count += 1;
+        }
+      });
+
+      // Extract unique recruiters
+      const recruiterMap = new Map();
+      processedPlacements.forEach(p => {
+        if (p.recruiterName) {
+          const key = p.recruiterName.trim();
+          if (!recruiterMap.has(key)) {
+            recruiterMap.set(key, { name: key, count: 0 });
+          }
+          recruiterMap.get(key).count += 1;
+        }
+      });
+
+      setDashboardData({
+        clients: Array.from(clientMap.values()).sort((a, b) => b.count - a.count),
+        vendors: Array.from(vendorMap.values()).sort((a, b) => b.count - a.count),
+        sales: Array.from(salesMap.values()).sort((a, b) => b.count - a.count),
+        recruiters: Array.from(recruiterMap.values()).sort((a, b) => b.count - a.count)
+      });
+    }
+  }, [processedPlacements]);
+
   // Filter placements based on active filter
   useEffect(() => {
     let filtered = [...processedPlacements];
 
+    // Apply status/type filter
     switch (activeFilter) {
       case "active":
-        // Filter only active status placements, exclude full-time employment type
         filtered = processedPlacements.filter(
           (placement) =>
             placement.status === "Active" &&
@@ -121,7 +262,6 @@ const PlacementsList = () => {
         );
         break;
       case "inactive":
-        // Filter inactive status placements (all statuses except Active), exclude full-time
         filtered = processedPlacements.filter(
           (placement) =>
             placement.status !== "Active" &&
@@ -129,19 +269,16 @@ const PlacementsList = () => {
         );
         break;
       case "fulltime":
-        // Filter all full-time placements regardless of status
         filtered = processedPlacements.filter(
           (placement) => placement.employmentType === "Full-time"
         );
         break;
       case "Pending":
-        // Filter all pending placements regardless of status
         filtered = processedPlacements.filter(
           (placement) => placement.status === "Pending"
         );
         break;
       default:
-        // Show all placements
         filtered = processedPlacements;
         break;
     }
@@ -188,18 +325,26 @@ const PlacementsList = () => {
     }
   };
 
+  const handleDashboardTabChange = (event, newValue) => {
+    setDashboardTabValue(newValue);
+    setSearchQuery("");
+  };
+
+  const toggleDashboard = () => {
+    setShowDashboard(!showDashboard);
+  };
+
   // Helper function to get filter params for export
   const getExportFilterParams = () => {
-    switch (activeFilter) {
-      case "active":
-        return { status: "active" };
-      case "inactive":
-        return { status: "inactive" };
-      case "fulltime":
-        return { employmentType: "Full-time" };
-      default:
-        return {};
+    const params = {};
+    if (activeFilter === "active") {
+      params.status = "active";
+    } else if (activeFilter === "inactive") {
+      params.status = "inactive";
+    } else if (activeFilter === "fulltime") {
+      params.employmentType = "Full-time";
     }
+    return params;
   };
 
   const handleOpenDrawer = (placement = null) => {
@@ -253,7 +398,6 @@ const PlacementsList = () => {
     setIsLoading(true);
 
     try {
-      // ✅ Show loading toast ONLY when loading starts
       ToastService.loading("Sending Link...", {
         toastId: "sendLink",
         autoClose: false,
@@ -268,18 +412,14 @@ const PlacementsList = () => {
           )
         );
 
-        // ✅ Stop loading toast BEFORE showing success
         ToastService.dismiss("sendLink");
-
         ToastService.success("Link has been sent to email.", {
           autoClose: 4000,
         });
         await dispatch(fetchPlacements());
       }
     } catch (error) {
-      // ✅ Stop loading toast BEFORE showing error
       ToastService.dismiss("sendLink");
-
       ToastService.error(
         error?.response?.data?.message ||
         "Failed to send Link. Please try again.",
@@ -289,7 +429,6 @@ const PlacementsList = () => {
       setIsLoading(false);
     }
   };
-
 
   const getColor = (status) => {
     switch (status) {
@@ -327,7 +466,6 @@ const PlacementsList = () => {
     }
   };
 
-  // Always show financial data without OTP verification
   const renderFinancialField = (row, fieldName) => {
     const value = row[fieldName];
     if (typeof value === "number" && !isNaN(value)) {
@@ -360,7 +498,7 @@ const PlacementsList = () => {
           <Tooltip title="Register">
             <span>
               <IconButton
-                disabled={row.isRegister === true} // disable if already registered
+                disabled={row.isRegister === true}
                 onClick={() => handleRegisterUser(row.id)}
               >
                 {row.login ? (
@@ -570,7 +708,6 @@ const PlacementsList = () => {
     );
   };
 
-  // Get dynamic export URL based on active filter
   const getExportUrl = () => {
     const baseUrl = "/candidate/placement/placements-list";
     const filterParams = getExportFilterParams();
@@ -583,18 +720,21 @@ const PlacementsList = () => {
     return `${baseUrl}?${queryParams}`;
   };
 
-  // Get dynamic filename based on active filter
   const getExportFileName = () => {
-    switch (activeFilter) {
-      case "active":
-        return "placements_active";
-      case "inactive":
-        return "placements_inactive";
-      case "fulltime":
-        return "placements_fulltime";
-      default:
-        return "placements_all";
+    let name = "placements";
+    if (activeFilter !== "all") {
+      name += `_${activeFilter}`;
     }
+    return name;
+  };
+
+  const getDashboardCardColor = (index) => {
+    const colors = [
+      "#1976d2", "#2e7d32", "#ed6c02", "#9c27b0",
+      "#d32f2f", "#00838f", "#4a148c", "#bf360c",
+      "#1a237e", "#004d40", "#4e342e", "#3e2723"
+    ];
+    return colors[index % colors.length];
   };
 
   return (
@@ -625,7 +765,6 @@ const PlacementsList = () => {
         >
           <DateRangeFilter component="placements" />
 
-          {/* ✅ Export Button — CSV or XLSX with filter support */}
           <ExportButton
             apiUrl={getExportUrl()}
             fileName={getExportFileName()}
@@ -656,7 +795,7 @@ const PlacementsList = () => {
           direction="row"
           alignItems="center"
           spacing={2}
-          sx={{ flexWrap: "wrap" }}
+          sx={{ flexWrap: "wrap", gap: 1 }}
         >
           <Typography variant="subtitle2" color="text.secondary" sx={{ mr: 1 }}>
             <FilterList
@@ -711,81 +850,279 @@ const PlacementsList = () => {
             </Button>
           </ButtonGroup>
 
-          {activeFilter !== "all" && (
-            <Button
-              variant="text"
-              size="small"
-              startIcon={<Clear />}
-              onClick={() => handleFilterChange("all")}
-              sx={{ color: "text.secondary" }}
-            >
-              Clear Filter
-            </Button>
-          )}
+          {/* Dashboard Button */}
+          <Button
+            variant="outlined"
+            color="inherit"
+            size="medium"
+            startIcon={showDashboard ? <ExpandLess sx={{ color: '#000' }} /> : <Dashboard sx={{ color: '#000' }} />}
+            onClick={toggleDashboard}
+            sx={{ 
+              ml: 1,
+              fontWeight: 'bold',
+              color: '#000000',
+              borderColor: '#000000',
+              '&:hover': {
+                borderColor: '#000000',
+                backgroundColor: 'rgba(0, 0, 0, 0.04)',
+              },
+              '& .MuiButton-startIcon': {
+                color: '#000000',
+              }
+            }}
+          >
+            {showDashboard ? "Hide" : "Dashboard"}
+          </Button>
         </Stack>
 
         {/* Filter Description */}
-        {activeFilter !== "all" && (
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ mt: 1, fontStyle: "italic" }}
-          >
-            {activeFilter === "active" &&
-              "Showing active placements (excludes full-time employment)"}
-            {activeFilter === "inactive" &&
-              "Showing inactive placements (excludes full-time employment)"}
-            {activeFilter === "fulltime" &&
-              "Showing all full-time placements (active and inactive)"}
-            {activeFilter === "Pending" &&
-              "Showing all pending placements"}
-          </Typography>
-        )}
+        <Stack direction="row" spacing={2} sx={{ mt: 1, flexWrap: "wrap" }}>
+          {activeFilter !== "all" && (
+            <Typography variant="body2" color="text.secondary" fontStyle="italic">
+              {activeFilter === "active" &&
+                "Showing active placements (excludes full-time employment)"}
+              {activeFilter === "inactive" &&
+                "Showing inactive placements (excludes full-time employment)"}
+              {activeFilter === "fulltime" &&
+                "Showing all full-time placements (active and inactive)"}
+              {activeFilter === "Pending" &&
+                "Showing all pending placements"}
+            </Typography>
+          )}
+        </Stack>
       </Box>
 
-      <DataTable
-        data={filteredPlacements}
-        columns={generateColumns()}
-        pageLimit={20}
-        title=""
-        refreshData={() => {
-          dispatch(fetchPlacements());
-        }}
-        isRefreshing={loading}
-        enableSelection={false}
-        defaultSortColumn="id"
-        defaultSortDirection="desc"
-        noDataMessage={
-          <Box sx={{ py: 4, textAlign: "center" }}>
-            <Typography variant="h6" color="text.secondary" gutterBottom>
-              No Records Found
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {activeFilter === "all"
-                ? "No placement records found."
-                : `No ${activeFilter === "fulltime" ? "full-time" : activeFilter} placement records found.`}
-            </Typography>
-            {activeFilter !== "all" && (
-              <Button
-                variant="text"
-                size="small"
-                onClick={() => handleFilterChange("all")}
-                sx={{ mt: 1 }}
-              >
-                View All Placements
-              </Button>
-            )}
+      {/* Conditionally render either Dashboard or Table */}
+      {showDashboard ? (
+        // Dashboard Panel - Full width, no empty space
+        <Paper sx={{ p: 0, borderRadius: 2, boxShadow: 3, overflow: 'hidden' }}>
+          
+          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+            <Tabs 
+              value={dashboardTabValue} 
+              onChange={handleDashboardTabChange}
+              aria-label="dashboard tabs"
+              variant="scrollable"
+              scrollButtons="auto"
+              sx={{
+                '& .MuiTab-root': {
+                  minHeight: 48,
+                  fontWeight: 'bold',
+                  py: 1,
+                }
+              }}
+            >
+              <Tab 
+                icon={<Business />} 
+                label={`Clients (${dashboardData.clients.length})`} 
+                iconPosition="start"
+              />
+              <Tab 
+                icon={<Business />} 
+                label={`Vendors (${dashboardData.vendors.length})`} 
+                iconPosition="start"
+              />
+              <Tab 
+                icon={<AttachMoney />} 
+                label={`Sales (${dashboardData.sales.length})`} 
+                iconPosition="start"
+              />
+              <Tab 
+                icon={<Person />} 
+                label={`Recruiters (${dashboardData.recruiters.length})`} 
+                iconPosition="start"
+              />
+            </Tabs>
           </Box>
-        }
-        sx={{
-          "& .MuiDataGrid-root": {
-            border: "none",
-            borderRadius: 2,
-            overflow: "hidden",
-          },
-        }}
-        uniqueId="id"
-      />
+
+          {/* Search input for filtering cards */}
+          <Box sx={{ px: 2, py: 1.5 }}>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder={`Search ${['clients', 'vendors', 'sales', 'recruiters'][dashboardTabValue]}...`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search />
+                  </InputAdornment>
+                ),
+                endAdornment: searchQuery && (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => setSearchQuery("")}>
+                      <Clear fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Box>
+
+          {/* Dashboard Cards */}
+          <TabPanel value={dashboardTabValue} index={0}>
+            <Grid container spacing={2}>
+              {dashboardData.clients
+                .filter(item => 
+                  item.name.toLowerCase().includes(searchQuery.toLowerCase())
+                )
+                .map((item, index) => (
+                  <Grid item xs={12} sm={6} md={4} lg={3} key={item.name}>
+                    <DashboardCard
+                      title={item.name}
+                      count={item.count}
+                      icon={<Business />}
+                      color={getDashboardCardColor(index)}
+                      subtitle="Placements"
+                    />
+                  </Grid>
+                ))}
+              {dashboardData.clients.filter(item => 
+                item.name.toLowerCase().includes(searchQuery.toLowerCase())
+              ).length === 0 && (
+                <Grid item xs={12}>
+                  <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
+                    No clients found matching your search.
+                  </Typography>
+                </Grid>
+              )}
+            </Grid>
+          </TabPanel>
+
+          <TabPanel value={dashboardTabValue} index={1}>
+            <Grid container spacing={2}>
+              {dashboardData.vendors
+                .filter(item => 
+                  item.name.toLowerCase().includes(searchQuery.toLowerCase())
+                )
+                .map((item, index) => (
+                  <Grid item xs={12} sm={6} md={4} lg={3} key={item.name}>
+                    <DashboardCard
+                      title={item.name}
+                      count={item.count}
+                      icon={<Business />}
+                      color={getDashboardCardColor(index)}
+                      subtitle="Placements"
+                    />
+                  </Grid>
+                ))}
+              {dashboardData.vendors.filter(item => 
+                item.name.toLowerCase().includes(searchQuery.toLowerCase())
+              ).length === 0 && (
+                <Grid item xs={12}>
+                  <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
+                    No vendors found matching your search.
+                  </Typography>
+                </Grid>
+              )}
+            </Grid>
+          </TabPanel>
+
+          <TabPanel value={dashboardTabValue} index={2}>
+            <Grid container spacing={2}>
+              {dashboardData.sales
+                .filter(item => 
+                  item.name.toLowerCase().includes(searchQuery.toLowerCase())
+                )
+                .map((item, index) => (
+                  <Grid item xs={12} sm={6} md={4} lg={3} key={item.name}>
+                    <DashboardCard
+                      title={item.name}
+                      count={item.count}
+                      icon={<AttachMoney />}
+                      color={getDashboardCardColor(index)}
+                      subtitle="Placements"
+                    />
+                  </Grid>
+                ))}
+              {dashboardData.sales.filter(item => 
+                item.name.toLowerCase().includes(searchQuery.toLowerCase())
+              ).length === 0 && (
+                <Grid item xs={12}>
+                  <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
+                    No sales persons found matching your search.
+                  </Typography>
+                </Grid>
+              )}
+            </Grid>
+          </TabPanel>
+
+          <TabPanel value={dashboardTabValue} index={3}>
+            <Grid container spacing={2}>
+              {dashboardData.recruiters
+                .filter(item => 
+                  item.name.toLowerCase().includes(searchQuery.toLowerCase())
+                )
+                .map((item, index) => (
+                  <Grid item xs={12} sm={6} md={4} lg={3} key={item.name}>
+                    <DashboardCard
+                      title={item.name}
+                      count={item.count}
+                      icon={<Person />}
+                      color={getDashboardCardColor(index)}
+                      subtitle="Placements"
+                    />
+                  </Grid>
+                ))}
+              {dashboardData.recruiters.filter(item => 
+                item.name.toLowerCase().includes(searchQuery.toLowerCase())
+              ).length === 0 && (
+                <Grid item xs={12}>
+                  <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
+                    No recruiters found matching your search.
+                  </Typography>
+                </Grid>
+              )}
+            </Grid>
+          </TabPanel>
+        </Paper>
+      ) : (
+        // Data Table - Only shown when dashboard is hidden
+        <DataTable
+          data={filteredPlacements}
+          columns={generateColumns()}
+          pageLimit={20}
+          title=""
+          refreshData={() => {
+            dispatch(fetchPlacements());
+          }}
+          isRefreshing={loading}
+          enableSelection={false}
+          defaultSortColumn="id"
+          defaultSortDirection="desc"
+          noDataMessage={
+            <Box sx={{ py: 4, textAlign: "center" }}>
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                No Records Found
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {activeFilter === "all"
+                  ? "No placement records found."
+                  : `No ${activeFilter === "fulltime" ? "full-time" : activeFilter} placement records found.`}
+              </Typography>
+              {activeFilter !== "all" && (
+                <Button
+                  variant="text"
+                  size="small"
+                  onClick={() => handleFilterChange("all")}
+                  sx={{ mt: 1 }}
+                >
+                  View All Placements
+                </Button>
+              )}
+            </Box>
+          }
+          sx={{
+            "& .MuiDataGrid-root": {
+              border: "none",
+              borderRadius: 2,
+              overflow: "hidden",
+            },
+          }}
+          uniqueId="id"
+        />
+      )}
 
       {/* Form Drawer */}
       <Drawer
