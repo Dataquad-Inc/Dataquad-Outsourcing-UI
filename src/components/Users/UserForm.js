@@ -272,6 +272,7 @@ const UserForm = ({
           options: [
             { value: "ACTIVE", label: "Active" },
             { value: "INACTIVE", label: "Inactive" },
+            { value:"ISOLATED", label:"Isolated" }
           ],
         }
       );
@@ -395,7 +396,7 @@ const UserForm = ({
                   </Typography>
                   <Chip
                     label={initialValues.status}
-                    color={initialValues.status === "ACTIVE" ? "success" : "error"}
+                    color={initialValues.status === "ACTIVE" ? "success" : initialValues.status === "INACTIVE" ? "error" : "warning"}
                     size="medium"
                     variant="outlined"
                   />

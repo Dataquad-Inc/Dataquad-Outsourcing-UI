@@ -120,6 +120,48 @@ const normalizeSortValue = (value) => {
   return stringValue.toLowerCase();
 };
 
+// Function to calculate row priority - UPDATED with correct logic
+const getRowPriority = (user, profile) => {
+  const today = new Date();
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
+  
+  // Priority 1: Last working day (RED) - HIGHEST PRIORITY
+  // This should be first because it's the most critical
+  if (profile.lastWorkingDay) {
+    const lastWorkingDate = new Date(profile.lastWorkingDay);
+    if (!isNaN(lastWorkingDate.getTime())) {
+      return 1;
+    }
+  }
+  
+  // Priority 2: Joined in current month (GREEN) - SECOND PRIORITY
+  if (profile.joiningDate) {
+    const joiningDate = new Date(profile.joiningDate);
+    if (!isNaN(joiningDate.getTime())) {
+      if (joiningDate.getMonth() === currentMonth && joiningDate.getFullYear() === currentYear) {
+        return 2;
+      }
+    }
+  }
+  
+  // Priority 3: Probation (YELLOW) - THIRD PRIORITY
+  if (profile.joiningDate) {
+    const joiningDate = new Date(profile.joiningDate);
+    if (!isNaN(joiningDate.getTime())) {
+      const probationEndDate = new Date(joiningDate);
+      probationEndDate.setMonth(probationEndDate.getMonth() + 3);
+      
+      if (probationEndDate > today) {
+        return 3;
+      }
+    }
+  }
+  
+  // Priority 4: No color - LOWEST PRIORITY
+  return 4;
+};
+
 const hrmsTableColumns = [
   { label: "Employee ID", getValue: (profile) => profile.employeeId },
   { label: "Name", getValue: (profile) => profile.name },
@@ -1027,27 +1069,48 @@ const HRMS = () => {
     });
   }, [filteredUsersByTab, profileDetailsByEmployeeId, query]);
 
-  const sortedUsers = useMemo(() => {
-    const sortColumn = hrmsTableColumns.find((column) => column.label === orderBy);
-    const getSortValue =
-      orderBy === "Status"
-        ? (user) => user.status
-        : orderBy === "Editable Access"
-        ? (user) => isTruthyFlag(user.isEditable) ? "Locked" : "Editable"
-        : sortColumn
-        ? (user) => {
-            const employeeId = getEmployeeId(user);
-            const rowProfile = profileFromData({
-              ...user,
-              ...(profileDetailsByEmployeeId[employeeId] || {}),
-            });
-            return sortColumn.getValue(rowProfile, user);
-          }
-        : null;
+const sortedUsers = useMemo(() => {
+  const sortColumn = hrmsTableColumns.find((column) => column.label === orderBy);
+  const getSortValue =
+    orderBy === "Status"
+      ? (user) => user.status
+      : orderBy === "Editable Access"
+      ? (user) => isTruthyFlag(user.isEditable) ? "Locked" : "Editable"
+      : sortColumn
+      ? (user) => {
+          const employeeId = getEmployeeId(user);
+          const rowProfile = profileFromData({
+            ...user,
+            ...(profileDetailsByEmployeeId[employeeId] || {}),
+          });
+          return sortColumn.getValue(rowProfile, user);
+        }
+      : null;
 
-    if (!getSortValue) return filteredUsers;
+  // First, separate users by priority
+  const priorityGroups = {
+    1: [], // RED - Last working day (Highest priority)
+    2: [], // GREEN - Current month joiners
+    3: [], // YELLOW - Probation period
+    4: [], // Transparent - Normal
+  };
 
-    return [...filteredUsers].sort((a, b) => {
+  // Group users by priority
+  filteredUsers.forEach((user) => {
+    const employeeId = getEmployeeId(user);
+    const profile = profileFromData({
+      ...user,
+      ...(profileDetailsByEmployeeId[employeeId] || {}),
+    });
+    const priority = getRowPriority(user, profile);
+    priorityGroups[priority].push(user);
+  });
+
+  // Sort each priority group by the selected column
+  const sortGroup = (group) => {
+    if (!getSortValue) return group;
+    
+    return [...group].sort((a, b) => {
       const aValue = normalizeSortValue(getSortValue(a));
       const bValue = normalizeSortValue(getSortValue(b));
 
@@ -1055,7 +1118,16 @@ const HRMS = () => {
       if (aValue > bValue) return order === "asc" ? 1 : -1;
       return 0;
     });
-  }, [filteredUsers, order, orderBy, profileDetailsByEmployeeId]);
+  };
+
+  // Sort each group and combine them in priority order
+  return [
+    ...sortGroup(priorityGroups[1]), // RED first (Last working day - Most critical)
+    ...sortGroup(priorityGroups[2]), // GREEN second (Current month joiners)
+    ...sortGroup(priorityGroups[3]), // YELLOW third (Probation period)
+    ...sortGroup(priorityGroups[4]), // Transparent last (Normal)
+  ];
+}, [filteredUsers, order, orderBy, profileDetailsByEmployeeId]);
 
   const paginatedUsers = useMemo(() => {
     const start = page * rowsPerPage;

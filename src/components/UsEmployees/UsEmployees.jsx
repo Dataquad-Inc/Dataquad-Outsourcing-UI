@@ -342,6 +342,7 @@ const UsEmployees = () => {
           >
             <MenuItem value="ACTIVE">Active</MenuItem>
             <MenuItem value="INACTIVE">Inactive</MenuItem>
+            <MenuItem value="ISOLATED">Isolated</MenuItem>
           </TextField>
         </Stack>
       </CustomModal>
