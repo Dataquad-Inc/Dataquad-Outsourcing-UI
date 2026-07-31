@@ -27,6 +27,16 @@ import {
   TextField,
   InputAdornment,
   Collapse,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
+  TableSortLabel,
+  Breadcrumbs,
+  Link,
 } from "@mui/material";
 import {
   Edit,
@@ -47,8 +57,16 @@ import {
   ExpandLess,
   FilterAlt,
   Dashboard,
+  ArrowBack,
+  Email,
+  Phone,
+  Work,
+  LocationOn,
+  Home,
+  NavigateNext,
 } from "@mui/icons-material";
 import { useDispatch, useSelector } from "react-redux";
+import { useNavigate, useLocation } from "react-router-dom";
 
 import DataTable from "../muiComponents/DataTabel";
 import PlacementForm from "./PlacementForm";
@@ -81,19 +99,34 @@ const TabPanel = ({ children, value, index, ...other }) => {
   );
 };
 
-// Dashboard Card component
-const DashboardCard = ({ title, count, icon, color, subtitle }) => {
+// Dashboard Card component with click handler
+const DashboardCard = ({ title, count, icon, color, subtitle, onClick, isActive = false }) => {
   return (
     <Card 
+      onClick={onClick}
       sx={{ 
         height: '100%',
         transition: 'all 0.3s ease',
+        cursor: 'pointer',
         '&:hover': {
           transform: 'translateY(-4px)',
           boxShadow: (theme) => theme.shadows[8],
+          borderColor: color,
         },
-        borderLeft: `4px solid ${color}`,
-        backgroundColor: 'white',
+        border: `2px solid ${isActive ? color : 'transparent'}`,
+        backgroundColor: isActive ? `${color}10` : 'white',
+        position: 'relative',
+        '&::after': isActive ? {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          width: 0,
+          height: 0,
+          borderStyle: 'solid',
+          borderWidth: '0 20px 20px 0',
+          borderColor: `transparent ${color} transparent transparent`,
+        } : {},
       }}
     >
       <CardContent>
@@ -101,7 +134,17 @@ const DashboardCard = ({ title, count, icon, color, subtitle }) => {
           <Avatar sx={{ bgcolor: color, mr: 2 }}>
             {icon}
           </Avatar>
-          <Typography variant="subtitle1" fontWeight="bold" noWrap>
+          <Typography 
+            variant="subtitle1" 
+            fontWeight="bold" 
+            noWrap
+            sx={{ 
+              flex: 1,
+              textOverflow: 'ellipsis',
+              overflow: 'hidden',
+              whiteSpace: 'nowrap'
+            }}
+          >
             {title}
           </Typography>
         </Box>
@@ -111,13 +154,478 @@ const DashboardCard = ({ title, count, icon, color, subtitle }) => {
         <Typography variant="body2" color="text.secondary">
           {subtitle || 'Placements'}
         </Typography>
+        <Typography
+          variant="caption"
+          color="primary"
+          sx={{ 
+            mt: 1.5, 
+            display: "block", 
+            opacity: 0.75,
+            fontWeight: 500,
+          }}
+        >
+          Click to view candidates →
+        </Typography>
       </CardContent>
     </Card>
   );
 };
 
+// ─── Candidate Table Page Component ────────────────────────────────────────
+const CandidateTablePage = ({ 
+  title, 
+  placements, 
+  type,
+  categoryName,
+  onBack 
+}) => {
+  const [page, setPage] = React.useState(0);
+  const [rowsPerPage, setRowsPerPage] = React.useState(10);
+  const [order, setOrder] = React.useState('asc');
+  const [orderBy, setOrderBy] = React.useState('candidateFullName');
+  const [searchQuery, setSearchQuery] = React.useState('');
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "Active": return "success";
+      case "On Hold": return "warning";
+      case "Completed": return "info";
+      case "Terminated": return "error";
+      case "Cancelled": return "default";
+      default: return "primary";
+    }
+  };
+
+  const getEmploymentColor = (type) => {
+    switch (type) {
+      case "W2": return "primary";
+      case "c2c": return "primary";
+      case "Full-time": return "success";
+      case "Part-time": return "warning";
+      case "Contract": return "info";
+      case "Contract-to-hire": return "error";
+      default: return "default";
+    }
+  };
+
+  const handleRequestSort = (property) => {
+    const isAsc = orderBy === property && order === 'asc';
+    setOrder(isAsc ? 'desc' : 'asc');
+    setOrderBy(property);
+  };
+
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // Filter placements by search
+  const filteredPlacements = React.useMemo(() => {
+    if (!searchQuery.trim()) return placements;
+    return placements.filter(p => 
+      p.candidateFullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.candidateEmailId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.technology?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.sales?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.recruiterName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.clientName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.vendorName?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [placements, searchQuery]);
+
+  // Sort placements
+  const sortedPlacements = React.useMemo(() => {
+    const comparator = (a, b) => {
+      if (a[orderBy] < b[orderBy]) {
+        return order === 'asc' ? -1 : 1;
+      }
+      if (a[orderBy] > b[orderBy]) {
+        return order === 'asc' ? 1 : -1;
+      }
+      return 0;
+    };
+    return [...filteredPlacements].sort(comparator);
+  }, [filteredPlacements, order, orderBy]);
+
+  // Paginate placements
+  const paginatedPlacements = sortedPlacements.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
+
+  const renderFinancialField = (row, fieldName) => {
+    const value = row[fieldName];
+    if (typeof value === "number" && !isNaN(value)) {
+      return `₹${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+    }
+    return value
+      ? `₹${parseFloat(value).toLocaleString("en-IN", {
+        maximumFractionDigits: 2,
+      })}`
+      : "-";
+  };
+
+  return (
+    <Box sx={{ p: 3 }}>
+      {/* Breadcrumbs Navigation */}
+      <Breadcrumbs 
+        separator={<NavigateNext fontSize="small" />} 
+        aria-label="breadcrumb"
+        sx={{ mb: 3 }}
+      >
+        <Link
+          underline="hover"
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          color="inherit"
+          onClick={onBack}
+        >
+          <Home sx={{ mr: 0.5 }} fontSize="inherit" />
+          Dashboard
+        </Link>
+        <Typography
+          sx={{ display: 'flex', alignItems: 'center' }}
+          color="text.primary"
+        >
+          {title}
+        </Typography>
+      </Breadcrumbs>
+
+      {/* Header */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        mb: 3,
+        pb: 2,
+        borderBottom: '1px solid #eee'
+      }}>
+        <Box>
+          <Typography variant="h5" fontWeight="bold">
+            {title}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {filteredPlacements.length} {filteredPlacements.length === 1 ? 'Placement' : 'Placements'} for this {type}
+          </Typography>
+        </Box>
+        <Button
+          variant="contained"
+          startIcon={<ArrowBack />}
+          onClick={onBack}
+        >
+          Back to Dashboard
+        </Button>
+      </Box>
+
+      {/* Search Bar */}
+      <Box sx={{ mb: 3 }}>
+        <TextField
+          fullWidth
+          size="small"
+          placeholder="Search candidates by name, email, technology, sales, recruiter, client, or vendor..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search />
+              </InputAdornment>
+            ),
+            endAdornment: searchQuery && (
+              <InputAdornment position="end">
+                <IconButton size="small" onClick={() => setSearchQuery("")}>
+                  <Clear />
+                </IconButton>
+              </InputAdornment>
+            ),
+          }}
+          sx={{
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 2,
+              backgroundColor: 'background.paper',
+            }
+          }}
+        />
+      </Box>
+
+      {/* Table */}
+      {filteredPlacements.length === 0 ? (
+        <Paper sx={{ p: 4, textAlign: 'center' }}>
+          <Typography variant="body1" color="text.secondary">
+            {searchQuery ? 'No placements found matching your search.' : 'No placements found for this category.'}
+          </Typography>
+        </Paper>
+      ) : (
+        <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
+          <TableContainer sx={{ maxHeight: 'calc(100vh - 400px)' }}>
+            <Table stickyHeader size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
+                    <TableSortLabel
+                      active={orderBy === 'candidateFullName'}
+                      direction={orderBy === 'candidateFullName' ? order : 'asc'}
+                      onClick={() => handleRequestSort('candidateFullName')}
+                      sx={{ fontSize: '0.75rem' }}
+                    >
+                      Consultant
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
+                    <TableSortLabel
+                      active={orderBy === 'candidateEmailId'}
+                      direction={orderBy === 'candidateEmailId' ? order : 'asc'}
+                      onClick={() => handleRequestSort('candidateEmailId')}
+                      sx={{ fontSize: '0.75rem' }}
+                    >
+                      Email
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
+                    <TableSortLabel
+                      active={orderBy === 'candidateContactNo'}
+                      direction={orderBy === 'candidateContactNo' ? order : 'asc'}
+                      onClick={() => handleRequestSort('candidateContactNo')}
+                      sx={{ fontSize: '0.75rem' }}
+                    >
+                      Phone
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
+                    <TableSortLabel
+                      active={orderBy === 'technology'}
+                      direction={orderBy === 'technology' ? order : 'asc'}
+                      onClick={() => handleRequestSort('technology')}
+                      sx={{ fontSize: '0.75rem' }}
+                    >
+                      Technology
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
+                    <TableSortLabel
+                      active={orderBy === 'sales'}
+                      direction={orderBy === 'sales' ? order : 'asc'}
+                      onClick={() => handleRequestSort('sales')}
+                      sx={{ fontSize: '0.75rem' }}
+                    >
+                      Sales
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
+                    <TableSortLabel
+                      active={orderBy === 'recruiterName'}
+                      direction={orderBy === 'recruiterName' ? order : 'asc'}
+                      onClick={() => handleRequestSort('recruiterName')}
+                      sx={{ fontSize: '0.75rem' }}
+                    >
+                      Recruiter
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
+                    <TableSortLabel
+                      active={orderBy === 'clientName'}
+                      direction={orderBy === 'clientName' ? order : 'asc'}
+                      onClick={() => handleRequestSort('clientName')}
+                      sx={{ fontSize: '0.75rem' }}
+                    >
+                      Client
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
+                    <TableSortLabel
+                      active={orderBy === 'vendorName'}
+                      direction={orderBy === 'vendorName' ? order : 'asc'}
+                      onClick={() => handleRequestSort('vendorName')}
+                      sx={{ fontSize: '0.75rem' }}
+                    >
+                      Vendor
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
+                    <TableSortLabel
+                      active={orderBy === 'startDate'}
+                      direction={orderBy === 'startDate' ? order : 'asc'}
+                      onClick={() => handleRequestSort('startDate')}
+                      sx={{ fontSize: '0.75rem' }}
+                    >
+                      Start Date
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
+                    <TableSortLabel
+                      active={orderBy === 'endDate'}
+                      direction={orderBy === 'endDate' ? order : 'asc'}
+                      onClick={() => handleRequestSort('endDate')}
+                      sx={{ fontSize: '0.75rem' }}
+                    >
+                      End Date
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
+                    <TableSortLabel
+                      active={orderBy === 'billRate'}
+                      direction={orderBy === 'billRate' ? order : 'asc'}
+                      onClick={() => handleRequestSort('billRate')}
+                      sx={{ fontSize: '0.75rem' }}
+                    >
+                      Bill Rate
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
+                    <TableSortLabel
+                      active={orderBy === 'payRate'}
+                      direction={orderBy === 'payRate' ? order : 'asc'}
+                      onClick={() => handleRequestSort('payRate')}
+                      sx={{ fontSize: '0.75rem' }}
+                    >
+                      Pay Rate
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
+                    <TableSortLabel
+                      active={orderBy === 'employmentType'}
+                      direction={orderBy === 'employmentType' ? order : 'asc'}
+                      onClick={() => handleRequestSort('employmentType')}
+                      sx={{ fontSize: '0.75rem' }}
+                    >
+                      Employment Type
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
+                    <TableSortLabel
+                      active={orderBy === 'status'}
+                      direction={orderBy === 'status' ? order : 'asc'}
+                      onClick={() => handleRequestSort('status')}
+                      sx={{ fontSize: '0.75rem' }}
+                    >
+                      Status
+                    </TableSortLabel>
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {paginatedPlacements.map((placement, index) => (
+                  <TableRow 
+                    key={placement.id || index}
+                    hover
+                    sx={{
+                      '&:nth-of-type(odd)': {
+                        backgroundColor: 'action.hover',
+                      },
+                    }}
+                  >
+                    <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
+                      <Typography variant="body2" fontWeight="medium" sx={{ fontSize: '0.75rem' }}>
+                        {placement.candidateFullName || 'N/A'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
+                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                        {placement.candidateEmailId || '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
+                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                        {placement.candidateContactNo || '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
+                      <Chip
+                        label={placement.technology || 'N/A'}
+                        size="small"
+                        variant="outlined"
+                        sx={{ fontSize: '0.65rem', height: '20px' }}
+                      />
+                    </TableCell>
+                    <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
+                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                        {placement.sales || '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
+                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                        {placement.recruiterName || '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
+                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                        {placement.clientName || '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
+                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                        {placement.vendorName || '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
+                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                        {placement.startDate || '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
+                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                        {placement.endDate || '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
+                      <Typography variant="body2" fontWeight="medium" color="primary" sx={{ fontSize: '0.75rem' }}>
+                        {renderFinancialField(placement, 'billRate')}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
+                      <Typography variant="body2" fontWeight="medium" color="success.main" sx={{ fontSize: '0.75rem' }}>
+                        {renderFinancialField(placement, 'payRate')}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
+                      <Chip
+                        label={placement.employmentType || 'N/A'}
+                        color={getEmploymentColor(placement.employmentType)}
+                        size="small"
+                        variant="outlined"
+                        sx={{ fontSize: '0.65rem', height: '20px' }}
+                      />
+                    </TableCell>
+                    <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
+                      <Chip
+                        label={placement.status || 'N/A'}
+                        color={getStatusColor(placement.status)}
+                        size="small"
+                        sx={{ fontSize: '0.65rem', height: '20px' }}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <TablePagination
+            rowsPerPageOptions={[10, 25, 50, 100]}
+            component="div"
+            count={filteredPlacements.length}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+            sx={{
+              '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows, & .MuiTablePagination-select': {
+                fontSize: '0.75rem',
+              }
+            }}
+          />
+        </Paper>
+      )}
+    </Box>
+  );
+};
+
 const PlacementsList = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const location = useLocation();
   const { placements, loading, selectedPlacement } = useSelector(
     (state) => state.placement
   );
@@ -143,6 +651,15 @@ const PlacementsList = () => {
     vendors: [],
     sales: [],
     recruiters: []
+  });
+
+  // Page state for candidate list
+  const [showCandidatePage, setShowCandidatePage] = useState(false);
+  const [candidatePageData, setCandidatePageData] = useState({
+    title: '',
+    placements: [],
+    type: '',
+    categoryName: ''
   });
 
   const decoded = atob(encryptionKey);
@@ -197,9 +714,10 @@ const PlacementsList = () => {
         if (p.clientName) {
           const key = p.clientName.trim();
           if (!clientMap.has(key)) {
-            clientMap.set(key, { name: key, count: 0 });
+            clientMap.set(key, { name: key, count: 0, placements: [] });
           }
           clientMap.get(key).count += 1;
+          clientMap.get(key).placements.push(p);
         }
       });
 
@@ -209,9 +727,10 @@ const PlacementsList = () => {
         if (p.vendorName) {
           const key = p.vendorName.trim();
           if (!vendorMap.has(key)) {
-            vendorMap.set(key, { name: key, count: 0 });
+            vendorMap.set(key, { name: key, count: 0, placements: [] });
           }
           vendorMap.get(key).count += 1;
+          vendorMap.get(key).placements.push(p);
         }
       });
 
@@ -221,9 +740,10 @@ const PlacementsList = () => {
         if (p.sales) {
           const key = p.sales.trim();
           if (!salesMap.has(key)) {
-            salesMap.set(key, { name: key, count: 0 });
+            salesMap.set(key, { name: key, count: 0, placements: [] });
           }
           salesMap.get(key).count += 1;
+          salesMap.get(key).placements.push(p);
         }
       });
 
@@ -233,9 +753,10 @@ const PlacementsList = () => {
         if (p.recruiterName) {
           const key = p.recruiterName.trim();
           if (!recruiterMap.has(key)) {
-            recruiterMap.set(key, { name: key, count: 0 });
+            recruiterMap.set(key, { name: key, count: 0, placements: [] });
           }
           recruiterMap.get(key).count += 1;
+          recruiterMap.get(key).placements.push(p);
         }
       });
 
@@ -332,6 +853,33 @@ const PlacementsList = () => {
 
   const toggleDashboard = () => {
     setShowDashboard(!showDashboard);
+    if (showCandidatePage) {
+      setShowCandidatePage(false);
+    }
+  };
+
+  // Handle card click - navigate to candidate page
+  const handleCardClick = (item, type, index) => {
+    setCandidatePageData({
+      title: `${item.name}`,
+      placements: item.placements || [],
+      type: type,
+      categoryName: item.name
+    });
+    setShowCandidatePage(true);
+    setShowDashboard(false);
+  };
+
+  // Handle back from candidate page
+  const handleBackToDashboard = () => {
+    setShowCandidatePage(false);
+    setShowDashboard(true);
+    setCandidatePageData({
+      title: '',
+      placements: [],
+      type: '',
+      categoryName: ''
+    });
   };
 
   // Helper function to get filter params for export
@@ -737,6 +1285,19 @@ const PlacementsList = () => {
     return colors[index % colors.length];
   };
 
+  // If showing candidate page, render it instead of dashboard
+  if (showCandidatePage) {
+    return (
+      <CandidateTablePage
+        title={candidatePageData.title}
+        placements={candidatePageData.placements}
+        type={candidatePageData.type}
+        categoryName={candidatePageData.categoryName}
+        onBack={handleBackToDashboard}
+      />
+    );
+  }
+
   return (
     <>
       <Stack
@@ -975,6 +1536,7 @@ const PlacementsList = () => {
                       icon={<Business />}
                       color={getDashboardCardColor(index)}
                       subtitle="Placements"
+                      onClick={() => handleCardClick(item, 'client', index)}
                     />
                   </Grid>
                 ))}
@@ -1004,6 +1566,7 @@ const PlacementsList = () => {
                       icon={<Business />}
                       color={getDashboardCardColor(index)}
                       subtitle="Placements"
+                      onClick={() => handleCardClick(item, 'vendor', index)}
                     />
                   </Grid>
                 ))}
@@ -1033,6 +1596,7 @@ const PlacementsList = () => {
                       icon={<AttachMoney />}
                       color={getDashboardCardColor(index)}
                       subtitle="Placements"
+                      onClick={() => handleCardClick(item, 'sales', index)}
                     />
                   </Grid>
                 ))}
@@ -1062,6 +1626,7 @@ const PlacementsList = () => {
                       icon={<Person />}
                       color={getDashboardCardColor(index)}
                       subtitle="Placements"
+                      onClick={() => handleCardClick(item, 'recruiter', index)}
                     />
                   </Grid>
                 ))}
