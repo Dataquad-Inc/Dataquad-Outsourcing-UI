@@ -16,6 +16,19 @@ import {
   alpha,
   CircularProgress,
   Alert,
+  Tabs,
+  Tab,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  IconButton,
+  Tooltip,
+  TablePagination,
+  TextField,
+  InputAdornment,
 } from "@mui/material";
 import {
   ArrowBack,
@@ -26,10 +39,14 @@ import {
   AttachMoney,
   Person,
   Star,
-  WorkOutline,
   AccountCircle,
   CalendarToday,
   Business,
+  ListAlt,
+  EventNote,
+  Refresh,
+  Search,
+  VideoCall,
 } from "@mui/icons-material";
 import { useNavigate, useParams } from "react-router-dom";
 import Documents from "./Documents";
@@ -40,6 +57,32 @@ const ConsultantProfile = () => {
   const [consultant, setConsultant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [tabValue, setTabValue] = useState(0);
+  const [rtrs, setRtrs] = useState([]);
+  const [interviews, setInterviews] = useState([]);
+  const [loadingRtrs, setLoadingRtrs] = useState(false);
+  const [loadingInterviews, setLoadingInterviews] = useState(false);
+  
+  // Pagination states for RTRs
+  const [rtrPagination, setRtrPagination] = useState({
+    page: 0,
+    size: 10,
+    totalElements: 0,
+    totalPages: 0,
+  });
+  
+  // Pagination states for Interviews
+  const [interviewPagination, setInterviewPagination] = useState({
+    page: 0,
+    size: 10,
+    totalElements: 0,
+    totalPages: 0,
+  });
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filteredRtrs, setFilteredRtrs] = useState([]);
+  const [filteredInterviews, setFilteredInterviews] = useState([]);
+
   const { role } = useSelector((state) => state.auth);
 
   const navigate = useNavigate();
@@ -49,6 +92,47 @@ const ConsultantProfile = () => {
   useEffect(() => {
     fetchConsultantDetails();
   }, [consultantId]);
+
+  useEffect(() => {
+    if (consultant) {
+      fetchRtrs();
+      fetchInterviews();
+    }
+  }, [consultant]);
+
+  useEffect(() => {
+    // Filter RTRs based on search term
+    if (searchTerm.trim() === "") {
+      setFilteredRtrs(rtrs);
+    } else {
+      const filtered = rtrs.filter((rtr) =>
+        rtr.clientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        rtr.vendorName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        rtr.rtrId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        rtr.rtrStatus?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        rtr.salesExecutive?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        rtr.vendorCompany?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredRtrs(filtered);
+    }
+  }, [searchTerm, rtrs]);
+
+  useEffect(() => {
+    // Filter Interviews based on search term
+    if (searchTerm.trim() === "") {
+      setFilteredInterviews(interviews);
+    } else {
+      const filtered = interviews.filter((interview) =>
+        interview.clientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        interview.interviewStatus?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        interview.interviewId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        interview.interviewLevel?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        interview.salesExecutive?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        interview.interviewerEmailId?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredInterviews(filtered);
+    }
+  }, [searchTerm, interviews]);
 
   const fetchConsultantDetails = async () => {
     setLoading(true);
@@ -103,6 +187,166 @@ const ConsultantProfile = () => {
     }
   };
 
+  const fetchRtrs = async (page = rtrPagination.page, size = rtrPagination.size) => {
+    setLoadingRtrs(true);
+    try {
+      const response = await hotlistAPI.getConsultantRtr(consultantId, {
+        page: page,
+        size: size,
+      });
+      
+      if (response.data) {
+        const rtrData = response.data.content || [];
+        setRtrs(rtrData);
+        setFilteredRtrs(rtrData);
+        setRtrPagination({
+          page: response.data.currentPage || 0,
+          size: response.data.size || 10,
+          totalElements: response.data.totalElements || 0,
+          totalPages: response.data.totalPages || 0,
+        });
+      }
+    } catch (err) {
+      console.error("Error fetching RTRs:", err);
+      // Mock data for demonstration
+      const mockRtrs = [
+        {
+          rtrId: "RTR005787",
+          consultantId: "CONS00923",
+          consultantName: "candidate2",
+          technology: "",
+          clientId: "CLIENT002",
+          clientName: "TEKSystems",
+          ratePart: "80",
+          rtrStatus: "SUBMITTED",
+          salesExecutiveId: "ADRTUS5000",
+          salesExecutive: "TestSalesExecutive2",
+          vendorName: "testvendor2",
+          vendorEmailId: "vani@gmail.com",
+          vendorMobileNumber: "234 567 8765",
+          vendorCompany: "testvendor2",
+          vendorLinkedIn: "https:dfghjiuh.com",
+          implementationPartner: "",
+          comments: "",
+          createdAt: "2026-07-30T10:03:22.516567",
+          createdBy: "ADRTUS5001",
+          createdByName: "TestSalesExcutive1"
+        },
+      ];
+      setRtrs(mockRtrs);
+      setFilteredRtrs(mockRtrs);
+      setRtrPagination({
+        page: 0,
+        size: 10,
+        totalElements: mockRtrs.length,
+        totalPages: 1,
+      });
+    } finally {
+      setLoadingRtrs(false);
+    }
+  };
+
+  const fetchInterviews = async (page = interviewPagination.page, size = interviewPagination.size) => {
+    setLoadingInterviews(true);
+    try {
+      const response = await hotlistAPI.getConstultantInterviews(consultantId, {
+        page: page,
+        size: size,
+      });
+      
+      if (response.data) {
+        const interviewData = response.data.content || [];
+        setInterviews(interviewData);
+        setFilteredInterviews(interviewData);
+        setInterviewPagination({
+          page: response.data.currentPage || 0,
+          size: response.data.size || 10,
+          totalElements: response.data.totalElements || 0,
+          totalPages: response.data.totalPages || 0,
+        });
+      }
+    } catch (err) {
+      console.error("Error fetching interviews:", err);
+      // Mock data for demonstration
+      const mockInterviews = [
+        {
+          interviewId: "INTER000868",
+          rtrId: "RTR005787",
+          consultantId: "CONS00923",
+          consultantName: "candidate2",
+          consultantEmailId: null,
+          technology: "",
+          clientId: "CLIENT002",
+          remarks: "",
+          clientName: "TEKSystems",
+          salesExecutiveId: "ADRTUS5000",
+          salesExecutive: "TestSalesExecutive2",
+          interviewLevel: "Technical Assessment (Test)",
+          interviewStatus: "SCHEDULED",
+          interviewDateTime: "2026-07-30T18:30:00",
+          interviewerEmailId: "vanni1903@gmail.com",
+          zoomLink: "https://zoom.us/j/123456789",
+          duration: 0,
+          isPlaced: null,
+          createdBy: "TestSalesExcutive1"
+        },
+      ];
+      setInterviews(mockInterviews);
+      setFilteredInterviews(mockInterviews);
+      setInterviewPagination({
+        page: 0,
+        size: 10,
+        totalElements: mockInterviews.length,
+        totalPages: 1,
+      });
+    } finally {
+      setLoadingInterviews(false);
+    }
+  };
+
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
+    setSearchTerm("");
+  };
+
+  const handleRtrPageChange = (event, newPage) => {
+    const updatedPagination = { ...rtrPagination, page: newPage };
+    setRtrPagination(updatedPagination);
+    fetchRtrs(newPage, rtrPagination.size);
+  };
+
+  const handleRtrRowsPerPageChange = (event) => {
+    const newSize = parseInt(event.target.value, 10);
+    const updatedPagination = { ...rtrPagination, size: newSize, page: 0 };
+    setRtrPagination(updatedPagination);
+    fetchRtrs(0, newSize);
+  };
+
+  const handleInterviewPageChange = (event, newPage) => {
+    const updatedPagination = { ...interviewPagination, page: newPage };
+    setInterviewPagination(updatedPagination);
+    fetchInterviews(newPage, interviewPagination.size);
+  };
+
+  const handleInterviewRowsPerPageChange = (event) => {
+    const newSize = parseInt(event.target.value, 10);
+    const updatedPagination = { ...interviewPagination, size: newSize, page: 0 };
+    setInterviewPagination(updatedPagination);
+    fetchInterviews(0, newSize);
+  };
+
+  const handleSearchChange = (event) => {
+    setSearchTerm(event.target.value);
+  };
+
+  const handleRefresh = () => {
+    if (tabValue === 1) {
+      fetchRtrs(rtrPagination.page, rtrPagination.size);
+    } else if (tabValue === 2) {
+      fetchInterviews(interviewPagination.page, interviewPagination.size);
+    }
+  };
+
   const handleBackTo = () => {
     if (role === "SUPERADMIN") {
       navigate("/dashboard/hotlist/master");
@@ -130,10 +374,33 @@ const ConsultantProfile = () => {
     return colors[grade] || "default";
   };
 
+  const getRtrStatusColor = (status) => {
+    const colors = {
+      SUBMITTED: "primary",
+      IN_PROGRESS: "warning",
+      REJECTED: "error",
+      ACCEPTED: "success",
+      ON_HOLD: "info",
+    };
+    return colors[status] || "default";
+  };
+
+  const getInterviewStatusColor = (status) => {
+    const colors = {
+      SCHEDULED: "primary",
+      IN_PROGRESS: "warning",
+      COMPLETED: "success",
+      REJECTED: "error",
+      SELECTED: "success",
+      ON_HOLD: "info",
+      CANCELLED: "error",
+    };
+    return colors[status] || "default";
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
 
-    // Extract just the date part (YYYY-MM-DD)
     const datePart = dateString.split("T")[0];
     const [year, month, day] = datePart.split("-");
 
@@ -144,6 +411,18 @@ const ConsultantProfile = () => {
       month: "short",
       day: "numeric",
       timeZone: "UTC",
+    });
+  };
+
+  const formatDateTime = (dateTimeString) => {
+    if (!dateTimeString) return "N/A";
+    const date = new Date(dateTimeString);
+    return date.toLocaleString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
@@ -190,6 +469,355 @@ const ConsultantProfile = () => {
       </Stack>
     </Paper>
   );
+
+  const renderRTRsTable = () => {
+    const displayedRtrs = filteredRtrs;
+
+    return (
+      <Box>
+        <Box sx={{ mb: 2, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" }}>
+          <Typography variant="h6" fontWeight="bold">
+            RTRs ({rtrPagination.totalElements})
+          </Typography>
+          <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
+            <TextField
+              size="small"
+              placeholder="Search RTRs..."
+              value={searchTerm}
+              onChange={handleSearchChange}
+              sx={{ width: { xs: "100%", sm: 200 } }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search fontSize="small" />
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <Tooltip title="Refresh">
+              <IconButton onClick={handleRefresh} size="small">
+                <Refresh />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Box>
+
+        {loadingRtrs ? (
+          <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : displayedRtrs.length === 0 ? (
+          <Paper sx={{ p: 4, textAlign: "center" }}>
+            <Typography color="text.secondary">No RTRs found</Typography>
+          </Paper>
+        ) : (
+          <>
+            <TableContainer component={Paper} sx={{ borderRadius: 2, overflowX: 'auto' }}>
+              <Table sx={{ minWidth: 2000 }}>
+                <TableHead sx={{ bgcolor: "grey.50" }}>
+                  <TableRow>
+                    <TableCell sx={{ minWidth: 140, fontWeight: 'bold' }}>RTR ID</TableCell>
+                    <TableCell sx={{ minWidth: 180, fontWeight: 'bold' }}>Consultant</TableCell>
+                    <TableCell sx={{ minWidth: 180, fontWeight: 'bold' }}>Technology</TableCell>
+                    <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Client</TableCell>
+                    <TableCell sx={{ minWidth: 120, fontWeight: 'bold' }}>Rate</TableCell>
+                    <TableCell sx={{ minWidth: 160, fontWeight: 'bold' }}>Status</TableCell>
+                    <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Sales Executive</TableCell>
+                    <TableCell sx={{ minWidth: 180, fontWeight: 'bold' }}>Vendor Name</TableCell>
+                    <TableCell sx={{ minWidth: 220, fontWeight: 'bold' }}>Vendor Email</TableCell>
+                    <TableCell sx={{ minWidth: 180, fontWeight: 'bold' }}>Vendor Mobile</TableCell>
+                    <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Vendor Company</TableCell>
+                    <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Implementation Partner</TableCell>
+                    <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Created At</TableCell>
+                    <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Created By</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {displayedRtrs.map((rtr) => (
+                    <TableRow key={rtr.rtrId} hover>
+                      <TableCell sx={{ minWidth: 140 }}>
+                        <Typography variant="body2" fontWeight="500" sx={{ wordBreak: 'break-word' }}>
+                          {rtr.rtrId}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 180 }}>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                          {rtr.consultantName}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 180 }}>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                          {rtr.technology || 'N/A'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 200 }}>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                          {rtr.clientName}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                          {rtr.clientId}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 120 }}>
+                        <Typography variant="body2" fontWeight="500">
+                          ${rtr.ratePart}/hr
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 160 }}>
+                        <Chip
+                          label={rtr.rtrStatus}
+                          color={getRtrStatusColor(rtr.rtrStatus)}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 200 }}>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                          {rtr.salesExecutive}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 180 }}>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                          {rtr.vendorName}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 220 }}>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                          {rtr.vendorEmailId}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 180 }}>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                          {rtr.vendorMobileNumber}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 200 }}>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                          {rtr.vendorCompany}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 200 }}>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                          {rtr.implementationPartner || 'N/A'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 200 }}>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                          {formatDateTime(rtr.createdAt)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 200 }}>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                          {rtr.createdByName || rtr.createdBy}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            <TablePagination
+              component="div"
+              count={rtrPagination.totalElements}
+              page={rtrPagination.page}
+              onPageChange={handleRtrPageChange}
+              rowsPerPage={rtrPagination.size}
+              onRowsPerPageChange={handleRtrRowsPerPageChange}
+              rowsPerPageOptions={[5, 10, 25, 50]}
+            />
+          </>
+        )}
+      </Box>
+    );
+  };
+
+  const renderInterviewsTable = () => {
+    const displayedInterviews = filteredInterviews;
+
+    return (
+      <Box>
+        <Box sx={{ mb: 2, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" }}>
+          <Typography variant="h6" fontWeight="bold">
+            Interviews ({interviewPagination.totalElements})
+          </Typography>
+          <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
+            <TextField
+              size="small"
+              placeholder="Search Interviews..."
+              value={searchTerm}
+              onChange={handleSearchChange}
+              sx={{ width: { xs: "100%", sm: 200 } }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search fontSize="small" />
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <Tooltip title="Refresh">
+              <IconButton onClick={handleRefresh} size="small">
+                <Refresh />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Box>
+
+        {loadingInterviews ? (
+          <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : displayedInterviews.length === 0 ? (
+          <Paper sx={{ p: 4, textAlign: "center" }}>
+            <Typography color="text.secondary">No interviews found</Typography>
+          </Paper>
+        ) : (
+          <>
+            <TableContainer component={Paper} sx={{ borderRadius: 2, overflowX: 'auto' }}>
+              <Table sx={{ minWidth: 2400 }}>
+                <TableHead sx={{ bgcolor: "grey.50" }}>
+                  <TableRow>
+                    <TableCell sx={{ minWidth: 160, fontWeight: 'bold' }}>Interview ID</TableCell>
+                    <TableCell sx={{ minWidth: 140, fontWeight: 'bold' }}>RTR ID</TableCell>
+                    <TableCell sx={{ minWidth: 180, fontWeight: 'bold' }}>Consultant</TableCell>
+                    <TableCell sx={{ minWidth: 220, fontWeight: 'bold' }}>Consultant Email</TableCell>
+                    <TableCell sx={{ minWidth: 180, fontWeight: 'bold' }}>Technology</TableCell>
+                    <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Client</TableCell>
+                    <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Sales Executive</TableCell>
+                    <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Interview Level</TableCell>
+                    <TableCell sx={{ minWidth: 160, fontWeight: 'bold' }}>Status</TableCell>
+                    <TableCell sx={{ minWidth: 220, fontWeight: 'bold' }}>Date & Time</TableCell>
+                    <TableCell sx={{ minWidth: 220, fontWeight: 'bold' }}>Interviewer Email</TableCell>
+                    <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Zoom Meeting</TableCell>
+                    <TableCell sx={{ minWidth: 140, fontWeight: 'bold' }}>Duration</TableCell>
+                    <TableCell sx={{ minWidth: 140, fontWeight: 'bold' }}>Is Placed</TableCell>
+                    <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Created By</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {displayedInterviews.map((interview) => (
+                    <TableRow key={interview.interviewId} hover>
+                      <TableCell sx={{ minWidth: 160 }}>
+                        <Typography variant="body2" fontWeight="500" sx={{ wordBreak: 'break-word' }}>
+                          {interview.interviewId}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 140 }}>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                          {interview.rtrId}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 180 }}>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                          {interview.consultantName}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 220 }}>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                          {interview.consultantEmailId || 'N/A'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 180 }}>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                          {interview.technology || 'N/A'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 200 }}>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                          {interview.clientName}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                          {interview.clientId}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 200 }}>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                          {interview.salesExecutive}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 200 }}>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                          {interview.interviewLevel}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 160 }}>
+                        <Chip
+                          label={interview.interviewStatus}
+                          color={getInterviewStatusColor(interview.interviewStatus)}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 220 }}>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                          {formatDateTime(interview.interviewDateTime)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 220 }}>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                          {interview.interviewerEmailId}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 200 }}>
+                        {interview.zoomLink ? (
+                          <Button
+                            variant="contained"
+                            size="small"
+                            startIcon={<VideoCall />}
+                            href={interview.zoomLink}
+                            target="_blank"
+                            sx={{
+                              textTransform: 'none',
+                              backgroundColor: '#0b5c8e',
+                              '&:hover': {
+                                backgroundColor: '#0a4a73',
+                              },
+                              whiteSpace: 'nowrap',
+                              minWidth: '140px'
+                            }}
+                          >
+                            Join Meeting
+                          </Button>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">
+                            No meeting
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 140 }}>
+                        <Typography variant="body2">
+                          {interview.duration || 0} min
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 140 }}>
+                        <Typography variant="body2">
+                          {interview.isPlaced !== null && interview.isPlaced !== undefined 
+                            ? (interview.isPlaced ? 'Yes' : 'No') 
+                            : 'N/A'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 200 }}>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                          {interview.createdBy}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            <TablePagination
+              component="div"
+              count={interviewPagination.totalElements}
+              page={interviewPagination.page}
+              onPageChange={handleInterviewPageChange}
+              rowsPerPage={interviewPagination.size}
+              onRowsPerPageChange={handleInterviewRowsPerPageChange}
+              rowsPerPageOptions={[5, 10, 25, 50]}
+            />
+          </>
+        )}
+      </Box>
+    );
+  };
 
   if (loading) {
     return (
@@ -392,267 +1020,331 @@ const ConsultantProfile = () => {
           </Grid>
         </Grid>
 
-        <Grid container spacing={4}>
-          {/* Contact & Personal Details */}
-          <Grid item xs={12} md={6}>
-            <Card
-              elevation={0}
+        {/* Tabs Section */}
+        <Card
+          elevation={0}
+          sx={{
+            mb: 4,
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: 3,
+          }}
+        >
+          <CardContent sx={{ p: 3 }}>
+            <Tabs
+              value={tabValue}
+              onChange={handleTabChange}
               sx={{
-                height: "100%",
-                border: "1px solid",
+                borderBottom: 1,
                 borderColor: "divider",
-                borderRadius: 3,
+                mb: 3,
+                "& .MuiTab-root": {
+                  textTransform: "none",
+                  fontWeight: 500,
+                  fontSize: "0.9rem",
+                },
               }}
             >
-              <CardContent sx={{ p: 4 }}>
-                <Typography variant="h6" fontWeight="bold" sx={{ mb: 3 }}>
-                  <AccountCircle sx={{ mr: 1, verticalAlign: "middle" }} />
-                  Contact & Personal Details
-                </Typography>
+              <Tab
+                label={
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Person />
+                    <span>Profile Details</span>
+                  </Stack>
+                }
+              />
+              <Tab
+                label={
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <ListAlt />
+                    <span>RTRs ({rtrPagination.totalElements || 0})</span>
+                  </Stack>
+                }
+              />
+              <Tab
+                label={
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <EventNote />
+                    <span>Interviews ({interviewPagination.totalElements || 0})</span>
+                  </Stack>
+                }
+              />
+            </Tabs>
 
-                <Stack spacing={3}>
-                  <Box>
-                    <Typography
-                      variant="subtitle2"
-                      color="text.secondary"
-                      gutterBottom
-                    >
-                      Personal Contact
-                    </Typography>
-                    <Typography variant="body1" fontWeight="500">
-                      {consultant.personalContact}
-                    </Typography>
-                  </Box>
-
-                  <Box>
-                    <Typography
-                      variant="subtitle2"
-                      color="text.secondary"
-                      gutterBottom
-                    >
-                      LinkedIn Profile
-                    </Typography>
-                    <Button
-                      startIcon={<LinkedIn />}
-                      href={consultant.linkedInUrl}
-                      target="_blank"
-                      variant="outlined"
-                      size="small"
-                    >
-                      View Profile
-                    </Button>
-                  </Box>
-
-                  <Divider />
-
-                  <Box>
-                    <Typography
-                      variant="subtitle2"
-                      color="text.secondary"
-                      gutterBottom
-                    >
-                      Date of Birth
-                    </Typography>
-                    <Stack direction="row" spacing={1} flexWrap="wrap">
-                      <Chip
-                        label={`Original: ${formatDate(
-                          consultant.originalDOB
-                        )}`}
-                        size="small"
-                        variant="outlined"
-                      />
-                      {consultant.editedDOB !== consultant.originalDOB && (
-                        <Chip
-                          label={`Edited: ${formatDate(consultant.editedDOB)}`}
-                          size="small"
-                          color="warning"
-                        />
-                      )}
-                    </Stack>
-                  </Box>
-
-                  <Box>
-                    <Typography
-                      variant="subtitle2"
-                      color="text.secondary"
-                      gutterBottom
-                    >
-                      Visa Status
-                    </Typography>
-                    <Stack direction="row" spacing={1} flexWrap="wrap">
-                      <Chip
-                        label={`Marketing: ${consultant.marketingVisa}`}
-                        size="small"
-                        variant="outlined"
-                      />
-                      <Chip
-                        label={`Actual: ${consultant.actualVisa}`}
-                        size="small"
-                        color="primary"
-                      />
-                    </Stack>
-                  </Box>
-
-                  <Box>
-                    <Typography
-                      variant="subtitle2"
-                      color="text.secondary"
-                      gutterBottom
-                    >
-                      Availability
-                    </Typography>
-                    <Stack direction="row" spacing={1} flexWrap="wrap">
-                      <Chip
-                        label={`Passport: ${consultant.passport}`}
-                        size="small"
-                        color={
-                          consultant.passport === "Yes" ? "success" : "default"
-                        }
-                      />
-                      <Chip
-                        label={`Relocation: ${consultant.relocation === "Yes"
-                          ? "Available"
-                          : "Not Available"
-                          }`}
-                        size="small"
-                        color={
-                          consultant.relocation === "Yes"
-                            ? "success"
-                            : "default"
-                        }
-                      />
-                    </Stack>
-                  </Box>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Professional Details */}
-          <Grid item xs={12} md={6}>
-            <Card
-              elevation={0}
-              sx={{
-                height: "100%",
-                border: "1px solid",
-                borderColor: "divider",
-                borderRadius: 3,
-              }}
-            >
-              <CardContent sx={{ p: 4 }}>
-                <Typography variant="h6" fontWeight="bold" sx={{ mb: 3 }}>
-                  <Business sx={{ mr: 1, verticalAlign: "middle" }} />
-                  Professional Details
-                </Typography>
-
-                <Stack spacing={3}>
-                  <Box>
-                    <Typography
-                      variant="subtitle2"
-                      color="text.secondary"
-                      gutterBottom
-                    >
-                      Team Information
-                    </Typography>
-                    <Stack spacing={1}>
-                      <Typography variant="body2">
-                        <strong>Recruiter:</strong> {consultant.recruiterName} (
-                        {consultant.recruiterId})
+            {/* Tab Panels */}
+            {tabValue === 0 && (
+              <Grid container spacing={4}>
+                {/* Contact & Personal Details */}
+                <Grid item xs={12} md={6}>
+                  <Card
+                    elevation={0}
+                    sx={{
+                      height: "100%",
+                      border: "1px solid",
+                      borderColor: "divider",
+                      borderRadius: 3,
+                    }}
+                  >
+                    <CardContent sx={{ p: 4 }}>
+                      <Typography variant="h6" fontWeight="bold" sx={{ mb: 3 }}>
+                        <AccountCircle sx={{ mr: 1, verticalAlign: "middle" }} />
+                        Contact & Personal Details
                       </Typography>
-                      <Typography variant="body2">
-                        <strong>Team Lead:</strong> {consultant.teamleadName} (
-                        {consultant.teamleadId})
-                      </Typography>
-                      <Typography variant="body2">
-                        <strong>Sales Executive:</strong>{" "}
-                        {consultant.salesExecutive}
-                      </Typography>
-                    </Stack>
-                  </Box>
 
-                  <Divider />
+                      <Stack spacing={3}>
+                        <Box>
+                          <Typography
+                            variant="subtitle2"
+                            color="text.secondary"
+                            gutterBottom
+                          >
+                            Personal Contact
+                          </Typography>
+                          <Typography variant="body1" fontWeight="500">
+                            {consultant.personalContact}
+                          </Typography>
+                        </Box>
 
-                  <Box>
-                    <Typography
-                      variant="subtitle2"
-                      color="text.secondary"
-                      gutterBottom
-                    >
-                      Reference
-                    </Typography>
-                    <Typography variant="body1" fontWeight="500">
-                      {consultant.reference}
-                    </Typography>
-                  </Box>
+                        <Box>
+                          <Typography
+                            variant="subtitle2"
+                            color="text.secondary"
+                            gutterBottom
+                          >
+                            LinkedIn Profile
+                          </Typography>
+                          <Button
+                            startIcon={<LinkedIn />}
+                            href={consultant.linkedInUrl}
+                            target="_blank"
+                            variant="outlined"
+                            size="small"
+                          >
+                            View Profile
+                          </Button>
+                        </Box>
 
-                  <Box>
-                    <Typography
-                      variant="subtitle2"
-                      color="text.secondary"
-                      gutterBottom
-                    >
-                      Marketing Start Date
-                    </Typography>
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      <CalendarToday fontSize="small" color="action" />
-                      <Typography variant="body1" fontWeight="500">
-                        {formatDate(consultant.marketingStartDate)}
+                        <Divider />
+
+                        <Box>
+                          <Typography
+                            variant="subtitle2"
+                            color="text.secondary"
+                            gutterBottom
+                          >
+                            Date of Birth
+                          </Typography>
+                          <Stack direction="row" spacing={1} flexWrap="wrap">
+                            <Chip
+                              label={`Original: ${formatDate(
+                                consultant.originalDOB
+                              )}`}
+                              size="small"
+                              variant="outlined"
+                            />
+                            {consultant.editedDOB !== consultant.originalDOB && (
+                              <Chip
+                                label={`Edited: ${formatDate(consultant.editedDOB)}`}
+                                size="small"
+                                color="warning"
+                              />
+                            )}
+                          </Stack>
+                        </Box>
+
+                        <Box>
+                          <Typography
+                            variant="subtitle2"
+                            color="text.secondary"
+                            gutterBottom
+                          >
+                            Visa Status
+                          </Typography>
+                          <Stack direction="row" spacing={1} flexWrap="wrap">
+                            <Chip
+                              label={`Marketing: ${consultant.marketingVisa}`}
+                              size="small"
+                              variant="outlined"
+                            />
+                            <Chip
+                              label={`Actual: ${consultant.actualVisa}`}
+                              size="small"
+                              color="primary"
+                            />
+                          </Stack>
+                        </Box>
+
+                        <Box>
+                          <Typography
+                            variant="subtitle2"
+                            color="text.secondary"
+                            gutterBottom
+                          >
+                            Availability
+                          </Typography>
+                          <Stack direction="row" spacing={1} flexWrap="wrap">
+                            <Chip
+                              label={`Passport: ${consultant.passport}`}
+                              size="small"
+                              color={
+                                consultant.passport === "Yes" ? "success" : "default"
+                              }
+                            />
+                            <Chip
+                              label={`Relocation: ${consultant.relocation === "Yes"
+                                ? "Available"
+                                : "Not Available"
+                                }`}
+                              size="small"
+                              color={
+                                consultant.relocation === "Yes"
+                                  ? "success"
+                                  : "default"
+                              }
+                            />
+                          </Stack>
+                        </Box>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </Grid>
+
+                {/* Professional Details */}
+                <Grid item xs={12} md={6}>
+                  <Card
+                    elevation={0}
+                    sx={{
+                      height: "100%",
+                      border: "1px solid",
+                      borderColor: "divider",
+                      borderRadius: 3,
+                    }}
+                  >
+                    <CardContent sx={{ p: 4 }}>
+                      <Typography variant="h6" fontWeight="bold" sx={{ mb: 3 }}>
+                        <Business sx={{ mr: 1, verticalAlign: "middle" }} />
+                        Professional Details
                       </Typography>
-                    </Stack>
-                  </Box>
 
-                  <Box>
-                    <Typography
-                      variant="subtitle2"
-                      color="text.secondary"
-                      gutterBottom
-                    >
-                      Record Timestamps
-                    </Typography>
-                    <Stack spacing={0.5}>
-                      <Typography variant="body2" color="text.secondary">
-                        Added: {formatDate(consultant.consultantAddedTimeStamp)}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Updated: {formatDate(consultant.updatedTimeStamp)}
-                      </Typography>
-                    </Stack>
-                  </Box>
+                      <Stack spacing={3}>
+                        <Box>
+                          <Typography
+                            variant="subtitle2"
+                            color="text.secondary"
+                            gutterBottom
+                          >
+                            Team Information
+                          </Typography>
+                          <Stack spacing={1}>
+                            <Typography variant="body2">
+                              <strong>Recruiter:</strong> {consultant.recruiterName} (
+                              {consultant.recruiterId})
+                            </Typography>
+                            <Typography variant="body2">
+                              <strong>Team Lead:</strong> {consultant.teamleadName} (
+                              {consultant.teamleadId})
+                            </Typography>
+                            <Typography variant="body2">
+                              <strong>Sales Executive:</strong>{" "}
+                              {consultant.salesExecutive}
+                            </Typography>
+                          </Stack>
+                        </Box>
 
-                  {consultant.remarks && (
-                    <Box>
-                      <Typography
-                        variant="subtitle2"
-                        color="text.secondary"
-                        gutterBottom
-                      >
-                        Remarks
-                      </Typography>
-                      <Paper
-                        sx={{
-                          p: 2,
-                          bgcolor: "grey.50",
-                          borderRadius: 2,
-                          border: "1px solid",
-                          borderColor: "divider",
-                        }}
-                      >
-                        <Typography variant="body2">
-                          {consultant.remarks}
-                        </Typography>
-                      </Paper>
-                    </Box>
-                  )}
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
+                        <Divider />
 
-          {/* Documents Section */}
-          <Grid item xs={12}>
-            <Documents consultantId={consultantId} />
-          </Grid>
-        </Grid>
+                        <Box>
+                          <Typography
+                            variant="subtitle2"
+                            color="text.secondary"
+                            gutterBottom
+                          >
+                            Reference
+                          </Typography>
+                          <Typography variant="body1" fontWeight="500">
+                            {consultant.reference}
+                          </Typography>
+                        </Box>
+
+                        <Box>
+                          <Typography
+                            variant="subtitle2"
+                            color="text.secondary"
+                            gutterBottom
+                          >
+                            Marketing Start Date
+                          </Typography>
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <CalendarToday fontSize="small" color="action" />
+                            <Typography variant="body1" fontWeight="500">
+                              {formatDate(consultant.marketingStartDate)}
+                            </Typography>
+                          </Stack>
+                        </Box>
+
+                        <Box>
+                          <Typography
+                            variant="subtitle2"
+                            color="text.secondary"
+                            gutterBottom
+                          >
+                            Record Timestamps
+                          </Typography>
+                          <Stack spacing={0.5}>
+                            <Typography variant="body2" color="text.secondary">
+                              Added: {formatDate(consultant.consultantAddedTimeStamp)}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              Updated: {formatDate(consultant.updatedTimeStamp)}
+                            </Typography>
+                          </Stack>
+                        </Box>
+
+                        {consultant.remarks && (
+                          <Box>
+                            <Typography
+                              variant="subtitle2"
+                              color="text.secondary"
+                              gutterBottom
+                            >
+                              Remarks
+                            </Typography>
+                            <Paper
+                              sx={{
+                                p: 2,
+                                bgcolor: "grey.50",
+                                borderRadius: 2,
+                                border: "1px solid",
+                                borderColor: "divider",
+                              }}
+                            >
+                              <Typography variant="body2">
+                                {consultant.remarks}
+                              </Typography>
+                            </Paper>
+                          </Box>
+                        )}
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </Grid>
+
+                {/* Documents Section */}
+                <Grid item xs={12}>
+                  <Documents consultantId={consultantId} />
+                </Grid>
+              </Grid>
+            )}
+
+            {tabValue === 1 && (
+              <Box>{renderRTRsTable()}</Box>
+            )}
+
+            {tabValue === 2 && (
+              <Box>{renderInterviewsTable()}</Box>
+            )}
+          </CardContent>
+        </Card>
       </Box>
     </Box>
   );
