@@ -36,6 +36,8 @@ import {
   TableSortLabel,
   Breadcrumbs,
   Link,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@mui/material";
 import {
   Edit,
@@ -56,6 +58,8 @@ import {
   ArrowBack,
   Home,
   NavigateNext,
+  CheckCircle,
+  Cancel,
 } from "@mui/icons-material";
 import { useDispatch, useSelector } from "react-redux";
 
@@ -168,13 +172,16 @@ const CandidateTablePage = ({
   placements, 
   type,
   categoryName,
-  onBack 
+  onBack,
+  tableStatusFilter,
+  onTableStatusFilterChange,
 }) => {
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(10);
   const [order, setOrder] = React.useState('asc');
   const [orderBy, setOrderBy] = React.useState('candidateFullName');
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [statusFilter, setStatusFilter] = React.useState(tableStatusFilter || 'active');
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -214,19 +221,42 @@ const CandidateTablePage = ({
     setPage(0);
   };
 
-  // Filter placements by search
+  const handleStatusFilterChange = (event, newFilter) => {
+    if (newFilter !== null) {
+      setStatusFilter(newFilter);
+      setPage(0);
+      if (onTableStatusFilterChange) {
+        onTableStatusFilterChange(newFilter);
+      }
+    }
+  };
+
+  // Filter placements by search and status
   const filteredPlacements = React.useMemo(() => {
-    if (!searchQuery.trim()) return placements;
-    return placements.filter(p => 
-      p.candidateFullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.candidateEmailId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.technology?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.sales?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.recruiterName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.clientName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.vendorName?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [placements, searchQuery]);
+    let filtered = [...placements];
+    
+    // Apply search filter
+    if (searchQuery.trim()) {
+      filtered = filtered.filter(p => 
+        p.candidateFullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.candidateEmailId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.technology?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.sales?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.recruiterName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.clientName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.vendorName?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    
+    // Apply status filter - Toggle buttons for Active/Inactive
+    if (statusFilter === 'active') {
+      filtered = filtered.filter(p => p.status === 'Active');
+    } else if (statusFilter === 'inactive') {
+      filtered = filtered.filter(p => p.status !== 'Active');
+    }
+    
+    return filtered;
+  }, [placements, searchQuery, statusFilter]);
 
   // Sort placements
   const sortedPlacements = React.useMemo(() => {
@@ -259,6 +289,15 @@ const CandidateTablePage = ({
       })}`
       : "-";
   };
+
+  // Get status counts
+  const getStatusCounts = React.useMemo(() => {
+    const counts = {
+      active: placements.filter(p => p.status === 'Active').length,
+      inactive: placements.filter(p => p.status !== 'Active').length,
+    };
+    return counts;
+  }, [placements]);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -311,6 +350,76 @@ const CandidateTablePage = ({
         </Button>
       </Box>
 
+      {/* Toggle Buttons - Only Active and Inactive */}
+      <Box sx={{ 
+        mb: 2, 
+        p: 1.5, 
+        backgroundColor: '#f5f5f5', 
+        borderRadius: 2,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 2
+      }}>
+        <ToggleButtonGroup
+          value={statusFilter}
+          exclusive
+          onChange={handleStatusFilterChange}
+          aria-label="status filter"
+          size="medium"
+          sx={{
+            '& .MuiToggleButton-root': {
+              px: 4,
+              py: 1.5,
+              borderRadius: 2,
+              minWidth: 120,
+              '&.Mui-selected': {
+                fontWeight: 'bold',
+              },
+            },
+            '& .MuiToggleButtonGroup-grouped': {
+              border: '1px solid rgba(0, 0, 0, 0.12)',
+              '&:not(:first-of-type)': {
+                borderLeft: '1px solid rgba(0, 0, 0, 0.12)',
+              },
+            },
+          }}
+        >
+          <ToggleButton 
+            value="active" 
+            aria-label="active"
+            sx={{
+              '&.Mui-selected': {
+                backgroundColor: '#2e7d32',
+                color: 'white',
+                '&:hover': {
+                  backgroundColor: '#1b5e20',
+                },
+              },
+            }}
+          >
+            <CheckCircle sx={{ mr: 1, fontSize: 20 }} />
+            Active ({getStatusCounts.active})
+          </ToggleButton>
+          <ToggleButton 
+            value="inactive" 
+            aria-label="inactive"
+            sx={{
+              '&.Mui-selected': {
+                backgroundColor: '#d32f2f',
+                color: 'white',
+                '&:hover': {
+                  backgroundColor: '#c62828',
+                },
+              },
+            }}
+          >
+            <Cancel sx={{ mr: 1, fontSize: 20 }} />
+            Inactive ({getStatusCounts.inactive})
+          </ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
+
       {/* Search Bar */}
       <Box sx={{ mb: 3 }}>
         <TextField
@@ -346,7 +455,9 @@ const CandidateTablePage = ({
       {filteredPlacements.length === 0 ? (
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <Typography variant="body1" color="text.secondary">
-            {searchQuery ? 'No placements found matching your search.' : 'No placements found for this category.'}
+            {searchQuery 
+              ? 'No placements found matching your search.' 
+              : `No ${statusFilter} placements found for this category.`}
           </Typography>
         </Paper>
       ) : (
@@ -691,7 +802,8 @@ const PlacementsList = () => {
     title: '',
     placements: [],
     type: '',
-    categoryName: ''
+    categoryName: '',
+    statusFilter: 'active'
   });
 
   const decoded = atob(encryptionKey);
@@ -907,7 +1019,8 @@ const PlacementsList = () => {
       title: `${item.name}`,
       placements: item.placements || [],
       type: type,
-      categoryName: item.name
+      categoryName: item.name,
+      statusFilter: 'active'
     });
     setShowCandidatePage(true);
     setShowDashboard(false);
@@ -921,8 +1034,17 @@ const PlacementsList = () => {
       title: '',
       placements: [],
       type: '',
-      categoryName: ''
+      categoryName: '',
+      statusFilter: 'active'
     });
+  };
+
+  // Handle status filter change from candidate page
+  const handleTableStatusFilterChange = (filterValue) => {
+    setCandidatePageData(prev => ({
+      ...prev,
+      statusFilter: filterValue
+    }));
   };
 
   const handleOpenDrawer = (placement = null) => {
@@ -1415,6 +1537,8 @@ const PlacementsList = () => {
         type={candidatePageData.type}
         categoryName={candidatePageData.categoryName}
         onBack={handleBackToDashboard}
+        tableStatusFilter={candidatePageData.statusFilter}
+        onTableStatusFilterChange={handleTableStatusFilterChange}
       />
     );
   }

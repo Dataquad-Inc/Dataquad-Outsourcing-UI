@@ -377,6 +377,16 @@ export const hotlistAPI = {
     return apiGet(`/hotlist/consultant/${consultantId}`);
   },
 
+  getConstultantInterviews: async (consutlantId,params={}) =>{
+    if (!consutlantId) throw new Error("Consultant ID is required");
+    return apiGet(`/hotlist/${consutlantId}/interviews`,params)
+  },
+
+  getConsultantRtr: async (consultantId,params={}) =>{
+    if (!consultantId) throw new Error("Consultant ID is required");
+    return apiGet(`/hotlist/${consultantId}/rtrs`,params)
+  },
+
   // Create new consultant
   createConsultant: async (formData, queryParams = {}) => {
     if (!formData) throw new Error("Form data is required");
