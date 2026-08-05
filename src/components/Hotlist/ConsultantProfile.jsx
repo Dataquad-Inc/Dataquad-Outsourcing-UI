@@ -47,6 +47,7 @@ import {
   Refresh,
   Search,
   VideoCall,
+  OpenInNew,
 } from "@mui/icons-material";
 import { useNavigate, useParams } from "react-router-dom";
 import Documents from "./Documents";
@@ -225,7 +226,7 @@ const ConsultantProfile = () => {
           vendorEmailId: "vani@gmail.com",
           vendorMobileNumber: "234 567 8765",
           vendorCompany: "testvendor2",
-          vendorLinkedIn: "https:dfghjiuh.com",
+          vendorLinkedIn: "https://linkedin.com/in/testvendor",
           implementationPartner: "",
           comments: "",
           createdAt: "2026-07-30T10:03:22.516567",
@@ -470,6 +471,17 @@ const ConsultantProfile = () => {
     </Paper>
   );
 
+  const handleLinkedInClick = (linkedInUrl) => {
+    if (linkedInUrl && linkedInUrl !== "N/A" && linkedInUrl.trim() !== "") {
+      // Check if URL already has http or https
+      let url = linkedInUrl;
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = `https://${url}`;
+      }
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   const renderRTRsTable = () => {
     const displayedRtrs = filteredRtrs;
 
@@ -527,6 +539,7 @@ const ConsultantProfile = () => {
                     <TableCell sx={{ minWidth: 220, fontWeight: 'bold' }}>Vendor Email</TableCell>
                     <TableCell sx={{ minWidth: 180, fontWeight: 'bold' }}>Vendor Mobile</TableCell>
                     <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Vendor Company</TableCell>
+                    <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Vendor LinkedIn</TableCell>
                     <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Implementation Partner</TableCell>
                     <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Created At</TableCell>
                     <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Created By</TableCell>
@@ -594,6 +607,34 @@ const ConsultantProfile = () => {
                         <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
                           {rtr.vendorCompany}
                         </Typography>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 200 }}>
+                        {rtr.vendorLinkedIn && rtr.vendorLinkedIn !== "N/A" && rtr.vendorLinkedIn.trim() !== "" ? (
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<LinkedIn />}
+                            endIcon={<OpenInNew fontSize="small" />}
+                            onClick={() => handleLinkedInClick(rtr.vendorLinkedIn)}
+                            sx={{
+                              textTransform: 'none',
+                              borderColor: '#0a66c2',
+                              color: '#0a66c2',
+                              '&:hover': {
+                                borderColor: '#0a66c2',
+                                backgroundColor: 'rgba(10, 102, 194, 0.04)',
+                              },
+                              whiteSpace: 'nowrap',
+                              minWidth: '140px'
+                            }}
+                          >
+                            View LinkedIn
+                          </Button>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">
+                            N/A
+                          </Typography>
+                        )}
                       </TableCell>
                       <TableCell sx={{ minWidth: 200 }}>
                         <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
@@ -986,8 +1027,7 @@ const ConsultantProfile = () => {
         <Grid container spacing={3} sx={{ mb: 4 }}>
           <Grid item xs={12}>
             <Typography variant="h5" fontWeight="bold" sx={{ mb: 3 }}>
-              Quick Overview
-            </Typography>
+              Quick Overview            </Typography>
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <InfoCard
