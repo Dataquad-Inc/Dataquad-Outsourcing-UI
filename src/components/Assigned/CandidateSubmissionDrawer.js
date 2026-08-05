@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Box, Typography, Grid, CircularProgress } from "@mui/material";
+import { Box, Typography, Grid, CircularProgress, Chip, MenuItem, Select, FormControl, InputLabel, FormHelperText } from "@mui/material";
 import httpService from "../../Services/httpService";
 import MuiTextField from "../muiComponents/MuiTextField";
 import MuiButton from "../muiComponents/MuiButton";
@@ -8,6 +8,7 @@ import * as Yup from "yup";
 import { useFormik } from "formik";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import { showToast } from "../../utils/ToastNotification";
+import { benchAPI } from "../../utils/api";
 
 const CandidateSubmissionDrawer = ({
   onClose,
@@ -21,6 +22,55 @@ const CandidateSubmissionDrawer = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [errorResponse, setErrorResponse] = useState(null);
+  const [tagOptions, setTagOptions] = useState([]);
+  const [tagsLoading, setTagsLoading] = useState(false);
+
+  // Fetch tags on component mount
+  useEffect(() => {
+    const fetchTags = async () => {
+      setTagsLoading(true);
+      try {
+        const response = await benchAPI.getBenchTags();
+        console.log("Tags API Response:", response); // Debug log
+        
+        let tags = [];
+        
+        // Handle different response formats
+        if (response && response.data) {
+          tags = response.data;
+        } else if (response && Array.isArray(response)) {
+          tags = response;
+        } else if (response && response.tags && Array.isArray(response.tags)) {
+          tags = response.tags;
+        }
+        
+        // Convert tags to options format
+        const formattedTags = tags.map(tag => {
+          // If tag is an object with id/name properties
+          if (typeof tag === 'object' && tag !== null) {
+            return {
+              value: tag.id || tag.name || tag,
+              label: tag.name || tag.id || tag
+            };
+          }
+          // If tag is a string
+          return {
+            value: tag,
+            label: tag
+          };
+        });
+        
+        setTagOptions(formattedTags);
+      } catch (error) {
+        console.error("Error fetching tags:", error);
+        // Don't show error toast, just log it
+        // showToast("Failed to load tags", "error");
+      } finally {
+        setTagsLoading(false);
+      }
+    };
+    fetchTags();
+  }, []);
 
   // Define base validation schema
   const getValidationSchema = () => {
@@ -112,6 +162,8 @@ const CandidateSubmissionDrawer = ({
       overallFeedback: Yup.string()
         .max(100, "Feedback cannot be more than 100 characters")
         .required("Overall feedback is required"),
+      tags: Yup.array()
+        .nullable(),
       resumeFile: Yup.mixed().nullable(),
     };
 
@@ -150,6 +202,7 @@ const CandidateSubmissionDrawer = ({
           jobId: candidateData.jobId || "",
           clientName: candidateData.clientName || "",
           status: candidateData.status || "",
+          tags: candidateData.tags || [],
         }
       : {
           userId: userId || "",
@@ -174,6 +227,7 @@ const CandidateSubmissionDrawer = ({
           userEmail: employeeEmail || "",
           clientName: clientName || "",
           status: "",
+          tags: [],
         };
 
   const formik = useFormik({
@@ -191,7 +245,17 @@ const CandidateSubmissionDrawer = ({
             values[key] !== null &&
             values[key] !== undefined
           ) {
-            form.append(key, values[key].toString());
+            // Handle tags array - send as comma-separated string or JSON
+            if (key === "tags") {
+              if (Array.isArray(values[key]) && values[key].length > 0) {
+                // Send as comma-separated string
+                form.append(key, values[key].join(','));
+              } else {
+                form.append(key, '');
+              }
+            } else {
+              form.append(key, values[key].toString());
+            }
           }
         });
         if (values.resumeFile) {
@@ -264,7 +328,6 @@ const CandidateSubmissionDrawer = ({
   }, [userId, jobId, mode]);
 
   const isFieldDisabled = (fieldName) => {
-    // These fields are always disabled in edit mode
     const editModeDisabledFields = [
       "fullName",
       "candidateEmailId",
@@ -272,11 +335,14 @@ const CandidateSubmissionDrawer = ({
       "userEmail",
     ];
 
-    // userEmail is always disabled (in both add and edit modes)
     if (fieldName === "userEmail") return true;
-
-    // Other fields are disabled only in edit mode
     return mode === "edit" && editModeDisabledFields.includes(fieldName);
+  };
+
+  // Handle multi-select change for tags
+  const handleTagsChange = (event) => {
+    const selectedValues = event.target.value;
+    formik.setFieldValue("tags", selectedValues);
   };
 
   const fields = [
@@ -336,6 +402,12 @@ const CandidateSubmissionDrawer = ({
       InputProps: { readOnly: true },
       disabled: true,
     },
+    {
+      name: "tags",
+      label: "Tags",
+      type: "multiselect",
+      options: tagOptions,
+    },
     ...(mode === "edit"
       ? [
           {
@@ -371,12 +443,12 @@ const CandidateSubmissionDrawer = ({
               {
                 value: "POSITION IS CLOSED",
                 label: "POSITION IS CLOSED",
-                style: { color: "#7c3aed" }, // Violet
+                style: { color: "#7c3aed" },
               },
               {
                 value: "POSITION IS HOLD",
                 label: "POSITION IS HOLD",
-                style: { color: "#f97316" }, // Orange
+                style: { color: "#f97316" },
               },
             ],
           },
@@ -401,7 +473,66 @@ const CandidateSubmissionDrawer = ({
         <Grid container spacing={2}>
           {fields.map((field) => (
             <Grid item xs={12} sm={6} key={field.name}>
-              {field.type === "select" ? (
+              {field.type === "multiselect" ? (
+                // Multi-select for tags using MUI Select
+                <FormControl 
+                  fullWidth 
+                  error={formik.touched[field.name] && Boolean(formik.errors[field.name])}
+                  disabled={tagsLoading}
+                >
+                  <InputLabel id={`${field.name}-label`}>{field.label}</InputLabel>
+                  <Select
+                    labelId={`${field.name}-label`}
+                    id={field.name}
+                    name={field.name}
+                    multiple
+                    value={formik.values[field.name] || []}
+                    onChange={handleTagsChange}
+                    onBlur={formik.handleBlur}
+                    label={field.label}
+                    renderValue={(selected) => (
+                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                        {selected.map((value) => (
+                          <Chip
+                            key={value}
+                            label={value}
+                            size="small"
+                            sx={{ 
+                              backgroundColor: "#e0e0e0",
+                              borderRadius: "4px",
+                              fontSize: "0.75rem"
+                            }}
+                          />
+                        ))}
+                      </Box>
+                    )}
+                    MenuProps={{
+                      PaperProps: {
+                        style: {
+                          maxHeight: 300,
+                        },
+                      },
+                    }}
+                  >
+                    {tagOptions.length === 0 && !tagsLoading && (
+                      <MenuItem disabled>No tags available</MenuItem>
+                    )}
+                    {tagsLoading && (
+                      <MenuItem disabled>
+                        <CircularProgress size={20} /> Loading tags...
+                      </MenuItem>
+                    )}
+                    {tagOptions.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  {formik.touched[field.name] && formik.errors[field.name] && (
+                    <FormHelperText>{formik.errors[field.name]}</FormHelperText>
+                  )}
+                </FormControl>
+              ) : field.type === "select" ? (
                 <MuiSelect
                   label={field.label}
                   name={field.name}
