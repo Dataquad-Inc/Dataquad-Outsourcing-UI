@@ -130,85 +130,97 @@ const BaseSubmission = ({
   }, []);
 
   const handleMoveToBenchConfirm = async () => {
-    if (!selectedCandidate || !isMountedRef.current) return;
+  if (!selectedCandidate || !isMountedRef.current) return;
 
-    try {
-      setMoveToBenchLoading(true);
-      const row = selectedCandidate;
-      const formData = new FormData();
+  try {
+    setMoveToBenchLoading(true);
+    const row = selectedCandidate;
+    const formData = new FormData();
 
-      formData.append("fullName", row.fullName);
-      formData.append("email", row.emailId || row.candidateEmailId);
-      formData.append("contactNumber", row.contactNumber);
-      formData.append("relevantExperience", row.relevantExperience || "");
-      formData.append("totalExperience", row.totalExperience || "");
-      formData.append("technology", row.technology || "");
+    formData.append("fullName", row.fullName);
+    formData.append("email", row.emailId || row.candidateEmailId);
+    formData.append("contactNumber", row.contactNumber);
+    formData.append("relevantExperience", row.relevantExperience || "");
+    formData.append("totalExperience", row.totalExperience || "");
+    formData.append("technology", row.technology || "");
 
-      if (Array.isArray(row.skills)) {
-        formData.append("skills", JSON.stringify(row.skills));
-      } else if (typeof row.skills === "string") {
-        const skillsArray = row.skills.split(",").map((skill) => skill.trim());
-        formData.append("skills", JSON.stringify(skillsArray));
-      } else {
-        formData.append("skills", JSON.stringify([]));
-      }
+    if (Array.isArray(row.skills)) {
+      formData.append("skills", JSON.stringify(row.skills));
+    } else if (typeof row.skills === "string") {
+      const skillsArray = row.skills.split(",").map((skill) => skill.trim());
+      formData.append("skills", JSON.stringify(skillsArray));
+    } else {
+      formData.append("skills", JSON.stringify([]));
+    }
 
-      formData.append("linkedin", row.linkedin || "");
-      formData.append("referredBy", row.recruiterName || "");
-      formData.append("remarks", remarks);
+    formData.append("linkedin", row.linkedin || "");
+    formData.append("referredBy", row.recruiterName || "");
+    formData.append("remarks", remarks);
 
-      try {
-        const response = await httpService.get(
-          `/candidate/download-resume/${row.candidateId}/${row.jobId}`,
-          {
-            responseType: "blob",
-          },
-        );
-
-        let fileName = `resume_${row.candidateId}.pdf`;
-        if (response.headers["content-disposition"]) {
-          const contentDisposition = response.headers["content-disposition"];
-          const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
-          if (filenameMatch && filenameMatch[1]) {
-            fileName = filenameMatch[1];
-          }
-        }
-
-        const blob = new Blob([response.data], {
-          type: response.headers["content-type"] || "application/pdf",
-        });
-        const file = new File([blob], fileName);
-
-        formData.append("resumeFile", file);
-      } catch (error) {
-        console.error("Error fetching resume:", error);
-        showToast("Resume not found, submitting without it", "warning");
-      }
-
-      await httpService.post("/candidate/bench/save", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
-
-      if (isMountedRef.current) {
-        refreshData?.();
-        showToast(`${row.fullName} moved to bench successfully!`, "success");
-        setMoveToBenchDialogOpen(false);
-        setSelectedCandidate(null);
-        setRemarks("");
-      }
-    } catch (error) {
-      console.error("Move to bench failed:", error);
-      const errorMsg =
-        error.response?.data?.message || "Failed to move candidate to bench";
-      showToast(errorMsg, "error");
-    } finally {
-      if (isMountedRef.current) {
-        setMoveToBenchLoading(false);
+    // ✅ ADD TAGS AS STRING (NOT ARRAY)
+    let tagsString = "";
+    if (row.tag) {
+      if (Array.isArray(row.tag)) {
+        tagsString = row.tag.join(", ");
+      } else if (typeof row.tag === "string") {
+        tagsString = row.tag;
       }
     }
-  };
+    formData.append("tags", tagsString);
+
+    // Try to fetch resume
+    try {
+      const response = await httpService.get(
+        `/candidate/download-resume/${row.candidateId}/${row.jobId}`,
+        {
+          responseType: "blob",
+        },
+      );
+
+      let fileName = `resume_${row.candidateId}.pdf`;
+      if (response.headers["content-disposition"]) {
+        const contentDisposition = response.headers["content-disposition"];
+        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+        if (filenameMatch && filenameMatch[1]) {
+          fileName = filenameMatch[1];
+        }
+      }
+
+      const blob = new Blob([response.data], {
+        type: response.headers["content-type"] || "application/pdf",
+      });
+      const file = new File([blob], fileName);
+
+      formData.append("resumeFile", file);
+    } catch (error) {
+      console.error("Error fetching resume:", error);
+      showToast("Resume not found, submitting without it", "warning");
+    }
+
+    await httpService.post("/candidate/bench/save", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+
+    if (isMountedRef.current) {
+      refreshData?.();
+      showToast(`${row.fullName} moved to bench successfully!`, "success");
+      setMoveToBenchDialogOpen(false);
+      setSelectedCandidate(null);
+      setRemarks("");
+    }
+  } catch (error) {
+    console.error("Move to bench failed:", error);
+    const errorMsg =
+      error.response?.data?.message || "Failed to move candidate to bench";
+    showToast(errorMsg, "error");
+  } finally {
+    if (isMountedRef.current) {
+      setMoveToBenchLoading(false);
+    }
+  }
+};
 
   const handleMoveToBenchCancel = useCallback(() => {
     if (!isMountedRef.current) return;
