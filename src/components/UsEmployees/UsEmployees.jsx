@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { Button, MenuItem, TextField, Stack } from "@mui/material";
+import { Button, MenuItem, TextField, Stack, Box } from "@mui/material";
 import { useSelector } from "react-redux";
 import CustomDataTable from "../../ui-lib/CustomDataTable";
 import getEmployeeColumns from "./EmployeeTableColumnConfig";
@@ -42,7 +42,7 @@ const UsEmployees = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [search, setSearch] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState("all");
+  const [selectedFilter, setSelectedFilter] = useState("active");
 
   const BASE_URL = "https://mymulya.com";
   const roleOptions = [
@@ -181,7 +181,6 @@ const UsEmployees = () => {
       const payload = {
         ...selectedEmployee,
         ...formValues,
-        // ✅ FIX: Send roles as string, not array
         roles: formValues.roles,
         phoneNumber: formValues.phoneNumber.replace(/\D/g, ""),
       };
@@ -224,25 +223,85 @@ const UsEmployees = () => {
   /** ---------------- Render ---------------- */
   return (
     <>
-      <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 2 }} marginTop={1}>
-        {[
-          { key: "all", label: "All" },
-          { key: "active", label: "Active" },
-          { key: "inactive", label: "In-Active" },
-          { key: "internal", label: "Internal" },
-          { key: "external", label: "External" },
-          // { key: "external-placed", label: "External Placed" },
-        ].map((filter) => (
+      {/* ✅ Centered Filter Buttons with Toggle Functionality */}
+      <Box sx={{ display: "flex", justifyContent: "center", mb: 2, mt: 1 }}>
+        <Stack 
+          direction="row" 
+          spacing={1} 
+          flexWrap="wrap" 
+          justifyContent="center"
+          alignItems="center"
+        >
+          {/* Status Filters - Active/Inactive */}
           <Button
-            key={filter.key}
-            variant={selectedFilter === filter.key ? "contained" : "outlined"}
-            onClick={() => handleCategoryFilterChange(filter.key)}
-            sx={{ textTransform: "none", minWidth: 150 }}
+            variant={selectedFilter === "active" ? "contained" : "outlined"}
+            onClick={() => handleCategoryFilterChange("active")}
+            sx={{ 
+              textTransform: "none", 
+              minWidth: 120,
+              backgroundColor: selectedFilter === "active" ? "#F26322" : "transparent",
+              color: selectedFilter === "active" ? "white" : "inherit",
+              '&:hover': {
+                backgroundColor: selectedFilter === "active" ? "#F26322" : "rgba(25, 118, 210, 0.04)",
+              }
+            }}
           >
-            {filter.label}
+            Active
           </Button>
-        ))}
-      </Stack>
+          
+          <Button
+            variant={selectedFilter === "inactive" ? "contained" : "outlined"}
+            onClick={() => handleCategoryFilterChange("inactive")}
+            sx={{ 
+              textTransform: "none", 
+              minWidth: 120,
+              backgroundColor: selectedFilter === "inactive" ? "#F26322" : "transparent",
+              color: selectedFilter === "inactive" ? "white" : "inherit",
+              '&:hover': {
+                backgroundColor: selectedFilter === "inactive" ? "#F26322" : "rgba(25, 118, 210, 0.04)",
+              }
+            }}
+          >
+            In-Active
+          </Button>
+
+          {/* Divider or Spacer */}
+          <Box sx={{ width: 16 }} />
+
+          {/* Type Filters - Internal/External */}
+          <Button
+            variant={selectedFilter === "internal" ? "contained" : "outlined"}
+            onClick={() => handleCategoryFilterChange("internal")}
+            sx={{ 
+              textTransform: "none", 
+              minWidth: 120,
+              backgroundColor: selectedFilter === "internal" ? "#F26322" : "transparent",
+              color: selectedFilter === "internal" ? "white" : "inherit",
+              '&:hover': {
+                backgroundColor: selectedFilter === "internal" ? "#F26322" : "rgba(25, 118, 210, 0.04)",
+              }
+            }}
+          >
+            Internal
+          </Button>
+          
+          <Button
+            variant={selectedFilter === "external" ? "contained" : "outlined"}
+            onClick={() => handleCategoryFilterChange("external")}
+            sx={{ 
+              textTransform: "none", 
+              minWidth: 120,
+              backgroundColor: selectedFilter === "external" ? "#F26322" : "transparent",
+              color: selectedFilter === "external" ? "white" : "inherit",
+              '&:hover': {
+                backgroundColor: selectedFilter === "external" ? "#F26322" : "rgba(25, 118, 210, 0.04)",
+              }
+            }}
+          >
+            External
+          </Button>
+        </Stack>
+      </Box>
 
       <CustomDataTable
         title="US Employees"
