@@ -42,7 +42,10 @@ const UsEmployees = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [search, setSearch] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState("active");
+  
+  // ✅ Split into two separate filters
+  const [statusFilter, setStatusFilter] = useState("active"); // "active" or "inactive"
+  const [typeFilter, setTypeFilter] = useState("internal"); // "internal" or "external" or "all"
 
   const BASE_URL = "https://mymulya.com";
   const roleOptions = [
@@ -62,10 +65,15 @@ const UsEmployees = () => {
     try {
       setLoading(true);
       const apiPage = Math.max(page, 0);
-      const categoryQuery =
-        selectedFilter && selectedFilter !== "all"
-          ? `&category=${encodeURIComponent(selectedFilter)}`
-          : "";
+      
+      // Build category query based on both filters
+      let categoryQuery = "";
+      if (statusFilter && statusFilter !== "all") {
+        categoryQuery += `&category=${encodeURIComponent(statusFilter)}`;
+      }
+      if (typeFilter && typeFilter !== "all") {
+        categoryQuery += `&type=${encodeURIComponent(typeFilter)}`;
+      }
 
       const response = await fetch(
         `${BASE_URL}/hotlist/user/allUsers?page=${apiPage}&size=${rowsPerPage}&search=${encodeURIComponent(
@@ -91,7 +99,7 @@ const UsEmployees = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, search, selectedFilter]);
+  }, [page, rowsPerPage, search, statusFilter, typeFilter]); // ✅ Added both filters
 
   React.useEffect(() => {
     fetchData();
@@ -127,8 +135,15 @@ const UsEmployees = () => {
     showInfoToast("Create new employee clicked");
   };
 
-  const handleCategoryFilterChange = (filterKey) => {
-    setSelectedFilter(filterKey);
+  // ✅ Separate handlers for each filter
+  const handleStatusFilterChange = (filterKey) => {
+    setStatusFilter(filterKey);
+    setPage(0);
+    setRefreshKey((prev) => prev + 1);
+  };
+
+  const handleTypeFilterChange = (filterKey) => {
+    setTypeFilter(filterKey);
     setPage(0);
     setRefreshKey((prev) => prev + 1);
   };
@@ -223,7 +238,7 @@ const UsEmployees = () => {
   /** ---------------- Render ---------------- */
   return (
     <>
-      {/* ✅ Centered Filter Buttons with Toggle Functionality */}
+      {/* ✅ Filter Buttons with Separate Groups */}
       <Box sx={{ display: "flex", justifyContent: "center", mb: 2, mt: 1 }}>
         <Stack 
           direction="row" 
@@ -232,17 +247,19 @@ const UsEmployees = () => {
           justifyContent="center"
           alignItems="center"
         >
-          {/* Status Filters - Active/Inactive */}
+          {/* 🔹 Status Group - Active/Inactive */}
           <Button
-            variant={selectedFilter === "active" ? "contained" : "outlined"}
-            onClick={() => handleCategoryFilterChange("active")}
+            variant={statusFilter === "active" ? "contained" : "outlined"}
+            onClick={() => handleStatusFilterChange("active")}
             sx={{ 
               textTransform: "none", 
               minWidth: 120,
-              backgroundColor: selectedFilter === "active" ? "#F26322" : "transparent",
-              color: selectedFilter === "active" ? "white" : "inherit",
+              backgroundColor: statusFilter === "active" ? "#F26322" : "transparent",
+              color: statusFilter === "active" ? "white" : "inherit",
+              borderColor: statusFilter === "active" ? "#F26322" : "rgba(0, 0, 0, 0.23)",
               '&:hover': {
-                backgroundColor: selectedFilter === "active" ? "#F26322" : "rgba(25, 118, 210, 0.04)",
+                backgroundColor: statusFilter === "active" ? "#F26322" : "rgba(242, 99, 34, 0.04)",
+                borderColor: statusFilter === "active" ? "#F26322" : "rgba(0, 0, 0, 0.23)",
               }
             }}
           >
@@ -250,35 +267,39 @@ const UsEmployees = () => {
           </Button>
           
           <Button
-            variant={selectedFilter === "inactive" ? "contained" : "outlined"}
-            onClick={() => handleCategoryFilterChange("inactive")}
+            variant={statusFilter === "inactive" ? "contained" : "outlined"}
+            onClick={() => handleStatusFilterChange("inactive")}
             sx={{ 
               textTransform: "none", 
               minWidth: 120,
-              backgroundColor: selectedFilter === "inactive" ? "#F26322" : "transparent",
-              color: selectedFilter === "inactive" ? "white" : "inherit",
+              backgroundColor: statusFilter === "inactive" ? "#F26322" : "transparent",
+              color: statusFilter === "inactive" ? "white" : "inherit",
+              borderColor: statusFilter === "inactive" ? "#F26322" : "rgba(0, 0, 0, 0.23)",
               '&:hover': {
-                backgroundColor: selectedFilter === "inactive" ? "#F26322" : "rgba(25, 118, 210, 0.04)",
+                backgroundColor: statusFilter === "inactive" ? "#F26322" : "rgba(242, 99, 34, 0.04)",
+                borderColor: statusFilter === "inactive" ? "#F26322" : "rgba(0, 0, 0, 0.23)",
               }
             }}
           >
             In-Active
           </Button>
 
-          {/* Divider or Spacer */}
+          {/* Divider */}
           <Box sx={{ width: 16 }} />
 
-          {/* Type Filters - Internal/External */}
+          {/* 🔹 Type Group - Internal/External */}
           <Button
-            variant={selectedFilter === "internal" ? "contained" : "outlined"}
-            onClick={() => handleCategoryFilterChange("internal")}
+            variant={typeFilter === "internal" ? "contained" : "outlined"}
+            onClick={() => handleTypeFilterChange("internal")}
             sx={{ 
               textTransform: "none", 
               minWidth: 120,
-              backgroundColor: selectedFilter === "internal" ? "#F26322" : "transparent",
-              color: selectedFilter === "internal" ? "white" : "inherit",
+              backgroundColor: typeFilter === "internal" ? "#F26322" : "transparent",
+              color: typeFilter === "internal" ? "white" : "inherit",
+              borderColor: typeFilter === "internal" ? "#F26322" : "rgba(0, 0, 0, 0.23)",
               '&:hover': {
-                backgroundColor: selectedFilter === "internal" ? "#F26322" : "rgba(25, 118, 210, 0.04)",
+                backgroundColor: typeFilter === "internal" ? "#F26322" : "rgba(242, 99, 34, 0.04)",
+                borderColor: typeFilter === "internal" ? "#F26322" : "rgba(0, 0, 0, 0.23)",
               }
             }}
           >
@@ -286,15 +307,17 @@ const UsEmployees = () => {
           </Button>
           
           <Button
-            variant={selectedFilter === "external" ? "contained" : "outlined"}
-            onClick={() => handleCategoryFilterChange("external")}
+            variant={typeFilter === "external" ? "contained" : "outlined"}
+            onClick={() => handleTypeFilterChange("external")}
             sx={{ 
               textTransform: "none", 
               minWidth: 120,
-              backgroundColor: selectedFilter === "external" ? "#F26322" : "transparent",
-              color: selectedFilter === "external" ? "white" : "inherit",
+              backgroundColor: typeFilter === "external" ? "#F26322" : "transparent",
+              color: typeFilter === "external" ? "white" : "inherit",
+              borderColor: typeFilter === "external" ? "#F26322" : "rgba(0, 0, 0, 0.23)",
               '&:hover': {
-                backgroundColor: selectedFilter === "external" ? "#F26322" : "rgba(25, 118, 210, 0.04)",
+                backgroundColor: typeFilter === "external" ? "#F26322" : "rgba(242, 99, 34, 0.04)",
+                borderColor: typeFilter === "external" ? "#F26322" : "rgba(0, 0, 0, 0.23)",
               }
             }}
           >
@@ -410,3 +433,4 @@ const UsEmployees = () => {
 };
 
 export default UsEmployees;
+
