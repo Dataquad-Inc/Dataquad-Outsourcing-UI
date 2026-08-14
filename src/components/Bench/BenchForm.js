@@ -37,31 +37,7 @@ const BenchCandidateForm = ({
   const [errors, setErrors] = useState({});
   const [tagSelection, setTagSelection] = useState("");
   const [customTagInput, setCustomTagInput] = useState("");
-  const [PRESET_TAGS , setTagsList] = useState([]);
-
-//  const PRESET_TAGS = [
-//   "Java Full Stack Dev",
-//   "Java Backend Dev",
-//   "Java Frontend Dev",
-//   "AI/ML",
-//   "Cybersecurity",
-//   "Data Science & Big Data",
-//   "DevOps & Platform Engineering",
-//   "Quantum Computing",
-//   "Salesforce Developer",
-//   "Mulesoft Developer",
-//   ".Net Developer",
-//   "Python Developer",
-//   "QA Engineer",
-//   "UI Developer",
-//   "Business Analyst",
-//   "MERN Stack Developer",
-//   "Oracle Tech",
-//   "Data Engineer",
-//   "SAP Consultants",
-//   "Scrum Master",
-//   "M365 Dynamics"
-// ];
+  const [PRESET_TAGS, setTagsList] = useState([]);
 
   const applyTagFromValue = (tagValue) => {
     if (!tagValue) {
@@ -86,8 +62,6 @@ const BenchCandidateForm = ({
       setFormValues((prev) => ({ ...prev, tags: "" }));
     }
   };
-  
-
 
   const formInitialValues = {
     id: "",
@@ -103,6 +77,7 @@ const BenchCandidateForm = ({
     technology: "",
     resumeAvailable: false,
     tags: "",
+    status: "ACTIVE",
   };
 
   const [formValues, setFormValues] = useState(formInitialValues);
@@ -110,11 +85,11 @@ const BenchCandidateForm = ({
   // File validation schema
   const fileValidation = Yup.mixed()
     .test("fileSize", "File size is too large (max 5MB)", (value) => {
-      if (!value) return true; // Skip validation if no file
+      if (!value) return true;
       return value.size <= 5 * 1024 * 1024;
     })
     .test("fileType", "Only PDF and Word documents are allowed", (value) => {
-      if (!value) return true; // Skip validation if no file
+      if (!value) return true;
       return (
         value.type === "application/pdf" ||
         value.type === "application/msword" ||
@@ -123,23 +98,24 @@ const BenchCandidateForm = ({
       );
     });
 
-    const fetchBenchTags = async () => {
-      try {
-        const response = await benchAPI.getBenchTags();
-        setTagsList(response);
-      } catch (error) {
-        ToastService.error("error while getting the tags ");
-      }
-    };
+  const fetchBenchTags = async () => {
+    try {
+      const response = await benchAPI.getBenchTags();
+      setTagsList(response);
+    } catch (error) {
+      ToastService.error("error while getting the tags ");
+    }
+  };
 
-    useEffect(() => {
-      fetchBenchTags();
-    }, []);
+  useEffect(() => {
+    fetchBenchTags();
+  }, []);
 
   // Initialize form values when edit mode or initial data changes
   useEffect(() => {
     if (isEditMode && initialData) {
       // If we already have the data, use it directly
+      console.log("Initial data received:", initialData); // Debug log
       setFormValues({
         id: initialData.id,
         fullName: initialData.fullName || "",
@@ -154,6 +130,7 @@ const BenchCandidateForm = ({
         technology: initialData.technology || "",
         resumeAvailable: initialData.resumeAvailable || false,
         tags: initialData.tags || "",
+        status: initialData.status || initialData.activeStatus || "ACTIVE", // Try multiple field names
       });
       applyTagFromValue(initialData.tags || "");
       setLoading(false);
@@ -173,6 +150,12 @@ const BenchCandidateForm = ({
           const response = await httpService.get(`/candidate/bench/${id}`);
           const candidateData = response.data;
           
+          console.log("Fetched candidate data:", candidateData); // Debug log
+          
+          // Check if status exists in response and log it
+          console.log("Status from API:", candidateData.status);
+          console.log("ActiveStatus from API:", candidateData.activeStatus);
+          
           setFormValues({
             id: candidateData.id,
             fullName: candidateData.fullName || "",
@@ -187,6 +170,7 @@ const BenchCandidateForm = ({
             technology: candidateData.technology || "",
             resumeAvailable: candidateData.resumeAvailable || false,
             tags: candidateData.tags || "",
+            status: candidateData.status || candidateData.activeStatus || "ACTIVE", // Try multiple field names
           });
           applyTagFromValue(candidateData.tags || "");
           
@@ -207,11 +191,9 @@ const BenchCandidateForm = ({
   // Reset form when dialog opens/closes
   useEffect(() => {
     if (!open) {
-      // Don't reset immediately to avoid visual glitches when closing
       return;
     }
     
-    // Form is already initialized in other useEffects based on initialData and isEditMode
     setInputValue("");
     setResumeFileName("");
     setErrors({});
@@ -249,21 +231,18 @@ const BenchCandidateForm = ({
       .nullable()
       .transform((value) => (value === "" ? null : value)),
     referredBy: Yup.string().nullable(),
+    status: Yup.string().oneOf(["ACTIVE", "INACTIVE"], "Invalid status"),
   });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormValues((prev) => ({ ...prev, [name]: value }));
-    
-    // For real-time validation feedback, you can validate the field immediately
-    // Optional: Remove this if you want to validate only on blur
     validateField(name, value);
   };
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Validate file
       validateFileField(file);
     }
   };
@@ -271,12 +250,10 @@ const BenchCandidateForm = ({
   const validateFileField = (file) => {
     let fileError = null;
     
-    // Check file size
     if (file.size > 5 * 1024 * 1024) {
       fileError = "File size is too large (max 5MB)";
     }
     
-    // Check file type
     const allowedTypes = [
       "application/pdf", 
       "application/msword", 
@@ -298,7 +275,6 @@ const BenchCandidateForm = ({
 
   const validateField = async (fieldName, value) => {
     try {
-      // Create a schema just for this field
       let schema;
       
       switch (fieldName) {
@@ -364,19 +340,20 @@ const BenchCandidateForm = ({
               .of(Yup.string().required("Skill cannot be empty"))
           });
           break;
+        case "status":
+          schema = Yup.object().shape({
+            status: Yup.string().oneOf(["ACTIVE", "INACTIVE"], "Invalid status")
+          });
+          break;
         case "referredBy":
-          // No strict validation for referredBy
           return;
         default:
-          return; // No validation for other fields
+          return;
       }
       
       await schema.validate({ [fieldName]: value }, { abortEarly: false });
-      
-      // If validation passes, clear error for this field
       setErrors(prev => ({ ...prev, [fieldName]: undefined }));
     } catch (validationErrors) {
-      // Set error for this field
       setErrors(prev => ({ 
         ...prev, 
         [fieldName]: validationErrors.errors[0] 
@@ -388,7 +365,6 @@ const BenchCandidateForm = ({
     const { name, value } = e.target;
     validateField(name, value);
     
-    // Special case for skills validation when the skills input field loses focus
     if (name === "skills-input") {
       validateField("skills", formValues.skills);
     }
@@ -443,11 +419,11 @@ const BenchCandidateForm = ({
       formData.append("skills", JSON.stringify(formValues.skills));
       formData.append("technology", formValues.technology);
       formData.append("tags", formValues.tags || "");
+      formData.append("status", formValues.status || "ACTIVE");
 
       if (formValues.resumeFile) {
         formData.append("resumeFiles", formValues.resumeFile);
       } else if (isEditMode) {
-        // In edit mode, if no new file is provided, we'll keep the existing one
         formData.append("keepExistingResume", "true");
       }
 
@@ -704,6 +680,39 @@ const BenchCandidateForm = ({
               disabled={submitting}
             />
           </Grid>
+
+          {/* STATUS FIELD - Show in both add and edit mode but only editable in edit */}
+          {isEditMode ? (
+            <Grid item xs={12} sm={6}>
+              <TextField
+                select
+                name="status"
+                label="Status"
+                value={formValues.status}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                fullWidth
+                required
+                error={!!errors.status}
+                helperText={errors.status}
+                disabled={submitting}
+              >
+                <MenuItem value="ACTIVE">Active</MenuItem>
+                <MenuItem value="INACTIVE">InActive</MenuItem>
+              </TextField>
+            </Grid>
+          ) : (
+            // For new candidates, show status as read-only or hidden
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Status"
+                value="ACTIVE"
+                fullWidth
+                disabled
+                helperText="New candidates are created with Active status"
+              />
+            </Grid>
+          )}
 
           {/* RESUME UPLOAD */}
           <Grid item xs={12} sm={6}>
