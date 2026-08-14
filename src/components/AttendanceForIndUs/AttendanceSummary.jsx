@@ -26,6 +26,8 @@ import {
   TextField,
   InputAdornment,
   TableSortLabel,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@mui/material";
 import {
   RefreshCw,
@@ -38,6 +40,7 @@ import {
 // Import Redux actions and selectors
 import {
   fetchAttendanceData,
+  fetchApprovedSummary,
   setSelectedMonth,
   setSelectedYear,
   setEntity,
@@ -46,11 +49,16 @@ import {
   setSearch,
   setOrderBy,
   setOrder,
+  setViewMode,
   clearSnackbar,
   setSnackbar,
   selectAttendanceData,
   selectLoading,
   selectError,
+  selectApprovedSummaryData,
+  selectApprovedLoading,
+  selectApprovedError,
+  selectViewMode,
   selectSelectedMonth,
   selectSelectedYear,
   selectEntity,
@@ -77,6 +85,12 @@ const AttendanceSummary = () => {
   const attendanceData = useSelector(selectAttendanceData);
   const loading = useSelector(selectLoading);
   const error = useSelector(selectError);
+  
+  const approvedSummaryData = useSelector(selectApprovedSummaryData);
+  const approvedLoading = useSelector(selectApprovedLoading);
+  const approvedError = useSelector(selectApprovedError);
+  
+  const viewMode = useSelector(selectViewMode);
   const selectedMonth = useSelector(selectSelectedMonth);
   const selectedYear = useSelector(selectSelectedYear);
   const entity = useSelector(selectEntity);
@@ -104,8 +118,12 @@ const AttendanceSummary = () => {
   // ============================================================
 
   const fetchData = useCallback(() => {
-    dispatch(fetchAttendanceData({ month: selectedMonth, year: selectedYear, entity }));
-  }, [dispatch, selectedMonth, selectedYear, entity]);
+    if (viewMode === 'month') {
+      dispatch(fetchAttendanceData({ month: selectedMonth, year: selectedYear, entity }));
+    } else {
+      dispatch(fetchApprovedSummary({ month: selectedMonth, year: selectedYear, entity }));
+    }
+  }, [dispatch, selectedMonth, selectedYear, entity, viewMode]);
 
   useEffect(() => {
     fetchData();
@@ -114,6 +132,13 @@ const AttendanceSummary = () => {
   // ============================================================
   // HANDLERS
   // ============================================================
+
+  const handleViewModeChange = (event, newMode) => {
+    if (newMode !== null) {
+      dispatch(setViewMode(newMode));
+      dispatch(setPage(0));
+    }
+  };
 
   const handleMonthChange = (event) => {
     dispatch(setSelectedMonth(parseInt(event.target.value)));
@@ -183,16 +208,21 @@ const AttendanceSummary = () => {
       : (a, b) => -descendingComparator(a, b, orderBy);
   };
 
+  // Get the current data based on view mode
+  const currentData = viewMode === 'month' ? attendanceData : approvedSummaryData;
+  const isLoading = viewMode === 'month' ? loading : approvedLoading;
+  const currentError = viewMode === 'month' ? error : approvedError;
+
   const filteredData = useMemo(() => {
-    if (!search) return attendanceData;
+    if (!search) return currentData;
     
     const searchLower = search.toLowerCase();
-    return attendanceData.filter((item) => 
+    return currentData.filter((item) => 
       item.employeeId?.toLowerCase().includes(searchLower) ||
       item.employeeName?.toLowerCase().includes(searchLower) ||
       item.designation?.toLowerCase().includes(searchLower)
     );
-  }, [attendanceData, search]);
+  }, [currentData, search]);
 
   const sortedData = useMemo(() => {
     const comparator = getComparator(order, orderBy);
@@ -244,7 +274,10 @@ const AttendanceSummary = () => {
       const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Attendance Summary");
-      XLSX.writeFile(wb, `attendance_summary_${selectedMonth}_${selectedYear}.xlsx`);
+      const fileName = viewMode === 'month' 
+        ? `attendance_summary_${selectedMonth}_${selectedYear}`
+        : `approved_summary_${selectedMonth}_${selectedYear}`;
+      XLSX.writeFile(wb, `${fileName}.xlsx`);
       
       dispatch(setSnackbar({
         open: true,
@@ -327,6 +360,38 @@ const AttendanceSummary = () => {
         </Box>
         
         <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
+          {/* View Mode Toggle Buttons */}
+          <ToggleButtonGroup
+            value={viewMode}
+            exclusive
+            onChange={handleViewModeChange}
+            aria-label="view mode"
+            size="small"
+            sx={{
+              '& .MuiToggleButton-root': {
+                px: 3,
+                py: 0.75,
+                fontWeight: 500,
+                fontSize: '0.875rem',
+                textTransform: 'none',
+              },
+              '& .MuiToggleButton-root.Mui-selected': {
+                backgroundColor: '#0F7C82',
+                color: '#FFFFFF',
+                '&:hover': {
+                  backgroundColor: '#0A5E63',
+                },
+              },
+            }}
+          >
+            <ToggleButton value="month" aria-label="month view">
+              Month
+            </ToggleButton>
+            <ToggleButton value="approved" aria-label="approved view">
+              Approved
+            </ToggleButton>
+          </ToggleButtonGroup>
+
           <FormControl size="small" sx={{ minWidth: 120 }}>
             <InputLabel>Month</InputLabel>
             <Select
@@ -359,9 +424,9 @@ const AttendanceSummary = () => {
 
           <Button
             variant="contained"
-            startIcon={loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+            startIcon={isLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
             onClick={handleRefresh}
-            disabled={loading}
+            disabled={isLoading}
             sx={{ 
               backgroundColor: '#0F7C82',
               '&:hover': { backgroundColor: '#0A5E63' }
@@ -374,6 +439,7 @@ const AttendanceSummary = () => {
             variant="outlined"
             startIcon={<Download size={16} />}
             onClick={handleExport}
+            disabled={filteredData.length === 0}
             sx={{ 
               borderColor: '#0F7C82',
               color: '#0F7C82',
@@ -389,9 +455,9 @@ const AttendanceSummary = () => {
       </Box>
 
       {/* Error Display */}
-      {error && (
+      {currentError && (
         <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
+          {currentError}
         </Alert>
       )}
 
@@ -420,13 +486,13 @@ const AttendanceSummary = () => {
         />
       </Paper>
 
-      {/* Summary Table - Only Summary Columns */}
+      {/* Summary Table */}
       <Paper sx={{ width: '100%', overflow: 'hidden', borderRadius: 2 }}>
         <TableContainer sx={{ maxHeight: '70vh', overflowX: 'auto' }}>
           <Table stickyHeader size="small">
             <TableHead>
               <TableRow>
-                {/* Employee ID - Now first column */}
+                {/* Employee ID */}
                 <TableCell 
                   sx={{ 
                     bgcolor: '#0F7C82', 
@@ -885,17 +951,23 @@ const AttendanceSummary = () => {
             </TableHead>
 
             <TableBody>
-              {loading ? (
+              {isLoading ? (
                 <TableRow>
                   <TableCell colSpan={16} align="center" sx={{ py: 5 }}>
                     <Loader2 size={32} className="animate-spin" />
-                    <Typography variant="body2" sx={{ mt: 1 }}>Loading attendance summary...</Typography>
+                    <Typography variant="body2" sx={{ mt: 1 }}>
+                      {viewMode === 'month' ? 'Loading attendance summary...' : 'Loading approved summary...'}
+                    </Typography>
                   </TableCell>
                 </TableRow>
               ) : paginatedData.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={16} align="center" sx={{ py: 5 }}>
-                    <Typography variant="body2" color="textSecondary">No records found</Typography>
+                    <Typography variant="body2" color="textSecondary">
+                      {viewMode === 'month' 
+                        ? 'No attendance records found for the selected month' 
+                        : 'No approved records found for the selected month'}
+                    </Typography>
                   </TableCell>
                 </TableRow>
               ) : (
@@ -913,7 +985,7 @@ const AttendanceSummary = () => {
 
                   return (
                     <TableRow key={row.employeeId} hover>
-                      {/* Employee ID - Now first column */}
+                      {/* Employee ID */}
                       <TableCell 
                         sx={{ 
                           position: 'sticky',

@@ -19,6 +19,8 @@ import {
   useTheme,
   Popover,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@mui/material";
 import {
   Edit,
@@ -357,6 +359,9 @@ const BenchListTab = ({ onAddClick }) => {
   const [searchKeyword, setSearchKeyword] = useState("");
   const [noResultsFound, setNoResultsFound] = useState(false);
 
+  // ── Status filter state ──────────────────────────────────────────────────────
+  const [statusFilter, setStatusFilter] = useState("ACTIVE");
+
   // ── Selection state for checkboxes ──────────────────────────────────────────
   const [selectedRows, setSelectedRows] = useState([]);
 
@@ -376,13 +381,17 @@ const BenchListTab = ({ onAddClick }) => {
 
   // ── Fetch bench list ──────────────────────────────────────────────────────────
   const fetchBenchList = useCallback(
-    async (currentPage, currentRowsPerPage, search) => {
+    async (currentPage, currentRowsPerPage, search, status) => {
       try {
         setLoading(true);
         setNoResultsFound(false);
 
-        const params = { page: currentPage, size: currentRowsPerPage };
+        const params = { 
+          page: currentPage, 
+          size: currentRowsPerPage 
+        };
         if (search && search.trim()) params.search = search.trim();
+        if (status) params.status = status;
 
         const response = await httpService.get(
           "/candidate/bench/getBenchList",
@@ -418,16 +427,16 @@ const BenchListTab = ({ onAddClick }) => {
   useEffect(() => {
     if (isUpdating.current) return;
     isUpdating.current = true;
-    fetchBenchList(page, rowsPerPage, searchKeyword);
+    fetchBenchList(page, rowsPerPage, searchKeyword, statusFilter);
     setTimeout(() => {
       isUpdating.current = false;
     }, 0);
-  }, [page, rowsPerPage, searchKeyword, fetchBenchList]);
+  }, [page, rowsPerPage, searchKeyword, statusFilter, fetchBenchList]);
 
   // Clear selection when data changes (page change, search, etc.)
   useEffect(() => {
     setSelectedRows([]);
-  }, [page, rowsPerPage, searchKeyword, benchData]);
+  }, [page, rowsPerPage, searchKeyword, statusFilter, benchData]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────────
   const handleView = (row) => {
@@ -461,7 +470,7 @@ const BenchListTab = ({ onAddClick }) => {
   };
 
   const handleFormSuccess = () =>
-    fetchBenchList(page, rowsPerPage, searchKeyword);
+    fetchBenchList(page, rowsPerPage, searchKeyword, statusFilter);
 
   const handleDelete = (row) => {
     setCandidateToDelete(row);
@@ -480,7 +489,7 @@ const BenchListTab = ({ onAddClick }) => {
         "Candidate deleted successfully!",
         "success",
       );
-      fetchBenchList(page, rowsPerPage, searchKeyword);
+      fetchBenchList(page, rowsPerPage, searchKeyword, statusFilter);
       setDeleteDialogOpen(false);
     } catch {
       ToastService.error("Failed to delete candidate");
@@ -504,6 +513,15 @@ const BenchListTab = ({ onAddClick }) => {
     setNoResultsFound(false);
   };
 
+  // ── Status filter handler ────────────────────────────────────────────────────
+  const handleStatusFilterChange = (event, newStatus) => {
+    if (newStatus !== null) {
+      setStatusFilter(newStatus);
+      setPage(0);
+      setSelectedRows([]);
+    }
+  };
+
   const handleBenchCandidate = async (candidate) => {
     let toastId;
     try {
@@ -523,7 +541,7 @@ const BenchListTab = ({ onAddClick }) => {
         "Register request sent successfully",
         "success",
       );
-      fetchBenchList(page, rowsPerPage, searchKeyword);
+      fetchBenchList(page, rowsPerPage, searchKeyword, statusFilter);
     } catch (error) {
       ToastService.update(
         toastId,
@@ -546,6 +564,7 @@ const BenchListTab = ({ onAddClick }) => {
         page: 0,
         size: totalCount,
         ...(exportParams?.searchQuery && { search: exportParams.searchQuery }),
+        ...(statusFilter && { status: statusFilter }),
       };
       const fileName = `bench_candidates_${new Date().toISOString().split("T")[0]}`;
       await exportFile(
@@ -995,13 +1014,45 @@ const BenchListTab = ({ onAddClick }) => {
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <>
-      {/* Add button header */}
+      {/* Header with Status Toggle and Add button */}
       <Stack
         direction="row"
         alignItems="center"
-        justifyContent="flex-end"
+        justifyContent="space-between"
         sx={{ mb: 2 }}
       >
+        {/* Status Toggle Buttons */}
+        <ToggleButtonGroup
+          value={statusFilter}
+          exclusive
+          onChange={handleStatusFilterChange}
+          aria-label="status filter"
+          size="small"
+          sx={{
+            '& .MuiToggleButton-root': {
+              px: 3,
+              py: 0.75,
+              fontWeight: 500,
+              fontSize: '0.875rem',
+            },
+            '& .MuiToggleButton-root.Mui-selected': {
+              backgroundColor: 'primary.main',
+              color: 'white',
+              '&:hover': {
+                backgroundColor: 'primary.dark',
+              },
+            },
+          }}
+        >
+          <ToggleButton value="ACTIVE" aria-label="active">
+            Active
+          </ToggleButton>
+          <ToggleButton value="INACTIVE" aria-label="inactive">
+            Inactive
+          </ToggleButton>
+        </ToggleButtonGroup>
+
+        {/* Add Button */}
         <Button
           variant="text"
           color="primary"
@@ -1041,7 +1092,7 @@ const BenchListTab = ({ onAddClick }) => {
           onPageChange={handlePageChange}
           onRowsPerPageChange={handleRowsPerPageChange}
           rowsPerPageOptions={[10, 20, 40, 60, 80, 100]}
-          refreshData={() => fetchBenchList(page, rowsPerPage, searchKeyword)}
+          refreshData={() => fetchBenchList(page, rowsPerPage, searchKeyword, statusFilter)}
           onSearchChange={handleSearch}
           searchValue={searchKeyword}
           enableLocalFiltering={false}

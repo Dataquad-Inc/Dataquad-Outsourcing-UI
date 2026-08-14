@@ -30,6 +30,32 @@ export const fetchAttendanceData = createAsyncThunk(
   }
 );
 
+// Fetch approved summary data
+export const fetchApprovedSummary = createAsyncThunk(
+  'attendance/fetchApprovedSummary',
+  async ({ month, year, entity }, { rejectWithValue }) => {
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/users/attendance/approved-summary`,
+        {
+          params: { month, year, entity },
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+
+      if (!response.data.success) {
+        return rejectWithValue(response.data.error || 'Failed to fetch approved summary data');
+      }
+
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || error.message || 'Failed to fetch approved summary data'
+      );
+    }
+  }
+);
+
 // Fetch pending attendance data for SUPERADMIN (GET)
 export const fetchPendingAttendance = createAsyncThunk(
   'attendance/fetchPendingAttendance',
@@ -498,10 +524,19 @@ const initialState = {
   success: false,
   message: '',
   
+  // ===== Approved Summary Data =====
+  approvedSummaryData: [],
+  approvedLoading: false,
+  approvedError: null,
+  approvedSuccess: false,
+  
   // ===== Pending Attendance Data (for SUPERADMIN) =====
   pendingAttendanceData: [],
   pendingLoading: false,
   pendingError: null,
+  
+  // ===== View Mode =====
+  viewMode: 'month', // 'month' or 'approved'
   
   // ===== Pagination & Sorting =====
   page: 0,
@@ -571,6 +606,11 @@ const attendanceSlice = createSlice({
   name: 'attendance',
   initialState,
   reducers: {
+    // ===== View Mode =====
+    setViewMode: (state, action) => {
+      state.viewMode = action.payload;
+    },
+    
     // ===== Attendance Filters =====
     setSelectedMonth: (state, action) => {
       state.selectedMonth = action.payload;
@@ -652,7 +692,7 @@ const attendanceSlice = createSlice({
     // ===== Holiday CRUD (Local - for optimistic updates) =====
     addHolidayLocal: (state, action) => {
       state.holidays.push(action.payload);
-      state.isConfigured = true; // Once a holiday is added, it's configured
+      state.isConfigured = true;
       state.snackbar = {
         open: true,
         message: 'Holiday added successfully',
@@ -661,8 +701,6 @@ const attendanceSlice = createSlice({
     },
     deleteHolidayLocal: (state, action) => {
       state.holidays = state.holidays.filter(h => h.id !== action.payload);
-      // Keep isConfigured as true even if holidays become empty
-      // because the configuration still exists
     },
     
     // ===== Configuration Dialog =====
@@ -699,6 +737,7 @@ const attendanceSlice = createSlice({
       state.weeklyError = null;
       state.monthlyError = null;
       state.pendingError = null;
+      state.approvedError = null;
     },
     
     // ===== Reset Update Status =====
@@ -735,6 +774,12 @@ const attendanceSlice = createSlice({
       state.attendanceData = [];
       state.success = false;
     },
+    
+    // ===== Clear Approved Data =====
+    clearApprovedData: (state) => {
+      state.approvedSummaryData = [];
+      state.approvedSuccess = false;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -746,13 +791,11 @@ const attendanceSlice = createSlice({
       .addCase(fetchAttendanceData.fulfilled, (state, action) => {
         state.loading = false;
         state.success = true;
-        // Check if the response indicates no data or not configured
         const data = action.payload.data || [];
         const isConfigured = action.payload.isConfigured !== undefined 
           ? action.payload.isConfigured 
           : data.length > 0;
         
-        // If not configured, clear the data
         if (!isConfigured) {
           state.attendanceData = [];
           state.isConfigured = false;
@@ -779,12 +822,43 @@ const attendanceSlice = createSlice({
         state.success = false;
         state.error = action.payload || 'Failed to fetch attendance data';
         state.message = state.error;
-        // Clear attendance data on error to prevent stale data
         state.attendanceData = [];
         state.isConfigured = false;
         state.snackbar = {
           open: true,
           message: state.error,
+          severity: 'error',
+        };
+      })
+
+      // ===== Approved Summary =====
+      .addCase(fetchApprovedSummary.pending, (state) => {
+        state.approvedLoading = true;
+        state.approvedError = null;
+        state.approvedSuccess = false;
+      })
+      .addCase(fetchApprovedSummary.fulfilled, (state, action) => {
+        state.approvedLoading = false;
+        state.approvedSuccess = true;
+        const data = action.payload.data || [];
+        state.approvedSummaryData = data;
+        state.message = action.payload.message || 'Approved summary loaded successfully';
+        state.snackbar = {
+          open: true,
+          message: state.message,
+          severity: 'success',
+        };
+        state.approvedError = null;
+      })
+      .addCase(fetchApprovedSummary.rejected, (state, action) => {
+        state.approvedLoading = false;
+        state.approvedSuccess = false;
+        state.approvedError = action.payload || 'Failed to fetch approved summary';
+        state.message = state.approvedError;
+        state.approvedSummaryData = [];
+        state.snackbar = {
+          open: true,
+          message: state.approvedError,
           severity: 'error',
         };
       })
@@ -879,8 +953,6 @@ const attendanceSlice = createSlice({
           date: date,
         }));
         
-        // CRITICAL FIX: Set isConfigured to true when API returns success (even with empty data)
-        // This indicates the month has been configured, just with no holidays
         state.isConfigured = true;
         state.message = action.payload.message || 'Holidays loaded successfully';
 
@@ -901,12 +973,9 @@ const attendanceSlice = createSlice({
       .addCase(fetchHolidays.rejected, (state, action) => {
         state.loading = false;
         state.holidays = [];
-        // Only set isConfigured to false if it's a 404 (not found) error
-        // This means the month hasn't been configured yet
         if (action.payload === 'No holidays found' || action.error?.message?.includes('404')) {
           state.isConfigured = false;
         } else {
-          // For other errors, keep the existing configuration state
           state.isConfigured = state.isConfigured || false;
         }
         state.error = action.payload || 'Failed to fetch holidays';
@@ -976,7 +1045,6 @@ const attendanceSlice = createSlice({
         };
       })
 
-      // Delete Attendance Month
       .addCase(deleteAttendanceMonth.pending, (state) => {
         state.configuring = true;
         state.error = null;
@@ -985,7 +1053,7 @@ const attendanceSlice = createSlice({
         state.configuring = false;
         state.isConfigured = false;
         state.holidays = [];
-        state.attendanceData = []; // Clear attendance data when configuration is deleted
+        state.attendanceData = [];
         state.success = true;
         state.message = action.payload.message || 'Attendance configuration deleted successfully';
         state.snackbar = {
@@ -1007,7 +1075,6 @@ const attendanceSlice = createSlice({
         };
       })
 
-      // Delete Holiday
       .addCase(deleteHoliday.pending, (state) => {
         state.deletingHoliday = true;
         state.error = null;
@@ -1019,7 +1086,6 @@ const attendanceSlice = createSlice({
         
         const deletedDate = action.payload.deletedDate;
         state.holidays = state.holidays.filter(h => h.date !== deletedDate);
-        // Keep isConfigured as true even if holidays become empty
         state.isConfigured = true;
         
         state.snackbar = {
@@ -1040,7 +1106,6 @@ const attendanceSlice = createSlice({
         };
       })
 
-      // ===== Weekly Submit =====
       .addCase(submitWeeklyAttendance.pending, (state) => {
         state.weeklyLoading = true;
         state.weeklyError = null;
@@ -1070,7 +1135,6 @@ const attendanceSlice = createSlice({
         };
       })
 
-      // ===== Monthly Submit =====
       .addCase(submitMonthlyAttendance.pending, (state) => {
         state.monthlyLoading = true;
         state.monthlyError = null;
@@ -1100,7 +1164,6 @@ const attendanceSlice = createSlice({
         };
       })
 
-      // ===== Weekly Approve =====
       .addCase(approveWeeklyAttendance.pending, (state) => {
         state.weeklyLoading = true;
         state.weeklyError = null;
@@ -1130,7 +1193,6 @@ const attendanceSlice = createSlice({
         };
       })
 
-      // ===== Monthly Approve =====
       .addCase(approveMonthlyAttendance.pending, (state) => {
         state.monthlyLoading = true;
         state.monthlyError = null;
@@ -1160,7 +1222,6 @@ const attendanceSlice = createSlice({
         };
       })
 
-      // ===== Weekly Reject =====
       .addCase(rejectWeeklyAttendance.pending, (state) => {
         state.weeklyLoading = true;
         state.weeklyError = null;
@@ -1190,7 +1251,6 @@ const attendanceSlice = createSlice({
         };
       })
 
-      // ===== Monthly Reject =====
       .addCase(rejectMonthlyAttendance.pending, (state) => {
         state.monthlyLoading = true;
         state.monthlyError = null;
@@ -1223,6 +1283,9 @@ const attendanceSlice = createSlice({
 });
 
 export const {
+  // View Mode
+  setViewMode,
+  
   // Attendance filters
   setSelectedMonth,
   setSelectedYear,
@@ -1269,8 +1332,8 @@ export const {
   resetMonthlyStatus,
   resetConfigStatus,
   clearAttendanceData,
+  clearApprovedData,
 } = attendanceSlice.actions;
-
 
 // Attendance Data Selectors
 export const selectAttendanceData = (state) => state.attendance.attendanceData;
@@ -1278,6 +1341,15 @@ export const selectLoading = (state) => state.attendance.loading;
 export const selectError = (state) => state.attendance.error;
 export const selectSuccess = (state) => state.attendance.success;
 export const selectMessage = (state) => state.attendance.message;
+
+// Approved Summary Selectors
+export const selectApprovedSummaryData = (state) => state.attendance.approvedSummaryData;
+export const selectApprovedLoading = (state) => state.attendance.approvedLoading;
+export const selectApprovedError = (state) => state.attendance.approvedError;
+export const selectApprovedSuccess = (state) => state.attendance.approvedSuccess;
+
+// View Mode Selector
+export const selectViewMode = (state) => state.attendance.viewMode;
 
 // Pending Attendance Data Selectors
 export const selectPendingAttendanceData = (state) => state.attendance.pendingAttendanceData;
