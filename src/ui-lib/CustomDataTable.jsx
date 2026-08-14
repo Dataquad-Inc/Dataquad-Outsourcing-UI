@@ -112,6 +112,8 @@ const CustomDataTable = ({
   });
 
   const FILTER_FIELD_WIDTH = 200;
+  const DATE_RANGE_FIELD_WIDTH = 380;
+  
 
   const filterableColumns = columns.filter((col) => col.applyFilter === true);
 
@@ -314,16 +316,12 @@ const CustomDataTable = ({
   // Excel export function
   const handleExportExcel = async () => {
     try {
-      // Import the required libraries dynamically
       const XLSX = await import("xlsx");
 
-      // Get visible columns only
       const visibleCols = columns.filter((col) => visibleColumns[col.id]);
 
-      // Prepare header row
       const headers = visibleCols.map((col) => getExportText(col.label));
 
-      // Prepare data rows
       const dataRows = (Array.isArray(rows) ? rows : []).map((row) =>
         visibleCols.map((col) => {
           const rawValue = row[col.id];
@@ -332,7 +330,6 @@ const CustomDataTable = ({
           if (col.exportValue) {
             cellValue = col.exportValue(rawValue, row);
           } else if (rawValue === undefined && col.render) {
-            // Avoid React-only render outputs for most cells.
             cellValue = col.render(rawValue, row);
           }
 
@@ -340,24 +337,20 @@ const CustomDataTable = ({
         })
       );
 
-      // Create worksheet
       const worksheet = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
 
-      // Auto-size columns
       const colWidths = headers.map((header, colIndex) => {
         const maxDataLength = Math.max(
           header.length,
           ...dataRows.map((row) => String(row[colIndex] || "").length)
         );
-        return { wch: Math.min(Math.max(maxDataLength, 8), 50) }; // Min 8, max 50 chars
+        return { wch: Math.min(Math.max(maxDataLength, 8), 50) };
       });
       worksheet["!cols"] = colWidths;
 
-      // Create workbook
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, title || "Sheet1");
 
-      // Generate file and download
       const fileName = `${title || "table_export"}_${
         new Date().toISOString().split("T")[0]
       }.xlsx`;
@@ -365,20 +358,16 @@ const CustomDataTable = ({
       XLSX.writeFile(workbook, fileName);
     } catch (error) {
       console.error("Error exporting to Excel:", error);
-      // Fallback to CSV if XLSX library fails to load
       handleExportCSV();
     }
   };
 
   // Fallback CSV export function
   const handleExportCSV = () => {
-    // Get visible columns only
     const visibleCols = columns.filter((col) => visibleColumns[col.id]);
 
-    // Prepare header row
     const headers = visibleCols.map((col) => getExportText(col.label));
 
-    // Prepare data rows
     const dataRows = (Array.isArray(rows) ? rows : []).map((row) =>
       visibleCols.map((col) => {
         const rawValue = row[col.id];
@@ -394,7 +383,6 @@ const CustomDataTable = ({
       })
     );
 
-    // Combine headers and data
     const csvContent = [
       headers.map((h) => `"${h}"`).join(","),
       ...dataRows.map((row) =>
@@ -402,7 +390,6 @@ const CustomDataTable = ({
       ),
     ].join("\n");
 
-    // Create blob and download
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -419,6 +406,15 @@ const CustomDataTable = ({
   const renderFilterInput = (column) => {
     const currentFilter = localFilters[column.id];
     const currentValue = currentFilter?.value || "";
+    
+    // Get custom width or use default based on filter type
+    const getFilterWidth = () => {
+      if (column.filterWidth) return column.filterWidth;
+      if (column.filterType === "dateRange") return DATE_RANGE_FIELD_WIDTH;
+      return FILTER_FIELD_WIDTH;
+    };
+    
+    const filterWidth = getFilterWidth();
 
     switch (column.filterType) {
       case "select":
@@ -426,9 +422,9 @@ const CustomDataTable = ({
           <FormControl
             size="small"
             sx={{
-              minWidth: FILTER_FIELD_WIDTH,
-              maxWidth: FILTER_FIELD_WIDTH,
-              width: FILTER_FIELD_WIDTH,
+              minWidth: filterWidth,
+              maxWidth: filterWidth,
+              width: filterWidth,
             }}
           >
             <InputLabel>{column.label}</InputLabel>
@@ -438,7 +434,7 @@ const CustomDataTable = ({
               onChange={(e) =>
                 handleFilterChange(column.id, e.target.value, "select")
               }
-              sx={{ width: FILTER_FIELD_WIDTH }}
+              sx={{ width: filterWidth }}
               MenuProps={{
                 PaperProps: {
                   sx: {
@@ -473,9 +469,9 @@ const CustomDataTable = ({
                   {...params}
                   size="small"
                   sx={{
-                    minWidth: FILTER_FIELD_WIDTH,
-                    maxWidth: FILTER_FIELD_WIDTH,
-                    width: FILTER_FIELD_WIDTH,
+                    minWidth: filterWidth,
+                    maxWidth: filterWidth,
+                    width: filterWidth,
                   }}
                 />
               )}
@@ -484,71 +480,182 @@ const CustomDataTable = ({
         );
 
       case "dateRange":
-        return (
-          <Box
-            sx={{
-              display: "flex",
-              gap: 1,
-              flexDirection: "row",
-              alignItems: "center",
-              minWidth: 300,
-              maxWidth: 350,
-              width: "auto",
-            }}
-          >
-            <LocalizationProvider dateAdapter={AdapterDateFns}>
-              <DatePicker
-                label={`${column.label} From`}
-                value={currentValue?.from ? new Date(currentValue.from) : null}
-                onChange={(date) =>
-                  handleFilterChange(
-                    column.id,
-                    {
-                      ...currentValue,
-                      from: date?.toISOString(),
-                    },
-                    "dateRange"
-                  )
+  return (
+    <LocalizationProvider dateAdapter={AdapterDateFns}>
+      <Box
+        sx={{
+          display: "flex",
+          gap: 1.5,
+          flexDirection: "row",
+          alignItems: "center",
+          width: "100%",
+        }}
+      >
+        <DatePicker
+          label={`${column.label} From`}
+          value={currentValue?.from ? new Date(currentValue.from) : null}
+          onChange={(date) =>
+            handleFilterChange(
+              column.id,
+              {
+                ...currentValue,
+                from: date?.toISOString(),
+              },
+              "dateRange"
+            )
+          }
+          renderInput={(params) => (
+            <TextField 
+              {...params} 
+              size="small" 
+              sx={{ 
+                flex: 1,
+                minWidth: 160, // ✅ Increased minimum width
+                width: "100%",
+                "& .MuiInputBase-root": {
+                  height: 40,
+                  borderRadius: "6px",
+                  paddingRight: "8px", // ✅ Add padding for icon
+                },
+                "& .MuiInputBase-input": {
+                  padding: "8px 12px", // ✅ Adjust padding to prevent text overlap
+                  fontSize: "0.875rem",
+                },
+                "& .MuiInputLabel-root": {
+                  fontSize: "0.75rem",
+                  transform: "translate(12px, 10px) scale(1)", // ✅ Adjust label position
+                },
+                "& .MuiInputLabel-shrink": {
+                  transform: "translate(12px, -6px) scale(0.75)", // ✅ Shrink label position
+                },
+                "& .MuiOutlinedInput-notchedOutline": {
+                  legend: {
+                    padding: "0 8px", // ✅ Add padding for label
+                  }
                 }
-                renderInput={(params) => (
-                  <TextField 
-                    {...params} 
-                    size="small" 
-                    sx={{ 
-                      width: 130,
-                      minWidth: 120,
-                    }} 
-                  />
-                )}
-              />
-              <DatePicker
-                label={`${column.label} To`}
-                value={currentValue?.to ? new Date(currentValue.to) : null}
-                onChange={(date) =>
-                  handleFilterChange(
-                    column.id,
-                    {
-                      ...currentValue,
-                      to: date?.toISOString(),
-                    },
-                    "dateRange"
-                  )
+              }} 
+            />
+          )}
+        />
+        <DatePicker
+          label={`${column.label} To`}
+          value={currentValue?.to ? new Date(currentValue.to) : null}
+          onChange={(date) =>
+            handleFilterChange(
+              column.id,
+              {
+                ...currentValue,
+                to: date?.toISOString(),
+              },
+              "dateRange"
+            )
+          }
+          renderInput={(params) => (
+            <TextField 
+              {...params} 
+              size="small" 
+              sx={{ 
+                flex: 1,
+                minWidth: 160, // ✅ Increased minimum width
+                width: "100%",
+                "& .MuiInputBase-root": {
+                  height: 40,
+                  borderRadius: "6px",
+                  paddingRight: "8px", // ✅ Add padding for icon
+                },
+                "& .MuiInputBase-input": {
+                  padding: "8px 12px", // ✅ Adjust padding to prevent text overlap
+                  fontSize: "0.875rem",
+                },
+                "& .MuiInputLabel-root": {
+                  fontSize: "0.75rem",
+                  transform: "translate(12px, 10px) scale(1)", // ✅ Adjust label position
+                },
+                "& .MuiInputLabel-shrink": {
+                  transform: "translate(12px, -6px) scale(0.75)", // ✅ Shrink label position
+                },
+                "& .MuiOutlinedInput-notchedOutline": {
+                  legend: {
+                    padding: "0 8px", // ✅ Add padding for label
+                  }
                 }
-                renderInput={(params) => (
-                  <TextField 
-                    {...params} 
-                    size="small" 
-                    sx={{ 
-                      width: 130,
-                      minWidth: 120,
-                    }} 
-                  />
-                )}
-              />
-            </LocalizationProvider>
-          </Box>
-        );
-
+              }} 
+            />
+          )}
+        />
+      </Box>
+    </LocalizationProvider>
+  );
+  return (
+    <LocalizationProvider dateAdapter={AdapterDateFns}>
+      <Box
+        sx={{
+          display: "flex",
+          gap: 1.5,
+          flexDirection: "row",
+          alignItems: "center",
+          width: "100%",
+        }}
+      >
+        <DatePicker
+          label={`${column.label} From`}
+          value={currentValue?.from ? new Date(currentValue.from) : null}
+          onChange={(date) =>
+            handleFilterChange(
+              column.id,
+              {
+                ...currentValue,
+                from: date?.toISOString(),
+              },
+              "dateRange"
+            )
+          }
+          renderInput={(params) => (
+            <TextField 
+              {...params} 
+              size="small" 
+              sx={{ 
+                flex: 1,
+                minWidth: 200, // ✅ Increased minimum width
+                width: "100%",
+                "& .MuiInputBase-root": {
+                  height: 40, // ✅ Slightly taller for better visibility
+                }
+              }} 
+            />
+          )}
+        />
+        <DatePicker
+          label={`${column.label} To`}
+          value={currentValue?.to ? new Date(currentValue.to) : null}
+          onChange={(date) =>
+            handleFilterChange(
+              column.id,
+              {
+                ...currentValue,
+                to: date?.toISOString(),
+              },
+              "dateRange"
+            )
+          }
+          renderInput={(params) => (
+            <TextField 
+              {...params} 
+              size="small" 
+              sx={{ 
+                flex: 1,
+                minWidth: 200, // ✅ Increased minimum width
+                width: "100%",
+                "& .MuiInputBase-root": {
+                  height: 40, // ✅ Slightly taller for better visibility
+                }
+              }} 
+            />
+          )}
+        />
+      </Box>
+    </LocalizationProvider>
+  );
       case "number":
         return (
           <TextField
@@ -560,9 +667,9 @@ const CustomDataTable = ({
               handleFilterChange(column.id, e.target.value, "number")
             }
             sx={{
-              minWidth: FILTER_FIELD_WIDTH,
-              maxWidth: FILTER_FIELD_WIDTH,
-              width: FILTER_FIELD_WIDTH,
+              minWidth: filterWidth,
+              maxWidth: filterWidth,
+              width: filterWidth,
             }}
           />
         );
@@ -578,9 +685,9 @@ const CustomDataTable = ({
               handleFilterChange(column.id, e.target.value, "text")
             }
             sx={{
-              minWidth: FILTER_FIELD_WIDTH,
-              maxWidth: FILTER_FIELD_WIDTH,
-              width: FILTER_FIELD_WIDTH,
+              minWidth: filterWidth,
+              maxWidth: filterWidth,
+              width: filterWidth,
             }}
           />
         );
@@ -804,28 +911,34 @@ const CustomDataTable = ({
             alignItems: "flex-end",
           }}
         >
-          {filterableColumns.slice(0, 4).map((column) => (
-            <Box
-              key={column.id}
-              sx={{
-                ...(column.filterType === "dateRange" 
-                  ? { 
-                      minWidth: 300,
-                      maxWidth: 350,
-                      width: "auto",
-                      flexShrink: 0,
-                    }
-                  : {
-                      minWidth: FILTER_FIELD_WIDTH,
-                      maxWidth: FILTER_FIELD_WIDTH,
-                      width: FILTER_FIELD_WIDTH,
-                    }
-                ),
-              }}
-            >
-              {renderFilterInput(column)}
-            </Box>
-          ))}
+          {filterableColumns.slice(0, 4).map((column) => {
+            const isDateRange = column.filterType === "dateRange";
+            const filterWidth = column.filterWidth || 
+              (isDateRange ? DATE_RANGE_FIELD_WIDTH : FILTER_FIELD_WIDTH);
+            
+            return (
+              <Box
+                key={column.id}
+                sx={{
+                  ...(isDateRange 
+                    ? { 
+                        minWidth: filterWidth,
+                        maxWidth: filterWidth,
+                        width: filterWidth,
+                        flexShrink: 0,
+                      }
+                    : {
+                        minWidth: filterWidth,
+                        maxWidth: filterWidth,
+                        width: filterWidth,
+                      }
+                  ),
+                }}
+              >
+                {renderFilterInput(column)}
+              </Box>
+            );
+          })}
 
           <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexShrink: 0 }}>
             <Button
@@ -883,28 +996,34 @@ const CustomDataTable = ({
                 gap: 2,
               }}
             >
-              {filterableColumns.slice(4).map((column) => (
-                <Box
-                  key={column.id}
-                  sx={{
-                    ...(column.filterType === "dateRange" 
-                      ? { 
-                          gridColumn: "span 1.5",
-                          minWidth: 300,
-                          maxWidth: 350,
-                          width: "auto",
-                        }
-                      : {
-                          minWidth: FILTER_FIELD_WIDTH,
-                          maxWidth: FILTER_FIELD_WIDTH,
-                          width: FILTER_FIELD_WIDTH,
-                        }
-                    ),
-                  }}
-                >
-                  {renderFilterInput(column)}
-                </Box>
-              ))}
+              {filterableColumns.slice(4).map((column) => {
+                const isDateRange = column.filterType === "dateRange";
+                const filterWidth = column.filterWidth || 
+                  (isDateRange ? DATE_RANGE_FIELD_WIDTH : FILTER_FIELD_WIDTH);
+                
+                return (
+                  <Box
+                    key={column.id}
+                    sx={{
+                      ...(isDateRange 
+                        ? { 
+                            gridColumn: "span 2",
+                            minWidth: filterWidth,
+                            maxWidth: filterWidth,
+                            width: "100%",
+                          }
+                        : {
+                            minWidth: filterWidth,
+                            maxWidth: filterWidth,
+                            width: filterWidth,
+                          }
+                      ),
+                    }}
+                  >
+                    {renderFilterInput(column)}
+                  </Box>
+                );
+              })}
             </Box>
           </Paper>
         </Collapse>
