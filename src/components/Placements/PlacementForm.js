@@ -181,6 +181,19 @@ const PlacementForm = ({
     },
   ];
 
+    const companyDetails = [
+    {
+      id: "company",
+      label: "Company",
+      required: true,
+      grid: { xs: 12, sm: 6 },
+       select: true,
+      options: [
+        { value: "Dataquad", label: "Dataquad" },
+        { value: "Adroit", label: "Adroit" },
+      ]
+    }
+  ];
   const financialFields = [
     {
       id: "billRate",
@@ -619,6 +632,19 @@ const PlacementForm = ({
             </Typography>
           </Grid>
           {dateFields.map((field) =>
+            renderTextField(field)
+          )}
+
+          {/* Company Information */}
+          <Grid item xs={12} sx={{ mt: 2 }}>
+            <Typography
+              variant="subtitle1"
+              sx={{ mb: 1, fontWeight: "medium" }}
+            >
+              Company Information
+            </Typography>
+          </Grid>
+          {companyDetails.map((field) =>
             renderTextField(field)
           )}
 
