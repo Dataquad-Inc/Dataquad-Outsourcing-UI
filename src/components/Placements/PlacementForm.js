@@ -82,10 +82,10 @@ const PlacementForm = ({
     error: null,
     response: null,
   });
-  
-  const {userId, encryptionKey} = useSelector((state) => state.auth);
+
+  const { userId, encryptionKey } = useSelector((state) => state.auth);
   const decryptionKey = atob(encryptionKey);
-  const FINANCIAL_SECRET_KEY = decryptionKey; 
+  const FINANCIAL_SECRET_KEY = decryptionKey;
 
   const encryptFinancialValue = (value) => {
     if (!value) return value;
@@ -105,7 +105,7 @@ const PlacementForm = ({
       if (!isNaN(parseFloat(encryptedValue))) {
         return encryptedValue; // Already a number, return as is
       }
-      
+
       const bytes = CryptoJS.AES.decrypt(encryptedValue, FINANCIAL_SECRET_KEY);
       const decryptedValue = bytes.toString(CryptoJS.enc.Utf8);
       return decryptedValue || encryptedValue; // Return original if decryption fails
@@ -179,6 +179,15 @@ const PlacementForm = ({
       grid: { xs: 12, sm: 6 },
       render: (row) => formatDateForDisplay(row.endDate),
     },
+  ];
+
+  const companyDetails = [
+    {
+      id: "company",
+      label: "Company",
+      required: true,
+      grid: { xs: 12, sm: 6 },
+    }
   ];
 
   const financialFields = [
@@ -277,18 +286,18 @@ const PlacementForm = ({
     if (!dateStr) return "";
     try {
       let date;
-      
+
       if (dayjs.isDayjs(dateStr)) {
         date = dateStr;
       } else {
         date = dayjs.utc(dateStr);
       }
-      
+
       if (!date.isValid()) {
         console.warn("Invalid date for display:", dateStr);
         return "";
       }
-      
+
       return date.format("MM/DD/YYYY");
     } catch (error) {
       console.error("Error formatting date for display:", error, dateStr);
@@ -300,18 +309,18 @@ const PlacementForm = ({
     if (!dateStr) return "";
     try {
       let date;
-      
+
       if (dayjs.isDayjs(dateStr)) {
         date = dateStr;
       } else {
         date = dayjs(dateStr);
       }
-      
+
       if (!date.isValid()) {
         console.warn("Invalid date for input:", dateStr);
         return "";
       }
-      
+
       return date.format("YYYY-MM-DD");
     } catch (error) {
       console.error("Error formatting date for input:", error, dateStr);
@@ -327,7 +336,7 @@ const PlacementForm = ({
         console.warn("Invalid date for submission:", dateStr);
         return null;
       }
-      
+
       return date.format("YYYY-MM-DD");
     } catch (error) {
       console.error("Error formatting date for submission:", error, dateStr);
@@ -352,7 +361,7 @@ const PlacementForm = ({
     const decryptedBillRate = initialValues.billRate ? decryptFinancialValue(initialValues.billRate) : "";
     const decryptedPayRate = initialValues.payRate ? decryptFinancialValue(initialValues.payRate) : "";
     const decryptedGrossProfit = initialValues.grossProfit ? decryptFinancialValue(initialValues.grossProfit) : "";
-    
+
     return {
       candidateFullName: initialValues.candidateFullName || "",
       candidateEmailId: initialValues.candidateEmailId || "",
@@ -393,8 +402,8 @@ const PlacementForm = ({
         // Parse and convert values
         const billRate = parseFloat(parseNumberFromFormatted(values.billRate)) || 0;
         const payRate = parseFloat(parseNumberFromFormatted(values.payRate)) || 0;
-        
-        if(payRate > billRate){
+
+        if (payRate > billRate) {
           setSubmitStatus({
             isSubmitting: false,
             success: false,
@@ -403,7 +412,7 @@ const PlacementForm = ({
           });
           return;
         }
-        
+
         const grossProfit = billRate - payRate;
 
         // Encrypt financial data before sending to backend
@@ -428,7 +437,7 @@ const PlacementForm = ({
             placementData: payload,
           }));
         } else {
-          dispatch(createPlacement(payload)); 
+          dispatch(createPlacement(payload));
         }
 
         setSubmitStatus({
@@ -461,7 +470,7 @@ const PlacementForm = ({
   useEffect(() => {
     const billRate = parseFloat(formik.values.billRate) || 0;
     const payRate = parseFloat(formik.values.payRate) || 0;
-    
+
     if (billRate > 0 && payRate > 0) {
       const grossProfit = Math.round(billRate - payRate);
       formik.setFieldValue('grossProfit', grossProfit.toString());
@@ -479,12 +488,12 @@ const PlacementForm = ({
           message: `Placement ${isEdit ? 'updated' : 'created'} successfully!`,
         },
       });
-      
+
       setTimeout(() => {
-        onCancel(); 
+        onCancel();
       }, 1000);
     }
-    
+
     if (error) {
       setSubmitStatus({
         isSubmitting: false,
@@ -631,6 +640,20 @@ const PlacementForm = ({
               Financial Information (INR)
             </Typography>
           </Grid>
+
+          
+          {/* Company Information */}
+          <Grid item xs={12} sx={{ mt: 2 }}>
+            <Typography
+              variant="subtitle1"
+              sx={{ mb: 1, fontWeight: "medium" }}
+            >
+              Client Information
+            </Typography>
+          </Grid>
+          {companyDetails.map((field) =>
+            renderTextField(field)
+          )}
 
           {/* Financial Information Fields */}
           {financialFields.map((field) =>
