@@ -187,6 +187,11 @@ const PlacementForm = ({
       label: "Company",
       required: true,
       grid: { xs: 12, sm: 6 },
+       select: true,
+      options: [
+        { value: "Dataquad", label: "Dataquad" },
+        { value: "Adroit", label: "Adroit" },
+      ]
     }
   ];
 
@@ -631,6 +636,19 @@ const PlacementForm = ({
             renderTextField(field)
           )}
 
+           {/* Company Information */}
+          <Grid item xs={12} sx={{ mt: 2 }}>
+            <Typography
+              variant="subtitle1"
+              sx={{ mb: 1, fontWeight: "medium" }}
+            >
+              Company Information
+            </Typography>
+          </Grid>
+          {companyDetails.map((field) =>
+            renderTextField(field)
+          )}
+
           {/* Financial Information Section Header */}
           <Grid item xs={12} sx={{ mt: 2 }}>
             <Typography
@@ -640,20 +658,6 @@ const PlacementForm = ({
               Financial Information (INR)
             </Typography>
           </Grid>
-
-          
-          {/* Company Information */}
-          <Grid item xs={12} sx={{ mt: 2 }}>
-            <Typography
-              variant="subtitle1"
-              sx={{ mb: 1, fontWeight: "medium" }}
-            >
-              Client Information
-            </Typography>
-          </Grid>
-          {companyDetails.map((field) =>
-            renderTextField(field)
-          )}
 
           {/* Financial Information Fields */}
           {financialFields.map((field) =>
