@@ -82,6 +82,32 @@ export const fetchPendingAttendance = createAsyncThunk(
   }
 );
 
+// Fetch approved weeks
+export const fetchApprovedWeeks = createAsyncThunk(
+  'attendance/fetchApprovedWeeks',
+  async ({ month, year, entity }, { rejectWithValue }) => {
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/users/attendance/approved-weeks`,
+        {
+          params: { month, year, entity },
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+
+      if (!response.data.success) {
+        return rejectWithValue(response.data.error || 'Failed to fetch approved weeks');
+      }
+
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || error.message || 'Failed to fetch approved weeks'
+      );
+    }
+  }
+);
+
 // Update single day attendance (PUT)
 export const updateAttendanceDay = createAsyncThunk(
   'attendance/updateAttendanceDay',
@@ -535,6 +561,11 @@ const initialState = {
   pendingLoading: false,
   pendingError: null,
   
+  // ===== Approved Weeks Data =====
+  approvedWeeks: [],
+  approvedWeeksLoading: false,
+  approvedWeeksError: null,
+  
   // ===== View Mode =====
   viewMode: 'month', // 'month' or 'approved'
   
@@ -780,6 +811,11 @@ const attendanceSlice = createSlice({
       state.approvedSummaryData = [];
       state.approvedSuccess = false;
     },
+    
+    // ===== Clear Approved Weeks =====
+    clearApprovedWeeks: (state) => {
+      state.approvedWeeks = [];
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -887,6 +923,21 @@ const attendanceSlice = createSlice({
           message: state.pendingError,
           severity: 'error',
         };
+      })
+
+      // ===== Approved Weeks =====
+      .addCase(fetchApprovedWeeks.pending, (state) => {
+        state.approvedWeeksLoading = true;
+        state.approvedWeeksError = null;
+      })
+      .addCase(fetchApprovedWeeks.fulfilled, (state, action) => {
+        state.approvedWeeksLoading = false;
+        state.approvedWeeks = action.payload.data || [];
+      })
+      .addCase(fetchApprovedWeeks.rejected, (state, action) => {
+        state.approvedWeeksLoading = false;
+        state.approvedWeeksError = action.payload || 'Failed to fetch approved weeks';
+        state.approvedWeeks = [];
       })
 
       .addCase(updateAttendanceDay.pending, (state) => {
@@ -1333,6 +1384,7 @@ export const {
   resetConfigStatus,
   clearAttendanceData,
   clearApprovedData,
+  clearApprovedWeeks,
 } = attendanceSlice.actions;
 
 // Attendance Data Selectors
@@ -1355,6 +1407,11 @@ export const selectViewMode = (state) => state.attendance.viewMode;
 export const selectPendingAttendanceData = (state) => state.attendance.pendingAttendanceData;
 export const selectPendingLoading = (state) => state.attendance.pendingLoading;
 export const selectPendingError = (state) => state.attendance.pendingError;
+
+// Approved Weeks Selectors
+export const selectApprovedWeeks = (state) => state.attendance.approvedWeeks;
+export const selectApprovedWeeksLoading = (state) => state.attendance.approvedWeeksLoading;
+export const selectApprovedWeeksError = (state) => state.attendance.approvedWeeksError;
 
 // Filter Selectors
 export const selectSelectedMonth = (state) => state.attendance.selectedMonth;

@@ -51,6 +51,7 @@ import {
 // Import Redux actions and selectors from single slice
 import {
   fetchAttendanceData,
+  fetchApprovedWeeks,
   updateAttendanceDay,
   submitWeeklyAttendance,
   approveWeeklyAttendance,
@@ -83,6 +84,7 @@ import {
   selectWeeklyLoading,
   selectWeeklyDialogOpen,
   selectSelectedWeekNumber,
+  selectApprovedWeeks,
   clearAttendanceData,
 } from "../../redux/attendanceSlice";
 
@@ -191,6 +193,36 @@ const getDayOrder = (month, year) => {
   return dayOrder;
 };
 
+// Check if a date is within an approved week range
+const isDateInApprovedWeek = (day, month, year, approvedWeeks) => {
+  if (!approvedWeeks || approvedWeeks.length === 0) return false;
+  
+  // Determine the actual date for this day
+  const dayNum = parseInt(day);
+  let actualMonth = month;
+  let actualYear = year;
+  
+  // Days 26-31 belong to previous month
+  if (dayNum >= 26) {
+    actualMonth = month - 1;
+    if (actualMonth < 1) {
+      actualMonth = 12;
+      actualYear = year - 1;
+    }
+  }
+  
+  const dateStr = `${actualYear}-${String(actualMonth).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+  
+  // Check if this date falls within any approved week range
+  return approvedWeeks.some(week => {
+    if (!week.startDate || !week.endDate) return false;
+    // Handle potential time components in dates
+    const startDate = week.startDate.split('T')[0];
+    const endDate = week.endDate.split('T')[0];
+    return dateStr >= startDate && dateStr <= endDate;
+  });
+};
+
 // ============================================================
 // DATE HEADER CELL - UPDATED
 // ============================================================
@@ -230,22 +262,26 @@ const DateHeaderCell = ({ day, year, month }) => {
 };
 
 // ============================================================
-// ATTENDANCE CELL
+// ATTENDANCE CELL - Updated with disabled state (no lock icon)
 // ============================================================
 
-const AttendanceCell = ({ status, day, employee, onCellClick }) => {
+const AttendanceCell = ({ status, day, employee, onCellClick, isDisabled }) => {
   const color = ATTENDANCE_STATUS_COLORS[status] || "#E0E0E0";
   const label = ATTENDANCE_STATUS_LABELS[status] || "Not Marked";
   const isWeekend = status === 'WO';
   
   const handleClick = () => {
-    if (onCellClick && employee) {
+    if (!isDisabled && onCellClick && employee) {
       onCellClick(employee, day, status);
     }
   };
   
+  const tooltipTitle = isDisabled 
+    ? `${employee?.employeeName || 'Employee'} - Day ${day}: ${label} (Approved week - locked)`
+    : `${employee?.employeeName || 'Employee'} - Day ${day}: ${label} (Click to edit)`;
+  
   return (
-    <Tooltip title={`${employee?.employeeName || 'Employee'} - Day ${day}: ${label} (Click to edit)`} arrow placement="top">
+    <Tooltip title={tooltipTitle} arrow placement="top">
       <Box
         onClick={handleClick}
         sx={{
@@ -257,15 +293,22 @@ const AttendanceCell = ({ status, day, employee, onCellClick }) => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          cursor: 'pointer',
+          cursor: isDisabled ? 'not-allowed' : 'pointer',
           transition: 'all 0.2s ease',
           margin: '0 auto',
-          '&:hover': {
+          opacity: isDisabled ? 0.5 : 1,
+          '&:hover': isDisabled ? {
+            transform: 'none',
+            boxShadow: 'none',
+          } : {
             transform: 'scale(1.15)',
             boxShadow: `0 0 0 2px ${color}, 0 4px 12px rgba(0,0,0,0.15)`,
             backgroundColor: status ? alpha(color, 0.25) : '#F5F5F5',
           },
           position: 'relative',
+          ...(isDisabled && {
+            background: 'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(200,200,200,0.08) 3px, rgba(200,200,200,0.08) 6px)',
+          }),
         }}
       >
         {status ? (
@@ -578,6 +621,7 @@ const AttendanceDashboard = () => {
   const snackbar = useSelector(selectSnackbar);
   const weeklyDialogOpen = useSelector(selectWeeklyDialogOpen);
   const selectedWeekNumber = useSelector(selectSelectedWeekNumber);
+  const approvedWeeks = useSelector(selectApprovedWeeks);
 
   // Local state for dialogs
   const [employeeDialogOpen, setEmployeeDialogOpen] = useState(false);
@@ -612,6 +656,7 @@ const AttendanceDashboard = () => {
 
   const fetchData = useCallback(() => {
     dispatch(fetchAttendanceData({ month: selectedMonth, year: selectedYear, entity }));
+    dispatch(fetchApprovedWeeks({ month: selectedMonth, year: selectedYear, entity }));
   }, [dispatch, selectedMonth, selectedYear, entity]);
 
   // Clear data when month, year, or entity changes and fetch new data
@@ -670,6 +715,17 @@ const AttendanceDashboard = () => {
   };
 
   const handleCellClick = (employee, day, status) => {
+    // Check if the day is in an approved week
+    const isApproved = isDateInApprovedWeek(day, selectedMonth, selectedYear, approvedWeeks);
+    if (isApproved) {
+      dispatch(setSnackbar({
+        open: true,
+        message: `Day ${day} is in an approved week and cannot be edited`,
+        severity: 'warning',
+      }));
+      return;
+    }
+    
     if (employee) {
       setSelectedEmployee(employee);
       setSelectedDay(day);
@@ -950,6 +1006,11 @@ const AttendanceDashboard = () => {
               minute: "2-digit",
             })}
           </Typography>
+          {approvedWeeks.length > 0 && (
+            <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 0.5 }}>
+              {approvedWeeks.length} approved week(s) - locked cells cannot be edited
+            </Typography>
+          )}
         </Box>
         
         <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
@@ -1044,6 +1105,23 @@ const AttendanceDashboard = () => {
               </Typography>
             </Box>
           ))}
+          {approvedWeeks.length > 0 && (
+            <Box display="flex" alignItems="center" gap={1}>
+              <Box
+                sx={{
+                  width: 16,
+                  height: 16,
+                  borderRadius: "2px",
+                  backgroundColor: '#EF5350',
+                  opacity: 0.3,
+                  border: '1px dashed #EF5350',
+                }}
+              />
+              <Typography variant="caption" sx={{ fontSize: "11px", color: '#EF5350', fontWeight: 500 }}>
+                Approved Week (Locked)
+              </Typography>
+            </Box>
+          )}
         </Box>
       </Paper>
 
@@ -1657,16 +1735,20 @@ const AttendanceDashboard = () => {
                     </TableCell>
 
                     {/* Attendance Days - DYNAMIC */}
-                    {DAY_ORDER.map((day) => (
-                      <TableCell key={day} sx={{ padding: '2px 2px', textAlign: 'center' }}>
-                        <AttendanceCell 
-                          status={row.attendanceGrid?.[day] || ''} 
-                          day={day}
-                          employee={row}
-                          onCellClick={handleCellClick}
-                        />
-                      </TableCell>
-                    ))}
+                    {DAY_ORDER.map((day) => {
+                      const isApproved = isDateInApprovedWeek(day, selectedMonth, selectedYear, approvedWeeks);
+                      return (
+                        <TableCell key={day} sx={{ padding: '2px 2px', textAlign: 'center' }}>
+                          <AttendanceCell 
+                            status={row.attendanceGrid?.[day] || ''} 
+                            day={day}
+                            employee={row}
+                            onCellClick={handleCellClick}
+                            isDisabled={isApproved}
+                          />
+                        </TableCell>
+                      );
+                    })}
 
                     {/* Total Days */}
                     <TableCell sx={{ padding: '8px 8px' }}>
