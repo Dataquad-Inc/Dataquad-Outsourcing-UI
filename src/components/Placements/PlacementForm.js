@@ -195,6 +195,30 @@ const PlacementForm = ({
     }
   ];
   const financialFields = [
+      {
+    id: "currency",
+    label: "Currency",
+    required: true,
+    select: true,
+    helperText: "Select currency",
+    options: [
+      { value: "INR", label: "INR" },
+      { value: "USD", label: "USD" },
+    ],
+  },
+  {
+    id: "ratePeriod",
+    label: "Rate Period",
+    required: true,
+    grid: { xs: 12, sm: 6 },
+    select: true,
+    options: [
+      { value: "HOUR", label: "Hour" },
+      { value: "DAY", label: "Day" },
+      { value: "MONTH", label: "Month" },
+      { value: "YEAR", label: "Year" },
+    ],
+  },
     {
       id: "billRate",
       label: "Bill Rate",

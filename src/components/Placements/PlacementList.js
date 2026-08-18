@@ -561,6 +561,16 @@ const CandidateTablePage = ({
                   </TableCell>
                   <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
                     <TableSortLabel
+                      active={orderBy === 'company'}
+                      direction={orderBy === 'company' ? order : 'asc'}
+                      onClick={() => handleRequestSort('company')}
+                      sx={{ fontSize: '0.75rem' }}
+                    >
+                      Company
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
+                    <TableSortLabel
                       active={orderBy === 'startDate'}
                       direction={orderBy === 'startDate' ? order : 'asc'}
                       onClick={() => handleRequestSort('startDate')}
@@ -578,6 +588,27 @@ const CandidateTablePage = ({
                     >
                       End Date
                     </TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
+                      <TableSortLabel
+                        active={orderBy === 'currency'}
+                        direction={orderBy === 'currency' ? order : 'asc'}
+                        onClick={() => handleRequestSort('currency')}
+                        sx={{ fontSize: '0.75rem' }}
+                      >
+                        Currency
+                      </TableSortLabel>
+                  </TableCell>
+
+                  <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
+                      <TableSortLabel
+                        active={orderBy === 'ratePeriod'}
+                        direction={orderBy === 'ratePeriod' ? order : 'asc'}
+                        onClick={() => handleRequestSort('ratePeriod')}
+                        sx={{ fontSize: '0.75rem' }}
+                      >
+                        Rate Period
+                      </TableSortLabel>
                   </TableCell>
                   <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
                     <TableSortLabel
@@ -677,12 +708,27 @@ const CandidateTablePage = ({
                     </TableCell>
                     <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
                       <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                        {placement.company || '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
+                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
                         {placement.startDate || '-'}
                       </Typography>
                     </TableCell>
                     <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
                       <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
                         {placement.endDate || '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
+                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                        {placement.currency || '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
+                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                        {placement.ratePeriod || '-'}
                       </Typography>
                     </TableCell>
                     <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
@@ -1238,6 +1284,14 @@ const PlacementsList = () => {
         width: 130,
       },
       {
+        key: "company",
+        label: "company",
+        type: "select",
+        sortable: true,
+        filterable: true,
+        width: 130,
+      },
+      {
         key: "startDate",
         label: "Start Date",
         type: "text",
@@ -1249,6 +1303,22 @@ const PlacementsList = () => {
         key: "endDate",
         label: "End Date",
         type: "text",
+        sortable: true,
+        filterable: true,
+        width: 120,
+      },
+      {
+        key: "currency",
+        label: "Currency",
+        type: "select",
+        sortable: true,
+        filterable: true,
+        width: 100,
+      },
+      {
+        key: "ratePeriod",
+        label: "Rate Period",
+        type: "select",
         sortable: true,
         filterable: true,
         width: 120,
