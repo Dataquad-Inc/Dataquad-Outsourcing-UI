@@ -469,9 +469,9 @@ const initialState = {
   loading: false,
   error: null,
   success: false,
-  actionType: null, // To track what action is in progress (create, update, delete)
-  selectedPlacement: null, // To store the currently selected placement
-  isFiltered: false, // Track if data is currently filtered
+  actionType: null,
+  selectedPlacement: null,
+  isFiltered: false,
 };
 
 const placementSlice = createSlice({
@@ -484,30 +484,38 @@ const placementSlice = createSlice({
       state.error = null;
       state.actionType = null;
     },
-    // FIXED: setSelectedPlacement - properly formats dates for form input
+    // FIXED: setSelectedPlacement - properly formats dates and includes currency, ratePeriod, company
     setSelectedPlacement: (state, action) => {
       if (action.payload) {
         const placement = action.payload;
-        console.log("Original placement dates:", {
+        console.log("Original placement data:", {
           startDate: placement.startDate,
           endDate: placement.endDate,
+          currency: placement.currency,
+          ratePeriod: placement.ratePeriod,
+          company: placement.company,
         });
 
         state.selectedPlacement = {
           ...placement,
-          // Use formatDateForFormInput instead of formatDateForAPI
-          // This ensures dates are in YYYY-MM-DD format for HTML date inputs
           startDate: placement.startDate
             ? formatDateForFormInput(placement.startDate)
             : "",
           endDate: placement.endDate
             ? formatDateForFormInput(placement.endDate)
             : "",
+          // ADDED: Preserve currency, ratePeriod, and company values with defaults
+          currency: placement.currency || "",
+          ratePeriod: placement.ratePeriod || "",
+          company: placement.company || "",
         };
 
-        console.log("Formatted placement dates:", {
+        console.log("Formatted placement data:", {
           startDate: state.selectedPlacement.startDate,
           endDate: state.selectedPlacement.endDate,
+          currency: state.selectedPlacement.currency,
+          ratePeriod: state.selectedPlacement.ratePeriod,
+          company: state.selectedPlacement.company,
         });
       } else {
         state.selectedPlacement = null;
@@ -530,7 +538,7 @@ const placementSlice = createSlice({
         state.loading = false;
         state.placements = action.payload;
         state.actionType = null;
-        state.isFiltered = false; // Reset filter state when fetching all data
+        state.isFiltered = false;
       })
       .addCase(fetchPlacements.rejected, (state, action) => {
         state.loading = false;
@@ -548,7 +556,7 @@ const placementSlice = createSlice({
         state.usPlacements = action.payload.data;
         state.usPlacementsPagination = action.payload.pagination;
         state.actionType = null;
-        state.isFiltered = false; // Reset filter state when fetching all data
+        state.isFiltered = false;
       })
       .addCase(fetchUsPlacements.rejected, (state, action) => {
         state.loading = false;
@@ -688,7 +696,7 @@ const placementSlice = createSlice({
         state.placements = action.payload;
         state.success = true;
         state.actionType = null;
-        state.isFiltered = true; // Mark as filtered
+        state.isFiltered = true;
       })
       .addCase(filterPlacementByDateRange.rejected, (state, action) => {
         state.loading = false;

@@ -66,6 +66,9 @@ const validationSchema = Yup.object().shape({
     .required("Pay rate is required"),
   employmentType: Yup.string().required("Employment type is required"),
   status: Yup.string().required("Status is required"),
+  currency: Yup.string().required("Currency is required"),
+  ratePeriod: Yup.string().required("Rate period is required"),
+  company: Yup.string().required("Company is required"),
 });
 
 const PlacementForm = ({
@@ -94,24 +97,23 @@ const PlacementForm = ({
       return CryptoJS.AES.encrypt(stringValue, FINANCIAL_SECRET_KEY).toString();
     } catch (error) {
       console.error("Encryption failed:", error);
-      return value; // Return original value if encryption fails
+      return value;
     }
   };
 
   const decryptFinancialValue = (encryptedValue) => {
     if (!encryptedValue) return encryptedValue;
     try {
-      // Check if the value is already decrypted (for backward compatibility)
       if (!isNaN(parseFloat(encryptedValue))) {
-        return encryptedValue; // Already a number, return as is
+        return encryptedValue;
       }
       
       const bytes = CryptoJS.AES.decrypt(encryptedValue, FINANCIAL_SECRET_KEY);
       const decryptedValue = bytes.toString(CryptoJS.enc.Utf8);
-      return decryptedValue || encryptedValue; // Return original if decryption fails
+      return decryptedValue || encryptedValue;
     } catch (error) {
       console.error("Decryption failed:", error);
-      return encryptedValue; // Return original value if decryption fails
+      return encryptedValue;
     }
   };
 
@@ -181,7 +183,45 @@ const PlacementForm = ({
     },
   ];
 
+    const companyDetails = [
+    {
+      id: "company",
+      label: "Company",
+      required: true,
+      grid: { xs: 12, sm: 6 },
+       select: true,
+      options: [
+        { value: "Dataquad", label: "Dataquad" },
+        { value: "Adroit", label: "Adroit" },
+      ]
+    }
+  ];
   const financialFields = [
+      {
+    id: "currency",
+    label: "Currency",
+    required: true,
+    grid: { xs: 12, sm: 6 },
+    select: true,
+    helperText: "Select currency",
+    options: [
+      { value: "INR", label: "INR" },
+      { value: "USD", label: "USD" },
+    ],
+  },
+  {
+    id: "ratePeriod",
+    label: "Rate Period",
+    required: true,
+    grid: { xs: 12, sm: 6 },
+    select: true,
+    options: [
+      { value: "HOUR", label: "Hour" },
+      { value: "DAY", label: "Day" },
+      { value: "MONTH", label: "Month" },
+      { value: "YEAR", label: "Year" },
+    ],
+  },
     {
       id: "billRate",
       label: "Bill Rate",
@@ -348,7 +388,6 @@ const PlacementForm = ({
 
   // Prepare initial values with decryption for financial fields
   const getInitialFormValues = () => {
-    // Decrypt financial values if they exist
     const decryptedBillRate = initialValues.billRate ? decryptFinancialValue(initialValues.billRate) : "";
     const decryptedPayRate = initialValues.payRate ? decryptFinancialValue(initialValues.payRate) : "";
     const decryptedGrossProfit = initialValues.grossProfit ? decryptFinancialValue(initialValues.grossProfit) : "";
@@ -371,16 +410,19 @@ const PlacementForm = ({
       status: initialValues.status || "",
       statusMessage: initialValues.statusMessage || "",
       remarks: initialValues.remarks || "",
+      currency: initialValues.currency || "",
+      ratePeriod: initialValues.ratePeriod || "",
+      company: initialValues.company || "",
     };
   };
 
-  const initialFormValues = React.useMemo(() => getInitialFormValues(), [isEdit, initialValues]);
+  const initialFormValues = React.useMemo(() => getInitialFormValues(), [initialValues, isEdit]);
 
   // Setup formik
   const formik = useFormik({
     initialValues: initialFormValues,
     validationSchema: validationSchema,
-    enableReinitialize: isEdit,
+    enableReinitialize: true,
     onSubmit: async (values, { setSubmitting }) => {
       setSubmitStatus({
         isSubmitting: true,
@@ -390,7 +432,6 @@ const PlacementForm = ({
       });
 
       try {
-        // Parse and convert values
         const billRate = parseFloat(parseNumberFromFormatted(values.billRate)) || 0;
         const payRate = parseFloat(parseNumberFromFormatted(values.payRate)) || 0;
         
@@ -406,12 +447,10 @@ const PlacementForm = ({
         
         const grossProfit = billRate - payRate;
 
-        // Encrypt financial data before sending to backend
         const encryptedBillRate = encryptFinancialValue(Math.round(billRate));
         const encryptedPayRate = encryptFinancialValue(Math.round(payRate));
         const encryptedGrossProfit = encryptFinancialValue(grossProfit);
 
-        // Prepare the payload with encrypted financial data
         const payload = {
           ...values,
           startDate: formatDateForSubmission(values.startDate),
@@ -419,7 +458,6 @@ const PlacementForm = ({
           billRate: encryptedBillRate,
           payRate: encryptedPayRate,
           grossProfit: encryptedGrossProfit,
-          currency: "INR",
         };
 
         if (isEdit) {
@@ -523,7 +561,7 @@ const PlacementForm = ({
           value={
             id === "billRate" || id === "payRate" || id === "grossProfit"
               ? formatNumberWithCommas(formik.values[id])
-              : formik.values[id]
+              : formik.values[id] || ''
           }
           onChange={(e) => {
             if (id === "billRate" || id === "payRate") {
@@ -569,7 +607,6 @@ const PlacementForm = ({
         {isEdit ? 'Edit Placement' : 'Create New Placement'}
       </Typography>
 
-      {/* Status messages */}
       {submitStatus.error && (
         <ErrorAlert severity="error" sx={{ mb: 2 }}>
           {submitStatus.error}
@@ -622,13 +659,26 @@ const PlacementForm = ({
             renderTextField(field)
           )}
 
+          {/* Company Information */}
+          <Grid item xs={12} sx={{ mt: 2 }}>
+            <Typography
+              variant="subtitle1"
+              sx={{ mb: 1, fontWeight: "medium" }}
+            >
+              Company Information
+            </Typography>
+          </Grid>
+          {companyDetails.map((field) =>
+            renderTextField(field)
+          )}
+
           {/* Financial Information Section Header */}
           <Grid item xs={12} sx={{ mt: 2 }}>
             <Typography
               variant="subtitle1"
               sx={{ fontWeight: "medium" }}
             >
-              Financial Information (INR)
+              Financial Information
             </Typography>
           </Grid>
 
