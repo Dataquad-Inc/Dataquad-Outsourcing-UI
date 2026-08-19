@@ -484,6 +484,7 @@ const ConsultantProfile = () => {
 
   const renderRTRsTable = () => {
     const displayedRtrs = filteredRtrs;
+    const isSuperAdmin = role === "SUPERADMIN";
 
     return (
       <Box>
@@ -525,7 +526,7 @@ const ConsultantProfile = () => {
         ) : (
           <>
             <TableContainer component={Paper} sx={{ borderRadius: 2, overflowX: 'auto' }}>
-              <Table sx={{ minWidth: 2000 }}>
+              <Table sx={{ minWidth: isSuperAdmin ? 2000 : 1400 }}>
                 <TableHead sx={{ bgcolor: "grey.50" }}>
                   <TableRow>
                     <TableCell sx={{ minWidth: 140, fontWeight: 'bold' }}>RTR ID</TableCell>
@@ -534,13 +535,17 @@ const ConsultantProfile = () => {
                     <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Client</TableCell>
                     <TableCell sx={{ minWidth: 120, fontWeight: 'bold' }}>Rate</TableCell>
                     <TableCell sx={{ minWidth: 160, fontWeight: 'bold' }}>Status</TableCell>
-                    <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Sales Executive</TableCell>
-                    <TableCell sx={{ minWidth: 180, fontWeight: 'bold' }}>Vendor Name</TableCell>
-                    <TableCell sx={{ minWidth: 220, fontWeight: 'bold' }}>Vendor Email</TableCell>
-                    <TableCell sx={{ minWidth: 180, fontWeight: 'bold' }}>Vendor Mobile</TableCell>
-                    <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Vendor Company</TableCell>
-                    <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Vendor LinkedIn</TableCell>
-                    <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Implementation Partner</TableCell>
+                    {isSuperAdmin && (
+                      <>
+                        <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Sales Executive</TableCell>
+                        <TableCell sx={{ minWidth: 180, fontWeight: 'bold' }}>Vendor Name</TableCell>
+                        <TableCell sx={{ minWidth: 220, fontWeight: 'bold' }}>Vendor Email</TableCell>
+                        <TableCell sx={{ minWidth: 180, fontWeight: 'bold' }}>Vendor Mobile</TableCell>
+                        <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Vendor Company</TableCell>
+                        <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Vendor LinkedIn</TableCell>
+                        <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Implementation Partner</TableCell>
+                      </>
+                    )}
                     <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Created At</TableCell>
                     <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Created By</TableCell>
                   </TableRow>
@@ -583,64 +588,68 @@ const ConsultantProfile = () => {
                           size="small"
                         />
                       </TableCell>
-                      <TableCell sx={{ minWidth: 200 }}>
-                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
-                          {rtr.salesExecutive}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ minWidth: 180 }}>
-                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
-                          {rtr.vendorName}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ minWidth: 220 }}>
-                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
-                          {rtr.vendorEmailId}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ minWidth: 180 }}>
-                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
-                          {rtr.vendorMobileNumber}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ minWidth: 200 }}>
-                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
-                          {rtr.vendorCompany}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ minWidth: 200 }}>
-                        {rtr.vendorLinkedIn && rtr.vendorLinkedIn !== "N/A" && rtr.vendorLinkedIn.trim() !== "" ? (
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            startIcon={<LinkedIn />}
-                            endIcon={<OpenInNew fontSize="small" />}
-                            onClick={() => handleLinkedInClick(rtr.vendorLinkedIn)}
-                            sx={{
-                              textTransform: 'none',
-                              borderColor: '#0a66c2',
-                              color: '#0a66c2',
-                              '&:hover': {
-                                borderColor: '#0a66c2',
-                                backgroundColor: 'rgba(10, 102, 194, 0.04)',
-                              },
-                              whiteSpace: 'nowrap',
-                              minWidth: '140px'
-                            }}
-                          >
-                            View LinkedIn
-                          </Button>
-                        ) : (
-                          <Typography variant="body2" color="text.secondary">
-                            N/A
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell sx={{ minWidth: 200 }}>
-                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
-                          {rtr.implementationPartner || 'N/A'}
-                        </Typography>
-                      </TableCell>
+                      {isSuperAdmin && (
+                        <>
+                          <TableCell sx={{ minWidth: 200 }}>
+                            <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                              {rtr.salesExecutive}
+                            </Typography>
+                          </TableCell>
+                          <TableCell sx={{ minWidth: 180 }}>
+                            <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                              {rtr.vendorName}
+                            </Typography>
+                          </TableCell>
+                          <TableCell sx={{ minWidth: 220 }}>
+                            <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                              {rtr.vendorEmailId}
+                            </Typography>
+                          </TableCell>
+                          <TableCell sx={{ minWidth: 180 }}>
+                            <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                              {rtr.vendorMobileNumber}
+                            </Typography>
+                          </TableCell>
+                          <TableCell sx={{ minWidth: 200 }}>
+                            <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                              {rtr.vendorCompany}
+                            </Typography>
+                          </TableCell>
+                          <TableCell sx={{ minWidth: 200 }}>
+                            {rtr.vendorLinkedIn && rtr.vendorLinkedIn !== "N/A" && rtr.vendorLinkedIn.trim() !== "" ? (
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                startIcon={<LinkedIn />}
+                                endIcon={<OpenInNew fontSize="small" />}
+                                onClick={() => handleLinkedInClick(rtr.vendorLinkedIn)}
+                                sx={{
+                                  textTransform: 'none',
+                                  borderColor: '#0a66c2',
+                                  color: '#0a66c2',
+                                  '&:hover': {
+                                    borderColor: '#0a66c2',
+                                    backgroundColor: 'rgba(10, 102, 194, 0.04)',
+                                  },
+                                  whiteSpace: 'nowrap',
+                                  minWidth: '140px'
+                                }}
+                              >
+                                View LinkedIn
+                              </Button>
+                            ) : (
+                              <Typography variant="body2" color="text.secondary">
+                                N/A
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell sx={{ minWidth: 200 }}>
+                            <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                              {rtr.implementationPartner || 'N/A'}
+                            </Typography>
+                          </TableCell>
+                        </>
+                      )}
                       <TableCell sx={{ minWidth: 200 }}>
                         <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
                           {formatDateTime(rtr.createdAt)}
@@ -673,6 +682,7 @@ const ConsultantProfile = () => {
 
   const renderInterviewsTable = () => {
     const displayedInterviews = filteredInterviews;
+    const isSuperAdmin = role === "SUPERADMIN";
 
     return (
       <Box>
@@ -714,7 +724,7 @@ const ConsultantProfile = () => {
         ) : (
           <>
             <TableContainer component={Paper} sx={{ borderRadius: 2, overflowX: 'auto' }}>
-              <Table sx={{ minWidth: 2400 }}>
+              <Table sx={{ minWidth: isSuperAdmin ? 2400 : 2200 }}>
                 <TableHead sx={{ bgcolor: "grey.50" }}>
                   <TableRow>
                     <TableCell sx={{ minWidth: 160, fontWeight: 'bold' }}>Interview ID</TableCell>
@@ -727,7 +737,9 @@ const ConsultantProfile = () => {
                     <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Interview Level</TableCell>
                     <TableCell sx={{ minWidth: 160, fontWeight: 'bold' }}>Status</TableCell>
                     <TableCell sx={{ minWidth: 220, fontWeight: 'bold' }}>Date & Time</TableCell>
-                    <TableCell sx={{ minWidth: 220, fontWeight: 'bold' }}>Interviewer Email</TableCell>
+                    {isSuperAdmin && (
+                      <TableCell sx={{ minWidth: 220, fontWeight: 'bold' }}>Interviewer Email</TableCell>
+                    )}
                     <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>Zoom Meeting</TableCell>
                     <TableCell sx={{ minWidth: 140, fontWeight: 'bold' }}>Duration</TableCell>
                     <TableCell sx={{ minWidth: 140, fontWeight: 'bold' }}>Is Placed</TableCell>
@@ -792,11 +804,13 @@ const ConsultantProfile = () => {
                           {formatDateTime(interview.interviewDateTime)}
                         </Typography>
                       </TableCell>
-                      <TableCell sx={{ minWidth: 220 }}>
-                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
-                          {interview.interviewerEmailId}
-                        </Typography>
-                      </TableCell>
+                      {isSuperAdmin && (
+                        <TableCell sx={{ minWidth: 220 }}>
+                          <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                            {interview.interviewerEmailId}
+                          </Typography>
+                        </TableCell>
+                      )}
                       <TableCell sx={{ minWidth: 200 }}>
                         {interview.zoomLink ? (
                           <Button
