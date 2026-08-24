@@ -1,5 +1,5 @@
 // src/components/AttendanceForIndUs/AttendanceDashboard.jsx
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   Box,
@@ -94,6 +94,26 @@ import EmployeeAttendanceDialog from "./EmployeeAttendanceDialog";
 // ============================================================
 // CONSTANTS - Updated with WFH option
 // ============================================================
+
+// TEST EMPLOYEE IDs to be filtered out
+const TEST_EMPLOYEE_IDS = [
+  'ADRTIN9099',
+  'ADRTIN9092',
+  'ADRTIN3333',
+  'ADRTIN3131',
+  'ADRTIN2121',
+  'ADRTIN004',
+  'ADRTUS9988',
+  'ADRTIN9940',
+  'ADRTUS5007',
+  'ADRTUS5004',
+  'ADRTUS5003',
+  'ADRTUS5002',
+  'ADRTUS5001',
+  'ADRTUS5000',
+  'ADRTUS0990',
+  'ADRTUS0100'
+];
 
 const ATTENDANCE_STATUS_OPTIONS = [
   { code: "P", label: "Present", color: "#4CAF50", attendanceValue: 1.0, remarks: "Present" },
@@ -604,7 +624,7 @@ const AttendanceDashboard = () => {
   const dispatch = useDispatch();
 
   // Get entity from auth slice
-  const { entity: authEntity } = useSelector((state) => state.auth);
+  const { entity: authEntity, isAuthenticated } = useSelector((state) => state.auth);
 
   // Redux state from attendance slice
   const attendanceData = useSelector(selectAttendanceData);
@@ -630,6 +650,10 @@ const AttendanceDashboard = () => {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [selectedDay, setSelectedDay] = useState(null);
   const [currentStatus, setCurrentStatus] = useState("");
+  
+  // Track if entity has been synced from auth
+  const [entitySynced, setEntitySynced] = useState(false);
+  const isInitialMount = useRef(true);
 
   const currentDate = new Date();
 
@@ -639,32 +663,52 @@ const AttendanceDashboard = () => {
   }, [selectedMonth, selectedYear]);
 
   // ============================================================
-  // SYNC ENTITY FROM AUTH
+  // SYNC ENTITY FROM AUTH - Run only once on mount
   // ============================================================
 
   useEffect(() => {
-    if (authEntity) {
+    // Only run this effect if we have a valid authEntity and it hasn't been synced yet
+    if (authEntity && !entitySynced) {
       // Clear old data when entity changes
       dispatch(clearAttendanceData());
       dispatch(setEntity(authEntity));
+      setEntitySynced(true);
     }
-  }, [authEntity, dispatch]);
+  }, [authEntity, dispatch, entitySynced]);
 
   // ============================================================
-  // FETCH DATA
+  // FETCH DATA - Only after entity is synced
   // ============================================================
 
   const fetchData = useCallback(() => {
-    dispatch(fetchAttendanceData({ month: selectedMonth, year: selectedYear, entity }));
-    dispatch(fetchApprovedWeeks({ month: selectedMonth, year: selectedYear, entity }));
-  }, [dispatch, selectedMonth, selectedYear, entity]);
+    // Only fetch if entity is set and not the default empty state
+    if (entity && entity !== '' && entitySynced) {
+      dispatch(fetchAttendanceData({ month: selectedMonth, year: selectedYear, entity }));
+      dispatch(fetchApprovedWeeks({ month: selectedMonth, year: selectedYear, entity }));
+    }
+  }, [dispatch, selectedMonth, selectedYear, entity, entitySynced]);
 
-  // Clear data when month, year, or entity changes and fetch new data
+  // Fetch data when filters change, but only after entity is synced
   useEffect(() => {
+    // Skip the initial mount fetch - we'll let the entity sync trigger it
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    
     // Clear old data when filters change
     dispatch(clearAttendanceData());
     fetchData();
   }, [selectedMonth, selectedYear, entity, dispatch, fetchData]);
+
+  // Separate effect for initial data fetch after entity sync
+  useEffect(() => {
+    if (entitySynced && entity) {
+      // Clear old data
+      dispatch(clearAttendanceData());
+      fetchData();
+    }
+  }, [entitySynced, entity, dispatch, fetchData]);
 
   // ============================================================
   // HANDLERS
@@ -829,11 +873,18 @@ const AttendanceDashboard = () => {
       : (a, b) => -descendingComparator(a, b, orderBy);
   };
 
+  // Filter out test employees and apply search filter
   const filteredData = useMemo(() => {
-    if (!search) return attendanceData;
+    // First, filter out test employee IDs
+    const nonTestData = attendanceData.filter(
+      (item) => !TEST_EMPLOYEE_IDS.includes(item.employeeId)
+    );
+    
+    // Then apply search filter
+    if (!search) return nonTestData;
     
     const searchLower = search.toLowerCase();
-    return attendanceData.filter((item) => 
+    return nonTestData.filter((item) => 
       item.employeeId?.toLowerCase().includes(searchLower) ||
       item.employeeName?.toLowerCase().includes(searchLower) ||
       item.designation?.toLowerCase().includes(searchLower)
@@ -920,6 +971,16 @@ const AttendanceDashboard = () => {
   // RENDER
   // ============================================================
 
+  // Calculate sticky positions for columns
+  // Column 1: Employee ID - left: 0
+  // Column 2: Employee Name - left: 100
+  // Column 3: PF - left: 280 (100 + 180)
+  // Column 4: ESI - left: 330 (280 + 50)
+  // Column 5: Reporting Manager - left: 380 (330 + 50)
+  // Column 6: Designation - left: 510 (380 + 130)
+  // Column 7: Joining Date - left: 640 (510 + 130)
+  // Column 8: Probation - left: 740 (640 + 100)
+
   return (
     <Box sx={{ p: 3, backgroundColor: theme.palette.background.default, minHeight: "100vh" }}>
       {/* Snackbar */}
@@ -994,7 +1055,7 @@ const AttendanceDashboard = () => {
       >
         <Box>
           <Typography variant="h4" sx={{ fontWeight: 700, color: theme.palette.primary.main }}>
-            Attendance Dashboard
+            Attendance Dashboard {entity && `- ${entity}`}
           </Typography>
           <Typography variant="body2" color="textSecondary">
             {new Date().toLocaleString("en-US", {
@@ -1009,6 +1070,12 @@ const AttendanceDashboard = () => {
           {approvedWeeks.length > 0 && (
             <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 0.5 }}>
               {approvedWeeks.length} approved week(s) - locked cells cannot be edited
+            </Typography>
+          )}
+          {/* Display count of hidden test users */}
+          {attendanceData.filter(item => TEST_EMPLOYEE_IDS.includes(item.employeeId)).length > 0 && (
+            <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 0.5 }}>
+              {attendanceData.filter(item => TEST_EMPLOYEE_IDS.includes(item.employeeId)).length} test user(s) hidden
             </Typography>
           )}
         </Box>
@@ -1048,7 +1115,7 @@ const AttendanceDashboard = () => {
             variant="contained"
             startIcon={loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
             onClick={handleRefresh}
-            disabled={loading}
+            disabled={loading || !entitySynced}
             sx={{ 
               backgroundColor: '#0F7C82',
               '&:hover': { backgroundColor: '#0A5E63' }
@@ -1156,7 +1223,7 @@ const AttendanceDashboard = () => {
           <Table stickyHeader size="small">
             <TableHead>
               <TableRow>
-                {/* Column 1: Employee ID - Now first column */}
+                {/* Column 1: Employee ID - Sticky left: 0 */}
                 <TableCell 
                   sx={{ 
                     bgcolor: '#0F7C82', 
@@ -1188,13 +1255,12 @@ const AttendanceDashboard = () => {
                   </TableSortLabel>
                 </TableCell>
 
-                {/* Column 2: Employee Name */}
+                {/* Column 2: Employee Name - Sticky left: 100 */}
                 <TableCell 
                   sx={{ 
                     bgcolor: '#0F7C82', 
                     color: '#FFFFFF',
                     fontWeight: 700,
-                    position: 'sticky',
                     left: 100,
                     zIndex: 3,
                     minWidth: 180,
@@ -1220,14 +1286,18 @@ const AttendanceDashboard = () => {
                   </TableSortLabel>
                 </TableCell>
 
-                {/* Column 3: PF */}
+                {/* Column 3: PF - Sticky left: 280 */}
                 <TableCell 
                   sx={{ 
                     bgcolor: '#0F7C82', 
                     color: '#FFFFFF',
                     fontWeight: 700,
+                    position: 'sticky',
+                    left: 280,
+                    zIndex: 3,
                     minWidth: 50,
                     padding: '10px 8px',
+                    borderRight: '1px solid rgba(255,255,255,0.1)',
                   }}
                 >
                   <TableSortLabel
@@ -1248,14 +1318,18 @@ const AttendanceDashboard = () => {
                   </TableSortLabel>
                 </TableCell>
 
-                {/* Column 4: ESI */}
+                {/* Column 4: ESI - Sticky left: 330 */}
                 <TableCell 
                   sx={{ 
                     bgcolor: '#0F7C82', 
                     color: '#FFFFFF',
                     fontWeight: 700,
+                    position: 'sticky',
+                    left: 330,
+                    zIndex: 3,
                     minWidth: 50,
                     padding: '10px 8px',
+                    borderRight: '1px solid rgba(255,255,255,0.1)',
                   }}
                 >
                   <TableSortLabel
@@ -1276,14 +1350,18 @@ const AttendanceDashboard = () => {
                   </TableSortLabel>
                 </TableCell>
 
-                {/* Column 5: Reporting Manager */}
+                {/* Column 5: Reporting Manager - Sticky left: 380 */}
                 <TableCell 
                   sx={{ 
                     bgcolor: '#0F7C82', 
                     color: '#FFFFFF',
                     fontWeight: 700,
+                    position: 'sticky',
+                    left: 380,
+                    zIndex: 3,
                     minWidth: 130,
                     padding: '10px 8px',
+                    borderRight: '1px solid rgba(255,255,255,0.1)',
                   }}
                 >
                   <TableSortLabel
@@ -1304,14 +1382,18 @@ const AttendanceDashboard = () => {
                   </TableSortLabel>
                 </TableCell>
 
-                {/* Column 6: Designation */}
+                {/* Column 6: Designation - Sticky left: 510 */}
                 <TableCell 
                   sx={{ 
                     bgcolor: '#0F7C82', 
                     color: '#FFFFFF',
                     fontWeight: 700,
+                    position: 'sticky',
+                    left: 510,
+                    zIndex: 3,
                     minWidth: 130,
                     padding: '10px 8px',
+                    borderRight: '1px solid rgba(255,255,255,0.1)',
                   }}
                 >
                   <TableSortLabel
@@ -1332,14 +1414,18 @@ const AttendanceDashboard = () => {
                   </TableSortLabel>
                 </TableCell>
 
-                {/* Column 7: Joining Date */}
+                {/* Column 7: Joining Date - Sticky left: 640 */}
                 <TableCell 
                   sx={{ 
                     bgcolor: '#0F7C82', 
                     color: '#FFFFFF',
                     fontWeight: 700,
+                    position: 'sticky',
+                    left: 640,
+                    zIndex: 3,
                     minWidth: 100,
                     padding: '10px 8px',
+                    borderRight: '1px solid rgba(255,255,255,0.1)',
                   }}
                 >
                   <TableSortLabel
@@ -1360,14 +1446,18 @@ const AttendanceDashboard = () => {
                   </TableSortLabel>
                 </TableCell>
 
-                {/* Column 8: Probation */}
+                {/* Column 8: Probation - Sticky left: 740 */}
                 <TableCell 
                   sx={{ 
                     bgcolor: '#0F7C82', 
                     color: '#FFFFFF',
                     fontWeight: 700,
+                    position: 'sticky',
+                    left: 740,
+                    zIndex: 3,
                     minWidth: 80,
                     padding: '10px 8px',
+                    borderRight: '1px solid rgba(255,255,255,0.1)',
                   }}
                 >
                   <TableSortLabel
@@ -1388,7 +1478,7 @@ const AttendanceDashboard = () => {
                   </TableSortLabel>
                 </TableCell>
 
-                {/* Columns 9+: Attendance Days - DYNAMIC */}
+                {/* Columns 9+: Attendance Days - DYNAMIC - NOT STICKY */}
                 {DAY_ORDER.map((day) => {
                   const displayMonth = getDisplayMonth(day, selectedMonth);
                   
@@ -1633,13 +1723,15 @@ const AttendanceDashboard = () => {
               ) : paginatedData.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8 + DAY_ORDER.length + 7} align="center" sx={{ py: 5 }}>
-                    <Typography variant="body2" color="textSecondary">No records found</Typography>
+                    <Typography variant="body2" color="textSecondary">
+                      {entitySynced ? 'No records found' : 'Loading entity...'}
+                    </Typography>
                   </TableCell>
                 </TableRow>
               ) : (
                 paginatedData.map((row) => (
                   <TableRow key={row.employeeId} hover>
-                    {/* Employee ID - Now first column */}
+                    {/* Employee ID - Sticky left: 0 */}
                     <TableCell 
                       sx={{ 
                         position: 'sticky',
@@ -1647,6 +1739,7 @@ const AttendanceDashboard = () => {
                         zIndex: 1,
                         bgcolor: 'background.paper',
                         padding: '8px 8px',
+                        borderRight: '1px solid rgba(224,224,224,0.5)',
                       }}
                     >
                       <Typography variant="body2" fontWeight={500}>
@@ -1654,7 +1747,7 @@ const AttendanceDashboard = () => {
                       </Typography>
                     </TableCell>
 
-                    {/* Employee Name */}
+                    {/* Employee Name - Sticky left: 100 */}
                     <TableCell 
                       sx={{ 
                         position: 'sticky',
@@ -1663,6 +1756,7 @@ const AttendanceDashboard = () => {
                         bgcolor: 'background.paper',
                         padding: '8px 8px',
                         cursor: 'pointer',
+                        borderRight: '1px solid rgba(224,224,224,0.5)',
                       }}
                       onClick={() => handleEmployeeClick(row)}
                     >
@@ -1680,8 +1774,17 @@ const AttendanceDashboard = () => {
                       </Typography>
                     </TableCell>
 
-                    {/* PF */}
-                    <TableCell sx={{ padding: '8px 8px' }}>
+                    {/* PF - Sticky left: 280 */}
+                    <TableCell 
+                      sx={{ 
+                        position: 'sticky',
+                        left: 280,
+                        zIndex: 1,
+                        bgcolor: 'background.paper',
+                        padding: '8px 8px',
+                        borderRight: '1px solid rgba(224,224,224,0.5)',
+                      }}
+                    >
                       <Chip
                         label={row.pf}
                         size="small"
@@ -1694,8 +1797,17 @@ const AttendanceDashboard = () => {
                       />
                     </TableCell>
 
-                    {/* ESI */}
-                    <TableCell sx={{ padding: '8px 8px' }}>
+                    {/* ESI - Sticky left: 330 */}
+                    <TableCell 
+                      sx={{ 
+                        position: 'sticky',
+                        left: 330,
+                        zIndex: 1,
+                        bgcolor: 'background.paper',
+                        padding: '8px 8px',
+                        borderRight: '1px solid rgba(224,224,224,0.5)',
+                      }}
+                    >
                       <Chip
                         label={row.esi}
                         size="small"
@@ -1708,18 +1820,45 @@ const AttendanceDashboard = () => {
                       />
                     </TableCell>
 
-                    {/* Reporting Manager */}
-                    <TableCell sx={{ padding: '8px 8px' }}>
+                    {/* Reporting Manager - Sticky left: 380 */}
+                    <TableCell 
+                      sx={{ 
+                        position: 'sticky',
+                        left: 380,
+                        zIndex: 1,
+                        bgcolor: 'background.paper',
+                        padding: '8px 8px',
+                        borderRight: '1px solid rgba(224,224,224,0.5)',
+                      }}
+                    >
                       <Typography variant="body2">{row.reportingManager || '—'}</Typography>
                     </TableCell>
 
-                    {/* Designation */}
-                    <TableCell sx={{ padding: '8px 8px' }}>
+                    {/* Designation - Sticky left: 510 */}
+                    <TableCell 
+                      sx={{ 
+                        position: 'sticky',
+                        left: 510,
+                        zIndex: 1,
+                        bgcolor: 'background.paper',
+                        padding: '8px 8px',
+                        borderRight: '1px solid rgba(224,224,224,0.5)',
+                      }}
+                    >
                       <Typography variant="body2">{row.designation}</Typography>
                     </TableCell>
 
-                    {/* Joining Date */}
-                    <TableCell sx={{ padding: '8px 8px' }}>
+                    {/* Joining Date - Sticky left: 640 */}
+                    <TableCell 
+                      sx={{ 
+                        position: 'sticky',
+                        left: 640,
+                        zIndex: 1,
+                        bgcolor: 'background.paper',
+                        padding: '8px 8px',
+                        borderRight: '1px solid rgba(224,224,224,0.5)',
+                      }}
+                    >
                       <Typography variant="body2">
                         {row.joiningDate ? new Date(row.joiningDate).toLocaleDateString('en-IN', {
                           day: '2-digit',
@@ -1729,12 +1868,21 @@ const AttendanceDashboard = () => {
                       </Typography>
                     </TableCell>
 
-                    {/* Probation */}
-                    <TableCell sx={{ padding: '8px 8px' }}>
+                    {/* Probation - Sticky left: 740 */}
+                    <TableCell 
+                      sx={{ 
+                        position: 'sticky',
+                        left: 740,
+                        zIndex: 1,
+                        bgcolor: 'background.paper',
+                        padding: '8px 8px',
+                        borderRight: '1px solid rgba(224,224,224,0.5)',
+                      }}
+                    >
                       <Typography variant="body2">{row.probation || '—'}</Typography>
                     </TableCell>
 
-                    {/* Attendance Days - DYNAMIC */}
+                    {/* Attendance Days - DYNAMIC - NOT STICKY */}
                     {DAY_ORDER.map((day) => {
                       const isApproved = isDateInApprovedWeek(day, selectedMonth, selectedYear, approvedWeeks);
                       return (

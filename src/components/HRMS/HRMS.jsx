@@ -54,6 +54,32 @@ import { showToast } from "../../utils/ToastNotification";
 import ConfirmDialog from "../muiComponents/ConfirmDialog";
 import * as XLSX from 'xlsx';
 
+// ============================================================
+// TEST EMPLOYEE IDs to be filtered out
+// ============================================================
+const TEST_EMPLOYEE_IDS = [
+  'ADRTIN9099',
+  'ADRTIN9092',
+  'ADRTIN3333',
+  'ADRTIN3131',
+  'ADRTIN2121',
+  'ADRTIN004',
+  'ADRTIN9940',
+  'ADRTUS9988',
+  'ADRTIN1235',
+  'ADRTIN9123',
+  'ADRTIN9123',
+  'ADRTIN9229',
+  'ADRTUS5007',
+  'ADRTUS0100',
+  'ADRTUS0990',
+  'ADRTUS5000',
+  'ADRTUS5001',
+  'ADRTUS5002',
+  'ADRTUS5003',
+  'ADRTUS5004'
+];
+
 const emptyProfile = {
   photo: "",
   name: "",
@@ -1016,7 +1042,13 @@ const HRMS = () => {
     setLoading(true);
     try {
       const response = await httpService.get("/users/employee", { entity: activeEntity });
-      setUsers(normalizeArrayPayload(response));
+      const allUsers = normalizeArrayPayload(response);
+      // Filter out test users immediately after fetching
+      const filteredUsers = allUsers.filter((user) => {
+        const employeeId = getEmployeeId(user);
+        return !TEST_EMPLOYEE_IDS.includes(employeeId);
+      });
+      setUsers(filteredUsers);
       setProfileDetailsByEmployeeId({});
       setPage(0);
     } catch (error) {
