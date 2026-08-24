@@ -72,6 +72,8 @@ import {
   NavigateNext,
   CheckCircle,
   Cancel,
+  Lock,
+  LockOpen,
 } from "@mui/icons-material";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -85,6 +87,7 @@ import {
   deletePlacement,
   setSelectedPlacement,
   resetPlacementState,
+  lockPlacement,
 } from "../../redux/placementSlice";
 import DateRangeFilter from "../muiComponents/DateRangeFilter";
 import CryptoJS from "crypto-js";
@@ -541,6 +544,16 @@ const CandidateTablePage = ({
                   </TableCell>
                   <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
                     <TableSortLabel
+                      active={orderBy === 'teamLead'}
+                      direction={orderBy === 'teamLead' ? order : 'asc'}
+                      onClick={() => handleRequestSort('teamLead')}
+                      sx={{ fontSize: '0.75rem' }}
+                    >
+                      Team Lead
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
+                    <TableSortLabel
                       active={orderBy === 'clientName'}
                       direction={orderBy === 'clientName' ? order : 'asc'}
                       onClick={() => handleRequestSort('clientName')}
@@ -698,6 +711,11 @@ const CandidateTablePage = ({
                     </TableCell>
                     <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
                       <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                        {placement.teamLead || '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
+                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
                         {placement.clientName || '-'}
                       </Typography>
                     </TableCell>
@@ -796,6 +814,8 @@ const PlacementsList = () => {
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [placementToDelete, setPlacementToDelete] = useState(null);
+  const [lockDialogOpen, setLockDialogOpen] = useState(false);
+  const [placementToLock, setPlacementToLock] = useState(null);
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -1114,6 +1134,23 @@ const PlacementsList = () => {
     }
   };
 
+  const handleOpenLockDialog = (row) => {
+    setPlacementToLock(row);
+    setLockDialogOpen(true);
+  };
+
+  const handleCloseLockDialog = () => {
+    setLockDialogOpen(false);
+    setPlacementToLock(null);
+  };
+
+  const handleLock = () => {
+    if (placementToLock) {
+      dispatch(lockPlacement(placementToLock.id));
+      handleCloseLockDialog();
+    }
+  };
+
   const handleRegisterUser = async (id) => {
     setIsLoading(true);
 
@@ -1267,6 +1304,7 @@ const PlacementsList = () => {
       },
       { key: "sales", label: "Sales", width: 130 },
       { key: "recruiterName", label: "Recruiter", width: 130 },
+      { key: "teamLead", label: "Team Lead", width: 130 },
       {
         key: "clientName",
         label: "Client",
@@ -1411,14 +1449,17 @@ const PlacementsList = () => {
                 <Visibility fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Edit">
-              <IconButton
-                color="primary"
-                size="small"
-                onClick={() => handleOpenDrawer(row)}
-              >
-                <Edit fontSize="small" />
-              </IconButton>
+            <Tooltip title={row.lock ? "Locked - Cannot Edit" : "Edit"}>
+              <span>
+                <IconButton
+                  color="primary"
+                  size="small"
+                  onClick={() => !row.lock && handleOpenDrawer(row)}
+                  disabled={row.lock}
+                >
+                  <Edit fontSize="small" />
+                </IconButton>
+              </span>
             </Tooltip>
             <Tooltip title="Delete">
               <IconButton
@@ -1428,6 +1469,18 @@ const PlacementsList = () => {
               >
                 <Delete fontSize="small" />
               </IconButton>
+            </Tooltip>
+            <Tooltip title={row.lock ? "Locked" : "Lock Placement"}>
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={() => !row.lock && handleOpenLockDialog(row)}
+                  disabled={row.lock}
+                  sx={{ color: row.lock ? 'warning.main' : 'text.secondary' }}
+                >
+                  {row.lock ? <Lock fontSize="small" /> : <LockOpen fontSize="small" />}
+                </IconButton>
+              </span>
             </Tooltip>
           </Box>
         ),
@@ -1995,6 +2048,24 @@ const PlacementsList = () => {
         content={getDeleteConfirmationContent()}
         onClose={handleCloseDeleteDialog}
         onConfirm={handleDelete}
+      />
+
+      {/* Lock Confirmation Dialog */}
+      <ConfirmDialog
+        open={lockDialogOpen}
+        title="Lock Placement"
+        content={
+          <>
+            Are you sure you want to lock this placement? Once locked, you cannot edit this record.
+            {placementToLock && (
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                <strong>Consultant:</strong> {placementToLock.candidateFullName}
+              </Typography>
+            )}
+          </>
+        }
+        onClose={handleCloseLockDialog}
+        onConfirm={handleLock}
       />
     </>
   );

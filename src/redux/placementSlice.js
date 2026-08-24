@@ -363,6 +363,35 @@ export const updateUsPlacement = createAsyncThunk(
   }
 );
 
+// Async thunk to lock a placement
+export const lockPlacement = createAsyncThunk(
+  "placement/lockPlacement",
+  async (id, { rejectWithValue, dispatch, getState }) => {
+    try {
+      const state = getState();
+      const userId = state.auth.userId;
+      const response = await httpService.put(
+        `/candidate/placement/update-placement/${id}/${userId}`,
+        { lock: true }
+      );
+      if (response.data.success) {
+        ToastService.success("Placement locked successfully!");
+        dispatch(fetchPlacements());
+        return response.data;
+      } else {
+        throw new Error(response.data.error || "Failed to lock placement");
+      }
+    } catch (error) {
+      ToastService.error(
+        error.response?.data?.message || "Failed to lock placement. Please try again."
+      );
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to lock placement"
+      );
+    }
+  }
+);
+
 // Async thunk to delete a placement
 export const deletePlacement = createAsyncThunk(
   "placement/deletePlacement",
@@ -661,6 +690,22 @@ const placementSlice = createSlice({
       .addCase(deletePlacement.rejected, (state, action) => {
         state.loading = false;
         state.success = false;
+        state.error = action.payload;
+        state.actionType = null;
+      })
+
+      // Lock placement
+      .addCase(lockPlacement.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+        state.actionType = "lock";
+      })
+      .addCase(lockPlacement.fulfilled, (state) => {
+        state.loading = false;
+        state.actionType = null;
+      })
+      .addCase(lockPlacement.rejected, (state, action) => {
+        state.loading = false;
         state.error = action.payload;
         state.actionType = null;
       })
