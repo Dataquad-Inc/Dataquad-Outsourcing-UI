@@ -1285,7 +1285,7 @@ const PlacementsList = () => {
       },
       {
         key: "company",
-        label: "company",
+        label: "Company",
         type: "select",
         sortable: true,
         filterable: true,
