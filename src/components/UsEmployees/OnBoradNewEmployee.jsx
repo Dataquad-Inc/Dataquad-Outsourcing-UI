@@ -57,18 +57,18 @@ const OnBoardNewEmployee = () => {
   const BASE_URL = "https://mymulya.com";
 
   // Role options
-const roleOptions = [
-  { value: "TEAMLEAD", label: "Team Lead" },
-  { value: "RECRUITER", label: "Recruiter" },
-  { value: "SALESEXECUTIVE", label: "Sales Executive" },
-  { value: "ADMIN", label: "Admin" },
-  { value: "SUPERADMIN", label: "Super Admin" },
-  { value: "GRANDSALES", label: "Grand Sales" },
-  { value: "FINANCE", label: "Finance" },
-  { value: "COORDINATOR", label: "Coordinator" }, 
-  { value: "HRMS", label: "HRMS" },
-  { value: "SUPERACCOUNTS", label: "Super Accounts" },
-];
+  const roleOptions = [
+    { value: "TEAMLEAD", label: "Team Lead" },
+    { value: "RECRUITER", label: "Recruiter" },
+    { value: "SALESEXECUTIVE", label: "Sales Executive" },
+    { value: "ADMIN", label: "Admin" },
+    { value: "SUPERADMIN", label: "Super Admin" },
+    { value: "GRANDSALES", label: "Grand Sales" },
+    { value: "FINANCE", label: "Finance" },
+    { value: "COORDINATOR", label: "Coordinator" },
+    { value: "HRMS", label: "HRMS" },
+    { value: "SUPERACCOUNTS", label: "Super Accounts" },
+  ];
 
   const genderOptions = [
     { value: "Male", label: "Male" },
@@ -83,55 +83,69 @@ const roleOptions = [
   const handleInputChange = (field) => (event) => {
     let value = event.target.value;
 
-    // Always trim spaces at start and end
-    value = value.trim();
+    // For userName field, don't trim at all - preserve all spaces
+    // For other fields, trim spaces
+    if (field === "userName") {
+      // Don't modify the value - keep spaces as user types
+      // Just keep the value as is
+    } else {
+      // For other fields, trim spaces
+      value = value.trim();
+    }
 
     setFormData((prev) => ({
       ...prev,
       [field]: field === "roles" ? [value] : value,
     }));
 
-    // Instant field validation with trimmed value
+    // Validate the field
     const error = validateField(field, value);
     setErrors((prev) => ({ ...prev, [field]: error }));
   };
 
   const validateField = (field, value) => {
     let error = "";
+    
+    // For validation, trim the value first
+    const trimmedValue = typeof value === "string" ? value.trim() : value;
 
     switch (field) {
       case "userId":
-        if (!value.trim()) {
+        if (!trimmedValue) {
           error = "Employee ID is required";
-        } else if (!/^ADRTUS\d{2,4}$/.test(value.trim())) {
+        } else if (!/^ADRTUS\d{2,4}$/.test(trimmedValue)) {
           error = "Employee ID must start with ADRTUS followed by 2–4 digits";
         }
         break;
 
       case "userName":
-        if (!value.trim()) error = "Full name is required";
+        // Check if value is empty or only spaces
+        if (!trimmedValue) {
+          error = "Full name is required";
+        }
+        // Allow spaces in name - no additional validation needed
         break;
 
       case "email":
-        if (!value.trim()) {
+        if (!trimmedValue) {
           error = "Work email is required";
-        } else if (!/^[^\s@]+@adroitinnovative\.com$/i.test(value)) {
+        } else if (!/^[^\s@]+@adroitinnovative\.com$/i.test(trimmedValue)) {
           error = "Work email must be in the format xyz@adroitinnovative.com";
         }
         break;
 
       case "personalemail":
-        if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+        if (trimmedValue && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedValue)) {
           error = "Please enter a valid personal email address";
         }
         break;
 
       case "password":
-        if (!value) {
+        if (!trimmedValue) {
           error = "Password is required";
         } else if (
           !/^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/.test(
-            value
+            trimmedValue
           )
         ) {
           error =
@@ -140,27 +154,27 @@ const roleOptions = [
         break;
 
       case "confirmPassword":
-        if (!value) {
+        if (!trimmedValue) {
           error = "Confirm password is required";
-        } else if (value !== formData.password) {
+        } else if (trimmedValue !== formData.password) {
           error = "Passwords do not match";
         }
         break;
 
       case "phoneNumber":
-        if (!value.trim()) {
+        if (!trimmedValue) {
           error = "Phone number is required";
-        } else if (!/^[0-9]{10}$/.test(value.replace(/\D/g, ""))) {
+        } else if (!/^[0-9]{10}$/.test(trimmedValue.replace(/\D/g, ""))) {
           error = "Please enter a valid 10-digit phone number";
         }
         break;
 
       case "designation":
-        if (!value.trim()) error = "Designation is required";
+        if (!trimmedValue) error = "Designation is required";
         break;
 
       case "joiningDate":
-        if (!value) error = "Joining date is required";
+        if (!trimmedValue) error = "Joining date is required";
         break;
 
       default:
@@ -173,11 +187,28 @@ const roleOptions = [
   const handleSubmit = async (event) => {
     event.preventDefault();
 
+    // Validate all fields before submission
+    const newErrors = {};
+    Object.keys(formData).forEach((key) => {
+      const value = formData[key];
+      const error = validateField(key, value);
+      if (error) {
+        newErrors[key] = error;
+      }
+    });
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      showErrorToast("Please fix all validation errors before submitting");
+      return;
+    }
+
     setLoading(true);
     try {
-      // Prepare payload
+      // Prepare payload - trim userName before sending
       const payload = {
         ...formData,
+        userName: formData.userName.trim(), // Trim spaces before sending to backend
         phoneNumber: formData.phoneNumber.replace(/\D/g, ""), // Clean phone number
       };
 
