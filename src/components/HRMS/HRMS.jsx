@@ -77,7 +77,8 @@ const TEST_EMPLOYEE_IDS = [
   'ADRTUS5001',
   'ADRTUS5002',
   'ADRTUS5003',
-  'ADRTUS5004'
+  'ADRTUS5004',
+  'ADRTUS0041'
 ];
 
 const emptyProfile = {
