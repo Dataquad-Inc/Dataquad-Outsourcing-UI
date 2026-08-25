@@ -82,6 +82,7 @@ import DataTable from "../muiComponents/DataTabel";
 import PlacementForm from "./PlacementForm";
 import PlacementCard from "./PlacementCard";
 import ConfirmDialog from "../muiComponents/ConfirmDialog";
+import LockConfirmDialog from "../muiComponents/LockConfirmDialog";
 import {
   fetchPlacements,
   deletePlacement,
@@ -808,7 +809,7 @@ const PlacementsList = () => {
   const { placements, loading, selectedPlacement } = useSelector(
     (state) => state.placement
   );
-  const { userId, encryptionKey } = useSelector((state) => state.auth);
+  const { userId, encryptionKey, role } = useSelector((state) => state.auth);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
@@ -1449,13 +1450,17 @@ const PlacementsList = () => {
                 <Visibility fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Tooltip title={row.lock ? "Locked - Cannot Edit" : "Edit"}>
+            <Tooltip title={
+              row.lock 
+                ? (role === 'SUPERADMIN' ? "Edit (SuperAdmin override)" : "Locked - Cannot Edit")
+                : "Edit"
+            }>
               <span>
                 <IconButton
                   color="primary"
                   size="small"
-                  onClick={() => !row.lock && handleOpenDrawer(row)}
-                  disabled={row.lock}
+                  onClick={() => handleOpenDrawer(row)}
+                  disabled={row.lock && role !== 'SUPERADMIN'}
                 >
                   <Edit fontSize="small" />
                 </IconButton>
@@ -2051,7 +2056,7 @@ const PlacementsList = () => {
       />
 
       {/* Lock Confirmation Dialog */}
-      <ConfirmDialog
+      <LockConfirmDialog
         open={lockDialogOpen}
         title="Lock Placement"
         content={

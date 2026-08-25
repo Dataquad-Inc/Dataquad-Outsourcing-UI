@@ -96,7 +96,7 @@ const PlacementForm = ({
     };
     Promise.all([
       fetchEmployees("EMPLOYEE"),
-      fetchEmployees("SALESEXECUTIVE"),
+      fetchEmployees("BDM"),
       fetchEmployees("TEAMLEAD"),
     ]).then(([recruiters, sales, teamleads]) =>
       setEmployeeOptions({ recruiters, sales, teamleads })
