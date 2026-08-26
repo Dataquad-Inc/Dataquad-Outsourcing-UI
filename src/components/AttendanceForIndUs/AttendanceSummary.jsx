@@ -276,8 +276,8 @@ const AttendanceSummary = () => {
         'Employee ID', 'Employee Name', 'PF', 'ESI', 'Reporting Manager', 
         'Designation', 'Joining Date', 'Probation',
         'Total Days', 'Working Days', 'Week Offs', 'Present Days', 
-        'Leaves', 'Paid Days', 'LOP', 'Half Days', 
-        'WFH', 'Public Holidays', 'Attendance Rate (%)'
+        'Leaves', 'LOP', 'Half Days', 
+        'WFH', 'Public Holidays', 'Paid Days', 'Attendance Rate (%)'
       ];
       
       const dataRows = filteredData.map((row) => {
@@ -299,11 +299,11 @@ const AttendanceSummary = () => {
           row.totalWeekOffs || 0,
           row.totalPresentDays,
           row.totalLeaves,
-          row.totalPaidDays,
           row.totalLop || 0,
           row.totalHalfDays || 0,
           row.totalWfH || 0,
           row.totalPublicHolidays || 0,
+          row.totalPaidDays,
           presentRate,
         ];
       });
@@ -863,7 +863,7 @@ const AttendanceSummary = () => {
                       },
                     }}
                   >
-                    Week Offs Days
+                    Week Offs
                   </TableSortLabel>
                 </TableCell>
 
@@ -1035,8 +1035,7 @@ const AttendanceSummary = () => {
                   </TableSortLabel>
                 </TableCell>
 
-
-                {/* Paid Days */}
+                {/* Paid Days - Moved to last */}
                 <TableCell 
                   sx={{ 
                     bgcolor: '#0F7C82', 
@@ -1313,20 +1312,6 @@ const AttendanceSummary = () => {
                         />
                       </TableCell>
 
-                      {/* Paid Days */}
-                      <TableCell sx={{ padding: '8px 8px' }}>
-                        <Chip
-                          label={row.totalPaidDays}
-                          size="small"
-                          sx={{
-                            backgroundColor: alpha('#42A5F5', 0.1),
-                            color: '#42A5F5',
-                            fontWeight: 600,
-                            minWidth: 40,
-                          }}
-                        />
-                      </TableCell>
-
                       {/* LOP */}
                       <TableCell sx={{ padding: '8px 8px' }}>
                         <Chip
@@ -1373,6 +1358,20 @@ const AttendanceSummary = () => {
                       <TableCell sx={{ padding: '8px 8px' }}>
                         <Chip
                           label={row.totalPublicHolidays || 0}
+                          size="small"
+                          sx={{
+                            backgroundColor: alpha('#42A5F5', 0.1),
+                            color: '#42A5F5',
+                            fontWeight: 600,
+                            minWidth: 40,
+                          }}
+                        />
+                      </TableCell>
+
+                      {/* Paid Days - Moved to last */}
+                      <TableCell sx={{ padding: '8px 8px' }}>
+                        <Chip
+                          label={row.totalPaidDays}
                           size="small"
                           sx={{
                             backgroundColor: alpha('#42A5F5', 0.1),

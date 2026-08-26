@@ -917,8 +917,7 @@ const AttendanceDashboard = () => {
           return `${day} ${monthName}`;
         }),
         'Total Days', 'Working Days', 'Week Offs', 'Present Days', 
-        'Leaves', 'Paid Days', 'LOP', 'Half Days',
-        'WFH', 'Public Holidays'
+        'Leaves', 'LOP', 'Half Days', 'WFH', 'Public Holidays', 'Paid Days'
       ];
       
       const dataRows = filteredData.map((row) => {
@@ -943,11 +942,11 @@ const AttendanceDashboard = () => {
           row.totalWeekOffs || 0,
           row.totalPresentDays,
           row.totalLeaves,
-          row.totalPaidDays,
           row.totalLop || 0,
           row.totalHalfDays || 0,
           row.totalWfH || 0,
-          row.totalPublicHolidays || 0
+          row.totalPublicHolidays || 0,
+          row.totalPaidDays
         );
         
         return rowData;
@@ -1583,7 +1582,7 @@ const AttendanceDashboard = () => {
                       },
                     }}
                   >
-                    Week Offs Days
+                    Week Offs
                   </TableSortLabel>
                 </TableCell>
 
@@ -1755,7 +1754,7 @@ const AttendanceDashboard = () => {
                   </TableSortLabel>
                 </TableCell>
 
-               {/* Paid Days */}
+                {/* Paid Days - Moved to last */}
                 <TableCell 
                   sx={{ 
                     bgcolor: '#0F7C82', 
@@ -1782,21 +1781,20 @@ const AttendanceDashboard = () => {
                     Paid Days
                   </TableSortLabel>
                 </TableCell>
-
               </TableRow>
             </TableHead>
 
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={8 + DAY_ORDER.length + 11} align="center" sx={{ py: 5 }}>
+                  <TableCell colSpan={8 + DAY_ORDER.length + 10} align="center" sx={{ py: 5 }}>
                     <Loader2 size={32} className="animate-spin" />
                     <Typography variant="body2" sx={{ mt: 1 }}>Loading attendance data...</Typography>
                   </TableCell>
                 </TableRow>
               ) : paginatedData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8 + DAY_ORDER.length + 11} align="center" sx={{ py: 5 }}>
+                  <TableCell colSpan={8 + DAY_ORDER.length + 10} align="center" sx={{ py: 5 }}>
                     <Typography variant="body2" color="textSecondary">
                       {entitySynced ? 'No records found' : 'Loading entity...'}
                     </Typography>
@@ -2016,20 +2014,6 @@ const AttendanceDashboard = () => {
                       />
                     </TableCell>
 
-                    {/* Paid Days */}
-                    <TableCell sx={{ padding: '8px 8px' }}>
-                      <Chip
-                        label={row.totalPaidDays}
-                        size="small"
-                        sx={{
-                          backgroundColor: alpha('#42A5F5', 0.1),
-                          color: '#42A5F5',
-                          fontWeight: 600,
-                          minWidth: 40,
-                        }}
-                      />
-                    </TableCell>
-
                     {/* LOP */}
                     <TableCell sx={{ padding: '8px 8px' }}>
                       <Chip
@@ -2076,6 +2060,20 @@ const AttendanceDashboard = () => {
                     <TableCell sx={{ padding: '8px 8px' }}>
                       <Chip
                         label={row.totalPublicHolidays || 0}
+                        size="small"
+                        sx={{
+                          backgroundColor: alpha('#42A5F5', 0.1),
+                          color: '#42A5F5',
+                          fontWeight: 600,
+                          minWidth: 40,
+                        }}
+                      />
+                    </TableCell>
+
+                    {/* Paid Days - Moved to last */}
+                    <TableCell sx={{ padding: '8px 8px' }}>
+                      <Chip
+                        label={row.totalPaidDays}
                         size="small"
                         sx={{
                           backgroundColor: alpha('#42A5F5', 0.1),
