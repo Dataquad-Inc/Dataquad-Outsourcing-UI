@@ -44,8 +44,8 @@ const UsEmployees = () => {
   const [search, setSearch] = useState("");
   
   // ✅ Split into two separate filters
-  const [statusFilter, setStatusFilter] = useState("active"); // "active" or "inactive"
-  const [typeFilter, setTypeFilter] = useState("internal"); // "internal" or "external" or "all"
+  const [statusFilter, setStatusFilter] = useState("active"); // "active", "inactive", "isolated", or "all"
+  const [typeFilter, setTypeFilter] = useState("internal"); // "internal" or "external"
 
   const BASE_URL = "https://mymulya.com";
   const roleOptions = [
@@ -71,7 +71,7 @@ const UsEmployees = () => {
       if (statusFilter && statusFilter !== "all") {
         categoryQuery += `&category=${encodeURIComponent(statusFilter)}`;
       }
-      if (typeFilter && typeFilter !== "all") {
+      if (typeFilter) {
         categoryQuery += `&type=${encodeURIComponent(typeFilter)}`;
       }
 
@@ -99,7 +99,7 @@ const UsEmployees = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, search, statusFilter, typeFilter]); // ✅ Added both filters
+  }, [page, rowsPerPage, search, statusFilter, typeFilter]);
 
   React.useEffect(() => {
     fetchData();
@@ -247,13 +247,31 @@ const UsEmployees = () => {
           justifyContent="center"
           alignItems="center"
         >
-          {/* 🔹 Status Group - Active/Inactive */}
+          {/* 🔹 Status Group - All/Active/Inactive/Isolated */}
+          <Button
+            variant={statusFilter === "all" ? "contained" : "outlined"}
+            onClick={() => handleStatusFilterChange("all")}
+            sx={{ 
+              textTransform: "none", 
+              minWidth: 80,
+              backgroundColor: statusFilter === "all" ? "#F26322" : "transparent",
+              color: statusFilter === "all" ? "white" : "inherit",
+              borderColor: statusFilter === "all" ? "#F26322" : "rgba(0, 0, 0, 0.23)",
+              '&:hover': {
+                backgroundColor: statusFilter === "all" ? "#F26322" : "rgba(242, 99, 34, 0.04)",
+                borderColor: statusFilter === "all" ? "#F26322" : "rgba(0, 0, 0, 0.23)",
+              }
+            }}
+          >
+            All
+          </Button>
+
           <Button
             variant={statusFilter === "active" ? "contained" : "outlined"}
             onClick={() => handleStatusFilterChange("active")}
             sx={{ 
               textTransform: "none", 
-              minWidth: 120,
+              minWidth: 100,
               backgroundColor: statusFilter === "active" ? "#F26322" : "transparent",
               color: statusFilter === "active" ? "white" : "inherit",
               borderColor: statusFilter === "active" ? "#F26322" : "rgba(0, 0, 0, 0.23)",
@@ -271,7 +289,7 @@ const UsEmployees = () => {
             onClick={() => handleStatusFilterChange("inactive")}
             sx={{ 
               textTransform: "none", 
-              minWidth: 120,
+              minWidth: 100,
               backgroundColor: statusFilter === "inactive" ? "#F26322" : "transparent",
               color: statusFilter === "inactive" ? "white" : "inherit",
               borderColor: statusFilter === "inactive" ? "#F26322" : "rgba(0, 0, 0, 0.23)",
@@ -284,16 +302,34 @@ const UsEmployees = () => {
             In-Active
           </Button>
 
+          <Button
+            variant={statusFilter === "isolated" ? "contained" : "outlined"}
+            onClick={() => handleStatusFilterChange("isolated")}
+            sx={{ 
+              textTransform: "none", 
+              minWidth: 100,
+              backgroundColor: statusFilter === "isolated" ? "#F26322" : "transparent",
+              color: statusFilter === "isolated" ? "white" : "inherit",
+              borderColor: statusFilter === "isolated" ? "#F26322" : "rgba(0, 0, 0, 0.23)",
+              '&:hover': {
+                backgroundColor: statusFilter === "isolated" ? "#F26322" : "rgba(242, 99, 34, 0.04)",
+                borderColor: statusFilter === "isolated" ? "#F26322" : "rgba(0, 0, 0, 0.23)",
+              }
+            }}
+          >
+            Isolated
+          </Button>
+
           {/* Divider */}
           <Box sx={{ width: 16 }} />
 
-          {/* 🔹 Type Group - Internal/External */}
+          {/* 🔹 Type Group - Internal/External (No "All" button) */}
           <Button
             variant={typeFilter === "internal" ? "contained" : "outlined"}
             onClick={() => handleTypeFilterChange("internal")}
             sx={{ 
               textTransform: "none", 
-              minWidth: 120,
+              minWidth: 100,
               backgroundColor: typeFilter === "internal" ? "#F26322" : "transparent",
               color: typeFilter === "internal" ? "white" : "inherit",
               borderColor: typeFilter === "internal" ? "#F26322" : "rgba(0, 0, 0, 0.23)",
@@ -311,7 +347,7 @@ const UsEmployees = () => {
             onClick={() => handleTypeFilterChange("external")}
             sx={{ 
               textTransform: "none", 
-              minWidth: 120,
+              minWidth: 100,
               backgroundColor: typeFilter === "external" ? "#F26322" : "transparent",
               color: typeFilter === "external" ? "white" : "inherit",
               borderColor: typeFilter === "external" ? "#F26322" : "rgba(0, 0, 0, 0.23)",
@@ -433,4 +469,3 @@ const UsEmployees = () => {
 };
 
 export default UsEmployees;
-
