@@ -40,6 +40,8 @@ import {
   inactiveInternalUsers,
   activeExternalUsers,
   inactiveExternalUsers,
+  isolatedInternalUsers,
+  isolatedExternalUsers,
   setUserType,
   setUserStatus,
   resetFilteredUsers,
@@ -198,7 +200,7 @@ const UserDetailsDialog = ({ open, onClose, user }) => {
                   </Typography>
                   <Chip
                     label={user.status}
-                    color={user.status === "ACTIVE" ? "success" : "error"}
+                    color={user.status === "ACTIVE" ? "success" : user.status === "INACTIVE" ? "error" : "warning"}
                     size="small"
                     sx={{ mb: 2 }}
                   />
@@ -292,7 +294,7 @@ const UserDetailsDialog = ({ open, onClose, user }) => {
                   </Typography>
                   <Chip
                     label={user.status}
-                    color={user.status === "ACTIVE" ? "success" : "error"}
+                    color={user.status === "ACTIVE" ? "success" : user.status === "INACTIVE" ? "error" : "warning"}
                     size="small"
                   />
                 </Grid>
@@ -317,7 +319,6 @@ const UserDetailsDialog = ({ open, onClose, user }) => {
 const UsersList = () => {
   const [users, setUsers] = useState([]);
   const [columns, setColumns] = useState([]);
-  // const [refreshTrigger, setRefreshTrigger] = useState(0);
   const hasFetched = useRef(false);
   const [openEditDrawer, setOpenEditDrawer] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
@@ -326,7 +327,7 @@ const UsersList = () => {
   const [openAddDrawer, setOpenAddDrawer] = useState(false);
   const [openViewDialog, setOpenViewDialog] = useState(false);
   const [userToView, setUserToView] = useState(null);
-  const [userType, setUserTypeLocal] = useState("internal");
+  const [userType, setUserTypeLocal] = useState(null);
   const [userStatus, setUserStatusLocal] = useState(null);
 
   const isFilterToggled = useRef(false);
@@ -345,8 +346,10 @@ const UsersList = () => {
     deleteError,
     internalActive,
     internalInactive,
+    internalIsolated,
     externalActive,
     externalInactive,
+    externalIsolated,
   } = useSelector((state) => state.employee);
 
   useEffect(() => {
@@ -375,10 +378,14 @@ const UsersList = () => {
       dispatch(activeInternalUsers());
     } else if (userType === "internal" && userStatus === "inactive") {
       dispatch(inactiveInternalUsers());
+    } else if (userType === "internal" && userStatus === "isolated") {
+      dispatch(isolatedInternalUsers());
     } else if (userType === "external" && userStatus === "active") {
       dispatch(activeExternalUsers());
     } else if (userType === "external" && userStatus === "inactive") {
       dispatch(inactiveExternalUsers());
+    } else if (userType === "external" && userStatus === "isolated") {
+      dispatch(isolatedExternalUsers());
     }
   }, [userType, userStatus, dispatch]);
 
@@ -406,15 +413,15 @@ const UsersList = () => {
   }, [deleteStatus, deleteError, dispatch]);
 
   const refreshData = () => {
-    // setRefreshTrigger((prev) => prev + 1);
     dispatch(fetchEmployees());
   };
 
   const renderStatus = (status) => {
-    const statusLower = status?.toLowerCase();
+    const statusUpper = status?.toUpperCase();
     let color = "default";
-    if (statusLower === "active") color = "success";
-    else if (statusLower === "inactive") color = "error";
+    if (statusUpper === "ACTIVE") color = "success";
+    else if (statusUpper === "INACTIVE") color = "error";
+    else if (statusUpper === "ISOLATED") color = "warning";
     return <Chip label={status || "Unknown"} size="small" color={color} />;
   };
 
@@ -500,6 +507,17 @@ const UsersList = () => {
     }
   };
 
+  // ✅ Handle "All" button click - reset both filters
+  const handleAllFilter = () => {
+    isFilterToggled.current = true;
+    setUserTypeLocal(null);
+    setUserStatusLocal(null);
+    dispatch(setUserType(null));
+    dispatch(setUserStatus(null));
+    dispatch(resetFilteredUsers());
+    refreshData();
+  };
+
   const buttonStyles = {
     minWidth: "130px",
     height: "40px",
@@ -576,7 +594,7 @@ const UsersList = () => {
         filterable: true,
         render: (row) => renderStatus(row.status),
         width: 100,
-        options: ["ACTIVE", "INACTIVE"],
+        options: ["ACTIVE", "INACTIVE", "ISOLATED"],
       },
       {
         key: "actions",
@@ -658,10 +676,14 @@ const UsersList = () => {
         return internalActive || [];
       if (userType === "internal" && userStatus === "inactive")
         return internalInactive || [];
+      if (userType === "internal" && userStatus === "isolated")
+        return internalIsolated || [];
       if (userType === "external" && userStatus === "active")
         return externalActive || [];
       if (userType === "external" && userStatus === "inactive")
         return externalInactive || [];
+      if (userType === "external" && userStatus === "isolated")
+        return externalIsolated || [];
     }
 
     // Default: full list from the single initial fetchEmployees() call
@@ -748,7 +770,25 @@ const UsersList = () => {
         </Stack>
       </Stack>
 
-      <Box sx={{ mb: 3, display: "flex", justifyContent: "center", gap: 2 }}>
+      <Box sx={{ mb: 3, display: "flex", justifyContent: "center", gap: 2, flexWrap: "wrap" }}>
+        {/* All Button */}
+        <Button
+          variant={!userType && !userStatus ? "contained" : "outlined"}
+          onClick={handleAllFilter}
+          sx={{
+            ...buttonStyles,
+            minWidth: "80px",
+            backgroundColor: !userType && !userStatus ? "#1976d2" : "transparent",
+            color: !userType && !userStatus ? "white" : "inherit",
+            borderColor: !userType && !userStatus ? "#1976d2" : "rgba(0, 0, 0, 0.23)",
+            '&:hover': {
+              backgroundColor: !userType && !userStatus ? "#1565c0" : "rgba(25, 118, 210, 0.04)",
+            }
+          }}
+        >
+          All
+        </Button>
+
         <ToggleButtonGroup
           color="primary"
           value={userType}
@@ -790,11 +830,15 @@ const UsersList = () => {
               fontWeight: 600,
               "&.Mui-selected": {
                 backgroundColor:
-                  userStatus === "active" ? "#4caf50" : "#f44336",
+                  userStatus === "active" ? "#4caf50" : 
+                  userStatus === "inactive" ? "#f44336" : 
+                  userStatus === "isolated" ? "#ff9800" : "#1976d2",
                 color: "white",
                 "&:hover": {
                   backgroundColor:
-                    userStatus === "active" ? "#45a049" : "#d32f2f",
+                    userStatus === "active" ? "#45a049" : 
+                    userStatus === "inactive" ? "#d32f2f" : 
+                    userStatus === "isolated" ? "#f57c00" : "#1565c0",
                 },
               },
               "&:hover": { backgroundColor: "rgba(25, 118, 210, 0.08)" },
@@ -803,6 +847,7 @@ const UsersList = () => {
         >
           <ToggleButton value="active">ACTIVE</ToggleButton>
           <ToggleButton value="inactive">INACTIVE</ToggleButton>
+          <ToggleButton value="isolated">ISOLATED</ToggleButton>
         </ToggleButtonGroup>
       </Box>
 

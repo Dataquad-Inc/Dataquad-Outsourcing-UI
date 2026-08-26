@@ -113,7 +113,8 @@ const TEST_EMPLOYEE_IDS = [
   'ADRTUS5000',
   'ADRTUS0990',
   'ADRTUS0100',
-  'ADRTUS0041'
+  'ADRTUS0041',
+  'ADRTUS002'
 ];
 
 const ATTENDANCE_STATUS_OPTIONS = [
@@ -900,7 +901,7 @@ const AttendanceDashboard = () => {
   const paginatedData = sortedData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   // ============================================================
-  // EXPORT FUNCTION - UPDATED with dynamic day order
+  // EXPORT FUNCTION - UPDATED with dynamic day order and new columns
   // ============================================================
 
   const handleExport = async () => {
@@ -915,8 +916,9 @@ const AttendanceDashboard = () => {
           const monthName = getMonthName(displayMonth, selectedYear);
           return `${day} ${monthName}`;
         }),
-        'Total Days', 'Working Days', 'Weekend Days', 'Present Days', 
-        'Leaves', 'Casual Leaves', 'Paid Days'
+        'Total Days', 'Working Days', 'Week Offs', 'Present Days', 
+        'Leaves', 'Paid Days', 'LOP', 'Half Days',
+        'WFH', 'Public Holidays'
       ];
       
       const dataRows = filteredData.map((row) => {
@@ -938,11 +940,14 @@ const AttendanceDashboard = () => {
         rowData.push(
           row.totalDaysInMonth,
           row.totalWorkingDays,
-          row.totalWeekendDays,
+          row.totalWeekOffs || 0,
           row.totalPresentDays,
           row.totalLeaves,
-          row.casualLeaves,
-          row.totalPaidDays
+          row.totalPaidDays,
+          row.totalLop || 0,
+          row.totalHalfDays || 0,
+          row.totalWfH || 0,
+          row.totalPublicHolidays || 0
         );
         
         return rowData;
@@ -971,16 +976,6 @@ const AttendanceDashboard = () => {
   // ============================================================
   // RENDER
   // ============================================================
-
-  // Calculate sticky positions for columns
-  // Column 1: Employee ID - left: 0
-  // Column 2: Employee Name - left: 100
-  // Column 3: PF - left: 280 (100 + 180)
-  // Column 4: ESI - left: 330 (280 + 50)
-  // Column 5: Reporting Manager - left: 380 (330 + 50)
-  // Column 6: Designation - left: 510 (380 + 130)
-  // Column 7: Joining Date - left: 640 (510 + 130)
-  // Column 8: Probation - left: 740 (640 + 100)
 
   return (
     <Box sx={{ p: 3, backgroundColor: theme.palette.background.default, minHeight: "100vh" }}>
@@ -1235,7 +1230,6 @@ const AttendanceDashboard = () => {
                     zIndex: 3,
                     minWidth: 100,
                     padding: '10px 8px',
-                    borderRight: '1px solid rgba(255,255,255,0.1)',
                   }}
                 >
                   <TableSortLabel
@@ -1262,11 +1256,11 @@ const AttendanceDashboard = () => {
                     bgcolor: '#0F7C82', 
                     color: '#FFFFFF',
                     fontWeight: 700,
+                    position: 'sticky',
                     left: 100,
                     zIndex: 3,
                     minWidth: 180,
                     padding: '10px 8px',
-                    borderRight: '1px solid rgba(255,255,255,0.1)',
                   }}
                 >
                   <TableSortLabel
@@ -1298,7 +1292,6 @@ const AttendanceDashboard = () => {
                     zIndex: 3,
                     minWidth: 50,
                     padding: '10px 8px',
-                    borderRight: '1px solid rgba(255,255,255,0.1)',
                   }}
                 >
                   <TableSortLabel
@@ -1330,7 +1323,6 @@ const AttendanceDashboard = () => {
                     zIndex: 3,
                     minWidth: 50,
                     padding: '10px 8px',
-                    borderRight: '1px solid rgba(255,255,255,0.1)',
                   }}
                 >
                   <TableSortLabel
@@ -1362,7 +1354,6 @@ const AttendanceDashboard = () => {
                     zIndex: 3,
                     minWidth: 130,
                     padding: '10px 8px',
-                    borderRight: '1px solid rgba(255,255,255,0.1)',
                   }}
                 >
                   <TableSortLabel
@@ -1394,7 +1385,6 @@ const AttendanceDashboard = () => {
                     zIndex: 3,
                     minWidth: 130,
                     padding: '10px 8px',
-                    borderRight: '1px solid rgba(255,255,255,0.1)',
                   }}
                 >
                   <TableSortLabel
@@ -1426,7 +1416,6 @@ const AttendanceDashboard = () => {
                     zIndex: 3,
                     minWidth: 100,
                     padding: '10px 8px',
-                    borderRight: '1px solid rgba(255,255,255,0.1)',
                   }}
                 >
                   <TableSortLabel
@@ -1458,7 +1447,6 @@ const AttendanceDashboard = () => {
                     zIndex: 3,
                     minWidth: 80,
                     padding: '10px 8px',
-                    borderRight: '1px solid rgba(255,255,255,0.1)',
                   }}
                 >
                   <TableSortLabel
@@ -1571,7 +1559,7 @@ const AttendanceDashboard = () => {
                   </TableSortLabel>
                 </TableCell>
 
-                {/* Weekend Days */}
+                {/* Week Offs - Moved after Working Days */}
                 <TableCell 
                   sx={{ 
                     bgcolor: '#0F7C82', 
@@ -1582,9 +1570,9 @@ const AttendanceDashboard = () => {
                   }}
                 >
                   <TableSortLabel
-                    active={orderBy === 'totalWeekendDays'}
-                    direction={orderBy === 'totalWeekendDays' ? order : 'asc'}
-                    onClick={() => handleSort('totalWeekendDays')}
+                    active={orderBy === 'totalWeekOffs'}
+                    direction={orderBy === 'totalWeekOffs' ? order : 'asc'}
+                    onClick={() => handleSort('totalWeekOffs')}
                     sx={{
                       color: '#FFFFFF !important',
                       '& .MuiTableSortLabel-icon': {
@@ -1595,7 +1583,7 @@ const AttendanceDashboard = () => {
                       },
                     }}
                   >
-                    Weekend Days
+                    Week Offs Days
                   </TableSortLabel>
                 </TableCell>
 
@@ -1655,20 +1643,20 @@ const AttendanceDashboard = () => {
                   </TableSortLabel>
                 </TableCell>
 
-                {/* Casual Leaves */}
+                {/* LOP */}
                 <TableCell 
                   sx={{ 
                     bgcolor: '#0F7C82', 
                     color: '#FFFFFF',
                     fontWeight: 700,
-                    minWidth: 80,
+                    minWidth: 70,
                     padding: '10px 8px',
                   }}
                 >
                   <TableSortLabel
-                    active={orderBy === 'casualLeaves'}
-                    direction={orderBy === 'casualLeaves' ? order : 'asc'}
-                    onClick={() => handleSort('casualLeaves')}
+                    active={orderBy === 'totalLop'}
+                    direction={orderBy === 'totalLop' ? order : 'asc'}
+                    onClick={() => handleSort('totalLop')}
                     sx={{
                       color: '#FFFFFF !important',
                       '& .MuiTableSortLabel-icon': {
@@ -1679,11 +1667,95 @@ const AttendanceDashboard = () => {
                       },
                     }}
                   >
-                    Casual Leaves
+                    LOP
                   </TableSortLabel>
                 </TableCell>
 
-                {/* Paid Days */}
+                {/* Half Days */}
+                <TableCell 
+                  sx={{ 
+                    bgcolor: '#0F7C82', 
+                    color: '#FFFFFF',
+                    fontWeight: 700,
+                    minWidth: 80,
+                    padding: '10px 8px',
+                  }}
+                >
+                  <TableSortLabel
+                    active={orderBy === 'totalHalfDays'}
+                    direction={orderBy === 'totalHalfDays' ? order : 'asc'}
+                    onClick={() => handleSort('totalHalfDays')}
+                    sx={{
+                      color: '#FFFFFF !important',
+                      '& .MuiTableSortLabel-icon': {
+                        color: '#FFFFFF !important',
+                      },
+                      '&:hover': {
+                        color: '#FFFFFF !important',
+                      },
+                    }}
+                  >
+                    Half Days
+                  </TableSortLabel>
+                </TableCell>
+
+                {/* WFH */}
+                <TableCell 
+                  sx={{ 
+                    bgcolor: '#0F7C82', 
+                    color: '#FFFFFF',
+                    fontWeight: 700,
+                    minWidth: 70,
+                    padding: '10px 8px',
+                  }}
+                >
+                  <TableSortLabel
+                    active={orderBy === 'totalWfH'}
+                    direction={orderBy === 'totalWfH' ? order : 'asc'}
+                    onClick={() => handleSort('totalWfH')}
+                    sx={{
+                      color: '#FFFFFF !important',
+                      '& .MuiTableSortLabel-icon': {
+                        color: '#FFFFFF !important',
+                      },
+                      '&:hover': {
+                        color: '#FFFFFF !important',
+                      },
+                    }}
+                  >
+                    WFH
+                  </TableSortLabel>
+                </TableCell>
+
+                {/* Public Holidays */}
+                <TableCell 
+                  sx={{ 
+                    bgcolor: '#0F7C82', 
+                    color: '#FFFFFF',
+                    fontWeight: 700,
+                    minWidth: 100,
+                    padding: '10px 8px',
+                  }}
+                >
+                  <TableSortLabel
+                    active={orderBy === 'totalPublicHolidays'}
+                    direction={orderBy === 'totalPublicHolidays' ? order : 'asc'}
+                    onClick={() => handleSort('totalPublicHolidays')}
+                    sx={{
+                      color: '#FFFFFF !important',
+                      '& .MuiTableSortLabel-icon': {
+                        color: '#FFFFFF !important',
+                      },
+                      '&:hover': {
+                        color: '#FFFFFF !important',
+                      },
+                    }}
+                  >
+                    Public Holidays
+                  </TableSortLabel>
+                </TableCell>
+
+               {/* Paid Days */}
                 <TableCell 
                   sx={{ 
                     bgcolor: '#0F7C82', 
@@ -1710,20 +1782,21 @@ const AttendanceDashboard = () => {
                     Paid Days
                   </TableSortLabel>
                 </TableCell>
+
               </TableRow>
             </TableHead>
 
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={8 + DAY_ORDER.length + 7} align="center" sx={{ py: 5 }}>
+                  <TableCell colSpan={8 + DAY_ORDER.length + 11} align="center" sx={{ py: 5 }}>
                     <Loader2 size={32} className="animate-spin" />
                     <Typography variant="body2" sx={{ mt: 1 }}>Loading attendance data...</Typography>
                   </TableCell>
                 </TableRow>
               ) : paginatedData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8 + DAY_ORDER.length + 7} align="center" sx={{ py: 5 }}>
+                  <TableCell colSpan={8 + DAY_ORDER.length + 11} align="center" sx={{ py: 5 }}>
                     <Typography variant="body2" color="textSecondary">
                       {entitySynced ? 'No records found' : 'Loading entity...'}
                     </Typography>
@@ -1740,7 +1813,6 @@ const AttendanceDashboard = () => {
                         zIndex: 1,
                         bgcolor: 'background.paper',
                         padding: '8px 8px',
-                        borderRight: '1px solid rgba(224,224,224,0.5)',
                       }}
                     >
                       <Typography variant="body2" fontWeight={500}>
@@ -1757,7 +1829,6 @@ const AttendanceDashboard = () => {
                         bgcolor: 'background.paper',
                         padding: '8px 8px',
                         cursor: 'pointer',
-                        borderRight: '1px solid rgba(224,224,224,0.5)',
                       }}
                       onClick={() => handleEmployeeClick(row)}
                     >
@@ -1783,7 +1854,6 @@ const AttendanceDashboard = () => {
                         zIndex: 1,
                         bgcolor: 'background.paper',
                         padding: '8px 8px',
-                        borderRight: '1px solid rgba(224,224,224,0.5)',
                       }}
                     >
                       <Chip
@@ -1806,7 +1876,6 @@ const AttendanceDashboard = () => {
                         zIndex: 1,
                         bgcolor: 'background.paper',
                         padding: '8px 8px',
-                        borderRight: '1px solid rgba(224,224,224,0.5)',
                       }}
                     >
                       <Chip
@@ -1829,7 +1898,6 @@ const AttendanceDashboard = () => {
                         zIndex: 1,
                         bgcolor: 'background.paper',
                         padding: '8px 8px',
-                        borderRight: '1px solid rgba(224,224,224,0.5)',
                       }}
                     >
                       <Typography variant="body2">{row.reportingManager || '—'}</Typography>
@@ -1843,7 +1911,6 @@ const AttendanceDashboard = () => {
                         zIndex: 1,
                         bgcolor: 'background.paper',
                         padding: '8px 8px',
-                        borderRight: '1px solid rgba(224,224,224,0.5)',
                       }}
                     >
                       <Typography variant="body2">{row.designation}</Typography>
@@ -1857,7 +1924,6 @@ const AttendanceDashboard = () => {
                         zIndex: 1,
                         bgcolor: 'background.paper',
                         padding: '8px 8px',
-                        borderRight: '1px solid rgba(224,224,224,0.5)',
                       }}
                     >
                       <Typography variant="body2">
@@ -1877,7 +1943,6 @@ const AttendanceDashboard = () => {
                         zIndex: 1,
                         bgcolor: 'background.paper',
                         padding: '8px 8px',
-                        borderRight: '1px solid rgba(224,224,224,0.5)',
                       }}
                     >
                       <Typography variant="body2">{row.probation || '—'}</Typography>
@@ -1909,9 +1974,18 @@ const AttendanceDashboard = () => {
                       <Typography variant="body2">{row.totalWorkingDays}</Typography>
                     </TableCell>
 
-                    {/* Weekend Days */}
+                    {/* Week Offs - Moved after Working Days */}
                     <TableCell sx={{ padding: '8px 8px' }}>
-                      <Typography variant="body2">{row.totalWeekendDays}</Typography>
+                      <Chip
+                        label={row.totalWeekOffs || 0}
+                        size="small"
+                        sx={{
+                          backgroundColor: alpha('#FFA726', 0.1),
+                          color: '#FFA726',
+                          fontWeight: 600,
+                          minWidth: 40,
+                        }}
+                      />
                     </TableCell>
 
                     {/* Present */}
@@ -1942,24 +2016,66 @@ const AttendanceDashboard = () => {
                       />
                     </TableCell>
 
-                    {/* Casual Leaves */}
+                    {/* Paid Days */}
                     <TableCell sx={{ padding: '8px 8px' }}>
                       <Chip
-                        label={row.casualLeaves}
+                        label={row.totalPaidDays}
                         size="small"
                         sx={{
-                          backgroundColor: alpha('#FFA726', 0.1),
-                          color: '#FFA726',
+                          backgroundColor: alpha('#42A5F5', 0.1),
+                          color: '#42A5F5',
                           fontWeight: 600,
                           minWidth: 40,
                         }}
                       />
                     </TableCell>
 
-                    {/* Paid Days */}
+                    {/* LOP */}
                     <TableCell sx={{ padding: '8px 8px' }}>
                       <Chip
-                        label={row.totalPaidDays}
+                        label={row.totalLop || 0}
+                        size="small"
+                        sx={{
+                          backgroundColor: alpha('#EF5350', 0.1),
+                          color: '#EF5350',
+                          fontWeight: 600,
+                          minWidth: 40,
+                        }}
+                      />
+                    </TableCell>
+
+                    {/* Half Days */}
+                    <TableCell sx={{ padding: '8px 8px' }}>
+                      <Chip
+                        label={row.totalHalfDays || 0}
+                        size="small"
+                        sx={{
+                          backgroundColor: alpha('#AB47BC', 0.1),
+                          color: '#AB47BC',
+                          fontWeight: 600,
+                          minWidth: 40,
+                        }}
+                      />
+                    </TableCell>
+
+                    {/* WFH */}
+                    <TableCell sx={{ padding: '8px 8px' }}>
+                      <Chip
+                        label={row.totalWfH || 0}
+                        size="small"
+                        sx={{
+                          backgroundColor: alpha('#FF9800', 0.1),
+                          color: '#FF9800',
+                          fontWeight: 600,
+                          minWidth: 40,
+                        }}
+                      />
+                    </TableCell>
+
+                    {/* Public Holidays */}
+                    <TableCell sx={{ padding: '8px 8px' }}>
+                      <Chip
+                        label={row.totalPublicHolidays || 0}
                         size="small"
                         sx={{
                           backgroundColor: alpha('#42A5F5', 0.1),
