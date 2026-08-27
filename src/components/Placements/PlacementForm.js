@@ -86,6 +86,23 @@ const PlacementForm = ({
     response: null,
   });
   
+  const [employeeOptions, setEmployeeOptions] = useState({ recruiters: [], sales: [], teamleads: [] });
+
+  useEffect(() => {
+    const fetchEmployees = async (role) => {
+      const res = await fetch(`https://mymulya.com/candidate/employees?role=${role}`);
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    };
+    Promise.all([
+      fetchEmployees("EMPLOYEE"),
+      fetchEmployees("BDM"),
+      fetchEmployees("TEAMLEAD"),
+    ]).then(([recruiters, sales, teamleads]) =>
+      setEmployeeOptions({ recruiters, sales, teamleads })
+    ).catch(console.error);
+  }, []);
+
   const {userId, encryptionKey} = useSelector((state) => state.auth);
   const decryptionKey = atob(encryptionKey);
   const FINANCIAL_SECRET_KEY = decryptionKey; 
@@ -293,11 +310,22 @@ const PlacementForm = ({
       id: "recruiterName",
       label: "Recruiter",
       grid: { xs: 12, sm: 6 },
+      select: true,
+      options: employeeOptions.recruiters.map((e) => ({ value: e, label: e })),
     },
     {
       id: "sales",
       label: "Sales",
       grid: { xs: 12, sm: 6 },
+      select: true,
+      options: employeeOptions.sales.map((e) => ({ value: e, label: e })),
+    },
+    {
+      id: "teamLead",
+      label: "Team Lead",
+      grid: { xs: 12, sm: 6 },
+      select: true,
+      options: employeeOptions.teamleads.map((e) => ({ value: e, label: e })),
     },
     {
       id: "statusMessage",
@@ -407,6 +435,7 @@ const PlacementForm = ({
       employmentType: initialValues.employmentType || "",
       recruiterName: initialValues.recruiterName || "",
       sales: initialValues.sales || "",
+      teamLead: initialValues.teamLead || "",
       status: initialValues.status || "",
       statusMessage: initialValues.statusMessage || "",
       remarks: initialValues.remarks || "",
