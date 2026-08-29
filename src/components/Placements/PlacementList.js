@@ -1450,21 +1450,14 @@ const PlacementsList = () => {
                 <Visibility fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Tooltip title={
-              row.lock 
-                ? (role === 'SUPERADMIN' ? "Edit (SuperAdmin override)" : "Locked - Cannot Edit")
-                : "Edit"
-            }>
-              <span>
-                <IconButton
-                  color="primary"
-                  size="small"
-                  onClick={() => handleOpenDrawer(row)}
-                  disabled={row.lock && role !== 'SUPERADMIN'}
-                >
-                  <Edit fontSize="small" />
-                </IconButton>
-              </span>
+            <Tooltip title="Edit">
+              <IconButton
+                color="primary"
+                size="small"
+                onClick={() => handleOpenDrawer(row)}
+              >
+                <Edit fontSize="small" />
+              </IconButton>
             </Tooltip>
             <Tooltip title="Delete">
               <IconButton
@@ -1475,18 +1468,20 @@ const PlacementsList = () => {
                 <Delete fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Tooltip title={row.lock ? "Locked" : "Lock Placement"}>
-              <span>
-                <IconButton
-                  size="small"
-                  onClick={() => !row.lock && handleOpenLockDialog(row)}
-                  disabled={row.lock}
-                  sx={{ color: row.lock ? 'warning.main' : 'text.secondary' }}
-                >
-                  {row.lock ? <Lock fontSize="small" /> : <LockOpen fontSize="small" />}
-                </IconButton>
-              </span>
-            </Tooltip>
+            {role === 'SUPERADMIN' && (
+              <Tooltip title={row.lock ? "Locked" : "Lock Placement"}>
+                <span>
+                  <IconButton
+                    size="small"
+                    onClick={() => !row.lock && handleOpenLockDialog(row)}
+                    disabled={row.lock}
+                    sx={{ color: row.lock ? 'warning.main' : 'text.secondary' }}
+                  >
+                    {row.lock ? <Lock fontSize="small" /> : <LockOpen fontSize="small" />}
+                  </IconButton>
+                </span>
+              </Tooltip>
+            )}
           </Box>
         ),
       },
