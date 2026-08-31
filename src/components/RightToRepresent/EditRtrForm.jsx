@@ -86,10 +86,10 @@ const EditRtrForm = () => {
     }
   }, [rtrId]);
 
-  // Client dropdown options
+  // Client dropdown options - FIXED: Using clientName as value
   const clientOptions = clients.map((client) => ({
     label: client.clientName,
-    value: client.clientId ,
+    value: client.clientName, // Changed from clientId to clientName
   }));
 
   // Form Configuration
@@ -203,12 +203,17 @@ const EditRtrForm = () => {
   // Handle Form Submission
   const handleSubmit = async (values, { setSubmitting, resetForm }) => {
     try {
+      // Find the client ID based on the selected client name
+      const selectedClient = clients.find(
+        (client) => client.clientName === values.clientName
+      );
+
       const payload = {
         rtrId: values.rtrId,
         consultantId: values.consultantId,
         consultantName: values.consultantName,
         userId: values.userId || userId,
-        clientId: values.clientId || "",
+        clientId: selectedClient?.clientId || values.clientId || "",
         clientName: values.clientName,
         ratePart: values.ratePart,
         vendorName: values.vendorName,
