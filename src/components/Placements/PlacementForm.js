@@ -103,7 +103,9 @@ const PlacementForm = ({
     ).catch(console.error);
   }, []);
 
-  const {userId, encryptionKey} = useSelector((state) => state.auth);
+  const {userId, encryptionKey, role} = useSelector((state) => state.auth);
+  const isLocked = isEdit && (initialValues.lock === true || initialValues.lock === 'true') && role !== 'SUPERADMIN';
+  console.log('lock debug:', { lock: initialValues.lock, lockType: typeof initialValues.lock, role, isLocked });
   const decryptionKey = atob(encryptionKey);
   const FINANCIAL_SECRET_KEY = decryptionKey; 
 
@@ -579,6 +581,10 @@ const PlacementForm = ({
       readOnly = false,
     } = field;
 
+    const editableWhenLocked = ['status', 'endDate'];
+    const isFieldLocked = isLocked && !editableWhenLocked.includes(id);
+    const isFieldReadOnly = readOnly || isFieldLocked;
+
     return (
       <Grid item {...grid} key={id}>
         <TextField
@@ -611,9 +617,10 @@ const PlacementForm = ({
           select={select}
           multiline={multiline}
           rows={rows}
+          disabled={isFieldLocked}
           InputProps={{
             ...inputProps,
-            readOnly: readOnly,
+            readOnly: isFieldReadOnly,
           }}
           InputLabelProps={{
             shrink: type === "date" ? true : undefined,

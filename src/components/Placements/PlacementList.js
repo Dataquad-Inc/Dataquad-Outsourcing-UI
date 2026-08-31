@@ -74,6 +74,7 @@ import {
   Cancel,
   Lock,
   LockOpen,
+  AttachFile,
 } from "@mui/icons-material";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -83,6 +84,7 @@ import PlacementForm from "./PlacementForm";
 import PlacementCard from "./PlacementCard";
 import ConfirmDialog from "../muiComponents/ConfirmDialog";
 import LockConfirmDialog from "../muiComponents/LockConfirmDialog";
+import DocumentManager from "./DocumentManager"; // Import the new component
 import {
   fetchPlacements,
   deletePlacement,
@@ -604,25 +606,24 @@ const CandidateTablePage = ({
                     </TableSortLabel>
                   </TableCell>
                   <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
-                      <TableSortLabel
-                        active={orderBy === 'currency'}
-                        direction={orderBy === 'currency' ? order : 'asc'}
-                        onClick={() => handleRequestSort('currency')}
-                        sx={{ fontSize: '0.75rem' }}
-                      >
-                        Currency
-                      </TableSortLabel>
+                    <TableSortLabel
+                      active={orderBy === 'currency'}
+                      direction={orderBy === 'currency' ? order : 'asc'}
+                      onClick={() => handleRequestSort('currency')}
+                      sx={{ fontSize: '0.75rem' }}
+                    >
+                      Currency
+                    </TableSortLabel>
                   </TableCell>
-
                   <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
-                      <TableSortLabel
-                        active={orderBy === 'ratePeriod'}
-                        direction={orderBy === 'ratePeriod' ? order : 'asc'}
-                        onClick={() => handleRequestSort('ratePeriod')}
-                        sx={{ fontSize: '0.75rem' }}
-                      >
-                        Rate Period
-                      </TableSortLabel>
+                    <TableSortLabel
+                      active={orderBy === 'ratePeriod'}
+                      direction={orderBy === 'ratePeriod' ? order : 'asc'}
+                      onClick={() => handleRequestSort('ratePeriod')}
+                      sx={{ fontSize: '0.75rem' }}
+                    >
+                      Rate Period
+                    </TableSortLabel>
                   </TableCell>
                   <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
                     <TableSortLabel
@@ -819,6 +820,10 @@ const PlacementsList = () => {
   const [placementToLock, setPlacementToLock] = useState(null);
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Document Manager states
+  const [documentManagerOpen, setDocumentManagerOpen] = useState(false);
+  const [selectedPlacementForDocs, setSelectedPlacementForDocs] = useState(null);
 
   // Filter states
   const [activeFilter, setActiveFilter] = useState("all");
@@ -1073,6 +1078,17 @@ const PlacementsList = () => {
       ...prev,
       statusFilter: filterValue
     }));
+  };
+
+  // Document Manager handlers
+  const handleOpenDocumentManager = (placement) => {
+    setSelectedPlacementForDocs(placement);
+    setDocumentManagerOpen(true);
+  };
+
+  const handleCloseDocumentManager = () => {
+    setDocumentManagerOpen(false);
+    setSelectedPlacementForDocs(null);
   };
 
   // Helper function to get filter params for export
@@ -1429,6 +1445,26 @@ const PlacementsList = () => {
           );
         },
       },
+      // NEW: PO Column
+      {
+        key: "PO",
+        label: "PO",
+        sortable: false,
+        filterable: false,
+        width: 100,
+        align: "center",
+        render: (row) => (
+          <Tooltip title="Manage PO">
+            <IconButton
+              color="primary"
+              size="small"
+              onClick={() => handleOpenDocumentManager(row)}
+            >
+              <AttachFile fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        ),
+      },
       {
         key: "actions",
         label: "Actions",
@@ -1450,21 +1486,14 @@ const PlacementsList = () => {
                 <Visibility fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Tooltip title={
-              row.lock 
-                ? (role === 'SUPERADMIN' ? "Edit (SuperAdmin override)" : "Locked - Cannot Edit")
-                : "Edit"
-            }>
-              <span>
-                <IconButton
-                  color="primary"
-                  size="small"
-                  onClick={() => handleOpenDrawer(row)}
-                  disabled={row.lock && role !== 'SUPERADMIN'}
-                >
-                  <Edit fontSize="small" />
-                </IconButton>
-              </span>
+            <Tooltip title="Edit">
+              <IconButton
+                color="primary"
+                size="small"
+                onClick={() => handleOpenDrawer(row)}
+              >
+                <Edit fontSize="small" />
+              </IconButton>
             </Tooltip>
             <Tooltip title="Delete">
               <IconButton
@@ -1475,18 +1504,20 @@ const PlacementsList = () => {
                 <Delete fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Tooltip title={row.lock ? "Locked" : "Lock Placement"}>
-              <span>
-                <IconButton
-                  size="small"
-                  onClick={() => !row.lock && handleOpenLockDialog(row)}
-                  disabled={row.lock}
-                  sx={{ color: row.lock ? 'warning.main' : 'text.secondary' }}
-                >
-                  {row.lock ? <Lock fontSize="small" /> : <LockOpen fontSize="small" />}
-                </IconButton>
-              </span>
-            </Tooltip>
+            {role === 'SUPERADMIN' && (
+              <Tooltip title={row.lock ? "Locked" : "Lock Placement"}>
+                <span>
+                  <IconButton
+                    size="small"
+                    onClick={() => !row.lock && handleOpenLockDialog(row)}
+                    disabled={row.lock}
+                    sx={{ color: row.lock ? 'warning.main' : 'text.secondary' }}
+                  >
+                    {row.lock ? <Lock fontSize="small" /> : <LockOpen fontSize="small" />}
+                  </IconButton>
+                </span>
+              </Tooltip>
+            )}
           </Box>
         ),
       },
@@ -2071,6 +2102,14 @@ const PlacementsList = () => {
         }
         onClose={handleCloseLockDialog}
         onConfirm={handleLock}
+      />
+
+      {/* Document Manager Dialog */}
+      <DocumentManager
+        open={documentManagerOpen}
+        onClose={handleCloseDocumentManager}
+        placementId={selectedPlacementForDocs?.id}
+        placementName={selectedPlacementForDocs?.candidateFullName || selectedPlacementForDocs?.id}
       />
     </>
   );
