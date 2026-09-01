@@ -107,6 +107,12 @@ export const usNavItems = (role) => [
     roles: ["SUPERADMIN"],
   },
   {
+    text: "Timesheets",
+    path: "us-timesheets",
+    icon: <AssignmentTurnedInIcon />,
+    roles: ["SUPERADMIN", "ADMIN", "SUPERACCOUNTS"],
+  },
+  {
     text: "Attendance",
     path: "attendance",
     icon: <CalendarMonthIcon />,

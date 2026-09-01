@@ -206,6 +206,12 @@ const Timesheets = lazy(() => import("../components/Timesheets/TimeSheets"));
 const TimesheetsForAdmin = lazy(
   () => import("../components/Timesheets/TimeSheetsForAdmin"),
 );
+const TimesheetDashboard = lazy(
+  () => import("../components/Timesheets/TimesheetDashboard"),
+);
+const UsTimesheetDashboard = lazy(
+  () => import("../components/Timesheets/UsTimesheetDashboard"),
+);
 const EmployeeTimesheetDetail = lazy(
   () => import("../components/Timesheets/EmployeeTimesheetDetail"),
 );
@@ -549,6 +555,18 @@ const routeConfig = [
             children: [{ index: true, element: Loadable(UsPlacementsList) }],
           },
 
+          // TIMESHEETS (US)
+          {
+            path: "us-timesheets",
+            element: (
+              <ProtectedRoute
+                allowedRoles={["SUPERADMIN", "ADMIN", "SUPERACCOUNTS"]}
+                allowedEntities={["US"]}
+              />
+            ),
+            children: [{ index: true, element: Loadable(UsTimesheetDashboard) }],
+          },
+
           // IN PROGRESS (IN)
           {
             path: "InProgress",
@@ -720,6 +738,10 @@ const routeConfig = [
             ),
             children: [
               { index: true, element: Loadable(TimesheetsForAdmin) },
+              {
+                path: "dashboard",
+                element: Loadable(TimesheetDashboard),
+              },
               {
                 path: "employee/:userId",
                 element: Loadable(EmployeeTimesheetDetail),

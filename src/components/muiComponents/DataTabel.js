@@ -13,6 +13,7 @@ import {
   Typography,
   Toolbar,
   TablePagination,
+  TableFooter,
   FormControl,
   InputLabel,
   Select,
@@ -127,6 +128,7 @@ const DataTable = ({
   onRequestOtpVerification, // callback to trigger OTP verification
   isFinancialVerified, // boolean to check if financial data is verified
   userFilteredDataCount, // Added missing prop
+  enableColumnTotals = false,
 }) => {
   const theme = useTheme();
   const dispatch = useDispatch();
@@ -444,6 +446,19 @@ const DataTable = ({
 
   // The visible columns
   const visibleColumns = columns.filter((column) => column.visible !== false);
+
+  const columnTotals = useMemo(() => {
+    if (!enableColumnTotals) return {};
+    const totals = {};
+    visibleColumns.forEach((column) => {
+      if (!column.total) return;
+      totals[column.key] = filteredData.reduce((sum, row) => {
+        const value = Number(row[column.key]);
+        return sum + (Number.isFinite(value) ? value : 0);
+      }, 0);
+    });
+    return totals;
+  }, [enableColumnTotals, visibleColumns, filteredData]);
 
   return (
     <Box sx={{ width: tableWidth }}>
@@ -1068,6 +1083,50 @@ const DataTable = ({
                   );
                 })}
             </TableBody>
+            {enableColumnTotals && (
+              <TableFooter>
+                <TableRow
+                  sx={{
+                    position: "sticky",
+                    bottom: 0,
+                    zIndex: 3,
+                    backgroundColor: darkMode
+                      ? alpha(primaryColor, 0.35)
+                      : alpha(primaryColor, 0.12),
+                  }}
+                >
+                  {enableSelection && (
+                    <TableCell
+                      sx={{
+                        fontWeight: 700,
+                        borderTop: `2px solid ${primaryColor}`,
+                      }}
+                    />
+                  )}
+                  {visibleColumns.map((column, index) => {
+                    const isFirstVisible = index === 0;
+                    const showLabel = isFirstVisible && !column.total;
+                    return (
+                      <TableCell
+                        key={`footer-${column.key}`}
+                        align={column.total ? "right" : column.align || "left"}
+                        sx={{
+                          fontWeight: 700,
+                          whiteSpace: "nowrap",
+                          borderTop: `2px solid ${primaryColor}`,
+                        }}
+                      >
+                        {column.total
+                          ? columnTotals[column.key] || 0
+                          : showLabel
+                            ? `Total (${filteredData.length})`
+                            : ""}
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              </TableFooter>
+            )}
           </Table>
         </TableContainer>
 

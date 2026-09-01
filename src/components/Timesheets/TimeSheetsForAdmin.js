@@ -28,7 +28,8 @@ import {
   Person,
   Business,
   Edit,
-  Visibility
+  Visibility,
+  Dashboard as DashboardIcon
 } from '@mui/icons-material';
 import axios from 'axios';
 import dayjs from 'dayjs';
@@ -635,6 +636,21 @@ const TimesheetList = () => {
             </Grid>
 
             <Grid item>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<DashboardIcon />}
+                  onClick={() => navigate(`/dashboard/timesheetsForAdmins/dashboard?year=${selectedYear}`)}
+                  sx={{
+                    px: 3,
+                    py: 1,
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    fontWeight: 600
+                  }}
+                >
+                  Dashboard
+                </Button>
               {(role === 'SUPERADMIN' || role === 'ADMIN') && (
                 <Button
                   variant="contained"
@@ -672,6 +688,7 @@ const TimesheetList = () => {
                   Add Timesheet
                 </Button>
               )}
+              </Box>
             </Grid>
           </Grid>
         </CardContent>
