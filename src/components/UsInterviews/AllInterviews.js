@@ -101,8 +101,8 @@ const AllInterviews = () => {
           const fromDate = filter?.value?.from ? formatDate(filter.value.from) : null;
           const toDate = filter?.value?.to ? formatDate(filter.value.to) : null;
 
-          if (fromDate) filterParams[`${key}From`] = fromDate;
-          if (toDate) filterParams[`${key}To`] = toDate;
+          if (fromDate) filterParams[key === "createdAt" ? "fromDate" : `${key}From`] = fromDate;
+          if (toDate) filterParams[key === "createdAt" ? "toDate" : `${key}To`] = toDate;
         } 
         // Handle regular value filters
         else if (filter.value) {

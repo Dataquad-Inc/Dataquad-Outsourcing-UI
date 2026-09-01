@@ -521,7 +521,16 @@ const normalizeDocumentSource = (value, document) => {
   return "";
 };
 
-const getDocumentSource = (document) => {
+const getDocumentId = (document) =>
+  document?.id || document?.documentId || document?.fileId || "";
+
+const getDocumentDownloadUrl = (document, userId) => {
+  const documentId = getDocumentId(document);
+  if (!userId || !documentId) return "";
+  return `${API_BASE_URL}/users/profile/${userId}/documents/${documentId}/download`;
+};
+
+const getDocumentSource = (document, userId) => {
   if (!document) return "";
 
   if (typeof document === "string") {
@@ -560,7 +569,9 @@ const getDocumentSource = (document) => {
     document.data ||
     "";
 
-  return normalizeDocumentSource(source, document);
+  const inlineSource = normalizeDocumentSource(source, document);
+  if (inlineSource) return inlineSource;
+  return getDocumentDownloadUrl(document, userId);
 };
 
 const getDocumentThumbnailSrc = (document) =>
@@ -673,6 +684,8 @@ const Profile = () => {
 
   const avatarText = useMemo(() => getInitials(profile.name), [profile.name]);
   const canEditProfile = profile.isEditable !== false;
+  const profileUserId = profile.employeeId || userId;
+  const resolveDocumentSource = (document) => getDocumentSource(document, profileUserId);
   const existingDocumentsBySection = useMemo(
     () =>
       documentUploadSections.reduce((sections, section) => {
@@ -924,7 +937,7 @@ const Profile = () => {
   };
 
   const handleViewDocument = async (document) => {
-    const source = getDocumentSource(document);
+    const source = resolveDocumentSource(document);
     const documentName = getDocumentName(document);
 
     if (!source) {
@@ -1750,7 +1763,7 @@ const Profile = () => {
                                 <IconButton
                                   size="small"
                                   color="info"
-                                  disabled={!getDocumentSource(existingDocument) || viewLoading}
+                                  disabled={!resolveDocumentSource(existingDocument) || viewLoading}
                                   onClick={() => handleViewDocument(existingDocument)}
                                 >
                                   <Visibility fontSize="small" />
@@ -1762,10 +1775,10 @@ const Profile = () => {
                                 <IconButton
                                   size="small"
                                   color="primary"
-                                  disabled={!getDocumentSource(existingDocument)}
+                                  disabled={!resolveDocumentSource(existingDocument)}
                                   onClick={() =>
                                     downloadFile(
-                                      getDocumentSource(existingDocument),
+                                      resolveDocumentSource(existingDocument),
                                       getDocumentName(existingDocument)
                                     )
                                   }
@@ -1836,7 +1849,7 @@ const Profile = () => {
                   {additionalDocuments.map((document, index) => {
                     const documentName = getDocumentName(document);
                     const meta = getDocumentMeta(document);
-                    const source = getDocumentSource(document);
+                    const source = resolveDocumentSource(document);
                     return (
                       <Grid item xs={12} sm={6} key={`${documentName}-${index}`}>
                         <Stack
@@ -1852,7 +1865,7 @@ const Profile = () => {
                           }}
                         >
                           <Avatar
-                            src={getDocumentSource(document)}
+                            src={resolveDocumentSource(document)}
                             variant="rounded"
                             sx={{
                               width: 36,

@@ -3,11 +3,11 @@ import { formatDateTime } from "../../utils/dateformate";
 import { ViewMoreCell } from "../../utils/ViewMoreCell";
 
 import { Box, Button, IconButton, Tooltip } from "@mui/material";
-import { Download } from "@mui/icons-material";
+import { AssignmentTurnedIn, Download } from "@mui/icons-material";
 import { render } from "@testing-library/react";
 
 
-export const generateCandidatesColumns = ({ handleDownloadResume, handleNavigateToSubmissionIdProfile }) => [
+export const generateCandidatesColumns = ({ handleDownloadResume, handleNavigateToSubmissionIdProfile, handleSubmitRTR }) => [
   {
     id: "actions",
     label: "Actions",
@@ -24,10 +24,24 @@ export const generateCandidatesColumns = ({ handleDownloadResume, handleNavigate
             <Download fontSize="small" />
           </IconButton>
         </Tooltip>
+        {handleSubmitRTR && (
+          <Tooltip title="Submit RTR">
+            <Button
+              variant="contained"
+              color="success"
+              size="small"
+              startIcon={<AssignmentTurnedIn fontSize="small" />}
+              onClick={() => handleSubmitRTR(row)}
+              sx={{ textTransform: "none", whiteSpace: "nowrap" }}
+            >
+              Submit RTR
+            </Button>
+          </Tooltip>
+        )}
       </Box>
     ),
     align: "center",
-    width: "150px",
+    width: "260px",
   },
   {
     id: "submissionId",

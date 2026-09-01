@@ -511,7 +511,16 @@ const resolveFileSource = (source) => {
   return `${API_BASE_URL}/${source.replace(/^[/\\]+/, "")}`;
 };
 
-function getDocumentSource(document) {
+const getDocumentId = (document) =>
+  document?.id || document?.documentId || document?.fileId || "";
+
+const getDocumentDownloadUrl = (document, userId) => {
+  const documentId = getDocumentId(document);
+  if (!userId || !documentId) return "";
+  return `${API_BASE_URL}/users/profile/${userId}/documents/${documentId}/download`;
+};
+
+function getDocumentSource(document, userId) {
   if (!document) return "";
   if (typeof document === "string") return normalizeDocumentSource(document, document);
 
@@ -547,7 +556,9 @@ function getDocumentSource(document) {
     document.data ||
     "";
 
-  return normalizeDocumentSource(source, document);
+  const inlineSource = normalizeDocumentSource(source, document);
+  if (inlineSource) return inlineSource;
+  return getDocumentDownloadUrl(document, userId);
 }
 
 const getFileIcon = (fileName = "") => {
@@ -945,8 +956,9 @@ const EditableField = ({
   type = "text",
   multiline = false,
   options = [],
+  gridProps = { xs: 12, sm: 6, md: 4 },
 }) => (
-  <Grid item xs={12} sm={6} md={4}>
+  <Grid item {...gridProps}>
     <TextField
       label={label}
       value={value || ""}
@@ -1150,6 +1162,8 @@ const sortedUsers = useMemo(() => {
   };
 
   const groupedDocuments = useMemo(() => groupDocumentsForHRMS(documents), [documents]);
+  const profileUserId = profile.employeeId || selectedUser?.employeeId || selectedUser?.userId;
+  const resolveDocumentSource = (document) => getDocumentSource(document, profileUserId);
 
   const handleDownloadExcel = useCallback(() => {
     try {
@@ -1236,7 +1250,7 @@ const sortedUsers = useMemo(() => {
   };
 
   const handleDocumentDownload = async (document, index) => {
-    const source = getDocumentSource(document);
+    const source = resolveDocumentSource(document);
     const documentName = getDocumentName(document);
     const documentKey = getDocumentKey(document, index);
     const downloaded = await downloadFile(source, documentName);
@@ -1346,7 +1360,7 @@ const sortedUsers = useMemo(() => {
 
   const renderDocumentRow = ({ document, originalIndex }, showDivider = false) => {
     const documentName = getDocumentName(document);
-    const source = getDocumentSource(document);
+    const source = resolveDocumentSource(document);
     const documentKey = getDocumentKey(document, originalIndex);
     const isDownloaded = Boolean(downloadedDocumentKeys[documentKey]);
     const savingVerification = Boolean(savingVerifiedDocumentKeys[documentKey]);
@@ -1417,6 +1431,66 @@ const sortedUsers = useMemo(() => {
     );
   };
 
+  const renderDocumentPanel = (sectionKey) => {
+    const section = primaryDocumentSections.find((item) => item.key === sectionKey);
+    const sectionDocuments = groupedDocuments.grouped[sectionKey] || [];
+    const sectionLabel = section?.label || sectionKey;
+
+    return (
+      <Paper variant="outlined" sx={{ borderRadius: 1, overflow: "hidden", height: "100%" }}>
+        <Box
+          sx={{
+            px: 2,
+            py: 1.25,
+            bgcolor: "background.default",
+            borderBottom: "1px solid",
+            borderColor: "divider",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 1,
+          }}
+        >
+          <Typography variant="subtitle2" fontWeight={700}>
+            {sectionLabel} document
+          </Typography>
+          {section?.allowSectionUpload && (
+            <Button
+              variant="outlined"
+              size="small"
+              component="label"
+              startIcon={
+                uploadingSectionKey === section.key ? (
+                  <CircularProgress size={16} color="inherit" />
+                ) : (
+                  <UploadFileOutlined />
+                )
+              }
+              disabled={Boolean(uploadingSectionKey)}
+            >
+              Upload
+              <input
+                type="file"
+                hidden
+                onChange={handleSectionDocumentUpload(section)}
+                disabled={Boolean(uploadingSectionKey)}
+              />
+            </Button>
+          )}
+        </Box>
+        {sectionDocuments.length ? (
+          sectionDocuments.map((documentWithIndex, index) =>
+            renderDocumentRow(documentWithIndex, index > 0)
+          )
+        ) : (
+          <Alert severity="info" sx={{ borderRadius: 0 }}>
+            No {sectionLabel} document uploaded.
+          </Alert>
+        )}
+      </Paper>
+    );
+  };
+
   const handleProfileChange = (field, value) => {
     setProfile((currentProfile) => ({
       ...currentProfile,
@@ -1457,7 +1531,7 @@ const sortedUsers = useMemo(() => {
   };
 
   const handleViewDocument = async (document) => {
-    const source = getDocumentSource(document);
+    const source = resolveDocumentSource(document);
     const documentName = getDocumentName(document);
 
     if (!source) {
@@ -2021,12 +2095,78 @@ const sortedUsers = useMemo(() => {
                 <EditableField label="LinkedIn URL" field="linkedInUrl" value={profile.linkedInUrl} onChange={handleProfileChange} />
               </Section>
 
-              <Section title="Payroll Inputs">
-                <EditableField label="Bank Name" field="bankName" value={profile.bankName} onChange={handleProfileChange} />
-                <EditableField label="Account Number" field="accountNumber" value={profile.accountNumber} onChange={handleProfileChange} />
-                <EditableField label="Branch" field="branch" value={profile.branch} onChange={handleProfileChange} />
-                <EditableField label="Account Holder Name" field="accountHolderName" value={profile.accountHolderName} onChange={handleProfileChange} />
-                <EditableField label="IFSC Code" field="ifscCode" value={profile.ifscCode} onChange={handleProfileChange} />
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>
+                  Payroll Verification
+                </Typography>
+                <Stack spacing={2}>
+                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
+                    <Grid container spacing={2} alignItems="stretch">
+                      <Grid item xs={12} md={6}>
+                        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
+                          PAN details
+                        </Typography>
+                        <Grid container spacing={2}>
+                          <EditableField
+                            label="PAN Number"
+                            field="payrollPanNumber"
+                            value={profile.payrollPanNumber}
+                            onChange={handleProfileChange}
+                            gridProps={{ xs: 12 }}
+                          />
+                        </Grid>
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        {renderDocumentPanel("pan")}
+                      </Grid>
+                    </Grid>
+                  </Paper>
+
+                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
+                    <Grid container spacing={2} alignItems="stretch">
+                      <Grid item xs={12} md={6}>
+                        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
+                          Aadhar details
+                        </Typography>
+                        <Grid container spacing={2}>
+                          <EditableField
+                            label="Aadhar Number"
+                            field="payrollAadharNumber"
+                            value={profile.payrollAadharNumber}
+                            onChange={handleProfileChange}
+                            gridProps={{ xs: 12 }}
+                          />
+                        </Grid>
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        {renderDocumentPanel("adhar")}
+                      </Grid>
+                    </Grid>
+                  </Paper>
+
+                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
+                    <Grid container spacing={2} alignItems="stretch">
+                      <Grid item xs={12} md={6}>
+                        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
+                          Bank details
+                        </Typography>
+                        <Grid container spacing={2}>
+                          <EditableField label="Bank Name" field="bankName" value={profile.bankName} onChange={handleProfileChange} gridProps={{ xs: 12, sm: 6 }} />
+                          <EditableField label="Account Number" field="accountNumber" value={profile.accountNumber} onChange={handleProfileChange} gridProps={{ xs: 12, sm: 6 }} />
+                          <EditableField label="Branch" field="branch" value={profile.branch} onChange={handleProfileChange} gridProps={{ xs: 12, sm: 6 }} />
+                          <EditableField label="Account Holder Name" field="accountHolderName" value={profile.accountHolderName} onChange={handleProfileChange} gridProps={{ xs: 12, sm: 6 }} />
+                          <EditableField label="IFSC Code" field="ifscCode" value={profile.ifscCode} onChange={handleProfileChange} gridProps={{ xs: 12 }} />
+                        </Grid>
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        {renderDocumentPanel("bankPassbook")}
+                      </Grid>
+                    </Grid>
+                  </Paper>
+                </Stack>
+              </Box>
+
+              <Section title="Other Payroll Inputs">
                 <EditableField label="UAN Number" field="uanNumber" value={profile.uanNumber} onChange={handleProfileChange} />
                 <EditableField label="PF Number" field="pfNumber" value={profile.pfNumber} onChange={handleProfileChange} />
                 <EditableField
@@ -2042,8 +2182,6 @@ const sortedUsers = useMemo(() => {
                 {isTruthyFlag(profile.isEmployeeHavingESI) && (
                   <EditableField label="ESI Number" field="esiNumber" value={profile.esiNumber} onChange={handleProfileChange} />
                 )}
-                <EditableField label="PAN Number" field="payrollPanNumber" value={profile.payrollPanNumber} onChange={handleProfileChange} />
-                <EditableField label="Aadhar Number" field="payrollAadharNumber" value={profile.payrollAadharNumber} onChange={handleProfileChange} />
               </Section>
 
               <Box sx={{ mb: 3 }}>
@@ -2055,7 +2193,7 @@ const sortedUsers = useMemo(() => {
                   sx={{ mb: 1.5 }}
                 >
                   <Typography variant="subtitle1" fontWeight={700}>
-                    Documents
+                    Other Documents
                   </Typography>
                   <Stack direction={{ xs: "column", sm: "row" }} gap={1}>
                     <input ref={fileInputRef} type="file" hidden multiple onChange={handleFileChange} />
@@ -2086,68 +2224,16 @@ const sortedUsers = useMemo(() => {
                 )}
 
                 <Stack spacing={2}>
-                  {primaryDocumentSections.map((section) => {
-                    const sectionDocuments = groupedDocuments.grouped[section.key] || [];
-
-                    return (
-                      <Paper variant="outlined" sx={{ borderRadius: 1, overflow: "hidden" }} key={section.key}>
-                        <Box
-                          sx={{
-                            px: 2,
-                            py: 1.25,
-                            bgcolor: "background.default",
-                            borderBottom: "1px solid",
-                            borderColor: "divider",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            gap: 1,
-                          }}
-                        >
-                          <Typography variant="subtitle2" fontWeight={700}>
-                            {section.label}
-                          </Typography>
-                          {section.allowSectionUpload && (
-                            <Button
-                              variant="outlined"
-                              size="small"
-                              component="label"
-                              startIcon={
-                                uploadingSectionKey === section.key ? (
-                                  <CircularProgress size={16} color="inherit" />
-                                ) : (
-                                  <UploadFileOutlined />
-                                )
-                              }
-                              disabled={Boolean(uploadingSectionKey)}
-                            >
-                              Upload
-                              <input
-                                type="file"
-                                hidden
-                                onChange={handleSectionDocumentUpload(section)}
-                                disabled={Boolean(uploadingSectionKey)}
-                              />
-                            </Button>
-                          )}
-                        </Box>
-                        {sectionDocuments.length ? (
-                          sectionDocuments.map((documentWithIndex, index) =>
-                            renderDocumentRow(documentWithIndex, index > 0)
-                          )
-                        ) : (
-                          <Alert severity="info" sx={{ borderRadius: 0 }}>
-                            No {section.label} document uploaded.
-                          </Alert>
-                        )}
-                      </Paper>
-                    );
-                  })}
+                  {primaryDocumentSections
+                    .filter((section) => ["insurance", "form16"].includes(section.key))
+                    .map((section) => (
+                      <Box key={section.key}>{renderDocumentPanel(section.key)}</Box>
+                    ))}
 
                   <Paper variant="outlined" sx={{ borderRadius: 1, overflow: "hidden" }}>
                     <Box sx={{ px: 2, py: 1.25, bgcolor: "background.default", borderBottom: "1px solid", borderColor: "divider" }}>
                       <Typography variant="subtitle2" fontWeight={700}>
-                        Other Documents
+                        Additional Documents
                       </Typography>
                     </Box>
                     {groupedDocuments.otherDocuments.length ? (

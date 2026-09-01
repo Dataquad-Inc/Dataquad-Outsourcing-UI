@@ -2,7 +2,11 @@ import axios from "axios";
 
 // PROD
 const PROD_API_BASE_URL = "https://mymulya.com";
-export const API_BASE_URL = PROD_API_BASE_URL;
+
+// With REACT_APP_USE_LOCAL_SERVICES=true the base is empty, making requests
+// relative so src/setupProxy.js can route them to the local microservices.
+export const API_BASE_URL =
+  process.env.REACT_APP_USE_LOCAL_SERVICES === "true" ? "" : PROD_API_BASE_URL;
 
 // Set axios default to send cookies on all requests
 axios.defaults.withCredentials = true;

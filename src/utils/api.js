@@ -2,8 +2,11 @@ import axios from "axios";
 
 // Base URL for API
 // const BASE_URL = "http://192.168.0.115:8092";
-const BASE_URL = "https://mymulya.com";
-console.log("API URL:", BASE_URL);
+// An empty base keeps requests relative so src/setupProxy.js can route them to
+// the local microservices instead of production.
+const BASE_URL =
+  process.env.REACT_APP_USE_LOCAL_SERVICES === "true" ? "" : "https://mymulya.com";
+console.log("API URL:", BASE_URL || "(relative, proxied to local services)");
 
 
 

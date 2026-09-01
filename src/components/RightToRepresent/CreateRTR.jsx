@@ -44,38 +44,40 @@ const CreateRTR = () => {
   const salesExecutives = useSelector((state) => state.usEmployees?.salesExecutives) || [];
 
   const getInitialValues = useCallback(() => {
+    // consultantData is empty unless the route was entered with prefill state,
+    // so reading it directly covers both edit mode and the pre-populated
+    // "Submit RTR" flow launched from a job requirement's candidate list.
     const baseValues = {
       // Consultant Profile
-      name: isEditMode ? consultantData.name || "" : "",
-      emailId: isEditMode ? consultantData.emailId || "" : "",
-      grade: isEditMode ? consultantData.grade || "" : "",
-      marketingContact: isEditMode ? consultantData.marketingContact || "" : "",
-      personalContact: isEditMode ? consultantData.personalContact || "" : "",
-      reference: isEditMode ? consultantData.reference || "" : "",
-      recruiterId: isEditMode ? consultantData.recruiterId || "" : "",
-      teamLeadId: isEditMode ? consultantData.teamLeadId || "" : "",
-      status: isEditMode ? consultantData.status || "ACTIVE" : "ACTIVE",
-      passport: isEditMode ? consultantData.passport || "" : "",
-      salesExecutiveId: isEditMode ? consultantData.salesExecutiveId || "" : "",
-      remoteOnsite: isEditMode ? consultantData.remoteOnsite || "REMOTE" : "REMOTE",
-      technology: isEditMode ? consultantData.technology || "" : "",
-      experience: isEditMode ? consultantData.experience || "" : "",
-      location: isEditMode ? consultantData.location || "" : "",
-      originalDOB: isEditMode ? consultantData.originalDOB || "" : "",
-      editedDOB: isEditMode ? consultantData.editedDOB || "" : "",
-      linkedInUrl: isEditMode ? consultantData.linkedInUrl || "" : "",
-      relocation: isEditMode ? consultantData.relocation || "" : "",
-      billRate: isEditMode ? consultantData.billRate || "" : "",
-      payroll: isEditMode ? consultantData.payroll || "" : "",
-      marketingStartDate: isEditMode ? consultantData.marketingStartDate || "" : "",
-      marketingVisa: isEditMode ? consultantData.marketingVisa || "" : "",
-      actualVisa: isEditMode ? consultantData.actualVisa || "" : "",
-      // approvalStatus: isEditMode ? consultantData.approvalStatus || "APPROVED" : "PENDING",
-      remarks: isEditMode ? consultantData.remarks || "" : "",
+      name: consultantData.name || "",
+      emailId: consultantData.emailId || "",
+      grade: consultantData.grade || "",
+      marketingContact: consultantData.marketingContact || "",
+      personalContact: consultantData.personalContact || "",
+      reference: consultantData.reference || "",
+      recruiterId: consultantData.recruiterId || "",
+      teamLeadId: consultantData.teamLeadId || "",
+      status: consultantData.status || "ACTIVE",
+      passport: consultantData.passport || "",
+      salesExecutiveId: consultantData.salesExecutiveId || "",
+      remoteOnsite: consultantData.remoteOnsite || "REMOTE",
+      technology: consultantData.technology || "",
+      experience: consultantData.experience || "",
+      location: consultantData.location || "",
+      originalDOB: consultantData.originalDOB || "",
+      editedDOB: consultantData.editedDOB || "",
+      linkedInUrl: consultantData.linkedInUrl || "",
+      relocation: consultantData.relocation || "",
+      billRate: consultantData.billRate || "",
+      payroll: consultantData.payroll || "",
+      marketingStartDate: consultantData.marketingStartDate || "",
+      marketingVisa: consultantData.marketingVisa || "",
+      actualVisa: consultantData.actualVisa || "",
+      remarks: consultantData.remarks || "",
 
       // RTR Fields
-      clientName: "",
-      clientId: "",
+      clientName: consultantData.clientName || "",
+      clientId: consultantData.clientId || "",
       ratePart: "",
       vendorName: "",
       vendorEmailId: "",
@@ -83,7 +85,7 @@ const CreateRTR = () => {
       vendorCompany: "",
       vendorLinkedIn: "",
       implementationPartner: "",
-      comments: "",
+      comments: consultantData.comments || "",
 
       // File uploads - initialize as empty arrays for Formik
       resumes: [],
@@ -91,7 +93,7 @@ const CreateRTR = () => {
     };
 
     return baseValues;
-  }, [isEditMode, consultantData]);
+  }, [consultantData]);
 
   const formInitialValues = React.useMemo(() => {
     const values = getInitialValues();

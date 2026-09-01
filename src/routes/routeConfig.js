@@ -834,6 +834,19 @@ const routeConfig = [
                     element: Loadable(ConsultantProfile),
                   },
                   {
+                    // GuestHouseConsultants and DirectHotlistConsultants both
+                    // navigate here, which does not match their list segments
+                    // ("gurest-consultants" / "direct-hotlist-consultants").
+                    path: "guest-house/:consultantId",
+                    element: Loadable(ConsultantProfile),
+                  },
+                  {
+                    // FullTimeHotlist navigates to "full-time", while its list
+                    // route is "fulltime".
+                    path: "full-time/:consultantId",
+                    element: Loadable(ConsultantProfile),
+                  },
+                  {
                     path: "create", // /dashboard/hotlist/create
                     element: Loadable(CreateConsultant),
                   },

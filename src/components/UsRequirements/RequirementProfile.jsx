@@ -260,6 +260,35 @@ const RequirementProfile = () => {
     });
   }
 
+  // Directly submitted candidates have no hotlist consultant record, so they
+  // cannot use the hotlist RTR form (which requires a consultantId). Send them
+  // to the direct RTR form, which creates the consultant and the RTR together,
+  // pre-filled with whatever the submission and job already tell us. Vendor and
+  // rate details are not part of a submission and still have to be entered.
+  const handleSubmitRTR = (row) => {
+    navigate(`/dashboard/rtr/create-direct-rtr`, {
+      state: {
+        consultantData: {
+          name: row.candidateName || "",
+          emailId: row.candidateEmail || "",
+          personalContact: row.mobileNumber || "",
+          location: row.currentLocation || "",
+          experience: row.totalExperience || "",
+          relocation: row.relocation || "",
+          billRate: row.billRate || "",
+          payroll: row.payRate || "",
+          marketingVisa: row.visaType || "",
+          actualVisa: row.visaType || "",
+          technology: jobData?.technology || "",
+          clientName: jobData?.clientName || "",
+          comments: row.overallFeedback || "",
+        },
+        from: `/dashboard/us-requirements/${jobId}`,
+        submissionId: row.submissionId,
+      },
+    });
+  };
+
 
   const extractFilterOptionsFromData = (data) => {
     const options = {
@@ -811,7 +840,7 @@ const RequirementProfile = () => {
             {tabIndex === 1 && (
               <CustomDataTable
                 title="Submitted Candidates"
-                columns={generateCandidatesColumns({ handleDownloadResume, handleNavigateToSubmissionIdProfile })}
+                columns={generateCandidatesColumns({ handleDownloadResume, handleNavigateToSubmissionIdProfile, handleSubmitRTR })}
                 rows={submittedCandidates}
                 total={total}
                 page={page}

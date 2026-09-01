@@ -91,8 +91,8 @@ const SalesInterviews = () => {
           const fromDate = filter?.value?.from ? formatDate(filter.value.from) : null;
           const toDate = filter?.value?.to ? formatDate(filter.value.to) : null;
 
-          if (fromDate) filterParams[`${key}From`] = fromDate;
-          if (toDate) filterParams[`${key}To`] = toDate;
+          if (fromDate) filterParams[key === "createdAt" ? "fromDate" : `${key}From`] = fromDate;
+          if (toDate) filterParams[key === "createdAt" ? "toDate" : `${key}To`] = toDate;
         } 
         // Handle regular value filters
         else if (filter.value) {
@@ -103,7 +103,7 @@ const SalesInterviews = () => {
       const params = {
         page,
         size: rowsPerPage,
-        ...(debouncedSearch ? { search: debouncedSearch } : {}),
+        ...(debouncedSearch ? { keyword: debouncedSearch } : {}),
         ...filterParams
       };
 

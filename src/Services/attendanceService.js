@@ -1,7 +1,9 @@
 // src/services/attendanceService.js
 import axios from 'axios';
 
-const API_BASE_URL = 'https://mymulya.com/users/attendance';
+const API_HOST =
+  process.env.REACT_APP_USE_LOCAL_SERVICES === 'true' ? '' : 'https://mymulya.com';
+const API_BASE_URL = `${API_HOST}/users/attendance`;
 
 const api = axios.create({
   baseURL: API_BASE_URL,

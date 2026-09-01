@@ -2,7 +2,10 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://mymulya.com';
+const API_BASE_URL =
+  process.env.REACT_APP_USE_LOCAL_SERVICES === 'true'
+    ? ''
+    : process.env.REACT_APP_API_URL || 'https://mymulya.com';
 
 // Fetch attendance dashboard data
 export const fetchAttendanceData = createAsyncThunk(
