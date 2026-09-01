@@ -86,7 +86,26 @@ const PlacementForm = ({
     response: null,
   });
   
-  const {userId, encryptionKey} = useSelector((state) => state.auth);
+  const [employeeOptions, setEmployeeOptions] = useState({ recruiters: [], sales: [], teamleads: [] });
+
+  useEffect(() => {
+    const fetchEmployees = async (role) => {
+      const res = await fetch(`https://mymulya.com/candidate/employees?role=${role}`);
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    };
+    Promise.all([
+      fetchEmployees("EMPLOYEE"),
+      fetchEmployees("BDM"),
+      fetchEmployees("TEAMLEAD"),
+    ]).then(([recruiters, sales, teamleads]) =>
+      setEmployeeOptions({ recruiters, sales, teamleads })
+    ).catch(console.error);
+  }, []);
+
+  const {userId, encryptionKey, role} = useSelector((state) => state.auth);
+  const isLocked = isEdit && (initialValues.lock === true || initialValues.lock === 'true') && role !== 'SUPERADMIN';
+  console.log('lock debug:', { lock: initialValues.lock, lockType: typeof initialValues.lock, role, isLocked });
   const decryptionKey = atob(encryptionKey);
   const FINANCIAL_SECRET_KEY = decryptionKey; 
 
@@ -293,11 +312,22 @@ const PlacementForm = ({
       id: "recruiterName",
       label: "Recruiter",
       grid: { xs: 12, sm: 6 },
+      select: true,
+      options: employeeOptions.recruiters.map((e) => ({ value: e, label: e })),
     },
     {
       id: "sales",
       label: "Sales",
       grid: { xs: 12, sm: 6 },
+      select: true,
+      options: employeeOptions.sales.map((e) => ({ value: e, label: e })),
+    },
+    {
+      id: "teamLead",
+      label: "Team Lead",
+      grid: { xs: 12, sm: 6 },
+      select: true,
+      options: employeeOptions.teamleads.map((e) => ({ value: e, label: e })),
     },
     {
       id: "statusMessage",
@@ -407,6 +437,7 @@ const PlacementForm = ({
       employmentType: initialValues.employmentType || "",
       recruiterName: initialValues.recruiterName || "",
       sales: initialValues.sales || "",
+      teamLead: initialValues.teamLead || "",
       status: initialValues.status || "",
       statusMessage: initialValues.statusMessage || "",
       remarks: initialValues.remarks || "",
@@ -550,6 +581,10 @@ const PlacementForm = ({
       readOnly = false,
     } = field;
 
+    const editableWhenLocked = ['status', 'endDate'];
+    const isFieldLocked = isLocked && !editableWhenLocked.includes(id);
+    const isFieldReadOnly = readOnly || isFieldLocked;
+
     return (
       <Grid item {...grid} key={id}>
         <TextField
@@ -582,9 +617,10 @@ const PlacementForm = ({
           select={select}
           multiline={multiline}
           rows={rows}
+          disabled={isFieldLocked}
           InputProps={{
             ...inputProps,
-            readOnly: readOnly,
+            readOnly: isFieldReadOnly,
           }}
           InputLabelProps={{
             shrink: type === "date" ? true : undefined,

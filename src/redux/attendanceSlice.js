@@ -206,6 +206,7 @@ export const fetchHolidays = createAsyncThunk(
 
       return response.data;
     } catch (error) {
+      // If 404, it means no holidays configured yet - this is not an error
       if (error.response?.status === 404) {
         return { success: true, data: [], message: 'No holidays found' };
       }
@@ -800,7 +801,6 @@ const attendanceSlice = createSlice({
     // ===== Reset Config Status =====
     resetConfigStatus: (state) => {
       state.configuring = false;
-      state.isConfigured = false;
     },
     
     // ===== Clear Attendance Data =====
@@ -994,6 +994,7 @@ const attendanceSlice = createSlice({
         };
       })
 
+      // ===== FETCH HOLIDAYS - FIXED =====
       .addCase(fetchHolidays.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -1007,34 +1008,45 @@ const attendanceSlice = createSlice({
           date: date,
         }));
         
+        // ✅ Set isConfigured based on whether holidays exist AND the request succeeded
         state.isConfigured = true;
+        state.error = null;
         state.message = action.payload.message || 'Holidays loaded successfully';
 
+        // Only show snackbar for holidays, not for empty state
         if (state.holidays.length > 0) {
           state.snackbar = {
             open: true,
-            message: `Loaded ${state.holidays.length} holidays`,
+            message: `Loaded ${state.holidays.length} holiday(s)`,
             severity: 'success',
           };
-        } else {
-          state.snackbar = {
-            open: true,
-            message: 'Month is configured with no holidays',
-            severity: 'info',
-          };
         }
+        // No snackbar for empty holidays - just show the status banner
       })
       .addCase(fetchHolidays.rejected, (state, action) => {
         state.loading = false;
         state.holidays = [];
-        if (action.payload === 'No holidays found' || action.error?.message?.includes('404')) {
-          state.isConfigured = false;
-        } else {
-          state.isConfigured = state.isConfigured || false;
-        }
-        state.error = action.payload || 'Failed to fetch holidays';
         
-        if (action.payload !== 'No holidays found') {
+        // ✅ Check if this is a 404 (no holidays found)
+        const is404 = action.payload === 'No holidays found' || 
+                      action.error?.message?.includes('404') ||
+                      action.error?.message?.includes('not found');
+        
+        if (is404) {
+          // 404 means no holidays configured yet
+          state.isConfigured = false;
+          state.error = null; // Don't show error for 404
+          state.message = 'No holidays configured for this month';
+          state.snackbar = {
+            open: false,
+            message: '',
+            severity: 'info',
+          };
+        } else {
+          // Other errors
+          state.isConfigured = false;
+          state.error = action.payload || 'Failed to fetch holidays';
+          state.message = state.error;
           state.snackbar = {
             open: true,
             message: state.error,
@@ -1043,6 +1055,7 @@ const attendanceSlice = createSlice({
         }
       })
 
+      // ===== SETUP ATTENDANCE MONTH =====
       .addCase(setupAttendanceMonth.pending, (state) => {
         state.configuring = true;
         state.error = null;
@@ -1071,6 +1084,7 @@ const attendanceSlice = createSlice({
         };
       })
 
+      // ===== UPDATE ATTENDANCE MONTH =====
       .addCase(updateAttendanceMonth.pending, (state) => {
         state.configuring = true;
         state.error = null;
@@ -1099,6 +1113,7 @@ const attendanceSlice = createSlice({
         };
       })
 
+      // ===== DELETE ATTENDANCE MONTH =====
       .addCase(deleteAttendanceMonth.pending, (state) => {
         state.configuring = true;
         state.error = null;

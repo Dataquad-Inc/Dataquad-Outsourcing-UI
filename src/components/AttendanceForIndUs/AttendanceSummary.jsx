@@ -71,6 +71,32 @@ import {
 } from "../../redux/attendanceSlice";
 
 // ============================================================
+// CONSTANTS - Same as AttendanceDashboard
+// ============================================================
+
+// TEST EMPLOYEE IDs to be filtered out
+const TEST_EMPLOYEE_IDS = [
+  'ADRTIN9099',
+  'ADRTIN9092',
+  'ADRTIN3333',
+  'ADRTIN3131',
+  'ADRTIN2121',
+  'ADRTIN004',
+  'ADRTUS9988',
+  'ADRTIN9940',
+  'ADRTUS5007',
+  'ADRTUS5004',
+  'ADRTUS5003',
+  'ADRTUS5002',
+  'ADRTUS5001',
+  'ADRTUS5000',
+  'ADRTUS0990',
+  'ADRTUS0100',
+  'ADRTUS0041',
+  'ADRTUS002'
+];
+
+// ============================================================
 // MAIN ATTENDANCE SUMMARY COMPONENT
 // ============================================================
 
@@ -213,11 +239,18 @@ const AttendanceSummary = () => {
   const isLoading = viewMode === 'month' ? loading : approvedLoading;
   const currentError = viewMode === 'month' ? error : approvedError;
 
+  // Filter out test employees and apply search filter
   const filteredData = useMemo(() => {
-    if (!search) return currentData;
+    // First, filter out test employee IDs
+    const nonTestData = currentData.filter(
+      (item) => !TEST_EMPLOYEE_IDS.includes(item.employeeId)
+    );
+    
+    // Then apply search filter
+    if (!search) return nonTestData;
     
     const searchLower = search.toLowerCase();
-    return currentData.filter((item) => 
+    return nonTestData.filter((item) => 
       item.employeeId?.toLowerCase().includes(searchLower) ||
       item.employeeName?.toLowerCase().includes(searchLower) ||
       item.designation?.toLowerCase().includes(searchLower)
@@ -242,8 +275,9 @@ const AttendanceSummary = () => {
       const headers = [
         'Employee ID', 'Employee Name', 'PF', 'ESI', 'Reporting Manager', 
         'Designation', 'Joining Date', 'Probation',
-        'Total Days', 'Working Days', 'Weekend Days', 'Present Days', 
-        'Leaves', 'Casual Leaves', 'Paid Days', 'Attendance Rate (%)'
+        'Total Days', 'Working Days', 'Week Offs', 'Present Days', 
+        'Leaves', 'LOP', 'Half Days', 
+        'WFH', 'Public Holidays', 'Paid Days', 'Attendance Rate (%)'
       ];
       
       const dataRows = filteredData.map((row) => {
@@ -262,10 +296,13 @@ const AttendanceSummary = () => {
           row.probation || '',
           row.totalDaysInMonth,
           row.totalWorkingDays,
-          row.totalWeekendDays,
+          row.totalWeekOffs || 0,
           row.totalPresentDays,
           row.totalLeaves,
-          row.casualLeaves,
+          row.totalLop || 0,
+          row.totalHalfDays || 0,
+          row.totalWfH || 0,
+          row.totalPublicHolidays || 0,
           row.totalPaidDays,
           presentRate,
         ];
@@ -357,6 +394,12 @@ const AttendanceSummary = () => {
               minute: "2-digit",
             })}
           </Typography>
+          {/* Display count of hidden test users */}
+          {currentData.filter(item => TEST_EMPLOYEE_IDS.includes(item.employeeId)).length > 0 && (
+            <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 0.5 }}>
+              {currentData.filter(item => TEST_EMPLOYEE_IDS.includes(item.employeeId)).length} test user(s) hidden
+            </Typography>
+          )}
         </Box>
         
         <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
@@ -492,7 +535,7 @@ const AttendanceSummary = () => {
           <Table stickyHeader size="small">
             <TableHead>
               <TableRow>
-                {/* Employee ID */}
+                {/* Employee ID - Sticky left: 0 */}
                 <TableCell 
                   sx={{ 
                     bgcolor: '#0F7C82', 
@@ -503,7 +546,6 @@ const AttendanceSummary = () => {
                     zIndex: 3,
                     minWidth: 100,
                     padding: '10px 8px',
-                    borderRight: '1px solid rgba(255,255,255,0.1)',
                   }}
                 >
                   <TableSortLabel
@@ -524,7 +566,7 @@ const AttendanceSummary = () => {
                   </TableSortLabel>
                 </TableCell>
 
-                {/* Employee Name */}
+                {/* Employee Name - Sticky left: 100 */}
                 <TableCell 
                   sx={{ 
                     bgcolor: '#0F7C82', 
@@ -535,7 +577,6 @@ const AttendanceSummary = () => {
                     zIndex: 3,
                     minWidth: 180,
                     padding: '10px 8px',
-                    borderRight: '1px solid rgba(255,255,255,0.1)',
                   }}
                 >
                   <TableSortLabel
@@ -556,12 +597,15 @@ const AttendanceSummary = () => {
                   </TableSortLabel>
                 </TableCell>
 
-                {/* PF */}
+                {/* PF - Sticky left: 280 */}
                 <TableCell 
                   sx={{ 
                     bgcolor: '#0F7C82', 
                     color: '#FFFFFF',
                     fontWeight: 700,
+                    position: 'sticky',
+                    left: 280,
+                    zIndex: 3,
                     minWidth: 50,
                     padding: '10px 8px',
                   }}
@@ -584,12 +628,15 @@ const AttendanceSummary = () => {
                   </TableSortLabel>
                 </TableCell>
 
-                {/* ESI */}
+                {/* ESI - Sticky left: 330 */}
                 <TableCell 
                   sx={{ 
                     bgcolor: '#0F7C82', 
                     color: '#FFFFFF',
                     fontWeight: 700,
+                    position: 'sticky',
+                    left: 330,
+                    zIndex: 3,
                     minWidth: 50,
                     padding: '10px 8px',
                   }}
@@ -612,12 +659,15 @@ const AttendanceSummary = () => {
                   </TableSortLabel>
                 </TableCell>
 
-                {/* Reporting Manager */}
+                {/* Reporting Manager - Sticky left: 380 */}
                 <TableCell 
                   sx={{ 
                     bgcolor: '#0F7C82', 
                     color: '#FFFFFF',
                     fontWeight: 700,
+                    position: 'sticky',
+                    left: 380,
+                    zIndex: 3,
                     minWidth: 130,
                     padding: '10px 8px',
                   }}
@@ -640,12 +690,15 @@ const AttendanceSummary = () => {
                   </TableSortLabel>
                 </TableCell>
 
-                {/* Designation */}
+                {/* Designation - Sticky left: 510 */}
                 <TableCell 
                   sx={{ 
                     bgcolor: '#0F7C82', 
                     color: '#FFFFFF',
                     fontWeight: 700,
+                    position: 'sticky',
+                    left: 510,
+                    zIndex: 3,
                     minWidth: 130,
                     padding: '10px 8px',
                   }}
@@ -668,12 +721,15 @@ const AttendanceSummary = () => {
                   </TableSortLabel>
                 </TableCell>
 
-                {/* Joining Date */}
+                {/* Joining Date - Sticky left: 640 */}
                 <TableCell 
                   sx={{ 
                     bgcolor: '#0F7C82', 
                     color: '#FFFFFF',
                     fontWeight: 700,
+                    position: 'sticky',
+                    left: 640,
+                    zIndex: 3,
                     minWidth: 100,
                     padding: '10px 8px',
                   }}
@@ -696,12 +752,15 @@ const AttendanceSummary = () => {
                   </TableSortLabel>
                 </TableCell>
 
-                {/* Probation */}
+                {/* Probation - Sticky left: 740 */}
                 <TableCell 
                   sx={{ 
                     bgcolor: '#0F7C82', 
                     color: '#FFFFFF',
                     fontWeight: 700,
+                    position: 'sticky',
+                    left: 740,
+                    zIndex: 3,
                     minWidth: 80,
                     padding: '10px 8px',
                   }}
@@ -780,7 +839,7 @@ const AttendanceSummary = () => {
                   </TableSortLabel>
                 </TableCell>
 
-                {/* Weekend Days */}
+                {/* Week Offs - Moved after Working Days */}
                 <TableCell 
                   sx={{ 
                     bgcolor: '#0F7C82', 
@@ -791,9 +850,9 @@ const AttendanceSummary = () => {
                   }}
                 >
                   <TableSortLabel
-                    active={orderBy === 'totalWeekendDays'}
-                    direction={orderBy === 'totalWeekendDays' ? order : 'asc'}
-                    onClick={() => handleSort('totalWeekendDays')}
+                    active={orderBy === 'totalWeekOffs'}
+                    direction={orderBy === 'totalWeekOffs' ? order : 'asc'}
+                    onClick={() => handleSort('totalWeekOffs')}
                     sx={{
                       color: '#FFFFFF !important',
                       '& .MuiTableSortLabel-icon': {
@@ -804,7 +863,7 @@ const AttendanceSummary = () => {
                       },
                     }}
                   >
-                    Weekend Days
+                    Week Offs
                   </TableSortLabel>
                 </TableCell>
 
@@ -864,20 +923,20 @@ const AttendanceSummary = () => {
                   </TableSortLabel>
                 </TableCell>
 
-                {/* Casual Leaves */}
+                {/* LOP */}
                 <TableCell 
                   sx={{ 
                     bgcolor: '#0F7C82', 
                     color: '#FFFFFF',
                     fontWeight: 700,
-                    minWidth: 90,
+                    minWidth: 70,
                     padding: '10px 8px',
                   }}
                 >
                   <TableSortLabel
-                    active={orderBy === 'casualLeaves'}
-                    direction={orderBy === 'casualLeaves' ? order : 'asc'}
-                    onClick={() => handleSort('casualLeaves')}
+                    active={orderBy === 'totalLop'}
+                    direction={orderBy === 'totalLop' ? order : 'asc'}
+                    onClick={() => handleSort('totalLop')}
                     sx={{
                       color: '#FFFFFF !important',
                       '& .MuiTableSortLabel-icon': {
@@ -888,11 +947,95 @@ const AttendanceSummary = () => {
                       },
                     }}
                   >
-                    Casual Leaves
+                    LOP
                   </TableSortLabel>
                 </TableCell>
 
-                {/* Paid Days */}
+                {/* Half Days */}
+                <TableCell 
+                  sx={{ 
+                    bgcolor: '#0F7C82', 
+                    color: '#FFFFFF',
+                    fontWeight: 700,
+                    minWidth: 80,
+                    padding: '10px 8px',
+                  }}
+                >
+                  <TableSortLabel
+                    active={orderBy === 'totalHalfDays'}
+                    direction={orderBy === 'totalHalfDays' ? order : 'asc'}
+                    onClick={() => handleSort('totalHalfDays')}
+                    sx={{
+                      color: '#FFFFFF !important',
+                      '& .MuiTableSortLabel-icon': {
+                        color: '#FFFFFF !important',
+                      },
+                      '&:hover': {
+                        color: '#FFFFFF !important',
+                      },
+                    }}
+                  >
+                    Half Days
+                  </TableSortLabel>
+                </TableCell>
+
+                {/* WFH */}
+                <TableCell 
+                  sx={{ 
+                    bgcolor: '#0F7C82', 
+                    color: '#FFFFFF',
+                    fontWeight: 700,
+                    minWidth: 70,
+                    padding: '10px 8px',
+                  }}
+                >
+                  <TableSortLabel
+                    active={orderBy === 'totalWfH'}
+                    direction={orderBy === 'totalWfH' ? order : 'asc'}
+                    onClick={() => handleSort('totalWfH')}
+                    sx={{
+                      color: '#FFFFFF !important',
+                      '& .MuiTableSortLabel-icon': {
+                        color: '#FFFFFF !important',
+                      },
+                      '&:hover': {
+                        color: '#FFFFFF !important',
+                      },
+                    }}
+                  >
+                    WFH
+                  </TableSortLabel>
+                </TableCell>
+
+                {/* Public Holidays */}
+                <TableCell 
+                  sx={{ 
+                    bgcolor: '#0F7C82', 
+                    color: '#FFFFFF',
+                    fontWeight: 700,
+                    minWidth: 100,
+                    padding: '10px 8px',
+                  }}
+                >
+                  <TableSortLabel
+                    active={orderBy === 'totalPublicHolidays'}
+                    direction={orderBy === 'totalPublicHolidays' ? order : 'asc'}
+                    onClick={() => handleSort('totalPublicHolidays')}
+                    sx={{
+                      color: '#FFFFFF !important',
+                      '& .MuiTableSortLabel-icon': {
+                        color: '#FFFFFF !important',
+                      },
+                      '&:hover': {
+                        color: '#FFFFFF !important',
+                      },
+                    }}
+                  >
+                    Public Holidays
+                  </TableSortLabel>
+                </TableCell>
+
+                {/* Paid Days - Moved to last */}
                 <TableCell 
                   sx={{ 
                     bgcolor: '#0F7C82', 
@@ -953,7 +1096,7 @@ const AttendanceSummary = () => {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={16} align="center" sx={{ py: 5 }}>
+                  <TableCell colSpan={19} align="center" sx={{ py: 5 }}>
                     <Loader2 size={32} className="animate-spin" />
                     <Typography variant="body2" sx={{ mt: 1 }}>
                       {viewMode === 'month' ? 'Loading attendance summary...' : 'Loading approved summary...'}
@@ -962,7 +1105,7 @@ const AttendanceSummary = () => {
                 </TableRow>
               ) : paginatedData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={16} align="center" sx={{ py: 5 }}>
+                  <TableCell colSpan={19} align="center" sx={{ py: 5 }}>
                     <Typography variant="body2" color="textSecondary">
                       {viewMode === 'month' 
                         ? 'No attendance records found for the selected month' 
@@ -985,7 +1128,7 @@ const AttendanceSummary = () => {
 
                   return (
                     <TableRow key={row.employeeId} hover>
-                      {/* Employee ID */}
+                      {/* Employee ID - Sticky left: 0 */}
                       <TableCell 
                         sx={{ 
                           position: 'sticky',
@@ -1000,7 +1143,7 @@ const AttendanceSummary = () => {
                         </Typography>
                       </TableCell>
 
-                      {/* Employee Name */}
+                      {/* Employee Name - Sticky left: 100 */}
                       <TableCell 
                         sx={{ 
                           position: 'sticky',
@@ -1015,8 +1158,16 @@ const AttendanceSummary = () => {
                         </Typography>
                       </TableCell>
 
-                      {/* PF */}
-                      <TableCell sx={{ padding: '8px 8px' }}>
+                      {/* PF - Sticky left: 280 */}
+                      <TableCell 
+                        sx={{ 
+                          position: 'sticky',
+                          left: 280,
+                          zIndex: 1,
+                          bgcolor: 'background.paper',
+                          padding: '8px 8px',
+                        }}
+                      >
                         <Chip
                           label={row.pf}
                           size="small"
@@ -1029,8 +1180,16 @@ const AttendanceSummary = () => {
                         />
                       </TableCell>
 
-                      {/* ESI */}
-                      <TableCell sx={{ padding: '8px 8px' }}>
+                      {/* ESI - Sticky left: 330 */}
+                      <TableCell 
+                        sx={{ 
+                          position: 'sticky',
+                          left: 330,
+                          zIndex: 1,
+                          bgcolor: 'background.paper',
+                          padding: '8px 8px',
+                        }}
+                      >
                         <Chip
                           label={row.esi}
                           size="small"
@@ -1043,18 +1202,42 @@ const AttendanceSummary = () => {
                         />
                       </TableCell>
 
-                      {/* Reporting Manager */}
-                      <TableCell sx={{ padding: '8px 8px' }}>
+                      {/* Reporting Manager - Sticky left: 380 */}
+                      <TableCell 
+                        sx={{ 
+                          position: 'sticky',
+                          left: 380,
+                          zIndex: 1,
+                          bgcolor: 'background.paper',
+                          padding: '8px 8px',
+                        }}
+                      >
                         <Typography variant="body2">{row.reportingManager || '—'}</Typography>
                       </TableCell>
 
-                      {/* Designation */}
-                      <TableCell sx={{ padding: '8px 8px' }}>
+                      {/* Designation - Sticky left: 510 */}
+                      <TableCell 
+                        sx={{ 
+                          position: 'sticky',
+                          left: 510,
+                          zIndex: 1,
+                          bgcolor: 'background.paper',
+                          padding: '8px 8px',
+                        }}
+                      >
                         <Typography variant="body2">{row.designation}</Typography>
                       </TableCell>
 
-                      {/* Joining Date */}
-                      <TableCell sx={{ padding: '8px 8px' }}>
+                      {/* Joining Date - Sticky left: 640 */}
+                      <TableCell 
+                        sx={{ 
+                          position: 'sticky',
+                          left: 640,
+                          zIndex: 1,
+                          bgcolor: 'background.paper',
+                          padding: '8px 8px',
+                        }}
+                      >
                         <Typography variant="body2">
                           {row.joiningDate ? new Date(row.joiningDate).toLocaleDateString('en-IN', {
                             day: '2-digit',
@@ -1064,8 +1247,16 @@ const AttendanceSummary = () => {
                         </Typography>
                       </TableCell>
 
-                      {/* Probation */}
-                      <TableCell sx={{ padding: '8px 8px' }}>
+                      {/* Probation - Sticky left: 740 */}
+                      <TableCell 
+                        sx={{ 
+                          position: 'sticky',
+                          left: 740,
+                          zIndex: 1,
+                          bgcolor: 'background.paper',
+                          padding: '8px 8px',
+                        }}
+                      >
                         <Typography variant="body2">{row.probation || '—'}</Typography>
                       </TableCell>
 
@@ -1079,9 +1270,18 @@ const AttendanceSummary = () => {
                         <Typography variant="body2">{row.totalWorkingDays}</Typography>
                       </TableCell>
 
-                      {/* Weekend Days */}
+                      {/* Week Offs - Moved after Working Days */}
                       <TableCell sx={{ padding: '8px 8px' }}>
-                        <Typography variant="body2">{row.totalWeekendDays}</Typography>
+                        <Chip
+                          label={row.totalWeekOffs || 0}
+                          size="small"
+                          sx={{
+                            backgroundColor: alpha('#FFA726', 0.1),
+                            color: '#FFA726',
+                            fontWeight: 600,
+                            minWidth: 40,
+                          }}
+                        />
                       </TableCell>
 
                       {/* Present */}
@@ -1112,21 +1312,63 @@ const AttendanceSummary = () => {
                         />
                       </TableCell>
 
-                      {/* Casual Leaves */}
+                      {/* LOP */}
                       <TableCell sx={{ padding: '8px 8px' }}>
                         <Chip
-                          label={row.casualLeaves}
+                          label={row.totalLop || 0}
                           size="small"
                           sx={{
-                            backgroundColor: alpha('#FFA726', 0.1),
-                            color: '#FFA726',
+                            backgroundColor: alpha('#EF5350', 0.1),
+                            color: '#EF5350',
                             fontWeight: 600,
                             minWidth: 40,
                           }}
                         />
                       </TableCell>
 
-                      {/* Paid Days */}
+                      {/* Half Days */}
+                      <TableCell sx={{ padding: '8px 8px' }}>
+                        <Chip
+                          label={row.totalHalfDays || 0}
+                          size="small"
+                          sx={{
+                            backgroundColor: alpha('#AB47BC', 0.1),
+                            color: '#AB47BC',
+                            fontWeight: 600,
+                            minWidth: 40,
+                          }}
+                        />
+                      </TableCell>
+
+                      {/* WFH */}
+                      <TableCell sx={{ padding: '8px 8px' }}>
+                        <Chip
+                          label={row.totalWfH || 0}
+                          size="small"
+                          sx={{
+                            backgroundColor: alpha('#FF9800', 0.1),
+                            color: '#FF9800',
+                            fontWeight: 600,
+                            minWidth: 40,
+                          }}
+                        />
+                      </TableCell>
+
+                      {/* Public Holidays */}
+                      <TableCell sx={{ padding: '8px 8px' }}>
+                        <Chip
+                          label={row.totalPublicHolidays || 0}
+                          size="small"
+                          sx={{
+                            backgroundColor: alpha('#42A5F5', 0.1),
+                            color: '#42A5F5',
+                            fontWeight: 600,
+                            minWidth: 40,
+                          }}
+                        />
+                      </TableCell>
+
+                      {/* Paid Days - Moved to last */}
                       <TableCell sx={{ padding: '8px 8px' }}>
                         <Chip
                           label={row.totalPaidDays}

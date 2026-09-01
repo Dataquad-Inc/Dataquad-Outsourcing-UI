@@ -72,6 +72,9 @@ import {
   NavigateNext,
   CheckCircle,
   Cancel,
+  Lock,
+  LockOpen,
+  AttachFile,
 } from "@mui/icons-material";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -80,11 +83,14 @@ import DataTable from "../muiComponents/DataTabel";
 import PlacementForm from "./PlacementForm";
 import PlacementCard from "./PlacementCard";
 import ConfirmDialog from "../muiComponents/ConfirmDialog";
+import LockConfirmDialog from "../muiComponents/LockConfirmDialog";
+import DocumentManager from "./DocumentManager"; // Import the new component
 import {
   fetchPlacements,
   deletePlacement,
   setSelectedPlacement,
   resetPlacementState,
+  lockPlacement,
 } from "../../redux/placementSlice";
 import DateRangeFilter from "../muiComponents/DateRangeFilter";
 import CryptoJS from "crypto-js";
@@ -541,6 +547,16 @@ const CandidateTablePage = ({
                   </TableCell>
                   <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
                     <TableSortLabel
+                      active={orderBy === 'teamLead'}
+                      direction={orderBy === 'teamLead' ? order : 'asc'}
+                      onClick={() => handleRequestSort('teamLead')}
+                      sx={{ fontSize: '0.75rem' }}
+                    >
+                      Team Lead
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
+                    <TableSortLabel
                       active={orderBy === 'clientName'}
                       direction={orderBy === 'clientName' ? order : 'asc'}
                       onClick={() => handleRequestSort('clientName')}
@@ -590,25 +606,24 @@ const CandidateTablePage = ({
                     </TableSortLabel>
                   </TableCell>
                   <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
-                      <TableSortLabel
-                        active={orderBy === 'currency'}
-                        direction={orderBy === 'currency' ? order : 'asc'}
-                        onClick={() => handleRequestSort('currency')}
-                        sx={{ fontSize: '0.75rem' }}
-                      >
-                        Currency
-                      </TableSortLabel>
+                    <TableSortLabel
+                      active={orderBy === 'currency'}
+                      direction={orderBy === 'currency' ? order : 'asc'}
+                      onClick={() => handleRequestSort('currency')}
+                      sx={{ fontSize: '0.75rem' }}
+                    >
+                      Currency
+                    </TableSortLabel>
                   </TableCell>
-
                   <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
-                      <TableSortLabel
-                        active={orderBy === 'ratePeriod'}
-                        direction={orderBy === 'ratePeriod' ? order : 'asc'}
-                        onClick={() => handleRequestSort('ratePeriod')}
-                        sx={{ fontSize: '0.75rem' }}
-                      >
-                        Rate Period
-                      </TableSortLabel>
+                    <TableSortLabel
+                      active={orderBy === 'ratePeriod'}
+                      direction={orderBy === 'ratePeriod' ? order : 'asc'}
+                      onClick={() => handleRequestSort('ratePeriod')}
+                      sx={{ fontSize: '0.75rem' }}
+                    >
+                      Rate Period
+                    </TableSortLabel>
                   </TableCell>
                   <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
                     <TableSortLabel
@@ -694,6 +709,11 @@ const CandidateTablePage = ({
                     <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
                       <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
                         {placement.recruiterName || '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
+                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                        {placement.teamLead || '-'}
                       </Typography>
                     </TableCell>
                     <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
@@ -790,14 +810,20 @@ const PlacementsList = () => {
   const { placements, loading, selectedPlacement } = useSelector(
     (state) => state.placement
   );
-  const { userId, encryptionKey } = useSelector((state) => state.auth);
+  const { userId, encryptionKey, role } = useSelector((state) => state.auth);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [placementToDelete, setPlacementToDelete] = useState(null);
+  const [lockDialogOpen, setLockDialogOpen] = useState(false);
+  const [placementToLock, setPlacementToLock] = useState(null);
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Document Manager states
+  const [documentManagerOpen, setDocumentManagerOpen] = useState(false);
+  const [selectedPlacementForDocs, setSelectedPlacementForDocs] = useState(null);
 
   // Filter states
   const [activeFilter, setActiveFilter] = useState("all");
@@ -1054,6 +1080,17 @@ const PlacementsList = () => {
     }));
   };
 
+  // Document Manager handlers
+  const handleOpenDocumentManager = (placement) => {
+    setSelectedPlacementForDocs(placement);
+    setDocumentManagerOpen(true);
+  };
+
+  const handleCloseDocumentManager = () => {
+    setDocumentManagerOpen(false);
+    setSelectedPlacementForDocs(null);
+  };
+
   // Helper function to get filter params for export
   const getExportFilterParams = () => {
     const params = {};
@@ -1111,6 +1148,23 @@ const PlacementsList = () => {
     if (placementToDelete) {
       dispatch(deletePlacement(placementToDelete.id));
       handleCloseDeleteDialog();
+    }
+  };
+
+  const handleOpenLockDialog = (row) => {
+    setPlacementToLock(row);
+    setLockDialogOpen(true);
+  };
+
+  const handleCloseLockDialog = () => {
+    setLockDialogOpen(false);
+    setPlacementToLock(null);
+  };
+
+  const handleLock = () => {
+    if (placementToLock) {
+      dispatch(lockPlacement(placementToLock.id));
+      handleCloseLockDialog();
     }
   };
 
@@ -1267,6 +1321,7 @@ const PlacementsList = () => {
       },
       { key: "sales", label: "Sales", width: 130 },
       { key: "recruiterName", label: "Recruiter", width: 130 },
+      { key: "teamLead", label: "Team Lead", width: 130 },
       {
         key: "clientName",
         label: "Client",
@@ -1285,7 +1340,7 @@ const PlacementsList = () => {
       },
       {
         key: "company",
-        label: "company",
+        label: "Company",
         type: "select",
         sortable: true,
         filterable: true,
@@ -1390,6 +1445,26 @@ const PlacementsList = () => {
           );
         },
       },
+      // NEW: PO Column
+      {
+        key: "PO",
+        label: "PO",
+        sortable: false,
+        filterable: false,
+        width: 100,
+        align: "center",
+        render: (row) => (
+          <Tooltip title="Manage PO">
+            <IconButton
+              color="primary"
+              size="small"
+              onClick={() => handleOpenDocumentManager(row)}
+            >
+              <AttachFile fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        ),
+      },
       {
         key: "actions",
         label: "Actions",
@@ -1429,6 +1504,20 @@ const PlacementsList = () => {
                 <Delete fontSize="small" />
               </IconButton>
             </Tooltip>
+            {role === 'SUPERADMIN' && (
+              <Tooltip title={row.lock ? "Locked" : "Lock Placement"}>
+                <span>
+                  <IconButton
+                    size="small"
+                    onClick={() => !row.lock && handleOpenLockDialog(row)}
+                    disabled={row.lock}
+                    sx={{ color: row.lock ? 'warning.main' : 'text.secondary' }}
+                  >
+                    {row.lock ? <Lock fontSize="small" /> : <LockOpen fontSize="small" />}
+                  </IconButton>
+                </span>
+              </Tooltip>
+            )}
           </Box>
         ),
       },
@@ -1995,6 +2084,32 @@ const PlacementsList = () => {
         content={getDeleteConfirmationContent()}
         onClose={handleCloseDeleteDialog}
         onConfirm={handleDelete}
+      />
+
+      {/* Lock Confirmation Dialog */}
+      <LockConfirmDialog
+        open={lockDialogOpen}
+        title="Lock Placement"
+        content={
+          <>
+            Are you sure you want to lock this placement? Once locked, you cannot edit this record.
+            {placementToLock && (
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                <strong>Consultant:</strong> {placementToLock.candidateFullName}
+              </Typography>
+            )}
+          </>
+        }
+        onClose={handleCloseLockDialog}
+        onConfirm={handleLock}
+      />
+
+      {/* Document Manager Dialog */}
+      <DocumentManager
+        open={documentManagerOpen}
+        onClose={handleCloseDocumentManager}
+        placementId={selectedPlacementForDocs?.id}
+        placementName={selectedPlacementForDocs?.candidateFullName || selectedPlacementForDocs?.id}
       />
     </>
   );

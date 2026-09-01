@@ -18,7 +18,7 @@ const ColumnsForInterviews = ({ onEdit, onDelete, userRole = 'all', showActions 
   const safeOnDelete = onDelete || (() => console.log('Delete function not provided'));
 
   const baseColumns = [
-      {
+    {
       id: 'interviewDateTime',
       label: 'Interview Date',
       applyFilter: true,
@@ -28,7 +28,11 @@ const ColumnsForInterviews = ({ onEdit, onDelete, userRole = 'all', showActions 
     {
       id: 'interviewTime',
       label: 'Interview Time',
-      render: (_, row) => row.interviewDateTime ? new Date(row.interviewDateTime).toLocaleTimeString() : '-',
+      render: (_, row) =>
+        row.interviewDateTime
+          ? `${new Date(row.interviewDateTime).toISOString().slice(11, 16)} ${Number(new Date(row.interviewDateTime).toISOString().slice(11, 13)) >= 12 ? 'PM' : 'AM'
+          }`
+          : '-',
     },
     {
       id: 'consultantName',
@@ -106,7 +110,7 @@ const ColumnsForInterviews = ({ onEdit, onDelete, userRole = 'all', showActions 
         { value: 'Rescheduled', label: 'Rescheduled' },
         { value: 'Rejected', label: 'Rejected' },
       ],
-      render: (_,row) => ( getStatusChip(row.interviewStatus, row, "us")
+      render: (_, row) => (getStatusChip(row.interviewStatus, row, "us")
       ),
     },
     {

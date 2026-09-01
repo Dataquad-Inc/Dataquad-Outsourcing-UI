@@ -9,7 +9,8 @@ export const fetchEmployees = createAsyncThunk(
   "employee/fetchEmployees",
   async () => {
     const response = await httpService.get("/users/employee");
-    return response.data;  }
+    return response.data;
+  }
 );
 
 // Update employee thunk
@@ -82,6 +83,19 @@ export const inactiveInternalUsers = createAsyncThunk(
   }
 );
 
+// ✅ NEW: Isolated Internal Users
+export const isolatedInternalUsers = createAsyncThunk(
+  "employee/isolatedInternalUsers",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await httpService.get("/users/isolated-internal/employee");
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
 // Active External Users
 export const activeExternalUsers = createAsyncThunk(
   "employee/activeExternalUsers",
@@ -108,6 +122,19 @@ export const inactiveExternalUsers = createAsyncThunk(
   }
 );
 
+// ✅ NEW: Isolated External Users
+export const isolatedExternalUsers = createAsyncThunk(
+  "employee/isolatedExternalUsers",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await httpService.get("/users/isolated-external/employee");
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
 const employeesSlice = createSlice({
   name: "employee",
   initialState: {
@@ -115,8 +142,10 @@ const employeesSlice = createSlice({
     filteredUsers: [],
     internalActive: [],
     internalInactive: [],
+    internalIsolated: [], // ✅ NEW
     externalActive: [],
     externalInactive: [],
+    externalIsolated: [], // ✅ NEW
     fetchStatus: "idle",
     fetchError: null,
     updateStatus: "idle",
@@ -125,9 +154,10 @@ const employeesSlice = createSlice({
     deleteError: null,
     updatedUserResponse: null,
     userType: "internal", // 'internal' or 'external'
-    userStatus: "active", // 'active' or 'inactive'
+    userStatus: "active", // 'active', 'inactive', or 'isolated'
     loading: false,
     error: null,
+    isFilteredDataRequested: false, // ✅ NEW
   },
   reducers: {
     resetUpdateStatus: (state) => {
@@ -146,6 +176,7 @@ const employeesSlice = createSlice({
     },
     resetFilteredUsers: (state) => {
       state.filteredUsers = [];
+      state.isFilteredDataRequested = false;
     },
   },
   extraReducers: (builder) => {
@@ -202,6 +233,7 @@ const employeesSlice = createSlice({
       .addCase(filterUsersByDateRange.fulfilled, (state, action) => {
         state.loading = false;
         state.filteredUsers = action.payload;
+        state.isFilteredDataRequested = true;
       })
       .addCase(filterUsersByDateRange.rejected, (state, action) => {
         state.loading = false;
@@ -217,6 +249,7 @@ const employeesSlice = createSlice({
         state.loading = false;
         state.internalActive = action.payload;
         state.filteredUsers = action.payload;
+        state.isFilteredDataRequested = true;
       })
       .addCase(activeInternalUsers.rejected, (state, action) => {
         state.loading = false;
@@ -232,8 +265,25 @@ const employeesSlice = createSlice({
         state.loading = false;
         state.internalInactive = action.payload;
         state.filteredUsers = action.payload;
+        state.isFilteredDataRequested = true;
       })
       .addCase(inactiveInternalUsers.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // ✅ NEW: Isolated Internal Users
+      .addCase(isolatedInternalUsers.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(isolatedInternalUsers.fulfilled, (state, action) => {
+        state.loading = false;
+        state.internalIsolated = action.payload;
+        state.filteredUsers = action.payload;
+        state.isFilteredDataRequested = true;
+      })
+      .addCase(isolatedInternalUsers.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
@@ -247,6 +297,7 @@ const employeesSlice = createSlice({
         state.loading = false;
         state.externalActive = action.payload;
         state.filteredUsers = action.payload;
+        state.isFilteredDataRequested = true;
       })
       .addCase(activeExternalUsers.rejected, (state, action) => {
         state.loading = false;
@@ -262,8 +313,25 @@ const employeesSlice = createSlice({
         state.loading = false;
         state.externalInactive = action.payload;
         state.filteredUsers = action.payload;
+        state.isFilteredDataRequested = true;
       })
       .addCase(inactiveExternalUsers.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // ✅ NEW: Isolated External Users
+      .addCase(isolatedExternalUsers.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(isolatedExternalUsers.fulfilled, (state, action) => {
+        state.loading = false;
+        state.externalIsolated = action.payload;
+        state.filteredUsers = action.payload;
+        state.isFilteredDataRequested = true;
+      })
+      .addCase(isolatedExternalUsers.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       });

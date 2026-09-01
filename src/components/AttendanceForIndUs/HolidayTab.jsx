@@ -153,7 +153,8 @@ const HolidayTab = () => {
 
     if (result.payload?.success) {
       dispatch(closeConfigDialog());
-      dispatch(fetchHolidays({ month: selectedMonth, year: selectedYear, entity: entity }));
+      // Refetch holidays after successful save
+      await dispatch(fetchHolidays({ month: selectedMonth, year: selectedYear, entity: entity }));
 
       dispatch(setSnackbar({
         open: true,
@@ -178,7 +179,14 @@ const HolidayTab = () => {
       }));
 
       if (result.payload?.success) {
-        dispatch(fetchHolidays({ month: selectedMonth, year: selectedYear, entity: entity }));
+        // Refetch holidays after successful delete
+        await dispatch(fetchHolidays({ month: selectedMonth, year: selectedYear, entity: entity }));
+        
+        dispatch(setSnackbar({
+          open: true,
+          message: 'Configuration deleted successfully!',
+          severity: 'success',
+        }));
       }
     }
   };
@@ -190,11 +198,15 @@ const HolidayTab = () => {
   const handleMonthChange = (event) => {
     const newMonth = parseInt(event.target.value);
     dispatch(setSelectedMonth(newMonth));
+    // Reset selected dates when month changes
+    setSelectedDates(new Set());
   };
 
   const handleYearChange = (event) => {
     const newYear = parseInt(event.target.value);
     dispatch(setSelectedYear(newYear));
+    // Reset selected dates when year changes
+    setSelectedDates(new Set());
   };
 
   const handleRefresh = () => {
@@ -490,7 +502,7 @@ const HolidayTab = () => {
                   variant="outlined"
                   startIcon={<Trash2 size={16} />}
                   onClick={handleDeleteConfiguration}
-                  // disabled={loading || configuring || !isConfigured}
+                  disabled={loading || configuring || !isConfigured}
                   size="medium"
                   sx={{
                     borderRadius: 2,
@@ -582,7 +594,7 @@ const HolidayTab = () => {
       {/* Stats Cards - Compact */}
       <Grid container spacing={1.5} sx={{ mb: 2 }}>
         <Grid item xs={12} sm={6} md={4}>
-          <Zoom in style={{ transitionDelay: '100ms' }}>
+          <Zoom in style={{ transitionDelay: '100ms' }} key={`stats-${selectedMonth}-${selectedYear}`}>
             <Card
               sx={{
                 borderRadius: 2,
@@ -610,7 +622,7 @@ const HolidayTab = () => {
         </Grid>
 
         <Grid item xs={12} sm={6} md={4}>
-          <Zoom in style={{ transitionDelay: '200ms' }}>
+          <Zoom in style={{ transitionDelay: '200ms' }} key={`status-${selectedMonth}-${selectedYear}`}>
             <Card
               sx={{
                 borderRadius: 2,
@@ -638,7 +650,7 @@ const HolidayTab = () => {
         </Grid>
 
         <Grid item xs={12} sm={6} md={4}>
-          <Zoom in style={{ transitionDelay: '300ms' }}>
+          <Zoom in style={{ transitionDelay: '300ms' }} key={`cycle-${selectedMonth}-${selectedYear}`}>
             <Card
               sx={{
                 borderRadius: 2,
@@ -731,7 +743,7 @@ const HolidayTab = () => {
               holidays.map((holiday, index) => (
                 <Grow
                   in
-                  key={holiday.id || index}
+                  key={holiday.id || `${holiday.date}-${index}`}
                   style={{ transitionDelay: `${index * 50}ms` }}
                 >
                   <TableRow
