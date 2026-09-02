@@ -147,14 +147,11 @@ const normalizeSortValue = (value) => {
   return stringValue.toLowerCase();
 };
 
-// Function to calculate row priority - UPDATED with correct logic
 const getRowPriority = (user, profile) => {
   const today = new Date();
   const currentMonth = today.getMonth();
   const currentYear = today.getFullYear();
   
-  // Priority 1: Last working day (RED) - HIGHEST PRIORITY
-  // This should be first because it's the most critical
   if (profile.lastWorkingDay) {
     const lastWorkingDate = new Date(profile.lastWorkingDay);
     if (!isNaN(lastWorkingDate.getTime())) {
@@ -162,7 +159,6 @@ const getRowPriority = (user, profile) => {
     }
   }
   
-  // Priority 2: Joined in current month (GREEN) - SECOND PRIORITY
   if (profile.joiningDate) {
     const joiningDate = new Date(profile.joiningDate);
     if (!isNaN(joiningDate.getTime())) {
@@ -172,7 +168,6 @@ const getRowPriority = (user, profile) => {
     }
   }
   
-  // Priority 3: Probation (YELLOW) - THIRD PRIORITY
   if (profile.joiningDate) {
     const joiningDate = new Date(profile.joiningDate);
     if (!isNaN(joiningDate.getTime())) {
@@ -185,7 +180,6 @@ const getRowPriority = (user, profile) => {
     }
   }
   
-  // Priority 4: No color - LOWEST PRIORITY
   return 4;
 };
 
@@ -367,31 +361,27 @@ const calculateProbationStatus = (joiningDate) => {
   }
 };
 
-// Function to determine row color based on employee status - with much darker colors
 const getRowColor = (user, profile) => {
   const today = new Date();
   const currentMonth = today.getMonth();
   const currentYear = today.getFullYear();
   
-  // Check if employee has last working day - RED (much darker)
   if (profile.lastWorkingDay) {
     const lastWorkingDate = new Date(profile.lastWorkingDay);
     if (!isNaN(lastWorkingDate.getTime())) {
-      return '#ef9a9a'; // Much darker red
+      return '#ef9a9a';
     }
   }
   
-  // Check if employee joined in current month - GREEN (much darker)
   if (profile.joiningDate) {
     const joiningDate = new Date(profile.joiningDate);
     if (!isNaN(joiningDate.getTime())) {
       if (joiningDate.getMonth() === currentMonth && joiningDate.getFullYear() === currentYear) {
-        return '#a5d6a7'; // Much darker green
+        return '#a5d6a7';
       }
     }
   }
   
-  // Check if employee is on probation (not completed) - YELLOW (much darker)
   if (profile.joiningDate) {
     const joiningDate = new Date(profile.joiningDate);
     if (!isNaN(joiningDate.getTime())) {
@@ -399,7 +389,7 @@ const getRowColor = (user, profile) => {
       probationEndDate.setMonth(probationEndDate.getMonth() + 3);
       
       if (probationEndDate > today) {
-        return '#ffe082'; // Much darker yellow
+        return '#ffe082';
       }
     }
   }
@@ -538,16 +528,7 @@ const resolveFileSource = (source) => {
   return `${API_BASE_URL}/${source.replace(/^[/\\]+/, "")}`;
 };
 
-const getDocumentId = (document) =>
-  document?.id || document?.documentId || document?.fileId || "";
-
-const getDocumentDownloadUrl = (document, userId) => {
-  const documentId = getDocumentId(document);
-  if (!userId || !documentId) return "";
-  return `${API_BASE_URL}/users/profile/${userId}/documents/${documentId}/download`;
-};
-
-function getDocumentSource(document, userId) {
+function getDocumentSource(document) {
   if (!document) return "";
   if (typeof document === "string") return normalizeDocumentSource(document, document);
 
@@ -583,9 +564,7 @@ function getDocumentSource(document, userId) {
     document.data ||
     "";
 
-  const inlineSource = normalizeDocumentSource(source, document);
-  if (inlineSource) return inlineSource;
-  return getDocumentDownloadUrl(document, userId);
+  return normalizeDocumentSource(source, document);
 }
 
 const getFileIcon = (fileName = "") => {
@@ -983,9 +962,8 @@ const EditableField = ({
   type = "text",
   multiline = false,
   options = [],
-  gridProps = { xs: 12, sm: 6, md: 4 },
 }) => (
-  <Grid item {...gridProps}>
+  <Grid item xs={12} sm={6} md={4}>
     <TextField
       label={label}
       value={value || ""}
@@ -1048,15 +1026,92 @@ const HRMS = () => {
   const [order, setOrder] = useState("asc");
   const [orderBy, setOrderBy] = useState("Employee ID");
   const [activeTab, setActiveTab] = useState(0);
+  const [teamLeadOptions, setTeamLeadOptions] = useState([]);
 
   const isAdmin = role === "ADMIN";
+
+  // Helper function to check if user has a specific role
+  const hasRole = (user, roleName) => {
+    const roles = Array.isArray(user?.roles) ? user.roles : [user?.roles || user?.role];
+    return roles
+      .filter(Boolean)
+      .map((nextRole) => String(nextRole).toUpperCase())
+      .includes(roleName);
+  };
+
+  // Fetch reporting manager options based on entity
+  useEffect(() => {
+    const fetchReportingManagers = async () => {
+      try {
+        const response = await httpService.get("/users/employee", { entity: activeEntity });
+        const employees = normalizeArrayPayload(response);
+        
+        // Filter based on entity and roles
+        const filteredEmployees = employees.filter((employee) => {
+          const isActive = employee.status === "ACTIVE";
+          
+          if (activeEntity === "IN") {
+            // For IN entity: include BDM, TEAMLEAD, and SUPERADMIN
+            const hasValidRole = hasRole(employee, "BDM") || 
+                               hasRole(employee, "TEAMLEAD") || 
+                               hasRole(employee, "SUPERADMIN");
+            return isActive && hasValidRole;
+          } else {
+            // For US entity: include TEAMLEAD and SUPERADMIN
+            const hasValidRole = hasRole(employee, "TEAMLEAD") || 
+                               hasRole(employee, "SUPERADMIN");
+            return isActive && hasValidRole;
+          }
+        });
+
+        const options = filteredEmployees.map((employee) => {
+          const userName = employee.userName || employee.name || employee.email || "";
+          return {
+            label: userName,
+            value: userName,
+          };
+        });
+
+        setTeamLeadOptions(options);
+      } catch (error) {
+        console.error("Error fetching reporting managers:", error);
+        setTeamLeadOptions([]);
+      }
+    };
+
+    fetchReportingManagers();
+  }, [activeEntity]);
+
+  // Create reporting manager options including current value if not in list
+  const reportingManagerOptions = useMemo(() => {
+    const currentValue = profile.reportingManager || "";
+    
+    // If no options, return empty array
+    if (!teamLeadOptions || teamLeadOptions.length === 0) {
+      return [];
+    }
+    
+    // Check if current value exists in options
+    const exists = teamLeadOptions.some((option) => option.value === currentValue);
+    
+    // If current value exists, return all options
+    if (exists) {
+      return teamLeadOptions;
+    }
+    
+    // If current value doesn't exist, add it as the first option
+    if (currentValue) {
+      return [{ label: currentValue, value: currentValue }, ...teamLeadOptions];
+    }
+    
+    return teamLeadOptions;
+  }, [profile.reportingManager, teamLeadOptions]);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
       const response = await httpService.get("/users/employee", { entity: activeEntity });
       const allUsers = normalizeArrayPayload(response);
-      // Filter out test users immediately after fetching
       const filteredUsers = allUsers.filter((user) => {
         const employeeId = getEmployeeId(user);
         return !TEST_EMPLOYEE_IDS.includes(employeeId);
@@ -1075,10 +1130,8 @@ const HRMS = () => {
     fetchUsers();
   }, [fetchUsers]);
 
-  // Filter users based on active tab
   const filteredUsersByTab = useMemo(() => {
     if (activeTab === 0) {
-      // INTERNAL tab - users with role NOT containing "EXTERNALEMPLOYEE"
       return users.filter((user) => {
         const userRole = user.role || user.roles || "";
         if (Array.isArray(userRole)) {
@@ -1087,7 +1140,6 @@ const HRMS = () => {
         return !String(userRole).toUpperCase().includes("EXTERNALEMPLOYEE");
       });
     } else {
-      // EXTERNAL tab - users with role containing "EXTERNALEMPLOYEE"
       return users.filter((user) => {
         const userRole = user.role || user.roles || "";
         if (Array.isArray(userRole)) {
@@ -1132,15 +1184,13 @@ const sortedUsers = useMemo(() => {
         }
       : null;
 
-  // First, separate users by priority
   const priorityGroups = {
-    1: [], // RED - Last working day (Highest priority)
-    2: [], // GREEN - Current month joiners
-    3: [], // YELLOW - Probation period
-    4: [], // Transparent - Normal
+    1: [],
+    2: [],
+    3: [],
+    4: [],
   };
 
-  // Group users by priority
   filteredUsers.forEach((user) => {
     const employeeId = getEmployeeId(user);
     const profile = profileFromData({
@@ -1151,7 +1201,6 @@ const sortedUsers = useMemo(() => {
     priorityGroups[priority].push(user);
   });
 
-  // Sort each priority group by the selected column
   const sortGroup = (group) => {
     if (!getSortValue) return group;
     
@@ -1165,12 +1214,11 @@ const sortedUsers = useMemo(() => {
     });
   };
 
-  // Sort each group and combine them in priority order
   return [
-    ...sortGroup(priorityGroups[1]), // RED first (Last working day - Most critical)
-    ...sortGroup(priorityGroups[2]), // GREEN second (Current month joiners)
-    ...sortGroup(priorityGroups[3]), // YELLOW third (Probation period)
-    ...sortGroup(priorityGroups[4]), // Transparent last (Normal)
+    ...sortGroup(priorityGroups[1]),
+    ...sortGroup(priorityGroups[2]),
+    ...sortGroup(priorityGroups[3]),
+    ...sortGroup(priorityGroups[4]),
   ];
 }, [filteredUsers, order, orderBy, profileDetailsByEmployeeId]);
 
@@ -1195,8 +1243,6 @@ const sortedUsers = useMemo(() => {
   };
 
   const groupedDocuments = useMemo(() => groupDocumentsForHRMS(documents), [documents]);
-  const profileUserId = profile.employeeId || selectedUser?.employeeId || selectedUser?.userId;
-  const resolveDocumentSource = (document) => getDocumentSource(document, profileUserId);
 
   const handleDownloadExcel = useCallback(() => {
     try {
@@ -1283,7 +1329,7 @@ const sortedUsers = useMemo(() => {
   };
 
   const handleDocumentDownload = async (document, index) => {
-    const source = resolveDocumentSource(document);
+    const source = getDocumentSource(document);
     const documentName = getDocumentName(document);
     const documentKey = getDocumentKey(document, index);
     const downloaded = await downloadFile(source, documentName);
@@ -1393,7 +1439,7 @@ const sortedUsers = useMemo(() => {
 
   const renderDocumentRow = ({ document, originalIndex }, showDivider = false) => {
     const documentName = getDocumentName(document);
-    const source = resolveDocumentSource(document);
+    const source = getDocumentSource(document);
     const documentKey = getDocumentKey(document, originalIndex);
     const isDownloaded = Boolean(downloadedDocumentKeys[documentKey]);
     const savingVerification = Boolean(savingVerifiedDocumentKeys[documentKey]);
@@ -1464,66 +1510,6 @@ const sortedUsers = useMemo(() => {
     );
   };
 
-  const renderDocumentPanel = (sectionKey) => {
-    const section = primaryDocumentSections.find((item) => item.key === sectionKey);
-    const sectionDocuments = groupedDocuments.grouped[sectionKey] || [];
-    const sectionLabel = section?.label || sectionKey;
-
-    return (
-      <Paper variant="outlined" sx={{ borderRadius: 1, overflow: "hidden", height: "100%" }}>
-        <Box
-          sx={{
-            px: 2,
-            py: 1.25,
-            bgcolor: "background.default",
-            borderBottom: "1px solid",
-            borderColor: "divider",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 1,
-          }}
-        >
-          <Typography variant="subtitle2" fontWeight={700}>
-            {sectionLabel} document
-          </Typography>
-          {section?.allowSectionUpload && (
-            <Button
-              variant="outlined"
-              size="small"
-              component="label"
-              startIcon={
-                uploadingSectionKey === section.key ? (
-                  <CircularProgress size={16} color="inherit" />
-                ) : (
-                  <UploadFileOutlined />
-                )
-              }
-              disabled={Boolean(uploadingSectionKey)}
-            >
-              Upload
-              <input
-                type="file"
-                hidden
-                onChange={handleSectionDocumentUpload(section)}
-                disabled={Boolean(uploadingSectionKey)}
-              />
-            </Button>
-          )}
-        </Box>
-        {sectionDocuments.length ? (
-          sectionDocuments.map((documentWithIndex, index) =>
-            renderDocumentRow(documentWithIndex, index > 0)
-          )
-        ) : (
-          <Alert severity="info" sx={{ borderRadius: 0 }}>
-            No {sectionLabel} document uploaded.
-          </Alert>
-        )}
-      </Paper>
-    );
-  };
-
   const handleProfileChange = (field, value) => {
     setProfile((currentProfile) => ({
       ...currentProfile,
@@ -1564,7 +1550,7 @@ const sortedUsers = useMemo(() => {
   };
 
   const handleViewDocument = async (document) => {
-    const source = resolveDocumentSource(document);
+    const source = getDocumentSource(document);
     const documentName = getDocumentName(document);
 
     if (!source) {
@@ -1674,10 +1660,8 @@ const sortedUsers = useMemo(() => {
     closeDocumentViewer();
   };
 
-  // Dynamic sticky styles based on role
   const getStickyStyles = () => {
     if (isAdmin) {
-      // When admin, Editable Access is the rightmost column
       return {
         stickyEditableColumnSx: {
           position: "sticky",
@@ -1695,10 +1679,9 @@ const sortedUsers = useMemo(() => {
           bgcolor: "background.paper",
           zIndex: 2,
         },
-        stickyActionsColumnSx: null // No actions column for admin
+        stickyActionsColumnSx: null
       };
     }
-    // Non-admin: Actions is rightmost, Editable Access is second, Status is third
     return {
       stickyEditableColumnSx: {
         position: "sticky",
@@ -1779,7 +1762,6 @@ const sortedUsers = useMemo(() => {
       </Stack>
 
       <Paper variant="outlined" sx={{ borderRadius: 1, overflow: "hidden" }}>
-        {/* Tabs */}
         <Box sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
           <Tabs 
             value={activeTab} 
@@ -1929,7 +1911,6 @@ const sortedUsers = useMemo(() => {
                       ...(profileDetailsByEmployeeId[employeeId] || {}),
                     });
                     
-                    // Get row color based on employee status
                     const rowColor = getRowColor(user, rowProfile);
                     
                     return (
@@ -2115,9 +2096,29 @@ const sortedUsers = useMemo(() => {
                     value={profile.joiningDate ? calculateProbationStatus(profile.joiningDate) : profile.probation}
                     disabled={Boolean(profile.joiningDate)}
                     fullWidth
+                    size="small"
                   />
                 </Grid>
-                <EditableField label="Reporting Manager" field="reportingManager" value={profile.reportingManager} onChange={handleProfileChange} />
+                <Grid item xs={12} sm={6} md={4}>
+                  <TextField
+                    label="Reporting Manager"
+                    value={profile.reportingManager || ""}
+                    onChange={(event) => handleProfileChange("reportingManager", event.target.value)}
+                    fullWidth
+                    size="small"
+                    select
+                  >
+                    {reportingManagerOptions.length > 0 ? (
+                      reportingManagerOptions.map((option) => (
+                        <MenuItem key={option.value} value={option.value}>
+                          {option.label}
+                        </MenuItem>
+                      ))
+                    ) : (
+                      <MenuItem value="">No options available</MenuItem>
+                    )}
+                  </TextField>
+                </Grid>
                 <EditableField
                   label="Department"
                   field="department"
@@ -2128,78 +2129,12 @@ const sortedUsers = useMemo(() => {
                 <EditableField label="LinkedIn URL" field="linkedInUrl" value={profile.linkedInUrl} onChange={handleProfileChange} />
               </Section>
 
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>
-                  Payroll Verification
-                </Typography>
-                <Stack spacing={2}>
-                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
-                    <Grid container spacing={2} alignItems="stretch">
-                      <Grid item xs={12} md={6}>
-                        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
-                          PAN details
-                        </Typography>
-                        <Grid container spacing={2}>
-                          <EditableField
-                            label="PAN Number"
-                            field="payrollPanNumber"
-                            value={profile.payrollPanNumber}
-                            onChange={handleProfileChange}
-                            gridProps={{ xs: 12 }}
-                          />
-                        </Grid>
-                      </Grid>
-                      <Grid item xs={12} md={6}>
-                        {renderDocumentPanel("pan")}
-                      </Grid>
-                    </Grid>
-                  </Paper>
-
-                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
-                    <Grid container spacing={2} alignItems="stretch">
-                      <Grid item xs={12} md={6}>
-                        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
-                          Aadhar details
-                        </Typography>
-                        <Grid container spacing={2}>
-                          <EditableField
-                            label="Aadhar Number"
-                            field="payrollAadharNumber"
-                            value={profile.payrollAadharNumber}
-                            onChange={handleProfileChange}
-                            gridProps={{ xs: 12 }}
-                          />
-                        </Grid>
-                      </Grid>
-                      <Grid item xs={12} md={6}>
-                        {renderDocumentPanel("adhar")}
-                      </Grid>
-                    </Grid>
-                  </Paper>
-
-                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
-                    <Grid container spacing={2} alignItems="stretch">
-                      <Grid item xs={12} md={6}>
-                        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
-                          Bank details
-                        </Typography>
-                        <Grid container spacing={2}>
-                          <EditableField label="Bank Name" field="bankName" value={profile.bankName} onChange={handleProfileChange} gridProps={{ xs: 12, sm: 6 }} />
-                          <EditableField label="Account Number" field="accountNumber" value={profile.accountNumber} onChange={handleProfileChange} gridProps={{ xs: 12, sm: 6 }} />
-                          <EditableField label="Branch" field="branch" value={profile.branch} onChange={handleProfileChange} gridProps={{ xs: 12, sm: 6 }} />
-                          <EditableField label="Account Holder Name" field="accountHolderName" value={profile.accountHolderName} onChange={handleProfileChange} gridProps={{ xs: 12, sm: 6 }} />
-                          <EditableField label="IFSC Code" field="ifscCode" value={profile.ifscCode} onChange={handleProfileChange} gridProps={{ xs: 12 }} />
-                        </Grid>
-                      </Grid>
-                      <Grid item xs={12} md={6}>
-                        {renderDocumentPanel("bankPassbook")}
-                      </Grid>
-                    </Grid>
-                  </Paper>
-                </Stack>
-              </Box>
-
-              <Section title="Other Payroll Inputs">
+              <Section title="Payroll Inputs">
+                <EditableField label="Bank Name" field="bankName" value={profile.bankName} onChange={handleProfileChange} />
+                <EditableField label="Account Number" field="accountNumber" value={profile.accountNumber} onChange={handleProfileChange} />
+                <EditableField label="Branch" field="branch" value={profile.branch} onChange={handleProfileChange} />
+                <EditableField label="Account Holder Name" field="accountHolderName" value={profile.accountHolderName} onChange={handleProfileChange} />
+                <EditableField label="IFSC Code" field="ifscCode" value={profile.ifscCode} onChange={handleProfileChange} />
                 <EditableField label="UAN Number" field="uanNumber" value={profile.uanNumber} onChange={handleProfileChange} />
                 <EditableField label="PF Number" field="pfNumber" value={profile.pfNumber} onChange={handleProfileChange} />
                 <EditableField
@@ -2215,6 +2150,8 @@ const sortedUsers = useMemo(() => {
                 {isTruthyFlag(profile.isEmployeeHavingESI) && (
                   <EditableField label="ESI Number" field="esiNumber" value={profile.esiNumber} onChange={handleProfileChange} />
                 )}
+                <EditableField label="PAN Number" field="payrollPanNumber" value={profile.payrollPanNumber} onChange={handleProfileChange} />
+                <EditableField label="Aadhar Number" field="payrollAadharNumber" value={profile.payrollAadharNumber} onChange={handleProfileChange} />
               </Section>
 
               <Box sx={{ mb: 3 }}>
@@ -2226,7 +2163,7 @@ const sortedUsers = useMemo(() => {
                   sx={{ mb: 1.5 }}
                 >
                   <Typography variant="subtitle1" fontWeight={700}>
-                    Other Documents
+                    Documents
                   </Typography>
                   <Stack direction={{ xs: "column", sm: "row" }} gap={1}>
                     <input ref={fileInputRef} type="file" hidden multiple onChange={handleFileChange} />
@@ -2257,16 +2194,68 @@ const sortedUsers = useMemo(() => {
                 )}
 
                 <Stack spacing={2}>
-                  {primaryDocumentSections
-                    .filter((section) => ["insurance", "form16"].includes(section.key))
-                    .map((section) => (
-                      <Box key={section.key}>{renderDocumentPanel(section.key)}</Box>
-                    ))}
+                  {primaryDocumentSections.map((section) => {
+                    const sectionDocuments = groupedDocuments.grouped[section.key] || [];
+
+                    return (
+                      <Paper variant="outlined" sx={{ borderRadius: 1, overflow: "hidden" }} key={section.key}>
+                        <Box
+                          sx={{
+                            px: 2,
+                            py: 1.25,
+                            bgcolor: "background.default",
+                            borderBottom: "1px solid",
+                            borderColor: "divider",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 1,
+                          }}
+                        >
+                          <Typography variant="subtitle2" fontWeight={700}>
+                            {section.label}
+                          </Typography>
+                          {section.allowSectionUpload && (
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              component="label"
+                              startIcon={
+                                uploadingSectionKey === section.key ? (
+                                  <CircularProgress size={16} color="inherit" />
+                                ) : (
+                                  <UploadFileOutlined />
+                                )
+                              }
+                              disabled={Boolean(uploadingSectionKey)}
+                            >
+                              Upload
+                              <input
+                                type="file"
+                                hidden
+                                onChange={handleSectionDocumentUpload(section)}
+                                disabled={Boolean(uploadingSectionKey)}
+                              />
+                            </Button>
+                          )}
+                        </Box>
+                        {sectionDocuments.length ? (
+                          sectionDocuments.map((documentWithIndex, index) =>
+                            renderDocumentRow(documentWithIndex, index > 0)
+                          )
+                        ) : (
+                          <Alert severity="info" sx={{ borderRadius: 0 }}>
+                            No {section.label} document uploaded.
+                          </Alert>
+                        )}
+                      </Paper>
+                    );
+                  })}
 
                   <Paper variant="outlined" sx={{ borderRadius: 1, overflow: "hidden" }}>
                     <Box sx={{ px: 2, py: 1.25, bgcolor: "background.default", borderBottom: "1px solid", borderColor: "divider" }}>
                       <Typography variant="subtitle2" fontWeight={700}>
-                        Additional Documents
+                        Other Documents
                       </Typography>
                     </Box>
                     {groupedDocuments.otherDocuments.length ? (
