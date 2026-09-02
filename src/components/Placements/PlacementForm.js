@@ -80,6 +80,7 @@ const PlacementForm = ({
   const theme = useTheme();
   const dispatch = useDispatch();
   const { loading, error, success } = useSelector((state) => state.placement);
+  const { userId, encryptionKey, role, entity } = useSelector((state) => state.auth);
   const [submitStatus, setSubmitStatus] = useState({
     isSubmitting: false,
     success: null,
@@ -87,24 +88,112 @@ const PlacementForm = ({
     response: null,
   });
   
-  const [employeeOptions, setEmployeeOptions] = useState({ recruiters: [], sales: [], teamleads: [] });
+  const [employeeOptions, setEmployeeOptions] = useState({ 
+    recruiters: [], 
+    sales: [], 
+    teamleads: [],
+  });
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
 
+  // Fetch employees from /users/employee endpoint
   useEffect(() => {
-    const fetchEmployees = async (role) => {
-      const res = await fetch(`https://mymulya.com/candidate/employees?role=${role}`);
-      const data = await res.json();
-      return Array.isArray(data) ? data : [];
+    const fetchEmployees = async () => {
+      setLoadingEmployees(true);
+      try {
+        const entityParam = entity || "IN";
+        console.log("Fetching employees for entity:", entityParam);
+        
+        const res = await fetch(`https://mymulya.com/users/employee`);
+        const data = await res.json();
+        console.log("Raw employee data:", data);
+        
+        // Handle different response formats
+        let employees = [];
+        if (Array.isArray(data)) {
+          employees = data;
+        } else if (data.data && Array.isArray(data.data)) {
+          employees = data.data;
+        } else if (data.employees && Array.isArray(data.employees)) {
+          employees = data.employees;
+        } else if (data.payload && Array.isArray(data.payload)) {
+          employees = data.payload;
+        }
+        
+        console.log("Parsed employees:", employees);
+        
+        // Filter by entity (only IN employees)
+        const filteredByEntity = employees.filter(emp => {
+          const empEntity = (emp.entity || emp.Entity || "").toUpperCase();
+          return empEntity === entityParam.toUpperCase();
+        });
+        
+        console.log("Filtered by entity (IN):", filteredByEntity);
+        
+        // Helper to get employee name
+        const getEmployeeName = (emp) => {
+          return emp.userName || emp.name || emp.fullName || emp.displayName || 
+                 emp.email || emp.employeeId || "";
+        };
+        
+        // Helper to get employee role
+        const getEmployeeRole = (emp) => {
+          const roleValue = emp.roles || emp.role || emp.Role || emp.userRole || "";
+          return String(roleValue).toUpperCase();
+        };
+        
+        // Filter by role - only active employees with valid roles
+        const isActive = (emp) => emp.status === "ACTIVE";
+        
+        // Recruiters: ONLY EMPLOYEE role (NOT EXTERNALEMPLOYEE)
+        const recruiters = filteredByEntity
+          .filter(emp => {
+            const role = getEmployeeRole(emp);
+            const name = getEmployeeName(emp);
+            // Only include EXACT "EMPLOYEE" role, exclude "EXTERNALEMPLOYEE"
+            return name && isActive(emp) && role === "EMPLOYEE";
+          })
+          .map(emp => getEmployeeName(emp))
+          .filter(Boolean)
+          .sort();
+        
+        // Sales: BDM role
+        const sales = filteredByEntity
+          .filter(emp => {
+            const role = getEmployeeRole(emp);
+            const name = getEmployeeName(emp);
+            return name && isActive(emp) && role === "BDM";
+          })
+          .map(emp => getEmployeeName(emp))
+          .filter(Boolean)
+          .sort();
+        
+        // Team Leads: TEAMLEAD role
+        const teamleads = filteredByEntity
+          .filter(emp => {
+            const role = getEmployeeRole(emp);
+            const name = getEmployeeName(emp);
+            return name && isActive(emp) && role === "TEAMLEAD";
+          })
+          .map(emp => getEmployeeName(emp))
+          .filter(Boolean)
+          .sort();
+        
+        console.log("Recruiters (EMPLOYEE only):", recruiters);
+        console.log("Sales (BDM):", sales);
+        console.log("Team Leads (TEAMLEAD):", teamleads);
+        
+        setEmployeeOptions({ recruiters, sales, teamleads });
+      } catch (error) {
+        console.error("Error fetching employees:", error);
+        setEmployeeOptions({ recruiters: [], sales: [], teamleads: [] });
+      } finally {
+        setLoadingEmployees(false);
+      }
     };
-    Promise.all([
-      fetchEmployees("EMPLOYEE"),
-      fetchEmployees("BDM"),
-      fetchEmployees("TEAMLEAD"),
-    ]).then(([recruiters, sales, teamleads]) =>
-      setEmployeeOptions({ recruiters, sales, teamleads })
-    ).catch(console.error);
-  }, []);
+    
+    fetchEmployees();
+  }, [entity]);
 
-  const {userId, encryptionKey, role} = useSelector((state) => state.auth);
   const isLocked = isEdit && (initialValues.lock === true || initialValues.lock === 'true') && role !== 'SUPERADMIN';
   console.log('lock debug:', { lock: initialValues.lock, lockType: typeof initialValues.lock, role, isLocked });
   const decryptionKey = atob(encryptionKey);
@@ -137,7 +226,7 @@ const PlacementForm = ({
     }
   };
 
-  // Form field configurations organized in arrays for better maintainability
+  // Form field configurations
   const consultantFields = [
     {
       id: "candidateFullName",
@@ -192,56 +281,55 @@ const PlacementForm = ({
       required: true,
       type: "date",
       grid: { xs: 12, sm: 6 },
-      render: (row) => formatDateForDisplay(row.startDate),
     },
     {
       id: "endDate",
       label: "End Date",
       type: "date",
       grid: { xs: 12, sm: 6 },
-      render: (row) => formatDateForDisplay(row.endDate),
     },
   ];
 
-    const companyDetails = [
+  const companyDetails = [
     {
       id: "company",
       label: "Company",
       required: true,
       grid: { xs: 12, sm: 6 },
-       select: true,
+      select: true,
       options: [
         { value: "Dataquad", label: "Dataquad" },
         { value: "Adroit", label: "Adroit" },
       ]
     }
   ];
+
   const financialFields = [
-      {
-    id: "currency",
-    label: "Currency",
-    required: true,
-    grid: { xs: 12, sm: 6 },
-    select: true,
-    helperText: "Select currency",
-    options: [
-      { value: "INR", label: "INR" },
-      { value: "USD", label: "USD" },
-    ],
-  },
-  {
-    id: "ratePeriod",
-    label: "Rate Period",
-    required: true,
-    grid: { xs: 12, sm: 6 },
-    select: true,
-    options: [
-      { value: "HOUR", label: "Hour" },
-      { value: "DAY", label: "Day" },
-      { value: "MONTH", label: "Month" },
-      { value: "YEAR", label: "Year" },
-    ],
-  },
+    {
+      id: "currency",
+      label: "Currency",
+      required: true,
+      grid: { xs: 12, sm: 6 },
+      select: true,
+      helperText: "Select currency",
+      options: [
+        { value: "INR", label: "INR" },
+        { value: "USD", label: "USD" },
+      ],
+    },
+    {
+      id: "ratePeriod",
+      label: "Rate Period",
+      required: true,
+      grid: { xs: 12, sm: 6 },
+      select: true,
+      options: [
+        { value: "HOUR", label: "Hour" },
+        { value: "DAY", label: "Day" },
+        { value: "MONTH", label: "Month" },
+        { value: "YEAR", label: "Year" },
+      ],
+    },
     {
       id: "billRate",
       label: "Bill Rate",
@@ -314,21 +402,21 @@ const PlacementForm = ({
       label: "Recruiter",
       grid: { xs: 12, sm: 6 },
       autocomplete: true,
-      options: employeeOptions.recruiters.map((e) => e),
+      options: employeeOptions.recruiters,
     },
     {
       id: "sales",
       label: "Sales",
       grid: { xs: 12, sm: 6 },
       autocomplete: true,
-      options: employeeOptions.sales.map((e) => e),
+      options: employeeOptions.sales,
     },
     {
       id: "teamLead",
       label: "Team Lead",
       grid: { xs: 12, sm: 6 },
       autocomplete: true,
-      options: employeeOptions.teamleads.map((e) => e),
+      options: employeeOptions.teamleads,
     },
     {
       id: "statusMessage",
@@ -356,13 +444,11 @@ const PlacementForm = ({
       }
       
       if (!date.isValid()) {
-        console.warn("Invalid date for display:", dateStr);
         return "";
       }
       
       return date.format("MM/DD/YYYY");
     } catch (error) {
-      console.error("Error formatting date for display:", error, dateStr);
       return "";
     }
   };
@@ -379,13 +465,11 @@ const PlacementForm = ({
       }
       
       if (!date.isValid()) {
-        console.warn("Invalid date for input:", dateStr);
         return "";
       }
       
       return date.format("YYYY-MM-DD");
     } catch (error) {
-      console.error("Error formatting date for input:", error, dateStr);
       return "";
     }
   };
@@ -395,13 +479,11 @@ const PlacementForm = ({
     try {
       const date = dayjs(dateStr);
       if (!date.isValid()) {
-        console.warn("Invalid date for submission:", dateStr);
         return null;
       }
       
       return date.format("YYYY-MM-DD");
     } catch (error) {
-      console.error("Error formatting date for submission:", error, dateStr);
       return null;
     }
   };
@@ -565,7 +647,7 @@ const PlacementForm = ({
     }
   }, [success, error, isEdit, onCancel]);
 
-  // Function to render text fields
+  // Function to render text fields with Autocomplete support
   const renderTextField = (field) => {
     const {
       id,
@@ -599,12 +681,14 @@ const PlacementForm = ({
               formik.setFieldValue(id, newValue || '');
             }}
             onBlur={() => formik.setFieldTouched(id, true)}
-            disabled={isFieldLocked}
+            disabled={isFieldLocked || loadingEmployees}
             freeSolo
+            loading={loadingEmployees}
+            noOptionsText={loadingEmployees ? "Loading employees..." : "No employees found"}
             filterOptions={(options, state) => {
               const filterValue = state.inputValue.toLowerCase();
               return options.filter(option => 
-                option.toLowerCase().includes(filterValue)
+                String(option).toLowerCase().includes(filterValue)
               );
             }}
             renderInput={(params) => (
@@ -615,12 +699,18 @@ const PlacementForm = ({
                 helperText={
                   formik.touched[id] && formik.errors[id]
                     ? formik.errors[id]
-                    : helperText
+                    : loadingEmployees ? "Loading employees..." : helperText
                 }
                 required={required}
                 InputProps={{
                   ...params.InputProps,
                   readOnly: isFieldReadOnly,
+                  endAdornment: (
+                    <>
+                      {loadingEmployees && <CircularProgress size={20} />}
+                      {params.InputProps.endAdornment}
+                    </>
+                  ),
                 }}
               />
             )}
