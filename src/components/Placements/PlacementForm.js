@@ -12,6 +12,7 @@ import {
   MenuItem,
   InputAdornment,
   CircularProgress,
+  Autocomplete,
 } from "@mui/material";
 import {
   CheckCircleOutline as SuccessIcon,
@@ -312,22 +313,22 @@ const PlacementForm = ({
       id: "recruiterName",
       label: "Recruiter",
       grid: { xs: 12, sm: 6 },
-      select: true,
-      options: employeeOptions.recruiters.map((e) => ({ value: e, label: e })),
+      autocomplete: true,
+      options: employeeOptions.recruiters.map((e) => e),
     },
     {
       id: "sales",
       label: "Sales",
       grid: { xs: 12, sm: 6 },
-      select: true,
-      options: employeeOptions.sales.map((e) => ({ value: e, label: e })),
+      autocomplete: true,
+      options: employeeOptions.sales.map((e) => e),
     },
     {
       id: "teamLead",
       label: "Team Lead",
       grid: { xs: 12, sm: 6 },
-      select: true,
-      options: employeeOptions.teamleads.map((e) => ({ value: e, label: e })),
+      autocomplete: true,
+      options: employeeOptions.teamleads.map((e) => e),
     },
     {
       id: "statusMessage",
@@ -579,11 +580,54 @@ const PlacementForm = ({
       rows = 1,
       inputProps = {},
       readOnly = false,
+      autocomplete = false,
     } = field;
 
     const editableWhenLocked = ['status', 'endDate'];
     const isFieldLocked = isLocked && !editableWhenLocked.includes(id);
     const isFieldReadOnly = readOnly || isFieldLocked;
+
+    // Render Autocomplete for searchable dropdowns
+    if (autocomplete) {
+      return (
+        <Grid item {...grid} key={id}>
+          <Autocomplete
+            id={id}
+            options={options || []}
+            value={formik.values[id] || ''}
+            onChange={(event, newValue) => {
+              formik.setFieldValue(id, newValue || '');
+            }}
+            onBlur={() => formik.setFieldTouched(id, true)}
+            disabled={isFieldLocked}
+            freeSolo
+            filterOptions={(options, state) => {
+              const filterValue = state.inputValue.toLowerCase();
+              return options.filter(option => 
+                option.toLowerCase().includes(filterValue)
+              );
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label={`${label}${required ? ' *' : ''}`}
+                error={formik.touched[id] && Boolean(formik.errors[id])}
+                helperText={
+                  formik.touched[id] && formik.errors[id]
+                    ? formik.errors[id]
+                    : helperText
+                }
+                required={required}
+                InputProps={{
+                  ...params.InputProps,
+                  readOnly: isFieldReadOnly,
+                }}
+              />
+            )}
+          />
+        </Grid>
+      );
+    }
 
     return (
       <Grid item {...grid} key={id}>
