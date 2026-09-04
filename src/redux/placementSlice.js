@@ -108,7 +108,6 @@ export const fetchPlacements = createAsyncThunk(
   }
 );
 
-
 export const fetchUsPlacements = createAsyncThunk(
   "placement/fetchUsPlacements",
   async ({ page = 0, size = 20 } = {}, { rejectWithValue }) => {
@@ -186,10 +185,10 @@ export const fetchUsPlacementCounts = createAsyncThunk(
 // Async thunk to create a new placement
 export const createPlacement = createAsyncThunk(
   "placement/createPlacement",
-  async (placementData, { rejectWithValue, dispatch,getState }) => {
+  async (placementData, { rejectWithValue, dispatch, getState }) => {
     try {
-      const state=getState();
-      const userId=state.auth.userId;
+      const state = getState();
+      const userId = state.auth.userId;
       const submissionValues = {
         ...placementData,
         startDate: placementData.startDate
@@ -228,7 +227,7 @@ export const createPlacement = createAsyncThunk(
 // Async thunk to update a placement
 export const updatePlacement = createAsyncThunk(
   "placement/updatePlacement",
-  async ({ id, placementData }, { rejectWithValue, dispatch,getState }) => {
+  async ({ id, placementData }, { rejectWithValue, dispatch, getState }) => {
     try {
       const submissionValues = {
         ...placementData,
@@ -240,8 +239,8 @@ export const updatePlacement = createAsyncThunk(
           : null,
       };
       
-      const state=getState();
-      const userId=state.auth.userId
+      const state = getState();
+      const userId = state.auth.userId;
       const response = await httpService.put(
         `/candidate/placement/update-placement/${id}/${userId}`,
         submissionValues
@@ -392,6 +391,62 @@ export const lockPlacement = createAsyncThunk(
   }
 );
 
+// Async thunk to submit a placement (ADMIN)
+export const submitPlacement = createAsyncThunk(
+  "placement/submitPlacement",
+  async (id, { rejectWithValue, dispatch }) => {
+    try {
+      const response = await httpService.put(
+        `/candidate/placement/submit-placement/${id}`
+      );
+
+      if (response.data.success) {
+        ToastService.success("Placement submitted successfully!");
+        dispatch(fetchPlacements());
+        return response.data;
+      } else {
+        throw new Error(response.data.error || "Failed to submit placement");
+      }
+    } catch (error) {
+      ToastService.error(
+        error.response?.data?.message ||
+          "Failed to submit placement. Please try again."
+      );
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to submit placement"
+      );
+    }
+  }
+);
+
+// Async thunk to approve a placement (SUPERADMIN)
+export const approvePlacement = createAsyncThunk(
+  "placement/approvePlacement",
+  async (id, { rejectWithValue, dispatch }) => {
+    try {
+      const response = await httpService.put(
+        `/candidate/placement/approve-placement/${id}`
+      );
+
+      if (response.data.success) {
+        ToastService.success("Placement approved successfully!");
+        dispatch(fetchPlacements());
+        return response.data;
+      } else {
+        throw new Error(response.data.error || "Failed to approve placement");
+      }
+    } catch (error) {
+      ToastService.error(
+        error.response?.data?.message ||
+          "Failed to approve placement. Please try again."
+      );
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to approve placement"
+      );
+    }
+  }
+);
+
 // Async thunk to delete a placement
 export const deletePlacement = createAsyncThunk(
   "placement/deletePlacement",
@@ -451,7 +506,7 @@ export const deleteUsPlacement = createAsyncThunk(
   }
 );
 
-// Fixed async thunk for date range filtering
+// Async thunk for date range filtering
 export const filterPlacementByDateRange = createAsyncThunk(
   "placement/filterByDateRange",
   async ({ startDate, endDate }, thunkAPI) => {
@@ -473,6 +528,33 @@ export const filterPlacementByDateRange = createAsyncThunk(
       ToastService.error("Failed to filter placements by date range.");
       return thunkAPI.rejectWithValue(
         error.response?.data?.message || "Failed to fetch placements"
+      );
+    }
+  }
+);
+
+export const filterUsPlacementByDateRange = createAsyncThunk(
+  "placement/filterUsByDateRange",
+  async ({ startDate, endDate, page = 0, size = 1000 }, thunkAPI) => {
+    try {
+      const response = await httpService.get(
+        `/candidate/us-placement/placements-list`,
+        { page, size }
+      );
+      const rawData = response.data?.data || response.data || [];
+      const list = Array.isArray(rawData) ? rawData : [];
+      const start = new Date(`${startDate}T00:00:00`);
+      const end = new Date(`${endDate}T23:59:59`);
+      const filtered = list.filter((item) => {
+        if (!item?.startDate) return false;
+        const value = new Date(item.startDate);
+        return !Number.isNaN(value.getTime()) && value >= start && value <= end;
+      });
+      return filtered;
+    } catch (error) {
+      ToastService.error("Failed to filter US placements by date range.");
+      return thunkAPI.rejectWithValue(
+        error.response?.data?.message || "Failed to fetch US placements"
       );
     }
   }
@@ -513,7 +595,6 @@ const placementSlice = createSlice({
       state.error = null;
       state.actionType = null;
     },
-    // FIXED: setSelectedPlacement - properly formats dates and includes currency, ratePeriod, company
     setSelectedPlacement: (state, action) => {
       if (action.payload) {
         const placement = action.payload;
@@ -533,7 +614,6 @@ const placementSlice = createSlice({
           endDate: placement.endDate
             ? formatDateForFormInput(placement.endDate)
             : "",
-          // ADDED: Preserve currency, ratePeriod, and company values with defaults
           currency: placement.currency || "",
           ratePeriod: placement.ratePeriod || "",
           company: placement.company || "",
@@ -550,7 +630,6 @@ const placementSlice = createSlice({
         state.selectedPlacement = null;
       }
     },
-    // Clear filter state
     clearPlacementFilter: (state) => {
       state.isFiltered = false;
     },
@@ -575,7 +654,8 @@ const placementSlice = createSlice({
         state.actionType = null;
       })
 
-        .addCase(fetchUsPlacements.pending, (state) => {
+      // Fetch US placements
+      .addCase(fetchUsPlacements.pending, (state) => {
         state.loading = true;
         state.error = null;
         state.actionType = "fetch";
@@ -593,6 +673,7 @@ const placementSlice = createSlice({
         state.actionType = null;
       })
 
+      // Fetch US placement counts
       .addCase(fetchUsPlacementCounts.fulfilled, (state, action) => {
         state.usPlacementCounts = action.payload;
       })
@@ -710,6 +791,44 @@ const placementSlice = createSlice({
         state.actionType = null;
       })
 
+      // Submit placement (ADMIN)
+      .addCase(submitPlacement.pending, (state) => {
+        state.loading = true;
+        state.success = false;
+        state.error = null;
+        state.actionType = "submit";
+      })
+      .addCase(submitPlacement.fulfilled, (state) => {
+        state.loading = false;
+        state.success = true;
+        state.actionType = null;
+      })
+      .addCase(submitPlacement.rejected, (state, action) => {
+        state.loading = false;
+        state.success = false;
+        state.error = action.payload;
+        state.actionType = null;
+      })
+
+      // Approve placement (SUPERADMIN)
+      .addCase(approvePlacement.pending, (state) => {
+        state.loading = true;
+        state.success = false;
+        state.error = null;
+        state.actionType = "approve";
+      })
+      .addCase(approvePlacement.fulfilled, (state) => {
+        state.loading = false;
+        state.success = true;
+        state.actionType = null;
+      })
+      .addCase(approvePlacement.rejected, (state, action) => {
+        state.loading = false;
+        state.success = false;
+        state.error = action.payload;
+        state.actionType = null;
+      })
+
       // Delete US placement
       .addCase(deleteUsPlacement.pending, (state) => {
         state.loading = true;
@@ -744,6 +863,28 @@ const placementSlice = createSlice({
         state.isFiltered = true;
       })
       .addCase(filterPlacementByDateRange.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+        state.success = false;
+        state.actionType = null;
+        state.isFiltered = false;
+      })
+
+      // Handle US date range filter
+      .addCase(filterUsPlacementByDateRange.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+        state.success = false;
+        state.actionType = "fetchUsDateRange";
+      })
+      .addCase(filterUsPlacementByDateRange.fulfilled, (state, action) => {
+        state.loading = false;
+        state.usPlacements = action.payload;
+        state.success = true;
+        state.actionType = null;
+        state.isFiltered = true;
+      })
+      .addCase(filterUsPlacementByDateRange.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
         state.success = false;
