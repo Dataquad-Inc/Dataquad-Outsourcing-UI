@@ -75,6 +75,8 @@ import {
   Lock,
   LockOpen,
   AttachFile,
+  Send,
+  CheckCircleOutline,
 } from "@mui/icons-material";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -84,13 +86,15 @@ import PlacementForm from "./PlacementForm";
 import PlacementCard from "./PlacementCard";
 import ConfirmDialog from "../muiComponents/ConfirmDialog";
 import LockConfirmDialog from "../muiComponents/LockConfirmDialog";
-import DocumentManager from "./DocumentManager"; // Import the new component
+import DocumentManager from "./DocumentManager";
 import {
   fetchPlacements,
   deletePlacement,
   setSelectedPlacement,
   resetPlacementState,
   lockPlacement,
+  submitPlacement,
+  approvePlacement,
 } from "../../redux/placementSlice";
 import DateRangeFilter from "../muiComponents/DateRangeFilter";
 import CryptoJS from "crypto-js";
@@ -116,9 +120,9 @@ const TabPanel = ({ children, value, index, ...other }) => {
 // Dashboard Card component with click handler
 const DashboardCard = ({ title, count, icon, color, subtitle, onClick, isActive = false }) => {
   return (
-    <Card 
+    <Card
       onClick={onClick}
-      sx={{ 
+      sx={{
         height: '100%',
         transition: 'all 0.3s ease',
         cursor: 'pointer',
@@ -148,11 +152,11 @@ const DashboardCard = ({ title, count, icon, color, subtitle, onClick, isActive 
           <Avatar sx={{ bgcolor: color, mr: 2 }}>
             {icon}
           </Avatar>
-          <Typography 
-            variant="subtitle1" 
-            fontWeight="bold" 
+          <Typography
+            variant="subtitle1"
+            fontWeight="bold"
             noWrap
-            sx={{ 
+            sx={{
               flex: 1,
               textOverflow: 'ellipsis',
               overflow: 'hidden',
@@ -171,9 +175,9 @@ const DashboardCard = ({ title, count, icon, color, subtitle, onClick, isActive 
         <Typography
           variant="caption"
           color="primary"
-          sx={{ 
-            mt: 1.5, 
-            display: "block", 
+          sx={{
+            mt: 1.5,
+            display: "block",
             opacity: 0.75,
             fontWeight: 500,
           }}
@@ -186,9 +190,9 @@ const DashboardCard = ({ title, count, icon, color, subtitle, onClick, isActive 
 };
 
 // ─── Candidate Table Page Component ────────────────────────────────────────
-const CandidateTablePage = ({ 
-  title, 
-  placements, 
+const CandidateTablePage = ({
+  title,
+  placements,
   type,
   categoryName,
   onBack,
@@ -253,10 +257,10 @@ const CandidateTablePage = ({
   // Filter placements by search and status
   const filteredPlacements = React.useMemo(() => {
     let filtered = [...placements];
-    
+
     // Apply search filter
     if (searchQuery.trim()) {
-      filtered = filtered.filter(p => 
+      filtered = filtered.filter(p =>
         p.candidateFullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.candidateEmailId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.technology?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -266,14 +270,14 @@ const CandidateTablePage = ({
         p.vendorName?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-    
+
     // Apply status filter - Toggle buttons for Active/Inactive
     if (statusFilter === 'active') {
       filtered = filtered.filter(p => p.status === 'Active');
     } else if (statusFilter === 'inactive') {
       filtered = filtered.filter(p => p.status !== 'Active');
     }
-    
+
     return filtered;
   }, [placements, searchQuery, statusFilter]);
 
@@ -321,8 +325,8 @@ const CandidateTablePage = ({
   return (
     <Box sx={{ p: 3 }}>
       {/* Breadcrumbs Navigation */}
-      <Breadcrumbs 
-        separator={<NavigateNext fontSize="small" />} 
+      <Breadcrumbs
+        separator={<NavigateNext fontSize="small" />}
         aria-label="breadcrumb"
         sx={{ mb: 3 }}
       >
@@ -344,9 +348,9 @@ const CandidateTablePage = ({
       </Breadcrumbs>
 
       {/* Header */}
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
         alignItems: 'center',
         mb: 3,
         pb: 2,
@@ -370,10 +374,10 @@ const CandidateTablePage = ({
       </Box>
 
       {/* Toggle Buttons - Only Active and Inactive */}
-      <Box sx={{ 
-        mb: 2, 
-        p: 1.5, 
-        backgroundColor: '#f5f5f5', 
+      <Box sx={{
+        mb: 2,
+        p: 1.5,
+        backgroundColor: '#f5f5f5',
         borderRadius: 2,
         display: 'flex',
         alignItems: 'center',
@@ -404,8 +408,8 @@ const CandidateTablePage = ({
             },
           }}
         >
-          <ToggleButton 
-            value="active" 
+          <ToggleButton
+            value="active"
             aria-label="active"
             sx={{
               '&.Mui-selected': {
@@ -420,8 +424,8 @@ const CandidateTablePage = ({
             <CheckCircle sx={{ mr: 1, fontSize: 20 }} />
             Active ({getStatusCounts.active})
           </ToggleButton>
-          <ToggleButton 
-            value="inactive" 
+          <ToggleButton
+            value="inactive"
             aria-label="inactive"
             sx={{
               '&.Mui-selected': {
@@ -474,8 +478,8 @@ const CandidateTablePage = ({
       {filteredPlacements.length === 0 ? (
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <Typography variant="body1" color="text.secondary">
-            {searchQuery 
-              ? 'No placements found matching your search.' 
+            {searchQuery
+              ? 'No placements found matching your search.'
               : `No ${statusFilter} placements found for this category.`}
           </Typography>
         </Paper>
@@ -669,7 +673,7 @@ const CandidateTablePage = ({
               </TableHead>
               <TableBody>
                 {paginatedPlacements.map((placement, index) => (
-                  <TableRow 
+                  <TableRow
                     key={placement.id || index}
                     hover
                     sx={{
@@ -849,6 +853,12 @@ const PlacementsList = () => {
     categoryName: '',
     statusFilter: 'active'
   });
+
+  // Submit/Approve dialog states
+  const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  const [selectedPlacementForAction, setSelectedPlacementForAction] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const decoded = atob(encryptionKey);
   const FINANCIAL_SECRET_KEY = decoded;
@@ -1168,6 +1178,60 @@ const PlacementsList = () => {
     }
   };
 
+  // Submit Placement Handler
+  const handleOpenSubmitDialog = (row) => {
+    setSelectedPlacementForAction(row);
+    setSubmitDialogOpen(true);
+  };
+
+  const handleCloseSubmitDialog = () => {
+    setSubmitDialogOpen(false);
+    setSelectedPlacementForAction(null);
+  };
+
+  const handleSubmitPlacement = async () => {
+    if (!selectedPlacementForAction) return;
+
+    setActionLoading(true);
+    try {
+      await dispatch(submitPlacement(selectedPlacementForAction.id)).unwrap();
+      ToastService.success(`Placement ${selectedPlacementForAction.id} submitted successfully!`);
+      dispatch(fetchPlacements());
+      handleCloseSubmitDialog();
+    } catch (error) {
+      ToastService.error(error?.message || "Failed to submit placement. Please try again.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Approve Placement Handler
+  const handleOpenApproveDialog = (row) => {
+    setSelectedPlacementForAction(row);
+    setApproveDialogOpen(true);
+  };
+
+  const handleCloseApproveDialog = () => {
+    setApproveDialogOpen(false);
+    setSelectedPlacementForAction(null);
+  };
+
+  const handleApprovePlacement = async () => {
+    if (!selectedPlacementForAction) return;
+
+    setActionLoading(true);
+    try {
+      await dispatch(approvePlacement(selectedPlacementForAction.id)).unwrap();
+      ToastService.success(`Placement ${selectedPlacementForAction.id} approved successfully!`);
+      dispatch(fetchPlacements());
+      handleCloseApproveDialog();
+    } catch (error) {
+      ToastService.error(error?.message || "Failed to approve placement. Please try again.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleRegisterUser = async (id) => {
     setIsLoading(true);
 
@@ -1253,6 +1317,9 @@ const PlacementsList = () => {
   };
 
   const generateColumns = () => {
+    const isAdmin = role === 'ADMIN';
+    const isSuperAdmin = role === 'SUPERADMIN';
+
     return [
       {
         key: "id",
@@ -1319,9 +1386,21 @@ const PlacementsList = () => {
         filterable: true,
         width: 130,
       },
-      { key: "sales", label: "Sales", width: 130 },
-      { key: "recruiterName", label: "Recruiter", width: 130 },
-      { key: "teamLead", label: "Team Lead", width: 130 },
+      {
+        key: "sales",
+        label: "Sales",
+        width: 130
+      },
+      {
+        key: "recruiterName",
+        label: "Recruiter",
+        width: 130
+      },
+      {
+        key: "teamLead",
+        label: "Team Lead",
+        width: 130
+      },
       {
         key: "clientName",
         label: "Client",
@@ -1445,7 +1524,7 @@ const PlacementsList = () => {
           );
         },
       },
-      // NEW: PO Column
+      // PO Column
       {
         key: "PO",
         label: "PO",
@@ -1470,56 +1549,129 @@ const PlacementsList = () => {
         label: "Actions",
         sortable: false,
         filterable: false,
-        width: 150,
+        width: 280,
         align: "center",
-        render: (row) => (
-          <Box
-            sx={{ display: "flex", justifyContent: "center", gap: 1 }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Tooltip title="View">
-              <IconButton
-                color="info"
-                size="small"
-                onClick={() => handleOpenDetailsDialog(row)}
-              >
-                <Visibility fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Edit">
-              <IconButton
-                color="primary"
-                size="small"
-                onClick={() => handleOpenDrawer(row)}
-              >
-                <Edit fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Delete">
-              <IconButton
-                color="error"
-                size="small"
-                onClick={() => handleOpenDeleteDialog(row)}
-              >
-                <Delete fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            {role === 'SUPERADMIN' && (
-              <Tooltip title={row.lock ? "Locked" : "Lock Placement"}>
-                <span>
-                  <IconButton
+        render: (row) => {
+          // Check if submitted is true
+          const isSubmitted = row.submitted === true;
+          const isApproved = row.approved === true;
+
+          return (
+            <Box
+              sx={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 0.5 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Submit Button - Only for ADMIN role and only if not submitted */}
+              {isAdmin && !isSubmitted && (
+                <Tooltip title="Submit for Review">
+                  <Button
+                    variant="contained"
+                    color="success"
                     size="small"
-                    onClick={() => !row.lock && handleOpenLockDialog(row)}
-                    disabled={row.lock}
-                    sx={{ color: row.lock ? 'warning.main' : 'text.secondary' }}
+                    onClick={() => handleOpenSubmitDialog(row)}
+                    sx={{
+                      textTransform: 'none',
+                      fontSize: '0.65rem',
+                      minWidth: '60px',
+                      py: 0.5,
+                      px: 1
+                    }}
                   >
-                    {row.lock ? <Lock fontSize="small" /> : <LockOpen fontSize="small" />}
-                  </IconButton>
-                </span>
+                    Submit
+                  </Button>
+                </Tooltip>
+              )}
+
+              {/* Review Button - Only for SUPERADMIN role and only if submitted AND not approved */}
+              {isSuperAdmin && isSubmitted && !isApproved && (
+                <Tooltip title="Review & Approve">
+                  <Button
+                    variant="contained"
+                    color="warning"
+                    size="small"
+                    onClick={() => handleOpenApproveDialog(row)}
+                    sx={{
+                      textTransform: 'none',
+                      fontSize: '0.65rem',
+                      minWidth: '60px',
+                      py: 0.5,
+                      px: 1
+                    }}
+                  >
+                    Review
+                  </Button>
+                </Tooltip>
+              )}
+
+              {/* Status badge for submitted/approved */}
+              {isSubmitted && isApproved && (
+                <Chip
+                  label="Approved"
+                  color="success"
+                  size="small"
+                  sx={{ fontSize: '0.6rem', height: '20px' }}
+                />
+              )}
+              {isSubmitted && !isApproved && isAdmin && (
+                <Chip
+                  label="Pending Review"
+                  color="warning"
+                  size="small"
+                  sx={{ fontSize: '0.6rem', height: '20px' }}
+                />
+              )}
+
+              {/* View Button - Always enabled */}
+              <Tooltip title="View">
+                <IconButton
+                  color="info"
+                  size="small"
+                  onClick={() => handleOpenDetailsDialog(row)}
+                >
+                  <Visibility fontSize="small" />
+                </IconButton>
               </Tooltip>
-            )}
-          </Box>
-        ),
+
+              {/* Edit Button - Always enabled */}
+              <Tooltip title="Edit">
+                <IconButton
+                  color="primary"
+                  size="small"
+                  onClick={() => handleOpenDrawer(row)}
+                >
+                  <Edit fontSize="small" />
+                </IconButton>
+              </Tooltip>
+
+              {/* Delete Button - Always enabled */}
+              <Tooltip title="Delete">
+                <IconButton
+                  color="error"
+                  size="small"
+                  onClick={() => handleOpenDeleteDialog(row)}
+                >
+                  <Delete fontSize="small" />
+                </IconButton>
+              </Tooltip>
+
+              {/* Lock Button - Only for SUPERADMIN */}
+              {isSuperAdmin && (
+                <Tooltip title={row.lock ? "Locked" : "Lock Placement"}>
+                  <span>
+                    <IconButton
+                      size="small"
+                      onClick={() => !row.lock && handleOpenLockDialog(row)}
+                      disabled={row.lock}
+                      sx={{ color: row.lock ? 'warning.main' : 'text.secondary' }}
+                    >
+                      {row.lock ? <Lock fontSize="small" /> : <LockOpen fontSize="small" />}
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              )}
+            </Box>
+          );
+        },
       },
     ];
   };
@@ -1544,11 +1696,11 @@ const PlacementsList = () => {
   const getExportUrl = () => {
     const baseUrl = "/candidate/placement/placements-list";
     const filterParams = getExportFilterParams();
-    
+
     if (Object.keys(filterParams).length === 0) {
       return baseUrl;
     }
-    
+
     const queryParams = new URLSearchParams(filterParams).toString();
     return `${baseUrl}?${queryParams}`;
   };
@@ -1705,7 +1857,7 @@ const PlacementsList = () => {
             size="medium"
             startIcon={showDashboard ? <ExpandLess sx={{ color: '#000' }} /> : <Dashboard sx={{ color: '#000' }} />}
             onClick={toggleDashboard}
-            sx={{ 
+            sx={{
               ml: 1,
               fontWeight: 'bold',
               color: '#000000',
@@ -1744,10 +1896,10 @@ const PlacementsList = () => {
       {showDashboard ? (
         // Dashboard Panel - Full width, no empty space
         <Paper sx={{ p: 0, borderRadius: 2, boxShadow: 3, overflow: 'hidden' }}>
-          
+
           <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-            <Tabs 
-              value={dashboardTabValue} 
+            <Tabs
+              value={dashboardTabValue}
               onChange={handleDashboardTabChange}
               aria-label="dashboard tabs"
               variant="scrollable"
@@ -1760,24 +1912,24 @@ const PlacementsList = () => {
                 }
               }}
             >
-              <Tab 
-                icon={<Business />} 
-                label={`Clients (${dashboardData.clients.length})`} 
+              <Tab
+                icon={<Business />}
+                label={`Clients (${dashboardData.clients.length})`}
                 iconPosition="start"
               />
-              <Tab 
-                icon={<Business />} 
-                label={`Vendors (${dashboardData.vendors.length})`} 
+              <Tab
+                icon={<Business />}
+                label={`Vendors (${dashboardData.vendors.length})`}
                 iconPosition="start"
               />
-              <Tab 
-                icon={<AttachMoney />} 
-                label={`Sales (${dashboardData.sales.length})`} 
+              <Tab
+                icon={<AttachMoney />}
+                label={`Sales (${dashboardData.sales.length})`}
                 iconPosition="start"
               />
-              <Tab 
-                icon={<Person />} 
-                label={`Recruiters (${dashboardData.recruiters.length})`} 
+              <Tab
+                icon={<Person />}
+                label={`Recruiters (${dashboardData.recruiters.length})`}
                 iconPosition="start"
               />
             </Tabs>
@@ -1812,7 +1964,7 @@ const PlacementsList = () => {
           <TabPanel value={dashboardTabValue} index={0}>
             <Grid container spacing={2}>
               {dashboardData.clients
-                .filter(item => 
+                .filter(item =>
                   item.name.toLowerCase().includes(searchQuery.toLowerCase())
                 )
                 .map((item, index) => (
@@ -1827,22 +1979,22 @@ const PlacementsList = () => {
                     />
                   </Grid>
                 ))}
-              {dashboardData.clients.filter(item => 
+              {dashboardData.clients.filter(item =>
                 item.name.toLowerCase().includes(searchQuery.toLowerCase())
               ).length === 0 && (
-                <Grid item xs={12}>
-                  <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
-                    No clients found matching your search.
-                  </Typography>
-                </Grid>
-              )}
+                  <Grid item xs={12}>
+                    <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
+                      No clients found matching your search.
+                    </Typography>
+                  </Grid>
+                )}
             </Grid>
           </TabPanel>
 
           <TabPanel value={dashboardTabValue} index={1}>
             <Grid container spacing={2}>
               {dashboardData.vendors
-                .filter(item => 
+                .filter(item =>
                   item.name.toLowerCase().includes(searchQuery.toLowerCase())
                 )
                 .map((item, index) => (
@@ -1857,22 +2009,22 @@ const PlacementsList = () => {
                     />
                   </Grid>
                 ))}
-              {dashboardData.vendors.filter(item => 
+              {dashboardData.vendors.filter(item =>
                 item.name.toLowerCase().includes(searchQuery.toLowerCase())
               ).length === 0 && (
-                <Grid item xs={12}>
-                  <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
-                    No vendors found matching your search.
-                  </Typography>
-                </Grid>
-              )}
+                  <Grid item xs={12}>
+                    <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
+                      No vendors found matching your search.
+                    </Typography>
+                  </Grid>
+                )}
             </Grid>
           </TabPanel>
 
           <TabPanel value={dashboardTabValue} index={2}>
             <Grid container spacing={2}>
               {dashboardData.sales
-                .filter(item => 
+                .filter(item =>
                   item.name.toLowerCase().includes(searchQuery.toLowerCase())
                 )
                 .map((item, index) => (
@@ -1887,22 +2039,22 @@ const PlacementsList = () => {
                     />
                   </Grid>
                 ))}
-              {dashboardData.sales.filter(item => 
+              {dashboardData.sales.filter(item =>
                 item.name.toLowerCase().includes(searchQuery.toLowerCase())
               ).length === 0 && (
-                <Grid item xs={12}>
-                  <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
-                    No sales persons found matching your search.
-                  </Typography>
-                </Grid>
-              )}
+                  <Grid item xs={12}>
+                    <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
+                      No sales persons found matching your search.
+                    </Typography>
+                  </Grid>
+                )}
             </Grid>
           </TabPanel>
 
           <TabPanel value={dashboardTabValue} index={3}>
             <Grid container spacing={2}>
               {dashboardData.recruiters
-                .filter(item => 
+                .filter(item =>
                   item.name.toLowerCase().includes(searchQuery.toLowerCase())
                 )
                 .map((item, index) => (
@@ -1917,15 +2069,15 @@ const PlacementsList = () => {
                     />
                   </Grid>
                 ))}
-              {dashboardData.recruiters.filter(item => 
+              {dashboardData.recruiters.filter(item =>
                 item.name.toLowerCase().includes(searchQuery.toLowerCase())
               ).length === 0 && (
-                <Grid item xs={12}>
-                  <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
-                    No recruiters found matching your search.
-                  </Typography>
-                </Grid>
-              )}
+                  <Grid item xs={12}>
+                    <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
+                      No recruiters found matching your search.
+                    </Typography>
+                  </Grid>
+                )}
             </Grid>
           </TabPanel>
         </Paper>
@@ -2103,6 +2255,134 @@ const PlacementsList = () => {
         onClose={handleCloseLockDialog}
         onConfirm={handleLock}
       />
+
+      {/* Submit Confirmation Dialog */}
+      <Dialog
+        open={submitDialogOpen}
+        onClose={handleCloseSubmitDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{
+          borderBottom: '1px solid #e0e0e0',
+          pb: 2,
+          display: 'flex',
+          alignItems: 'center'
+        }}>
+          <Send sx={{ color: '#2e7d32', mr: 1 }} />
+          Submit Placement for Review
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          <Typography variant="body1" gutterBottom>
+            Are you sure you want to submit this placement for review?
+          </Typography>
+          {selectedPlacementForAction && (
+            <Box sx={{ mt: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+              <Typography variant="body2" sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <strong>Placement ID:</strong>
+                <span>{selectedPlacementForAction.id}</span>
+              </Typography>
+              <Typography variant="body2" sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                <strong>Consultant:</strong>
+                <span>{selectedPlacementForAction.candidateFullName}</span>
+              </Typography>
+              <Typography variant="body2" sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                <strong>Status:</strong>
+                <Chip
+                  label={selectedPlacementForAction.status}
+                  size="small"
+                  color={getColor(selectedPlacementForAction.status)}
+                />
+              </Typography>
+            </Box>
+          )}
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            This action will mark the placement as "Submitted" and notify the reviewer.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ borderTop: '1px solid #e0e0e0', p: 2, gap: 1 }}>
+          <Button
+            onClick={handleCloseSubmitDialog}
+            disabled={actionLoading}
+            variant="outlined"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmitPlacement}
+            variant="contained"
+            color="success"
+            disabled={actionLoading}
+            startIcon={actionLoading ? <CircularProgress size={20} /> : <Send />}
+          >
+            {actionLoading ? 'Submitting...' : 'Submit'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Approve Confirmation Dialog */}
+      <Dialog
+        open={approveDialogOpen}
+        onClose={handleCloseApproveDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{
+          borderBottom: '1px solid #e0e0e0',
+          pb: 2,
+          display: 'flex',
+          alignItems: 'center'
+        }}>
+          <CheckCircleOutline sx={{ color: '#ed6c02', mr: 1 }} />
+          Review & Approve Placement
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          <Typography variant="body1" gutterBottom>
+            Are you sure you want to approve this placement?
+          </Typography>
+          {selectedPlacementForAction && (
+            <Box sx={{ mt: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+              <Typography variant="body2" sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <strong>Placement ID:</strong>
+                <span>{selectedPlacementForAction.id}</span>
+              </Typography>
+              <Typography variant="body2" sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                <strong>Consultant:</strong>
+                <span>{selectedPlacementForAction.candidateFullName}</span>
+              </Typography>
+              <Typography variant="body2" sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                <strong>Status:</strong>
+                <Chip
+                  label={selectedPlacementForAction.status}
+                  size="small"
+                  color={getColor(selectedPlacementForAction.status)}
+                />
+              </Typography>
+            </Box>
+          )}
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            This action will mark the placement as "Approved" and finalize the process.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ borderTop: '1px solid #e0e0e0', p: 2, gap: 1 }}>
+          <Button
+            onClick={handleCloseApproveDialog}
+            disabled={actionLoading}
+            variant="outlined"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleApprovePlacement}
+            variant="contained"
+            color="warning"
+            disabled={actionLoading}
+            startIcon={actionLoading ? <CircularProgress size={20} /> : <CheckCircleOutline />}
+          >
+            {actionLoading ? 'Approving...' : 'Approve'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Document Manager Dialog */}
       <DocumentManager
