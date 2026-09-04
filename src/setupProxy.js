@@ -18,7 +18,6 @@ const CANDIDATE = 'http://localhost:8085';
 const HOTLIST = 'http://localhost:8092';
 const REQUIREMENTS = 'http://localhost:8222';
 const TIMESHEET = 'http://localhost:7071';
-const TIMESHEET_US = 'http://localhost:7073';
 
 // No local service implements /api/us/requirements/*. The India requirements
 // repos expose an unrelated set of routes (/bdm, /assignJob, /inprogress), so
@@ -32,7 +31,6 @@ const routes = [
   { path: '/hotlist', target: HOTLIST },
   { path: '/api/c2c-employers', target: HOTLIST },
   { path: '/requirements', target: REQUIREMENTS },
-  { path: '/api/us/timesheet', target: TIMESHEET_US },
   { path: '/timesheet', target: TIMESHEET },
   { path: '/api/us/requirements', target: PRODUCTION },
 ];

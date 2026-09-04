@@ -45,6 +45,7 @@ const emptyMonthValues = () => Array.from({ length: 12 }, () => "");
 
 const TimesheetDashboard = ({
   apiBase = "/timesheet",
+  entity,
   hideBackButton = false,
   title = "Timesheet Dashboard",
   subtitlePrefix = "Yearly hours by candidate for",
@@ -70,7 +71,9 @@ const TimesheetDashboard = ({
     setLoading(true);
     setError(null);
     try {
-      const response = await httpService.get(`${apiBase}/yearly-dashboard`, { year });
+      const params = { year };
+      if (entity) params.entity = entity;
+      const response = await httpService.get(`${apiBase}/yearly-dashboard`, params);
       const payload = Array.isArray(response.data)
         ? response.data
         : response.data?.data || [];
@@ -87,7 +90,7 @@ const TimesheetDashboard = ({
 
   useEffect(() => {
     fetchDashboard(selectedYear);
-  }, [selectedYear]);
+  }, [selectedYear, entity, apiBase]);
 
   const tableRows = useMemo(
     () =>
@@ -157,6 +160,7 @@ const TimesheetDashboard = ({
         employeeId: editingRow.employeeId,
         year: selectedYear,
         monthlyHours,
+        ...(entity ? { entity } : {}),
       });
       ToastService.success("Monthly hours updated");
       closeEditDialog();
