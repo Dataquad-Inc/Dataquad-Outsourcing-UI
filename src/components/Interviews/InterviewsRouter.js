@@ -1,5 +1,6 @@
 import React from "react";
 import { useSelector } from "react-redux";
+import { useSearchParams } from "react-router-dom";
 import AllInterviews from "./AllInterviews";
 import TeamLeadInterviews from "./TeamLeadInterviews";
 import RecruiterInterviews from "./RecruiterInterviews";
@@ -12,22 +13,26 @@ import CoordinatorInterviews from "./CoordinatorInterviews";
  */
 const InterviewsRouter = () => {
   const { role } = useSelector((state) => state.auth);
-  
+  const [searchParams] = useSearchParams();
+  const levelParam = (searchParams.get("level") || "").toUpperCase();
+  const initialLevel =
+    levelParam === "INTERNAL" || levelParam === "EXTERNAL" ? levelParam : null;
+
   // Determine which component to render based on user role
   const renderRoleBasedComponent = () => {
     switch (role) {
       case "SUPERADMIN":
-        return <AllInterviews />;
+        return <AllInterviews initialLevel={initialLevel} />;
       case "TEAMLEAD":
-        return <TeamLeadInterviews />;
+        return <TeamLeadInterviews initialLevel={initialLevel} />;
       case "EMPLOYEE":
-        return <RecruiterInterviews/>;
+        return <RecruiterInterviews initialLevel={initialLevel} />;
       case "BDM":
-        return <BDMInterviews/>;
+        return <BDMInterviews initialLevel={initialLevel} />;
       case "COORDINATOR":
-        return <CoordinatorInterviews/>;
+        return <CoordinatorInterviews initialLevel={initialLevel} />;
       default:
-        return <RecruiterInterviews />;
+        return <RecruiterInterviews initialLevel={initialLevel} />;
     }
   };
 

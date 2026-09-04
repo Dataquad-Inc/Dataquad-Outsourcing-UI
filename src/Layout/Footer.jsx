@@ -1,15 +1,9 @@
 import React from "react";
-import { Box, Container, Typography, Link, Stack, useTheme } from "@mui/material";
-import { GitHub, LinkedIn, Twitter } from "@mui/icons-material";
+import { Box, Container, Typography, useTheme } from "@mui/material";
 
 const Footer = ({
   year = new Date().getFullYear(),
   companyName = "Adroit Innovative Solutions",
-  links = [
-    { text: "Privacy", href: "#" },
-    { text: "Terms", href: "#" },
-    { text: "Contact", href: "#" },
-  ],
 }) => {
   const theme = useTheme();
 
@@ -17,7 +11,7 @@ const Footer = ({
     <Box
       component="footer"
       sx={{
-        py: 3,
+        py: 2,
         backgroundColor: theme.palette.background.default,
         borderTop: `1px solid ${theme.palette.divider}`,
       }}
@@ -26,41 +20,13 @@ const Footer = ({
         <Box
           sx={{
             display: "flex",
-            flexDirection: { xs: "column", sm: "row" },
-            justifyContent: "space-between",
+            justifyContent: "center",
             alignItems: "center",
-            gap: 2,
           }}
         >
           <Typography variant="body2" color="text.secondary">
             © {year} {companyName}. All rights reserved.
           </Typography>
-
-          <Stack direction="row" spacing={2} alignItems="center">
-            {links.map((l) => (
-              <Link
-                key={l.text}
-                href={l.href}
-                underline="hover"
-                variant="caption"
-                color="text.secondary"
-              >
-                {l.text}
-              </Link>
-            ))}
-          </Stack>
-
-          <Stack direction="row" spacing={1}>
-            <Link href="#" aria-label="Twitter" color="inherit" underline="none">
-              <Twitter fontSize="small" />
-            </Link>
-            <Link href="#" aria-label="GitHub" color="inherit" underline="none">
-              <GitHub fontSize="small" />
-            </Link>
-            <Link href="#" aria-label="LinkedIn" color="inherit" underline="none">
-              <LinkedIn fontSize="small" />
-            </Link>
-          </Stack>
         </Box>
       </Container>
     </Box>

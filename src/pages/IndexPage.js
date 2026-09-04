@@ -52,7 +52,7 @@ const HomePage = () => {
     interviews: ['ADMIN', 'EMPLOYEE', 'BDM', 'TEAMLEAD','COORDINATOR','SUPERADMIN'],
     internalInterviews:['SUPERADMIN','TEAMLEAD','BDM'],
     externalInterviews:['SUPERADMIN','TEAMLEAD','BDM'],
-    submissions: ['COORDINATOR'],
+    submissions: ['SUPERADMIN', 'ADMIN', 'EMPLOYEE', 'BDM', 'TEAMLEAD', 'COORDINATOR'],
     inProgress: ['COORDINATOR'],
     clients: ['ADMIN', 'SUPERADMIN', 'BDM', 'PARTNER', 'COORDINATOR'],
     placements: ['ADMIN', 'SUPERADMIN', 'PARTNER',"INVOICE"],
@@ -224,7 +224,7 @@ useEffect(() => {
       bg: '#E0F2FE',
       icon: <Calendar size={24} />,
       buttonText: 'View Internal Interviews',
-      path: '/dashboard/interviews',
+      path: '/dashboard/interviews?level=INTERNAL',
     },
     {
       title: 'External Interviews',
@@ -234,7 +234,7 @@ useEffect(() => {
       bg: '#FEF3C7',
       icon: <Calendar size={24} />,
       buttonText: 'View External Interviews',
-      path: '/dashboard/interviews',
+      path: '/dashboard/interviews?level=EXTERNAL',
     },
     {
       title: 'Clients',

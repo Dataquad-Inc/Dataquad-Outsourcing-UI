@@ -1,21 +1,10 @@
 import { useSelector } from "react-redux";
 import { Navigate } from "react-router-dom";
+import { getDashboardHomePath } from "./dashboardHomePath";
 
 const DashboardHomeRedirect = () => {
   const { entity, role } = useSelector((state) => state.auth);
-
-  if (role === "HRMS") {
-    return <Navigate to="/dashboard/hrms" replace />;
-  }
-
-  if (entity === "IN") {
-    return <Navigate to="/dashboard/home" replace />;
-  } else if (entity === "US") {
-    return <Navigate to="/dashboard/us-home" replace />;
-  }
-  
-  // Default if entity not found
-  return <Navigate to="/unauthorized" replace />;
+  return <Navigate to={getDashboardHomePath({ role, entity })} replace />;
 };
 
 export default DashboardHomeRedirect;

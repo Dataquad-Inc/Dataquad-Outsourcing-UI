@@ -56,7 +56,7 @@ const processInterviewData = (interviews) => {
   }));
 };
 
-const RecruiterInterviews = () => {
+const RecruiterInterviews = ({ initialLevel = null }) => {
   const dispatch = useDispatch();
   const { userId, role } = useSelector((state) => state.auth);
   const {
@@ -78,7 +78,7 @@ const RecruiterInterviews = () => {
     open: false,
     data: null,
   });
-  const [levelFilter, setLevelFilter] = useState("ALL");
+  const [levelFilter, setLevelFilter] = useState(initialLevel || "ALL");
   const [moveToBenchLoading, setMoveToBenchLoading] = useState(false);
   const navigate = useNavigate();
 

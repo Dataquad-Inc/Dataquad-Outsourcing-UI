@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { Box, CircularProgress } from "@mui/material";
+import { Box, CircularProgress, Alert } from "@mui/material";
 import DynamicFormUltra from "../FormContainer/DynamicFormUltra";
 import { hotlistAPI } from "../../utils/api";
 import { useSelector } from "react-redux";
-import axios from "axios";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useParams } from "react-router-dom";
+import httpService from "../../Services/httpService";
+import ToastService from "../../Services/toastService";
 
 const getTeamFormSections = (employees) => {
   return [
@@ -23,7 +24,7 @@ const getTeamFormSections = (employees) => {
           type: "select",
           required: true,
           icon: "group",
-          options: employees.TEAMLEAD.map((emp) => ({
+          options: (employees.TEAMLEAD || []).map((emp) => ({
             value: emp.employeeId,
             label: emp.employeeName,
           })),
@@ -34,9 +35,9 @@ const getTeamFormSections = (employees) => {
           type: "multiselect",
           required: false,
           icon: "people",
-          options: employees.SALESEXECUTIVE.map((emp) => ({
-            label: emp.employeeName,
+          options: (employees.SALESEXECUTIVE || []).map((emp) => ({
             value: emp.employeeId,
+            label: emp.employeeName,
           })),
         },
         {
@@ -45,9 +46,9 @@ const getTeamFormSections = (employees) => {
           type: "multiselect",
           required: false,
           icon: "people",
-          options: employees.RECRUITER.map((emp) => ({
-            label: emp.employeeName,
+          options: (employees.RECRUITER || []).map((emp) => ({
             value: emp.employeeId,
+            label: emp.employeeName,
           })),
         },
         {
@@ -56,9 +57,9 @@ const getTeamFormSections = (employees) => {
           type: "multiselect",
           required: false,
           icon: "people",
-          options: employees.COORDINATOR.map((emp) => ({
-            label: emp.employeeName,
+          options: (employees.COORDINATOR || []).map((emp) => ({
             value: emp.employeeId,
+            label: emp.employeeName,
           })),
         },
       ],
@@ -69,12 +70,12 @@ const getTeamFormSections = (employees) => {
 const EditTeam = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+  const [teamData, setTeamData] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const params = useParams();
   const { userId } = useSelector((state) => state.auth);
-
-  // Get team data from location state (passed when navigating from TeamList)
-  const team = location.state?.team;
 
   const [employees, setEmployees] = useState({
     SUPERADMIN: [],
@@ -84,34 +85,51 @@ const EditTeam = () => {
     COORDINATOR: [],
   });
 
-  // Find employee ID by name
-  const findEmployeeIdByName = (employees, name, role) => {
-    const employee = employees[role]?.find(emp => emp.employeeName === name);
+  const findEmployeeIdByName = (emps, name, role) => {
+    const employee = emps[role]?.find((emp) => emp.employeeName === name);
     return employee ? employee.employeeId : "";
   };
 
-  // Find employee IDs by names
-  const findEmployeeIdsByNames = (employees, names, role) => {
-    return names.map(name => {
-      const employee = employees[role]?.find(emp => emp.employeeName === name);
-      return employee ? employee.employeeId : null;
-    }).filter(id => id !== null);
+  const findEmployeeIdsByNames = (emps, names, role) => {
+    return (names || [])
+      .map((name) => {
+        const employee = emps[role]?.find((emp) => emp.employeeName === name);
+        return employee ? employee.employeeId : null;
+      })
+      .filter((id) => id !== null);
   };
 
-  // Transform team data to form initial values
   const getInitialValues = () => {
-    if (!team) return {};
-    
+    if (!teamData) return { superAdmin: userId };
+
     return {
-      teamName: team.teamName || "",
+      teamName: teamData.teamName || "",
       superAdmin: userId,
-      teamLead: findEmployeeIdByName(employees, team.teamLeadName, "TEAMLEAD") || "",
-      recruiters: findEmployeeIdsByNames(employees, 
-        team.recruiters?.map(rec => rec.userName) || [], "RECRUITER"),
-      salesExecutives: findEmployeeIdsByNames(employees, 
-        team.salesExecutives?.map(exec => exec.userName) || [], "SALESEXECUTIVE"),
-      coordinators: findEmployeeIdsByNames(employees,
-        team.coordinators?.map(coord => coord.userName) || [], "COORDINATOR"),
+      teamLead:
+        teamData.teamLeadId ||
+        findEmployeeIdByName(employees, teamData.teamLeadName, "TEAMLEAD") ||
+        "",
+      recruiters:
+        teamData.recruiterIds ||
+        findEmployeeIdsByNames(
+          employees,
+          teamData.recruiters?.map((rec) => rec.userName) || [],
+          "RECRUITER"
+        ),
+      salesExecutives:
+        teamData.salesExecutiveIds ||
+        findEmployeeIdsByNames(
+          employees,
+          teamData.salesExecutives?.map((exec) => exec.userName) || [],
+          "SALESEXECUTIVE"
+        ),
+      coordinators:
+        teamData.coordinatorIds ||
+        findEmployeeIdsByNames(
+          employees,
+          teamData.coordinators?.map((coord) => coord.userName) || [],
+          "COORDINATOR"
+        ),
     };
   };
 
@@ -122,15 +140,12 @@ const EditTeam = () => {
   const handleSubmit = async (values) => {
     setIsSubmitting(true);
     try {
-      // Use the same POST endpoint for both create and edit
-      const { data } = await axios.post(
-        `https://mymulya.com/users/assignTeamLead/${userId}`,
-        values
-      );
-      console.log("Team updated successfully:", data);
+      await httpService.post(`/users/assignTeamLead/${userId}`, values);
+      ToastService.success("Team updated successfully");
       navigate("/dashboard/us-employees/teamlist");
     } catch (err) {
       console.error("Error updating team:", err);
+      ToastService.error(err.response?.data?.message || "Error updating team");
     } finally {
       setIsSubmitting(false);
     }
@@ -146,34 +161,91 @@ const EditTeam = () => {
     }
   };
 
-  const fetchEmployees = async () => {
-    try {
-      const superadmins = await fetchEmployeesByRole("SUPERADMIN");
-      const teamleads = await fetchEmployeesByRole("TEAMLEAD");
-      const recruiters = await fetchEmployeesByRole("RECRUITER");
-      const salesexecutives = await fetchEmployeesByRole("SALESEXECUTIVE");
-      const coordinators = await fetchEmployeesByRole("COORDINATOR");
-
-      const transformed = {
-        SUPERADMIN: superadmins,
-        TEAMLEAD: teamleads,
-        RECRUITER: recruiters,
-        SALESEXECUTIVE: salesexecutives,
-        COORDINATOR: coordinators,
-      };
-
-      console.log("Fetched employees by role:", transformed);
-      setEmployees(transformed);
-    } catch (err) {
-      console.error("Error fetching employees", err);
-    } finally {
-      setLoading(false);
-    }
+  const normalizeTeamPayload = (raw, fallback) => {
+    if (!raw && !fallback) return null;
+    const source = raw || fallback;
+    const teamLeadId =
+      source.teamLeadId ||
+      source.teamLead ||
+      fallback?.teamLeadId ||
+      "";
+    return {
+      teamName: source.teamName || fallback?.teamName || "",
+      teamLeadId,
+      teamLeadName: source.teamLeadName || fallback?.teamLeadName || "",
+      recruiters: source.recruiters || fallback?.recruiters || [],
+      salesExecutives: source.salesExecutives || fallback?.salesExecutives || [],
+      coordinators: source.coordinators || fallback?.coordinators || [],
+      recruiterIds: (source.recruiters || fallback?.recruiters || [])
+        .map((r) => r.userId || r.employeeId || r)
+        .filter(Boolean),
+      salesExecutiveIds: (source.salesExecutives || fallback?.salesExecutives || [])
+        .map((r) => r.userId || r.employeeId || r)
+        .filter(Boolean),
+      coordinatorIds: (source.coordinators || fallback?.coordinators || [])
+        .map((r) => r.userId || r.employeeId || r)
+        .filter(Boolean),
+    };
   };
 
   useEffect(() => {
-    fetchEmployees();
-  }, []);
+    const bootstrap = async () => {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const [superadmins, teamleads, recruiters, salesexecutives, coordinators] =
+          await Promise.all([
+            fetchEmployeesByRole("SUPERADMIN"),
+            fetchEmployeesByRole("TEAMLEAD"),
+            fetchEmployeesByRole("RECRUITER"),
+            fetchEmployeesByRole("SALESEXECUTIVE"),
+            fetchEmployeesByRole("COORDINATOR"),
+          ]);
+
+        setEmployees({
+          SUPERADMIN: superadmins,
+          TEAMLEAD: teamleads,
+          RECRUITER: recruiters,
+          SALESEXECUTIVE: salesexecutives,
+          COORDINATOR: coordinators,
+        });
+
+        const stateTeam = location.state?.team;
+        const teamLeadId =
+          params.teamLeadId ||
+          stateTeam?.teamLeadId ||
+          stateTeam?.teamLead ||
+          null;
+
+        if (teamLeadId) {
+          try {
+            const response = await httpService.get(
+              `/users/associated-users/${teamLeadId}`
+            );
+            const payload = response.data?.data || response.data;
+            setTeamData(normalizeTeamPayload(payload, stateTeam));
+          } catch (err) {
+            if (stateTeam) {
+              setTeamData(normalizeTeamPayload(null, stateTeam));
+            } else {
+              throw err;
+            }
+          }
+        } else if (stateTeam) {
+          setTeamData(normalizeTeamPayload(null, stateTeam));
+        } else {
+          setLoadError("Team data is missing. Open Edit from the team list.");
+        }
+      } catch (err) {
+        console.error("Error loading edit team:", err);
+        setLoadError(err.response?.data?.message || "Failed to load team");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    bootstrap();
+  }, [location.state, params.teamLeadId]);
 
   if (loading) {
     return (
@@ -184,6 +256,16 @@ const EditTeam = () => {
         height="80vh"
       >
         <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <Box p={3}>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {loadError}
+        </Alert>
       </Box>
     );
   }

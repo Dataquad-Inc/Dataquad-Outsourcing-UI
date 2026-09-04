@@ -69,9 +69,9 @@ const processInterviewData = (interviews) => {
   });
 };
 
-const TeamLeadInterviews = () => {
+const TeamLeadInterviews = ({ initialLevel = null }) => {
   const [activeTab, setActiveTab] = useState(0);
-  const [levelFilter, setLevelFilter] = useState("ALL");
+  const [levelFilter, setLevelFilter] = useState(initialLevel || "ALL");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [expandedRows, setExpandedRows] = useState({});

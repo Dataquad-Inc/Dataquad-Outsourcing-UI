@@ -28,7 +28,6 @@ const DownloadResume = ({ candidate, getDownloadUrl }) => {
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Accept': format === 'pdf' 
             ? 'application/pdf' 
             : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

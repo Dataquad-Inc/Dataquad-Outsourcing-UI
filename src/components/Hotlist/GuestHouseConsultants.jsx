@@ -328,6 +328,7 @@ const GuestHouseConsultants = React.memo(() => {
       handleNavigate,
       handleEdit,
       handleDelete,
+      handleView: (row) => handleNavigate(row.consultantId),
       handleNavigateRTR,
       handleMoveToMasterHotlist,
       loading,

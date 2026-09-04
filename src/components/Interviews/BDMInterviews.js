@@ -52,7 +52,7 @@ const processInterviewData = (interviews) => {
   }));
 };
 
-const BDMInterviews = () => {
+const BDMInterviews = ({ initialLevel = null }) => {
   const { userId } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
   
@@ -91,7 +91,7 @@ const BDMInterviews = () => {
   });
   const [feedback, setFeedback] = useState("");
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
-  const [levelFilter, setLevelFilter] = useState("ALL");
+  const [levelFilter, setLevelFilter] = useState(initialLevel || "ALL");
   const navigate = useNavigate();
 
   const fetchInterviews = async () => {

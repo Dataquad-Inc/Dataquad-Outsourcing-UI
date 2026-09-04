@@ -288,6 +288,7 @@ const FullTimeHotlist = React.memo(() => {
       handleNavigate,
       handleEdit,
       handleDelete,
+      handleView: (row) => handleNavigate(row.consultantId),
       handleNavigateRTR,
       loading,
       userRole: role,

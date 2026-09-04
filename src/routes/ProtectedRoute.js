@@ -3,12 +3,23 @@ import React from "react";
 import { useSelector } from "react-redux";
 import { Navigate, Outlet } from "react-router-dom";
 
+const safeParseLocalUser = () => {
+  try {
+    const raw =
+      localStorage.getItem("authUser") || localStorage.getItem("user");
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (_) {
+    return null;
+  }
+};
+
 const ProtectedRoute = ({ allowedRoles = [], allowedEntities = [] }) => {
   // Try to get from Redux store
   const { isAuthenticated, role, entity } = useSelector((state) => state.auth);
 
   // Fallback to localStorage if Redux state is unavailable
-  const localUser = JSON.parse(localStorage.getItem("user"));
+  const localUser = safeParseLocalUser();
 
   const userRole = role || localUser?.role;
   const userEntity = entity || localUser?.entity;
@@ -25,9 +36,9 @@ const ProtectedRoute = ({ allowedRoles = [], allowedEntities = [] }) => {
   }
 
   // Entity not allowed
-  // if (allowedEntities.length && !allowedEntities.includes(userEntity)) {
-  //   return <Navigate to="/unauthorized" replace />;
-  // }
+  if (allowedEntities.length && userEntity && !allowedEntities.includes(userEntity)) {
+    return <Navigate to="/unauthorized" replace />;
+  }
 
   return <Outlet />;
 };

@@ -534,7 +534,6 @@ const BenchListTab = ({ onAddClick }) => {
       };
       setLoadingBenchRegister(candidate.id);
       toastId = ToastService.loading("Sending register request...");
-      await new Promise((r) => setTimeout(r, 1000));
       await httpService.post(`/candidate/bench-create-user/${candidate.id}`, payload);
       ToastService.update(
         toastId,

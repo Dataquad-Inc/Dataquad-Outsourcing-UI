@@ -13,6 +13,7 @@ import {
   Paper,
   InputAdornment,
   IconButton,
+  Tooltip,
 } from "@mui/material";
 import {
   Person,
@@ -25,9 +26,13 @@ import {
   VisibilityOff,
   Save,
   Clear,
+  CheckCircle,
+  PersonAdd,
 } from "@mui/icons-material";
 import { showSuccessToast, showErrorToast } from "../../utils/toastUtils";
 import { useNavigate } from "react-router-dom";
+import EmailVerificationDialog from "../LogIn/EmailVerificationDialog";
+import httpService from "../../Services/httpService";
 
 const OnBoardNewEmployee = () => {
   const [formData, setFormData] = useState({
@@ -51,10 +56,11 @@ const OnBoardNewEmployee = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
+  const [showVerificationDialog, setShowVerificationDialog] = useState(false);
+  const [emailToVerify, setEmailToVerify] = useState("");
 
   const navigate = useNavigate();
-
-  const BASE_URL = "https://mymulya.com";
 
   // Role options
   const roleOptions = [
@@ -203,6 +209,11 @@ const OnBoardNewEmployee = () => {
       return;
     }
 
+    if (!isEmailVerified) {
+      showErrorToast("Please verify work email with OTP before submitting");
+      return;
+    }
+
     setLoading(true);
     try {
       // Prepare payload - trim userName before sending
@@ -212,25 +223,19 @@ const OnBoardNewEmployee = () => {
         phoneNumber: formData.phoneNumber.replace(/\D/g, ""), // Clean phone number
       };
 
-      const response = await fetch(`${BASE_URL}/users/register`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+      const response = await httpService.post(`/users/register`, payload);
 
-      if (!response.ok) {
+      if (response.status < 200 || response.status >= 300) {
         throw new Error("Failed to create employee");
       }
 
-      const result = await response.json();
+      const result = response.data;
       showSuccessToast(result.message || "Employee created successfully!");
       handleReset();
       navigate("/dashboard/us-employees/employeeslist");
     } catch (error) {
       console.error("Error creating employee:", error);
-      showErrorToast(error.message || "Failed to create employee");
+      showErrorToast(error.response?.data?.message || error.message || "Failed to create employee");
     } finally {
       setLoading(false);
     }
@@ -254,6 +259,8 @@ const OnBoardNewEmployee = () => {
       entity: "US",
     });
     setErrors({});
+    setIsEmailVerified(false);
+    setEmailToVerify("");
   };
 
   return (
@@ -387,14 +394,37 @@ const OnBoardNewEmployee = () => {
                   type="email"
                   label="Work Email"
                   value={formData.email}
-                  onChange={handleInputChange("email")}
+                  onChange={(e) => {
+                    handleInputChange("email")(e);
+                    setIsEmailVerified(false);
+                  }}
                   error={!!errors.email}
-                  helperText={errors.email}
+                  helperText={errors.email || (isEmailVerified ? "Email verified" : "Verify email via OTP before submit")}
                   required
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
                         <Email color="primary" />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <Tooltip title={isEmailVerified ? "Email Verified" : "Verify Email"}>
+                          <IconButton
+                            onClick={() => {
+                              if (!formData.email || errors.email) {
+                                showErrorToast("Please enter a valid work email first");
+                                return;
+                              }
+                              setEmailToVerify(formData.email);
+                              setShowVerificationDialog(true);
+                            }}
+                            color={isEmailVerified ? "success" : "primary"}
+                            size="small"
+                          >
+                            {isEmailVerified ? <CheckCircle /> : <PersonAdd />}
+                          </IconButton>
+                        </Tooltip>
                       </InputAdornment>
                     ),
                   }}
@@ -625,6 +655,16 @@ const OnBoardNewEmployee = () => {
           </Box>
         </Stack>
       </Paper>
+      <EmailVerificationDialog
+        open={showVerificationDialog}
+        onClose={() => setShowVerificationDialog(false)}
+        email={emailToVerify}
+        onVerificationSuccess={() => {
+          setIsEmailVerified(true);
+          setShowVerificationDialog(false);
+          showSuccessToast("Email verified successfully");
+        }}
+      />
     </Box>
   );
 };

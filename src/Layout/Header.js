@@ -312,32 +312,11 @@ const Header = ({
           Notifications
         </Typography>
       </Box>
-      <MenuItem onClick={handleNotificationsClose} sx={{ py: 2 }}>
-        <Box>
-          <Typography variant="body2" fontWeight="bold">
-            New submission received
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            5 minutes ago
-          </Typography>
-        </Box>
-      </MenuItem>
-      <MenuItem onClick={handleNotificationsClose} sx={{ py: 2 }}>
-        <Box>
-          <Typography variant="body2" fontWeight="bold">
-            Interview scheduled
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            1 hour ago
-          </Typography>
-        </Box>
-      </MenuItem>
-      <Divider />
-      <Box sx={{ p: 1, textAlign: "center" }}>
-        <Typography variant="body2" color="primary">
-          View all notifications
+      <MenuItem disabled sx={{ py: 2 }}>
+        <Typography variant="body2" color="text.secondary">
+          No notifications yet
         </Typography>
-      </Box>
+      </MenuItem>
     </Menu>
   );
 
@@ -426,7 +405,7 @@ const Header = ({
               aria-controls={notificationsId}
               aria-haspopup="true"
             >
-              <Badge badgeContent={3} color="error">
+              <Badge color="error" variant="dot" invisible>
                 <NotificationsIcon />
               </Badge>
             </IconButton>

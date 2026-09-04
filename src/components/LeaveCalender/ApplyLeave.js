@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { fetchEmployees } from '../../redux/employeesSlice'; // Adjust path as needed
-import DynamicForm from '../FormContainer/DynamicForm'; // Adjust path as needed
-import httpService from '../../Services/httpService';
-import ToastService from '../../Services/toastService';
+import { useSelector, useDispatch } from "react-redux";
+import { fetchEmployees } from "../../redux/employeesSlice"; // Adjust path as needed
+import DynamicForm from "../FormContainer/DynamicForm"; // Adjust path as needed
+import httpService from "../../Services/httpService";
+import ToastService from "../../Services/toastService";
 import { 
   Box, 
   Typography, 
@@ -17,7 +17,7 @@ import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 const ApplyLeave = ({ onCancel }) => {
   const dispatch = useDispatch();
   const { employeesList } = useSelector((state) => state.employee);
-  const { userId } = useSelector((state) => state.auth);
+  const { userId, entity } = useSelector((state) => state.auth);
   const [loading, setLoading] = useState(false);
   
   // Fetch employees when component mounts
@@ -146,8 +146,21 @@ const ApplyLeave = ({ onCancel }) => {
       // Show loading toast
       const toastId = ToastService.loading("Submitting leave request...");
       
-      // Make API call
-      const response = await httpService.post('/users/save', leaveData);
+      // Make API call — timesheet leave-taken for current user
+      const leavesTakenNow = Number(noOfDays) || 0;
+      const base = entity === "US" ? "/api/us/timesheet" : "/timesheet";
+      const response = await httpService.patch(
+        `${base}/${userId}/update-leave-taken`,
+        {
+          leavesTakenNow,
+          updatedBy: userId,
+          leaveType: leaveData.leaveType,
+          startDate: leaveData.startDate,
+          endDate: leaveData.endDate,
+          reason: leaveData.reason || leaveData.comments,
+          managerEmail: leaveData.managerEmail,
+        }
+      );
       
       // Update toast based on response
       if (response.data && response.data.success) {

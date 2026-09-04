@@ -39,6 +39,7 @@ import {
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
+import httpService from "../Services/httpService";
 
 const AdroitHome = () => {
   const theme = useTheme();
@@ -264,21 +265,10 @@ const AdroitHome = () => {
     setError(null);
 
     try {
-      const response = await fetch(
-        "https://mymulya.com/api/us/requirements/dashboard/get-all"
+      const response = await httpService.get(
+        "/api/us/requirements/dashboard/get-all"
       );
-
-      const responseText = await response.text();
-
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error("Failed to parse JSON:", responseText);
-        throw new Error(
-          `Invalid JSON response: ${responseText.substring(0, 100)}...`
-        );
-      }
+      const data = response.data?.data || response.data || {};
 
       console.log("Dashboard data received:", data);
       setDashboardData(data);
@@ -309,32 +299,37 @@ const AdroitHome = () => {
   const getCardDataFromAPI = (data) => {
     if (!data) return [];
 
+    // Prefer nested payload keys when API wraps the DTO.
+    const stats = data.data && typeof data.data === "object" ? data.data : data;
+    const readStat = (...keys) => {
+      for (const key of keys) {
+        if (stats[key] !== undefined && stats[key] !== null && stats[key] !== "") {
+          return parseInt(stats[key], 10) || 0;
+        }
+      }
+      return 0;
+    };
+
     const baseCards = [
       {
         id: "totalPlacementsOverall",
         title: "Placements",
-        value: parseInt(data.totalPlacementsOverall) || 0,
+        value: readStat("totalPlacementsOverall", "placementsOverall", "totalPlacements"),
         icon: GroupIcon,
         color: theme.palette.primary.main,
         bgColor: alpha(theme.palette.primary.main, 0.1),
-        change: "+5%",
-        changeType: "positive",
         description: "Total Placements for US projects",
-        roles: [
-          "SUPERADMIN",
-        ],
+        roles: ["SUPERADMIN"],
         suffix: "",
         navigateTo: "/dashboard/us-placements",
       },
       {
         id: "totalHotlistExceptFullTime",
         title: "Total Hotlist (Excl. Full Time)",
-        value: parseInt(data.totalHotlistExceptFullTime) || 0,
+        value: readStat("totalHotlistExceptFullTime", "hotlistExceptFullTime", "totalHotlist"),
         icon: GroupIcon,
         color: theme.palette.primary.main,
         bgColor: alpha(theme.palette.primary.main, 0.1),
-        change: "+5%",
-        changeType: "positive",
         description: "Total consultants available for US projects",
         roles: [
           "SUPERADMIN",
@@ -350,12 +345,10 @@ const AdroitHome = () => {
       {
         id: "w2HotlistCount",
         title: "W2 Hotlist Count",
-        value: parseInt(data.w2HotlistCount) || 0,
+        value: readStat("w2HotlistCount", "w2Count", "totalW2Hotlist"),
         icon: PersonIcon,
         color: theme.palette.info.main,
         bgColor: alpha(theme.palette.info.main, 0.1),
-        change: "+2%",
-        changeType: "positive",
         description: "W2 employees available in US",
         roles: ["SUPERADMIN", "ADMIN", "TEAMLEAD", "RECRUITER", "GRANDSALES"],
         suffix: "",
@@ -364,12 +357,10 @@ const AdroitHome = () => {
       {
         id: "rtrMonthlyCount",
         title: "RTR Monthly Count",
-        value: parseInt(data.rtrMonthlyCount) || 0,
+        value: readStat("rtrMonthlyCount", "monthlyRtrCount", "rtrCount"),
         icon: Diversity3Icon,
         color: theme.palette.secondary.main,
         bgColor: alpha(theme.palette.secondary.main, 0.1),
-        change: "+12%",
-        changeType: "positive",
         description: "Ready to recruit this month in US",
         roles: ["SUPERADMIN", "ADMIN", "TEAMLEAD", "RECRUITER", "GRANDSALES"],
         suffix: "",
@@ -378,12 +369,10 @@ const AdroitHome = () => {
       {
         id: "currentMonthInterview",
         title: "Current Month Interviews",
-        value: parseInt(data.currentMonthInterview) || 0,
+        value: readStat("currentMonthInterview", "currentMonthInterviews", "monthlyInterviews"),
         icon: CalendarMonthIcon,
         color: theme.palette.success.main,
         bgColor: alpha(theme.palette.success.main, 0.1),
-        change: "+15%",
-        changeType: "positive",
         description: "Interviews scheduled this month in US",
         roles: [
           "SUPERADMIN",
@@ -400,12 +389,10 @@ const AdroitHome = () => {
       {
         id: "currentMonthRequirements",
         title: "Current Month Requirements",
-        value: parseInt(data.currentMonthRequirements) || 0,
+        value: readStat("currentMonthRequirements", "monthlyRequirements"),
         icon: AssignmentIcon,
         color: theme.palette.warning.main,
         bgColor: alpha(theme.palette.warning.main, 0.1),
-        change: "+8%",
-        changeType: "positive",
         description: "New requirements this month in US",
         roles: [
           "SUPERADMIN",
@@ -420,12 +407,10 @@ const AdroitHome = () => {
       {
         id: "currentMonthSubmissions",
         title: "Current Month Submissions",
-        value: parseInt(data.currentMonthSubmissions) || 0,
+        value: readStat("currentMonthSubmissions", "monthlySubmissions"),
         icon: UploadFileIcon,
         color: theme.palette.error.main,
         bgColor: alpha(theme.palette.error.main, 0.1),
-        change: "+10%",
-        changeType: "positive",
         description: "Submissions made this month in US",
         roles: ["SUPERADMIN", "ADMIN", "TEAMLEAD", "RECRUITER", "GRANDSALES", "COORDINATOR"],
         suffix: "",
@@ -434,19 +419,18 @@ const AdroitHome = () => {
     ];
 
     if (
-      data.totalPlacementsCurrentMonth !== null ||
-      data.totalPlacementsOverall !== null
+      stats.totalPlacementsCurrentMonth != null ||
+      stats.totalPlacementsOverall != null ||
+      stats.placementsCurrentMonth !== undefined
     ) {
       baseCards.push(
         {
           id: "totalPlacementsCurrentMonth",
           title: "This Month Placements",
-          value: parseInt(data.totalPlacementsCurrentMonth) || 0,
+          value: readStat("totalPlacementsCurrentMonth", "placementsCurrentMonth"),
           icon: CheckCircleIcon,
           color: theme.palette.success.dark,
           bgColor: alpha(theme.palette.success.dark, 0.1),
-          change: "+25%",
-          changeType: "positive",
           description: "Placements made this month in US",
           roles: [
             "SUPERADMIN",
@@ -461,14 +445,12 @@ const AdroitHome = () => {
             "/dashboard/us-submissions/submissions-list?status=Placed",
         },
         {
-          id: "totalPlacementsOverall",
+          id: "totalPlacementsOverallAll",
           title: "Total Placements",
-          value: parseInt(data.totalPlacementsOverall) || 0,
+          value: readStat("totalPlacementsOverall", "placementsOverall", "totalPlacements"),
           icon: AssignmentTurnedInIcon,
           color: theme.palette.success.main,
           bgColor: alpha(theme.palette.success.main, 0.1),
-          change: "+18%",
-          changeType: "positive",
           description: "All-time US placements",
           roles: [
             "SUPERADMIN",
@@ -485,7 +467,6 @@ const AdroitHome = () => {
       );
     }
 
-    // Filter cards based on role and limit to 6
     return baseCards
       .filter((card) => !card.roles || card.roles.includes(userRole))
       .slice(0, 6);
@@ -547,7 +528,7 @@ const AdroitHome = () => {
 
   const renderStatsCard = (card, index) => {
     const IconComponent = card.icon;
-    const isPositive = card.changeType === "positive";
+    const isPositive = card.changeType !== "negative";
 
     return (
       <Grid item xs={12} sm={6} md={4} lg={4} key={card.id}>
@@ -617,21 +598,23 @@ const AdroitHome = () => {
                   <IconComponent />
                 </Avatar>
               </Tooltip>
-              <Chip
-                label={card.change}
-                size="small"
-                icon={<TrendingUpIcon />}
-                sx={{
-                  backgroundColor: isPositive
-                    ? alpha(theme.palette.success.main, 0.1)
-                    : alpha(theme.palette.error.main, 0.1),
-                  color: isPositive
-                    ? theme.palette.success.main
-                    : theme.palette.error.main,
-                  fontWeight: "bold",
-                  fontSize: "0.75rem",
-                }}
-              />
+              {card.change ? (
+                <Chip
+                  label={card.change}
+                  size="small"
+                  icon={<TrendingUpIcon />}
+                  sx={{
+                    backgroundColor: isPositive
+                      ? alpha(theme.palette.success.main, 0.1)
+                      : alpha(theme.palette.error.main, 0.1),
+                    color: isPositive
+                      ? theme.palette.success.main
+                      : theme.palette.error.main,
+                    fontWeight: "bold",
+                    fontSize: "0.75rem",
+                  }}
+                />
+              ) : null}
             </Stack>
 
             <Typography

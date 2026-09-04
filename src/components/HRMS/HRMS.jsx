@@ -48,11 +48,12 @@ import {
   UploadFileOutlined,
   Visibility,
 } from "@mui/icons-material";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import httpService, { API_BASE_URL } from "../../Services/httpService";
 import { showToast } from "../../utils/ToastNotification";
 import ConfirmDialog from "../muiComponents/ConfirmDialog";
 import * as XLSX from 'xlsx';
+import { fetchEmployees } from "../../redux/employeesSlice";
 
 // ============================================================
 // TEST EMPLOYEE IDs to be filtered out
@@ -1049,13 +1050,17 @@ const HRMS = () => {
   const [orderBy, setOrderBy] = useState("Employee ID");
   const [activeTab, setActiveTab] = useState(0);
 
+  const dispatch = useDispatch();
   const isAdmin = role === "ADMIN";
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await httpService.get("/users/employee", { entity: activeEntity });
-      const allUsers = normalizeArrayPayload(response);
+      const resultAction = await dispatch(fetchEmployees(activeEntity));
+      if (!fetchEmployees.fulfilled.match(resultAction)) {
+        throw new Error(resultAction.payload || "Unable to load HRMS users");
+      }
+      const allUsers = normalizeArrayPayload(resultAction.payload);
       // Filter out test users immediately after fetching
       const filteredUsers = allUsers.filter((user) => {
         const employeeId = getEmployeeId(user);
@@ -1069,7 +1074,7 @@ const HRMS = () => {
     } finally {
       setLoading(false);
     }
-  }, [activeEntity]);
+  }, [activeEntity, dispatch]);
 
   useEffect(() => {
     fetchUsers();
