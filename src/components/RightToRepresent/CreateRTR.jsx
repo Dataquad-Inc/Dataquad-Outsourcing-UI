@@ -36,15 +36,7 @@ const CreateRTR = () => {
   const [predefinedRecruiters, setPredefinedRecruiters] = useState([]);
   const [predefinedSalesExecutives, setPredefinedSalesExecutives] = useState([]);
 
-  const consultantData = {
-    ...(location.state?.consultantData || {}),
-    ...(location.state?.consultantId
-      ? {
-          consultantId: location.state.consultantId,
-          name: location.state.consultantName || location.state?.consultantData?.name,
-        }
-      : {}),
-  };
+  const consultantData = location.state?.consultantData || {};
   const isEditMode = Boolean(consultantData?.consultantId);
 
   const employees = useSelector((state) => state.usEmployees?.employees) || [];

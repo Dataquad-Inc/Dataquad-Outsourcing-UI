@@ -478,33 +478,6 @@ export const filterPlacementByDateRange = createAsyncThunk(
   }
 );
 
-export const filterUsPlacementByDateRange = createAsyncThunk(
-  "placement/filterUsByDateRange",
-  async ({ startDate, endDate, page = 0, size = 1000 }, thunkAPI) => {
-    try {
-      const response = await httpService.get(
-        `/candidate/us-placement/placements-list`,
-        { page, size }
-      );
-      const rawData = response.data?.data || response.data || [];
-      const list = Array.isArray(rawData) ? rawData : [];
-      const start = new Date(`${startDate}T00:00:00`);
-      const end = new Date(`${endDate}T23:59:59`);
-      const filtered = list.filter((item) => {
-        if (!item?.startDate) return false;
-        const value = new Date(item.startDate);
-        return !Number.isNaN(value.getTime()) && value >= start && value <= end;
-      });
-      return filtered;
-    } catch (error) {
-      ToastService.error("Failed to filter US placements by date range.");
-      return thunkAPI.rejectWithValue(
-        error.response?.data?.message || "Failed to fetch US placements"
-      );
-    }
-  }
-);
-
 const initialState = {
   placements: [],
   usPlacements: [],
@@ -771,26 +744,6 @@ const placementSlice = createSlice({
         state.isFiltered = true;
       })
       .addCase(filterPlacementByDateRange.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-        state.success = false;
-        state.actionType = null;
-        state.isFiltered = false;
-      })
-      .addCase(filterUsPlacementByDateRange.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-        state.success = false;
-        state.actionType = "fetchUsDateRange";
-      })
-      .addCase(filterUsPlacementByDateRange.fulfilled, (state, action) => {
-        state.loading = false;
-        state.usPlacements = action.payload;
-        state.success = true;
-        state.actionType = null;
-        state.isFiltered = true;
-      })
-      .addCase(filterUsPlacementByDateRange.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
         state.success = false;

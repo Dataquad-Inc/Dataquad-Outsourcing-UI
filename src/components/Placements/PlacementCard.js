@@ -131,23 +131,22 @@ const PlacementCard = ({ data }) => {
     try {
       const payload={
         userId:userId,
-        placementId: data?.id || null,
+        placementId:null,
         newPlacement: false
       }
       const response = await httpService.post('/candidate/generateOtp',payload);
-      const body = response.data;
-      const ok = body?.success !== false && (body?.message || body?.data || typeof body === "string");
 
-      if (ok) {
+      if (response.data) {
         setIsOtpGenerated(true);
-        setSnackbarMessage(body?.message || body?.data || "OTP sent successfully! Check your registered mobile/email.");
+        setSnackbarMessage("OTP sent successfully! Check your registered mobile/email.");
         setSnackbarOpen(true);
       } else {
-        setSnackbarMessage(body?.message || body?.error?.errorMessage || "Failed to send OTP. Please try again.");
+        const error = await response.json();
+        setSnackbarMessage(error.message || "Failed to send OTP. Please try again.");
         setSnackbarOpen(true);
       }
     } catch (error) {
-      setSnackbarMessage(error.response?.data?.message || error.response?.data?.error?.errorMessage || "Network error. Please check your connection and try again.");
+      setSnackbarMessage("Network error. Please check your connection and try again.");
       setSnackbarOpen(true);
     } finally {
       setIsLoading(false);
@@ -164,25 +163,26 @@ const PlacementCard = ({ data }) => {
     setIsLoading(true);
     try {
       const payload={
-       placementId: data?.id || null,
+       placementId:null,
        userId:userId,
        otp:inputOtp
       }
       const response = await httpService.post('/candidate/verifyOtp', payload);
-      const body = response.data;
-      const ok = body?.success !== false && (body?.message || body?.data || typeof body === "string");
 
-      if (ok) {
+      if (response.data) {
         setIsFinancialValidated(true);
         setIsOtpDialogOpen(false);
-        setSnackbarMessage(body?.message || body?.data || "OTP verified successfully! Financial data unlocked.");
+        setSnackbarMessage("OTP verified successfully! Financial data unlocked.");
         setSnackbarOpen(true);
+        // Reset OTP state
+        // setIsOtpGenerated(false);
       } else {
-        setSnackbarMessage(body?.message || body?.error?.errorMessage || "Invalid OTP. Please try again.");
+        const error = await response.json();
+        setSnackbarMessage(error.message || "Invalid OTP. Please try again.");
         setSnackbarOpen(true);
       }
     } catch (error) {
-      setSnackbarMessage(error.response?.data?.message || error.response?.data?.error?.errorMessage || "Network error. Please check your connection and try again.");
+      setSnackbarMessage("Network error. Please check your connection and try again.");
       setSnackbarOpen(true);
     } finally {
       setIsLoading(false);

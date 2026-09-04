@@ -21,11 +21,6 @@ const extractErrorMessage = (error) => {
   return errorMessage;
 };
 
-const getTimesheetBasePath = (getState) => {
-  const entity = getState()?.auth?.entity;
-  return entity === "US" ? "/api/us/timesheet" : "/timesheet";
-};
-
 // Helper function to trigger file download
 const downloadFile = (blob, filename) => {
   const url = window.URL.createObjectURL(blob);
@@ -68,8 +63,7 @@ export const fetchClientsForProjects = createAsyncThunk(
     try {
       const state = getState();
       const userId = state.auth.userId;
-      const base = getTimesheetBasePath(getState);
-      const response = await httpService.get(`${base}/vendors/${userId}`);
+      const response = await httpService.get(`/timesheet/vendors/${userId}`);
 
       console.log('API Response:', response); // Debug log
 
@@ -95,11 +89,10 @@ export const fetchClientsForProjects = createAsyncThunk(
 
 export const fetchTimesheetsByUserId = createAsyncThunk(
   'timesheet/fetchTimesheetsByUserId',
-  async (userId, { getState, rejectWithValue }) => {
+  async (userId, { rejectWithValue }) => {
     try {
-      const base = getTimesheetBasePath(getState);
       const response = await httpService.get(
-        `${base}/getTimesheetsByUserId?userId=${userId}`
+        `/timesheet/getTimesheetsByUserId?userId=${userId}`
       );
       return response.data;
     } catch (error) {
@@ -112,11 +105,10 @@ export const fetchTimesheetsByUserId = createAsyncThunk(
 
 export const fetchTimesheetsByUserIdWithDateRange = createAsyncThunk(
   'timesheet/fetchTimesheetsByUserIdWithDateRange',
-  async ({ userId, monthStart, monthEnd }, { getState, rejectWithValue }) => {
+  async ({ userId, monthStart, monthEnd }, { rejectWithValue }) => {
     try {
-      const base = getTimesheetBasePath(getState);
       const response = await httpService.get(
-        `${base}/getTimesheetsByUserId?userId=${userId}&monthStart=${monthStart}&monthEnd=${monthEnd}`
+        `/timesheet/getTimesheetsByUserId?userId=${userId}&monthStart=${monthStart}&monthEnd=${monthEnd}`
       );
       return response.data;
     } catch (error) {
@@ -129,11 +121,10 @@ export const fetchTimesheetsByUserIdWithDateRange = createAsyncThunk(
 
 export const createTimesheet = createAsyncThunk(
   'timesheet/createTimesheet',
-  async ({ userId, timesheetData }, { getState, rejectWithValue }) => {
+  async ({ userId, timesheetData }, { rejectWithValue }) => {
     try {
-      const base = getTimesheetBasePath(getState);
       const response = await httpService.post(
-        `${base}/daily-entry?userId=${userId}`,
+        `/timesheet/daily-entry?userId=${userId}`,
         timesheetData
       );
       ToastService.success('Timesheet created successfully');
@@ -148,11 +139,10 @@ export const createTimesheet = createAsyncThunk(
 
 export const updateTimesheet = createAsyncThunk(
   'timesheet/updateTimesheet',
-  async ({ timesheetId, userId, timesheetData }, { getState, rejectWithValue }) => {
+  async ({ timesheetId, userId, timesheetData }, { rejectWithValue }) => {
     try {
-      const base = getTimesheetBasePath(getState);
       const response = await httpService.patch(
-        `${base}/update-timesheet-entries/${timesheetId}?userId=${userId}`,
+        `/timesheet/update-timesheet-entries/${timesheetId}?userId=${userId}`,
         timesheetData
       );
       ToastService.success('Timesheet updated successfully');
@@ -167,11 +157,10 @@ export const updateTimesheet = createAsyncThunk(
 
 export const submitWeeklyTimesheet = createAsyncThunk(
   'timesheet/submitWeeklyTimesheet',
-  async ({ userId, weekStart }, { getState, rejectWithValue }) => {
+  async ({ userId, weekStart }, { rejectWithValue }) => {
     try {
-      const base = getTimesheetBasePath(getState);
       const response = await httpService.post(
-        `${base}/submit-weekly?userId=${userId}&weekStart=${weekStart}`,
+        `/timesheet/submit-weekly?userId=${userId}&weekStart=${weekStart}`,
         {}
       );
       ToastService.success('Timesheet submitted successfully');
@@ -186,11 +175,10 @@ export const submitWeeklyTimesheet = createAsyncThunk(
 
 export const submitMonthlyTimesheet = createAsyncThunk(
   'timesheet/submitMonthlyTimesheet',
-  async ({ userId, monthStartDate }, { getState, rejectWithValue }) => {
+  async ({ userId, monthStartDate }, { rejectWithValue }) => {
     try {
-      const base = getTimesheetBasePath(getState);
       const response = await httpService.post(
-        `${base}/submit-monthly?userId=${userId}&monthStartDate=${monthStartDate}`,
+        `/timesheet/submit-monthly?userId=${userId}&monthStartDate=${monthStartDate}`,
         {}
       );
       ToastService.success('Timesheet submitted successfully');

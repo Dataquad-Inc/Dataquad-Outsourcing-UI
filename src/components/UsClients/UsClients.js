@@ -21,7 +21,7 @@ import httpService from '../../Services/httpService'
 import DocumentViewDialog from './DocumentViewDialog'
 import { toast, ToastContainer } from 'react-toastify'
 import ToastService from '../../Services/toastService'
-import DateRangeFilter from '../muiComponents/DateRangeFilter'
+import axios from 'axios'
 
 const UsClients = () => {
   const navigate = useNavigate()
@@ -39,9 +39,6 @@ const UsClients = () => {
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState({})
   const [loading, setLoading] = useState(false)
-  const [dateRange, setDateRange] = useState({ startDate: null, endDate: null })
-  const [totalElements, setTotalElements] = useState(0)
-  const [serverPaginated, setServerPaginated] = useState(false)
 
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({ open: true, message, severity })
@@ -51,48 +48,33 @@ const UsClients = () => {
     setSnackbar({ ...snackbar, open: false })
   }
 
-  const fetchClients = async (pageOverride = page, sizeOverride = rowsPerPage) => {
+  const fetchClients = async () => {
     setLoading(true)
     setError(null)
     try {
-      const result = await httpService.get(`/api/us/requirements/client/getAll`, {
-        page: pageOverride,
-        size: sizeOverride,
-        search: search || undefined,
-      });
+      const result = await httpService.get(`/api/us/requirements/client/getAll`);
 
       console.log('API Response:', result);
       
       if (result.data.success && result.data.data) {
         const dataArray = Array.isArray(result.data.data) ? result.data.data : [result.data.data];
-        const pagination = result.data.pagination || result.data.page || null;
-        if (pagination && (pagination.totalElements != null || pagination.total != null)) {
-          setServerPaginated(true);
-          setTotalElements(pagination.totalElements ?? pagination.total ?? dataArray.length);
-          setClientsData(dataArray);
-        } else {
-          setServerPaginated(false);
-          setTotalElements(dataArray.length);
-          setClientsData(dataArray);
-        }
+        setClientsData(dataArray);
       } else {
         setError(result.data.message || 'Failed to fetch clients');
         setClientsData([]);
-        setTotalElements(0);
       }
     } catch (error) {
       console.error("API call failed:", error);
       setError(error.message);
       setClientsData([]);
-      setTotalElements(0);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchClients(page, rowsPerPage);
-  }, [page, rowsPerPage]);
+    fetchClients();
+  }, []);
 
   const handleDownloadAllDocuments = async (clientId, clientName) => {
     try {
@@ -555,7 +537,7 @@ const handleDeleteClick = async (clientId, clientName) => {
   }
 
   const handleRefresh = () => {
-    fetchClients(page, rowsPerPage);
+    fetchClients();
   }
 
   const handleFiltersChange = (newFilters) => {
@@ -565,18 +547,6 @@ const handleDeleteClick = async (clientId, clientName) => {
 
   // Filter and search data
   const filteredData = clientsData.filter(row => {
-    if (dateRange.startDate && dateRange.endDate) {
-      const created = row.createdAt || row.createdDate || row.onboardedDate || row.startDate;
-      if (created) {
-        const value = new Date(created);
-        const start = new Date(`${dateRange.startDate}T00:00:00`);
-        const end = new Date(`${dateRange.endDate}T23:59:59`);
-        if (Number.isNaN(value.getTime()) || value < start || value > end) {
-          return false;
-        }
-      }
-    }
-
     // Search filter
     if (search) {
       const searchLower = search.toLowerCase()
@@ -615,14 +585,11 @@ const handleDeleteClick = async (clientId, clientName) => {
     return true
   })
 
-  // Paginate data (server already paginated when pagination meta exists)
-  const paginatedData = serverPaginated
-    ? filteredData
-    : filteredData.slice(
-        page * rowsPerPage,
-        page * rowsPerPage + rowsPerPage
-      )
-  const tableTotal = serverPaginated ? totalElements : filteredData.length
+  // Paginate data
+  const paginatedData = filteredData.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  )
 
   return (
     <>
@@ -631,26 +598,12 @@ const handleDeleteClick = async (clientId, clientName) => {
           {error}
         </Alert>
       )}
-
-      <Box sx={{ mb: 2 }}>
-        <DateRangeFilter
-          component="usClients"
-          onDateChange={(startDate, endDate) => {
-            setDateRange({ startDate, endDate });
-            setPage(0);
-          }}
-          onClearFilter={() => {
-            setDateRange({ startDate: null, endDate: null });
-            setPage(0);
-          }}
-        />
-      </Box>
       
       <CustomDataTable
         title="US Clients"
         columns={columns}
         rows={paginatedData}
-        total={tableTotal}
+        total={filteredData.length}
         page={page}
         rowsPerPage={rowsPerPage}
         search={search}

@@ -17,13 +17,15 @@ const api = axios.create({
     "Content-Type": "application/json",
   },
   timeout: 20000,
-  withCredentials: true,
 });
 
-// Cookie-based auth (same as httpService). Do not attach dead Bearer tokens.
+// Add auth token to each request
 api.interceptors.request.use(
   (config) => {
-    config.withCredentials = true;
+    const token = localStorage.getItem("authToken");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
     return config;
   },
   (error) => Promise.reject(error)

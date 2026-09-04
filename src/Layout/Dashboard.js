@@ -18,7 +18,7 @@ const drawerWidth = 240;
 const collapsedWidth = 72;
 
 const HEADER_HEIGHT = 64; // adjust if your header height differs
-const FOOTER_HEIGHT = 88; // matches Footer py:3 + content
+const FOOTER_HEIGHT = 50; // adjust to your footer height
 
 const Dashboard = () => {
   const [mobileOpen, setMobileOpen] = useState(false);

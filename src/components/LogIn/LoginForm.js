@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { loginAsync } from "../../redux/authSlice";
-import { getDashboardHomePath } from "../../routes/dashboardHomePath";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
 import {
@@ -68,16 +67,15 @@ const handleSubmit = async (values, { setSubmitting }) => {
 
     if (loginAsync.fulfilled.match(resultAction)) {
       // Get role from Redux or localStorage
-      const { role, entity } = resultAction.payload || {};
-      let localUser = null;
-      try {
-        localUser = JSON.parse(localStorage.getItem("authUser"));
-      } catch (_) {
-        localUser = null;
-      }
+      const { role } = resultAction.payload || {};
+      const localUser = JSON.parse(localStorage.getItem("user"));
       const userRole = role || localUser?.role;
-      const userEntity = entity || localUser?.entity;
-      navigate(getDashboardHomePath({ role: userRole, entity: userEntity }));
+
+      if (userRole === "EXTERNALEMPLOYEE") {
+        navigate("/dashboard/timesheets");
+      } else {
+        navigate("/dashboard");
+      }
     } else {
       setError(
         resultAction.payload || resultAction.error.message || "Login failed"

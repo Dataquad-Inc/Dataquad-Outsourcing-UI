@@ -1,22 +1,23 @@
 // src/utils/toastUtils.js
-// Compatibility facade — prefer ToastService for new code.
-import ToastService from "../Services/toastService";
+import { toast } from 'react-toastify';
+import React from 'react';
+import CustomToast from './CustomToast';
 
 export const showSuccessToast = (message, options = {}) =>
-  ToastService.success(message, options);
+  toast(<CustomToast message={message} type="success" />, { ...customToastConfig, ...options });
 
 export const showErrorToast = (message, options = {}) =>
-  ToastService.error(message, options);
+  toast(<CustomToast message={message} type="error" />, { ...customToastConfig, ...options });
 
 export const showInfoToast = (message, options = {}) =>
-  ToastService.info(message, options);
+  toast(<CustomToast message={message} type="info" />, { ...customToastConfig, ...options });
 
 export const showWarningToast = (message, options = {}) =>
-  ToastService.warning?.(message, options) || ToastService.info(message, options);
+  toast(<CustomToast message={message} type="warning" />, { ...customToastConfig, ...options });
 
-export const showLoadingToast = (message) => ToastService.loading(message);
+export const showLoadingToast = (message) => toast.loading(message);
 
-export const dismissToast = (id) => ToastService.dismiss(id);
+export const dismissToast = (id) => toast.dismiss(id);
 
 export const customToastConfig = {
   position: "top-right",
@@ -28,26 +29,25 @@ export const customToastConfig = {
   progress: undefined,
 };
 
-export const showCustomToast = (message, type = "info", options = {}) => {
-  if (type === "success") return ToastService.success(message, options);
-  if (type === "error") return ToastService.error(message, options);
-  if (type === "warning") return showWarningToast(message, options);
-  return ToastService.info(message, options);
+// General custom toast
+export const showCustomToast = (message, type = 'info', options = {}) => {
+  const config = { ...customToastConfig, ...options };
+  return toast(<CustomToast message={message} type={type} />, config);
 };
 
+// Promise-based toast
 export const showPromiseToast = (promise, messages) => {
-  const toastId = ToastService.loading(messages.pending || "Loading...");
-  return promise
-    .then((data) => {
-      ToastService.update?.(toastId, messages.success || "Success!", "success") ||
-        ToastService.success(messages.success || "Success!");
-      ToastService.dismiss(toastId);
-      return data;
-    })
-    .catch((err) => {
-      ToastService.update?.(toastId, messages.error || "Something went wrong!", "error") ||
-        ToastService.error(messages.error || "Something went wrong!");
-      ToastService.dismiss(toastId);
-      throw err;
-    });
+  return toast.promise(promise, {
+    pending: messages.pending || 'Loading...',
+    success: {
+      render({ data }) {
+        return <CustomToast message={messages.success || "Success!"} type="success" />;
+      },
+    },
+    error: {
+      render({ data }) {
+        return <CustomToast message={messages.error || "Something went wrong!"} type="error" />;
+      },
+    },
+  });
 };

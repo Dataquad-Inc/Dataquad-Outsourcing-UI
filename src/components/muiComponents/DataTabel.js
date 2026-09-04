@@ -1,8 +1,4 @@
 import React, { useState, useEffect, useMemo } from "react";
-/**
- * Client-side DataTable.
- * Prefer DataTablePaginated.jsx with serverSide for large list pages.
- */
 import {
   Table,
   TableBody,

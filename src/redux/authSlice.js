@@ -1,19 +1,8 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import httpService from "../Services/httpService";
 
-const safeParseAuthUser = () => {
-  try {
-    const raw = localStorage.getItem("authUser");
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch (_) {
-    localStorage.removeItem("authUser");
-    return null;
-  }
-};
-
 // ✅ Load user from localStorage (if any)
-const storedUser = safeParseAuthUser();
+const storedUser = JSON.parse(localStorage.getItem("authUser"));
 
 const initialState = {
   isAuthenticated: !!storedUser,
@@ -124,7 +113,7 @@ const authSlice = createSlice({
       state.entity = action.payload;
 
       // ✅ Persist to localStorage
-      const storedUser = safeParseAuthUser() || {};
+      const storedUser = JSON.parse(localStorage.getItem("authUser")) || {};
       storedUser.entity = action.payload;
       localStorage.setItem("authUser", JSON.stringify(storedUser));
     },

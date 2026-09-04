@@ -669,13 +669,14 @@ const AttendanceDashboard = () => {
   // ============================================================
 
   useEffect(() => {
-    // Re-sync whenever auth entity changes (IND <-> US switch)
-    if (authEntity) {
+    // Only run this effect if we have a valid authEntity and it hasn't been synced yet
+    if (authEntity && !entitySynced) {
+      // Clear old data when entity changes
       dispatch(clearAttendanceData());
       dispatch(setEntity(authEntity));
       setEntitySynced(true);
     }
-  }, [authEntity, dispatch]);
+  }, [authEntity, dispatch, entitySynced]);
 
   // ============================================================
   // FETCH DATA - Only after entity is synced

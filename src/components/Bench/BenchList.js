@@ -19,8 +19,6 @@ import {
   useTheme,
   Popover,
   TextField,
-  ToggleButton,
-  ToggleButtonGroup,
 } from "@mui/material";
 import {
   Edit,
@@ -359,9 +357,6 @@ const BenchListTab = ({ onAddClick }) => {
   const [searchKeyword, setSearchKeyword] = useState("");
   const [noResultsFound, setNoResultsFound] = useState(false);
 
-  // ── Status filter state ──────────────────────────────────────────────────────
-  const [statusFilter, setStatusFilter] = useState("ACTIVE");
-
   // ── Selection state for checkboxes ──────────────────────────────────────────
   const [selectedRows, setSelectedRows] = useState([]);
 
@@ -381,17 +376,13 @@ const BenchListTab = ({ onAddClick }) => {
 
   // ── Fetch bench list ──────────────────────────────────────────────────────────
   const fetchBenchList = useCallback(
-    async (currentPage, currentRowsPerPage, search, status) => {
+    async (currentPage, currentRowsPerPage, search) => {
       try {
         setLoading(true);
         setNoResultsFound(false);
 
-        const params = { 
-          page: currentPage, 
-          size: currentRowsPerPage 
-        };
+        const params = { page: currentPage, size: currentRowsPerPage };
         if (search && search.trim()) params.search = search.trim();
-        if (status) params.status = status;
 
         const response = await httpService.get(
           "/candidate/bench/getBenchList",
@@ -427,16 +418,16 @@ const BenchListTab = ({ onAddClick }) => {
   useEffect(() => {
     if (isUpdating.current) return;
     isUpdating.current = true;
-    fetchBenchList(page, rowsPerPage, searchKeyword, statusFilter);
+    fetchBenchList(page, rowsPerPage, searchKeyword);
     setTimeout(() => {
       isUpdating.current = false;
     }, 0);
-  }, [page, rowsPerPage, searchKeyword, statusFilter, fetchBenchList]);
+  }, [page, rowsPerPage, searchKeyword, fetchBenchList]);
 
   // Clear selection when data changes (page change, search, etc.)
   useEffect(() => {
     setSelectedRows([]);
-  }, [page, rowsPerPage, searchKeyword, statusFilter, benchData]);
+  }, [page, rowsPerPage, searchKeyword, benchData]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────────
   const handleView = (row) => {
@@ -470,7 +461,7 @@ const BenchListTab = ({ onAddClick }) => {
   };
 
   const handleFormSuccess = () =>
-    fetchBenchList(page, rowsPerPage, searchKeyword, statusFilter);
+    fetchBenchList(page, rowsPerPage, searchKeyword);
 
   const handleDelete = (row) => {
     setCandidateToDelete(row);
@@ -489,7 +480,7 @@ const BenchListTab = ({ onAddClick }) => {
         "Candidate deleted successfully!",
         "success",
       );
-      fetchBenchList(page, rowsPerPage, searchKeyword, statusFilter);
+      fetchBenchList(page, rowsPerPage, searchKeyword);
       setDeleteDialogOpen(false);
     } catch {
       ToastService.error("Failed to delete candidate");
@@ -513,15 +504,6 @@ const BenchListTab = ({ onAddClick }) => {
     setNoResultsFound(false);
   };
 
-  // ── Status filter handler ────────────────────────────────────────────────────
-  const handleStatusFilterChange = (event, newStatus) => {
-    if (newStatus !== null) {
-      setStatusFilter(newStatus);
-      setPage(0);
-      setSelectedRows([]);
-    }
-  };
-
   const handleBenchCandidate = async (candidate) => {
     let toastId;
     try {
@@ -541,7 +523,7 @@ const BenchListTab = ({ onAddClick }) => {
         "Register request sent successfully",
         "success",
       );
-      fetchBenchList(page, rowsPerPage, searchKeyword, statusFilter);
+      fetchBenchList(page, rowsPerPage, searchKeyword);
     } catch (error) {
       ToastService.update(
         toastId,
@@ -564,7 +546,6 @@ const BenchListTab = ({ onAddClick }) => {
         page: 0,
         size: totalCount,
         ...(exportParams?.searchQuery && { search: exportParams.searchQuery }),
-        ...(statusFilter && { status: statusFilter }),
       };
       const fileName = `bench_candidates_${new Date().toISOString().split("T")[0]}`;
       await exportFile(
@@ -584,7 +565,7 @@ const BenchListTab = ({ onAddClick }) => {
     }
   };
 
-  // ── Batch Email Handler ──────────────────────────────────────────
+  // ── Batch Email Handler ──────────────────────────────────────────────────────
   const handleBatchEmail = async (subject, mailBody) => {
     // Get selected candidates' emails
     const selectedEmails = benchData
@@ -601,21 +582,18 @@ const BenchListTab = ({ onAddClick }) => {
     setSendingEmail(true);
 
     try {
-      const emailPayload = {
-        emails: selectedEmails,
+      const response = await axios.post("/send-email/", {
         subject: subject,
-        body: mailBody
-      };
-
-      // Replace with your actual email API endpoint
-      const response = await axios.post("https://mymulya.com/candidate/send-jd", emailPayload);
+        mailBody: mailBody,
+        emails: selectedEmails,
+      });
 
       ToastService.success(
         response.data.message || `Email sent successfully to ${selectedEmails.length} candidate(s)!`
       );
       
       setEmailDialogOpen(false);
-      setSelectedRows([]);
+      setSelectedRows([]); // Clear selection after successful send
     } catch (err) {
       const msg =
         err.response?.data?.message ||
@@ -650,7 +628,7 @@ const BenchListTab = ({ onAddClick }) => {
         },
       );
 
-      const { message, skippedBenchIds } = response.data;
+      const { message, submittedBenchIds, skippedBenchIds } = response.data;
 
       let detail = message || "Submitted successfully!";
       if (skippedBenchIds?.length > 0) {
@@ -659,7 +637,7 @@ const BenchListTab = ({ onAddClick }) => {
 
       ToastService.success(detail);
       setJobDialogOpen(false);
-      setSelectedRows([]);
+      setSelectedRows([]); // Clear selection after successful submission
     } catch (err) {
       const msg =
         err.response?.data?.message ||
@@ -693,47 +671,54 @@ const BenchListTab = ({ onAddClick }) => {
     if (selectedRows.length === 0) return null;
 
     return (
-      <Paper
-        elevation={1}
+      <Stack
+        direction="row"
+        spacing={2}
+        alignItems="center"
         sx={{
-          mb: 2,
-          p: 1.5,
+          position: "fixed",
+          bottom: 24,
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 1000,
+          bgcolor: "background.paper",
+          boxShadow: 3,
           borderRadius: 2,
-          bgcolor: "",
-          color: "black",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: 1,
+          p: 1.5,
+          border: 1,
+          borderColor: "primary.main",
         }}
       >
         <Typography variant="body2" fontWeight="bold">
           {selectedRows.length} candidate{selectedRows.length > 1 ? "s" : ""} selected
         </Typography>
-        <Stack direction="row" spacing={1}>
-          <Button
-            variant="contained"
-            color="secondary"
-            startIcon={<EmailIcon />}
-            onClick={() => setEmailDialogOpen(true)}
-            size="small"
-            sx={{ bgcolor: "white", color: "primary.main", "&:hover": { bgcolor: "#f5f5f5" } }}
-          >
-            Send Email
-          </Button>
-          <Button
-            variant="contained"
-            color="warning"
-            startIcon={<WorkIcon />}
-            onClick={() => setJobDialogOpen(true)}
-            size="small"
-          >
-            Submit to Job
-          </Button>
-         
-        </Stack>
-      </Paper>
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={<EmailIcon />}
+          onClick={() => setEmailDialogOpen(true)}
+          size="small"
+        >
+          Send Email
+        </Button>
+        <Button
+          variant="contained"
+          color="warning"
+          startIcon={<WorkIcon />}
+          onClick={() => setJobDialogOpen(true)}
+          size="small"
+        >
+          Submit to Job
+        </Button>
+        <Button
+          variant="outlined"
+          color="inherit"
+          onClick={() => setSelectedRows([])}
+          size="small"
+        >
+          Clear Selection
+        </Button>
+      </Stack>
     );
   };
 
@@ -1014,45 +999,13 @@ const BenchListTab = ({ onAddClick }) => {
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <>
-      {/* Header with Status Toggle and Add button */}
+      {/* Add button header */}
       <Stack
         direction="row"
         alignItems="center"
-        justifyContent="space-between"
+        justifyContent="flex-end"
         sx={{ mb: 2 }}
       >
-        {/* Status Toggle Buttons */}
-        <ToggleButtonGroup
-          value={statusFilter}
-          exclusive
-          onChange={handleStatusFilterChange}
-          aria-label="status filter"
-          size="small"
-          sx={{
-            '& .MuiToggleButton-root': {
-              px: 3,
-              py: 0.75,
-              fontWeight: 500,
-              fontSize: '0.875rem',
-            },
-            '& .MuiToggleButton-root.Mui-selected': {
-              backgroundColor: 'primary.main',
-              color: 'white',
-              '&:hover': {
-                backgroundColor: 'primary.dark',
-              },
-            },
-          }}
-        >
-          <ToggleButton value="ACTIVE" aria-label="active">
-            Active
-          </ToggleButton>
-          <ToggleButton value="INACTIVE" aria-label="inactive">
-            Inactive
-          </ToggleButton>
-        </ToggleButtonGroup>
-
-        {/* Add Button */}
         <Button
           variant="text"
           color="primary"
@@ -1064,9 +1017,6 @@ const BenchListTab = ({ onAddClick }) => {
         </Button>
       </Stack>
 
-      {/* Batch Action Buttons - Now ABOVE the table */}
-      {renderBatchActions()}
-
       {/* Table or empty state */}
       {noResultsFound && !loading && benchData.length === 0 ? (
         <NoResultsState
@@ -1074,33 +1024,38 @@ const BenchListTab = ({ onAddClick }) => {
           onClear={() => handleSearch("")}
         />
       ) : (
-        <DataTablePaginated
-          data={benchData || []}
-          columns={generateColumns(loading)}
-          title="Bench List"
-          loading={loading}
-          enableSelection={true}
-          checkboxRequired={false}
-          uniqueId="id"
-          defaultSortColumn="id"
-          defaultSortDirection="desc"
-          defaultRowsPerPage={rowsPerPage}
-          serverSide={true}
-          totalCount={totalCount}
-          page={page}
-          rowsPerPage={rowsPerPage}
-          onPageChange={handlePageChange}
-          onRowsPerPageChange={handleRowsPerPageChange}
-          rowsPerPageOptions={[10, 20, 40, 60, 80, 100]}
-          refreshData={() => fetchBenchList(page, rowsPerPage, searchKeyword, statusFilter)}
-          onSearchChange={handleSearch}
-          searchValue={searchKeyword}
-          enableLocalFiltering={false}
-          enableServerSideFiltering={false}
-          enableExport={true}
-          onExportData={handleExportBenchData}
-          onSelectionChange={handleSelectionChange}
-        />
+        <>
+          <DataTablePaginated
+            data={benchData || []}
+            columns={generateColumns(loading)}
+            title="Bench List"
+            loading={loading}
+            enableSelection={true}
+            checkboxRequired={false}
+            uniqueId="id"
+            defaultSortColumn="id"
+            defaultSortDirection="desc"
+            defaultRowsPerPage={rowsPerPage}
+            serverSide={true}
+            totalCount={totalCount}
+            page={page}
+            rowsPerPage={rowsPerPage}
+            onPageChange={handlePageChange}
+            onRowsPerPageChange={handleRowsPerPageChange}
+            rowsPerPageOptions={[10, 20, 40, 60, 80, 100]}
+            refreshData={() => fetchBenchList(page, rowsPerPage, searchKeyword)}
+            onSearchChange={handleSearch}
+            searchValue={searchKeyword}
+            enableLocalFiltering={false}
+            enableServerSideFiltering={false}
+            enableExport={true}
+            onExportData={handleExportBenchData}
+            onSelectionChange={handleSelectionChange}
+          />
+          
+          {/* Batch Action Buttons */}
+          {renderBatchActions()}
+        </>
       )}
 
       {/* Per-row Submit to Job Popover */}

@@ -49,7 +49,7 @@ const processInterviewData = (interviews) => {
   }));
 };
 
-const CoordinatorInterviews = ({ initialLevel = null }) => {
+const CoordinatorInterviews = () => {
   const dispatch = useDispatch();
   const { userId } = useSelector((state) => state.auth);
   const {
@@ -74,7 +74,7 @@ const CoordinatorInterviews = ({ initialLevel = null }) => {
   });
   const [feedback, setFeedback] = useState("");
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
-  const [levelFilter, setLevelFilter] = useState(initialLevel || "ALL");
+  const [levelFilter, setLevelFilter] = useState("ALL");
   const [editDrawer, setEditDrawer] = useState({ open: false, data: null });
   const navigate = useNavigate();
 

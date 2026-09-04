@@ -1569,7 +1569,7 @@ const PlacementsList = () => {
           spacing={2}
           sx={{ ml: "auto" }}
         >
-          <DateRangeFilter component="usPlacements" />
+          <DateRangeFilter component="placements" />
           <Button
             variant="contained"
             color="primary"

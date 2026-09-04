@@ -263,10 +263,6 @@ const W2Hotlist = React.memo(() => {
     navigate(`/dashboard/hotlist/w2/${consultantId}`);
   };
 
-  const handleView = useCallback((row) => {
-    navigate(`/dashboard/hotlist/w2/${row.consultantId}`);
-  }, [navigate]);
-
   const handleMoveToMaster = useCallback(async (row) => {
     try {
       const result = await hotlistAPI.moveToMasterHotlist(row.consultantId);
@@ -319,7 +315,6 @@ const W2Hotlist = React.memo(() => {
       handleNavigate,
       handleEdit,
       handleDelete,
-      handleView,
       handleNavigateRTR,
       loading,
       userRole: role,

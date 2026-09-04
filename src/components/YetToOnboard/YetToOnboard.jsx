@@ -550,7 +550,6 @@ const YetToOnboard = React.memo(() => {
       handleNavigate,
       handleEdit,
       handleDelete,
-      handleView: (row) => handleNavigate(row.consultantId),
       loading,
       userRole: role,
       userId,

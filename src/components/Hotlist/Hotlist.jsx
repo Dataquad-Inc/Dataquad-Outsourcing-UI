@@ -260,7 +260,6 @@ const HotList = React.memo(() => {
       handleNavigate,
       handleEdit,
       handleDelete,
-      handleView,
       handleNavigateRTR,
       loading,
       userRole: role,

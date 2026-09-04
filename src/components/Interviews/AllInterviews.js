@@ -46,7 +46,7 @@ import DateRangeFilter from "../muiComponents/DateRangeFilter";
 import ExportButton from "../../utils/ExportButton";
 
 
-const AllInterviews = ({ initialLevel = null }) => {
+const AllInterviews = () => {
   const [interviews, setInterviews] = useState([]);
   const [coordinatorInterviews, setCoordinatorInterviews] = useState([]);
   const [showCoordinatorView, setShowCoordinatorView] = useState(false);
@@ -73,7 +73,7 @@ const AllInterviews = ({ initialLevel = null }) => {
   const { filteredInterviewList } = useSelector((state) => state.interview);
 
   const [levelFilter, setLevelFilter] = useState(
-    initialLevel || (role === "COORDINATOR" ? "INTERNAL" : "ALL")
+    role === "COORDINATOR" ? "INTERNAL" : "ALL"
   );
 
   const navigate = useNavigate();

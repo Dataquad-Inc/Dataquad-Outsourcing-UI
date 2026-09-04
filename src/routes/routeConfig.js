@@ -9,6 +9,7 @@ import UsEmployeesContainer from "../components/UsEmployees/UsEmployeesContainer
 import EditRtrForm from "../components/RightToRepresent/EditRtrForm";
 import UsInterviewsRouter from "../components/UsInterviews/UsInterviewRouter";
 import { Navigate } from "react-router-dom";
+import { element } from "prop-types";
 
 const Loadable = (Component, props = {}) => (
   <Suspense
@@ -88,6 +89,9 @@ const RtrContainer = lazy(
   () => import("../components/RightToRepresent/RtrContainer"),
 );
 const CreateRTRForm = lazy(
+  () => import("../components/RightToRepresent/CreateRTR"),
+);
+const CreateRTR = lazy(
   () => import("../components/RightToRepresent/CreateRTR"),
 );
 
@@ -875,6 +879,18 @@ const routeConfig = [
                   {
                     path: "team-consultants/:consultantId", // /dashboard/hotlist/team-consultants/:id
                     element: Loadable(ConsultantProfile),
+                  },
+                  {
+                    path: "rtr-form",
+                    element: Loadable(RtrForm),
+                  },
+                  {
+                    path: "rtr-list",
+                    element: Loadable(RtrList),
+                  },
+                  {
+                    path: "create-direct-rtr",
+                    element: Loadable(CreateRTR),
                   },
                 ],
               },

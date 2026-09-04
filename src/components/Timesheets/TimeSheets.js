@@ -7,7 +7,6 @@ import {
   fetchTimesheetsByUserId,
   fetchTimesheetsByUserIdWithDateRange,
   createTimesheet,
-  updateTimesheet,
   submitWeeklyTimesheet as submitWeeklyTimesheetAction,
   submitMonthlyTimesheet as submitMonthlyTimesheetAction,
   clearError,
@@ -2111,13 +2110,13 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
 
         console.log("Updating timesheet in edit mode:", timesheetPayload);
 
-        const resultAction = await dispatch(updateTimesheet({
+        const resultAction = await dispatch(createTimesheet({
           timesheetId: currentTimesheet.id,
           userId: targetUserId,
           timesheetData: timesheetPayload
         }));
 
-        if (updateTimesheet.fulfilled.match(resultAction)) {
+        if (createTimesheet.fulfilled.match(resultAction)) {
           const response = resultAction.payload;
 
           if (response?.success) {
@@ -2509,13 +2508,13 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
 
       if (currentTimesheet.id) {
         console.log("Using update API for existing timesheet");
-        const resultAction = await dispatch(updateTimesheet({
+        const resultAction = await dispatch(createTimesheet({
           timesheetId: currentTimesheet.id,
           userId: targetUserId,
           timesheetData: timesheetPayload
         }));
 
-        if (updateTimesheet.fulfilled.match(resultAction)) {
+        if (createTimesheet.fulfilled.match(resultAction)) {
           response = resultAction.payload;
           console.log("Updated timesheet via updateTimesheet API");
         } else {
@@ -2796,6 +2795,8 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
         console.log('Create/Add mode: Saving timesheet before submission');
         await saveTimesheet(false);
 
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
         if (!currentTimesheet?.id) {
           ToastService.error('Failed to create timesheet. Please try saving again.');
           setLoading(false);
@@ -2806,6 +2807,7 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
       if (hasUnsavedChanges && !isCreateMode && !isAddingNewTimesheet) {
         console.log('Saving unsaved changes before submission');
         await saveTimesheet(false);
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
       const timesheetType = currentTimesheet.timesheetType || "MONTHLY";

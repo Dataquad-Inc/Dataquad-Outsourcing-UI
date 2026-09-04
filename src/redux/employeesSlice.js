@@ -1,18 +1,15 @@
 // employeesSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import httpService from "../Services/httpService"; // Import the httpService
+import axios from "axios";
+import { data } from "react-router-dom";
 
 // Fetch employees thunk
 export const fetchEmployees = createAsyncThunk(
   "employee/fetchEmployees",
-  async (entity, { rejectWithValue }) => {
-    try {
-      const params = entity ? { entity } : {};
-      const response = await httpService.get("/users/employee", params);
-      return response.data;
-    } catch (error) {
-      return rejectWithValue(error.response?.data?.message || error.message);
-    }
+  async () => {
+    const response = await httpService.get("/users/employee");
+    return response.data;
   }
 );
 

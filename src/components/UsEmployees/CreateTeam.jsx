@@ -3,11 +3,11 @@ import React, { useEffect, useState } from "react";
 import { Box, CircularProgress } from "@mui/material";
 
 import DynamicFormUltra from "../FormContainer/DynamicFormUltra";
-import { hotlistAPI } from "../../utils/api";
+import { teamAPI, hotlistAPI } from "../../utils/api"; // already importing axios API instance
 import { useSelector } from "react-redux";
+import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import httpService from "../../Services/httpService";
-import ToastService from "../../Services/toastService";
+import { read } from "xlsx";
 
 const getTeamFormSections = (employees) => {
   return [
@@ -99,19 +99,19 @@ const CreateTeam = () => {
     console.log("Form cancelled");
   };
 
-  // ✅ Prefer shared httpService (cookies + local proxy)
+  // ✅ Axios instead of fetch
   const handleSubmit = async (values) => {
     setIsSubmitting(true);
     try {
-      const { data } = await httpService.post(
-        `/users/assignTeamLead/${userId}`,
-        values
+      // const response = await teamAPI.createTeam(userId, values);
+      const { data } = await axios.post(
+        `https://mymulya.com/users/assignTeamLead/${userId}`, // URL
+        values // request body
       );
-      ToastService.success(data?.message || "Team created successfully");
+      console.log("Team created successfully:", data);
       navigate("/dashboard/us-employees/teamlist");
     } catch (err) {
       console.error("Error creating team:", err);
-      ToastService.error(err.response?.data?.message || "Error creating team");
     } finally {
       setIsSubmitting(false);
     }
@@ -127,17 +127,24 @@ const CreateTeam = () => {
     }
   };
 
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
   const fetchEmployees = async () => {
     setLoading(true);
     try {
-      const [superadmins, teamleads, recruiters, salesexecutives, coordinators] =
-        await Promise.all([
-          fetchEmployeesByRole("SUPERADMIN"),
-          fetchEmployeesByRole("TEAMLEAD"),
-          fetchEmployeesByRole("RECRUITER"),
-          fetchEmployeesByRole("SALESEXECUTIVE"),
-          fetchEmployeesByRole("COORDINATOR"),
-        ]);
+      const superadmins = await fetchEmployeesByRole("SUPERADMIN");
+      await delay(1000);
+
+      const teamleads = await fetchEmployeesByRole("TEAMLEAD");
+      await delay(1000);
+
+      const recruiters = await fetchEmployeesByRole("RECRUITER");
+      await delay(1000);
+
+      const salesexecutives = await fetchEmployeesByRole("SALESEXECUTIVE");
+      await delay(1000);
+
+      const coordinators = await fetchEmployeesByRole("COORDINATOR");
 
       const transformed = {
         SUPERADMIN: superadmins,
@@ -147,10 +154,10 @@ const CreateTeam = () => {
         COORDINATOR: coordinators,
       };
 
+      console.log("Fetched employees by role:", transformed);
       setEmployees(transformed);
     } catch (err) {
       console.error("Error fetching employees", err);
-      ToastService.error("Failed to load employees for team form");
     } finally {
       setLoading(false);
     }
