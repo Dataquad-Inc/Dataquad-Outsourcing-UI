@@ -12,7 +12,6 @@ import {
   MenuItem,
   InputAdornment,
   CircularProgress,
-  Autocomplete,
 } from "@mui/material";
 import {
   CheckCircleOutline as SuccessIcon,
@@ -82,7 +81,6 @@ const PlacementForm = ({
   const theme = useTheme();
   const dispatch = useDispatch();
   const { loading, error, success } = useSelector((state) => state.placement);
-  const { userId, encryptionKey, role } = useSelector((state) => state.auth);
   const [submitStatus, setSubmitStatus] = useState({
     isSubmitting: false,
     success: null,
@@ -90,121 +88,7 @@ const PlacementForm = ({
     response: null,
   });
   
-  const [employeeOptions, setEmployeeOptions] = useState({ 
-    recruiters: [], 
-    sales: [], 
-    teamleads: [] 
-  });
-  const [loadingEmployees, setLoadingEmployees] = useState(false);
-
-  // Fetch employees from AllAssociatedUsers endpoint
-  useEffect(() => {
-    const fetchEmployees = async () => {
-      setLoadingEmployees(true);
-      try {
-        console.log("Fetching employees from AllAssociatedUsers...");
-        const res = await fetch(`https://mymulya.com/users/AllAssociatedUsers`);
-        const data = await res.json();
-        console.log("Raw employee data:", data);
-        
-        // Handle different response formats
-        let teams = [];
-        if (Array.isArray(data)) {
-          teams = data;
-        } else if (data.data && Array.isArray(data.data)) {
-          teams = data.data;
-        } else if (data.teams && Array.isArray(data.teams)) {
-          teams = data.teams;
-        } else if (data.payload && Array.isArray(data.payload)) {
-          teams = data.payload;
-        }
-        
-        console.log("Parsed teams:", teams);
-        
-        // Extract unique employees from all teams
-        const allRecruiters = [];
-        const allSales = [];
-        const allTeamLeads = [];
-        const seenNames = { recruiters: new Set(), sales: new Set(), teamleads: new Set() };
-        
-        teams.forEach(team => {
-          // Extract recruiters
-          if (team.recruiters && Array.isArray(team.recruiters)) {
-            team.recruiters.forEach(recruiter => {
-              const name = recruiter.userName || recruiter.name || "";
-              if (name && !seenNames.recruiters.has(name)) {
-                seenNames.recruiters.add(name);
-                allRecruiters.push(name);
-              }
-            });
-          }
-          
-          // Extract sales executives
-          if (team.salesExecutives && Array.isArray(team.salesExecutives)) {
-            team.salesExecutives.forEach(sales => {
-              const name = sales.userName || sales.name || "";
-              if (name && !seenNames.sales.has(name)) {
-                seenNames.sales.add(name);
-                allSales.push(name);
-              }
-            });
-          }
-          
-          // Also check bdms array
-          if (team.bdms && Array.isArray(team.bdms)) {
-            team.bdms.forEach(bdm => {
-              const name = bdm.userName || bdm.name || "";
-              if (name && !seenNames.sales.has(name)) {
-                seenNames.sales.add(name);
-                allSales.push(name);
-              }
-            });
-          }
-          
-          // Extract team leads
-          if (team.teamLeads && Array.isArray(team.teamLeads)) {
-            team.teamLeads.forEach(lead => {
-              const name = lead.userName || lead.name || "";
-              if (name && !seenNames.teamleads.has(name)) {
-                seenNames.teamleads.add(name);
-                allTeamLeads.push(name);
-              }
-            });
-          }
-          
-          // Also check teamLeadName field
-          if (team.teamLeadName) {
-            const name = team.teamLeadName;
-            if (!seenNames.teamleads.has(name)) {
-              seenNames.teamleads.add(name);
-              allTeamLeads.push(name);
-            }
-          }
-        });
-        
-        // Sort the lists alphabetically
-        const recruiters = allRecruiters.sort();
-        const sales = allSales.sort();
-        const teamleads = allTeamLeads.sort();
-        
-        console.log("Recruiters:", recruiters);
-        console.log("Sales:", sales);
-        console.log("Team Leads:", teamleads);
-        
-        setEmployeeOptions({ recruiters, sales, teamleads });
-      } catch (error) {
-        console.error("Error fetching employees:", error);
-        setEmployeeOptions({ recruiters: [], sales: [], teamleads: [] });
-      } finally {
-        setLoadingEmployees(false);
-      }
-    };
-    
-    fetchEmployees();
-  }, []);
-
-  const isLocked = isEdit && (initialValues.lock === true || initialValues.lock === 'true') && role !== 'SUPERADMIN';
-  console.log('lock debug:', { lock: initialValues.lock, lockType: typeof initialValues.lock, role, isLocked });
+  const {userId, encryptionKey} = useSelector((state) => state.auth);
   const decryptionKey = atob(encryptionKey);
   const FINANCIAL_SECRET_KEY = decryptionKey; 
 
@@ -215,27 +99,28 @@ const PlacementForm = ({
       return CryptoJS.AES.encrypt(stringValue, FINANCIAL_SECRET_KEY).toString();
     } catch (error) {
       console.error("Encryption failed:", error);
-      return value;
+      return value; // Return original value if encryption fails
     }
   };
 
   const decryptFinancialValue = (encryptedValue) => {
     if (!encryptedValue) return encryptedValue;
     try {
+      // Check if the value is already decrypted (for backward compatibility)
       if (!isNaN(parseFloat(encryptedValue))) {
-        return encryptedValue;
+        return encryptedValue; // Already a number, return as is
       }
       
       const bytes = CryptoJS.AES.decrypt(encryptedValue, FINANCIAL_SECRET_KEY);
       const decryptedValue = bytes.toString(CryptoJS.enc.Utf8);
-      return decryptedValue || encryptedValue;
+      return decryptedValue || encryptedValue; // Return original if decryption fails
     } catch (error) {
       console.error("Decryption failed:", error);
-      return encryptedValue;
+      return encryptedValue; // Return original value if decryption fails
     }
   };
 
-  // Form field configurations
+  // Form field configurations organized in arrays for better maintainability
   const consultantFields = [
     {
       id: "candidateFullName",
@@ -290,12 +175,14 @@ const PlacementForm = ({
       required: true,
       type: "date",
       grid: { xs: 12, sm: 6 },
+      render: (row) => formatDateForDisplay(row.startDate),
     },
     {
       id: "endDate",
       label: "End Date",
       type: "date",
       grid: { xs: 12, sm: 6 },
+      render: (row) => formatDateForDisplay(row.endDate),
     },
   ];
 
@@ -383,12 +270,6 @@ const PlacementForm = ({
       id: "projectIn",
       label: "Project In",
       grid: { xs: 12, sm: 6 },
-      select: true,
-      options: [
-        { value: "Project", label: "Project" },
-        { value: "C2C", label: "C2C" },
-        { value: "Internal", label: "Internal" },
-      ],
     },
     {
       id: "visa",
@@ -420,22 +301,11 @@ const PlacementForm = ({
       id: "recruiterName",
       label: "Recruiter",
       grid: { xs: 12, sm: 6 },
-      autocomplete: true,
-      options: employeeOptions.recruiters,
     },
     {
       id: "sales",
       label: "Sales",
       grid: { xs: 12, sm: 6 },
-      autocomplete: true,
-      options: employeeOptions.sales,
-    },
-    {
-      id: "teamLead",
-      label: "Team Lead",
-      grid: { xs: 12, sm: 6 },
-      autocomplete: true,
-      options: employeeOptions.teamleads,
     },
     {
       id: "statusMessage",
@@ -463,11 +333,13 @@ const PlacementForm = ({
       }
       
       if (!date.isValid()) {
+        console.warn("Invalid date for display:", dateStr);
         return "";
       }
       
       return date.format("MM/DD/YYYY");
     } catch (error) {
+      console.error("Error formatting date for display:", error, dateStr);
       return "";
     }
   };
@@ -484,11 +356,13 @@ const PlacementForm = ({
       }
       
       if (!date.isValid()) {
+        console.warn("Invalid date for input:", dateStr);
         return "";
       }
       
       return date.format("YYYY-MM-DD");
     } catch (error) {
+      console.error("Error formatting date for input:", error, dateStr);
       return "";
     }
   };
@@ -498,11 +372,13 @@ const PlacementForm = ({
     try {
       const date = dayjs(dateStr);
       if (!date.isValid()) {
+        console.warn("Invalid date for submission:", dateStr);
         return null;
       }
       
       return date.format("YYYY-MM-DD");
     } catch (error) {
+      console.error("Error formatting date for submission:", error, dateStr);
       return null;
     }
   };
@@ -532,10 +408,11 @@ const PlacementForm = ({
 
   // Prepare initial values with decryption for financial fields
   const getInitialFormValues = () => {
+    // Decrypt financial values if they exist
     const decryptedBillRate = initialValues.billRate ? decryptFinancialValue(initialValues.billRate) : "";
     const decryptedPayRate = initialValues.payRate ? decryptFinancialValue(initialValues.payRate) : "";
     const decryptedGrossProfit = initialValues.grossProfit ? decryptFinancialValue(initialValues.grossProfit) : "";
-    
+    console.log(initialValues.payRate,"initialValues.payRate")
     return {
       candidateFullName: initialValues.candidateFullName || "",
       candidateEmailId: initialValues.candidateEmailId || "",
@@ -552,7 +429,6 @@ const PlacementForm = ({
       employmentType: initialValues.employmentType || "",
       recruiterName: initialValues.recruiterName || "",
       sales: initialValues.sales || "",
-      teamLead: initialValues.teamLead || "",
       status: initialValues.status || "",
       referal: initialValues.referal || "",
       projectIn: initialValues.projectIn || "",
@@ -563,7 +439,7 @@ const PlacementForm = ({
     };
   };
 
-  const initialFormValues = React.useMemo(() => getInitialFormValues(), [initialValues, isEdit]);
+  const initialFormValues = React.useMemo(() => getInitialFormValues(), [isEdit, initialValues]);
 
   // Setup formik
   const formik = useFormik({
@@ -579,6 +455,7 @@ const PlacementForm = ({
       });
 
       try {
+        // Parse and convert values
         const billRate = parseFloat(parseNumberFromFormatted(values.billRate)) || 0;
         const payRate = parseFloat(parseNumberFromFormatted(values.payRate)) || 0;
         
@@ -594,10 +471,12 @@ const PlacementForm = ({
         
         const grossProfit = Number((billRate - payRate).toFixed(2));
 
+        // Encrypt financial data before sending to backend
         const encryptedBillRate = encryptFinancialValue(billRate);
         const encryptedPayRate = encryptFinancialValue(payRate);
         const encryptedGrossProfit = encryptFinancialValue(grossProfit);
 
+        // Prepare the payload with encrypted financial data
         const payload = {
           ...values,
           startDate: formatDateForSubmission(values.startDate),
@@ -605,7 +484,7 @@ const PlacementForm = ({
           billRate: encryptedBillRate,
           payRate: encryptedPayRate,
           grossProfit: encryptedGrossProfit,
-          currency: "USD",
+          currency: "INR",
         };
 
         if (isEdit) {
@@ -681,7 +560,7 @@ const PlacementForm = ({
     }
   }, [success, error, isEdit, onCancel]);
 
-  // Function to render text fields with Autocomplete support
+  // Function to render text fields
   const renderTextField = (field) => {
     const {
       id,
@@ -696,62 +575,7 @@ const PlacementForm = ({
       rows = 1,
       inputProps = {},
       readOnly = false,
-      autocomplete = false,
     } = field;
-
-    const editableWhenLocked = ['status', 'endDate'];
-    const isFieldLocked = isLocked && !editableWhenLocked.includes(id);
-    const isFieldReadOnly = readOnly || isFieldLocked;
-
-    // Render Autocomplete for searchable dropdowns
-    if (autocomplete) {
-      return (
-        <Grid item {...grid} key={id}>
-          <Autocomplete
-            id={id}
-            options={options || []}
-            value={formik.values[id] || ''}
-            onChange={(event, newValue) => {
-              formik.setFieldValue(id, newValue || '');
-            }}
-            onBlur={() => formik.setFieldTouched(id, true)}
-            disabled={isFieldLocked || loadingEmployees}
-            freeSolo
-            loading={loadingEmployees}
-            noOptionsText={loadingEmployees ? "Loading employees..." : "No employees found"}
-            filterOptions={(options, state) => {
-              const filterValue = state.inputValue.toLowerCase();
-              return options.filter(option => 
-                String(option).toLowerCase().includes(filterValue)
-              );
-            }}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label={`${label}${required ? ' *' : ''}`}
-                error={formik.touched[id] && Boolean(formik.errors[id])}
-                helperText={
-                  formik.touched[id] && formik.errors[id]
-                    ? formik.errors[id]
-                    : loadingEmployees ? "Loading employees..." : helperText
-                }
-                required={required}
-                InputProps={{
-                  ...params.InputProps,
-                  readOnly: isFieldReadOnly,
-                  endAdornment: (
-                    <>
-                      {loadingEmployees && <CircularProgress size={20} />}
-                      {params.InputProps.endAdornment}
-                    </>
-                  ),
-                }}
-              />
-            )}
-          />
-        </Grid>
-      );
-    }
 
     return (
       <Grid item {...grid} key={id}>
@@ -764,7 +588,7 @@ const PlacementForm = ({
           value={
             id === "billRate" || id === "payRate" || id === "grossProfit"
               ? formatNumberWithCommas(formik.values[id])
-              : formik.values[id] || ''
+              : formik.values[id]
           }
           onChange={(e) => {
             if (id === "billRate" || id === "payRate") {
@@ -785,10 +609,9 @@ const PlacementForm = ({
           select={select}
           multiline={multiline}
           rows={rows}
-          disabled={isFieldLocked}
           InputProps={{
             ...inputProps,
-            readOnly: isFieldReadOnly,
+            readOnly: readOnly,
           }}
           InputLabelProps={{
             shrink: type === "date" ? true : undefined,
@@ -811,6 +634,7 @@ const PlacementForm = ({
         {isEdit ? 'Edit Placement' : 'Create New Placement'}
       </Typography>
 
+      {/* Status messages */}
       {submitStatus.error && (
         <ErrorAlert severity="error" sx={{ mb: 2 }}>
           {submitStatus.error}
@@ -869,7 +693,7 @@ const PlacementForm = ({
               variant="subtitle1"
               sx={{ fontWeight: "medium" }}
             >
-              Financial Information (USD)
+              Financial Information (INR)
             </Typography>
           </Grid>
 
