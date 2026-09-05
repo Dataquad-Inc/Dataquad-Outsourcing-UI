@@ -12,6 +12,7 @@ import {
   MenuItem,
   InputAdornment,
   CircularProgress,
+  Autocomplete,
 } from "@mui/material";
 import {
   CheckCircleOutline as SuccessIcon,
@@ -25,6 +26,7 @@ import { useFormik } from "formik";
 import * as Yup from "yup";
 import { createUsPlacement, updateUsPlacement } from "../../redux/placementSlice";
 import CryptoJS from "crypto-js";
+import httpService from "../../Services/httpService";
 
 const SuccessAlert = styled(Alert)(({ theme }) => ({
   borderLeft: `4px solid ${theme.palette.success.main}`,
@@ -73,6 +75,66 @@ const validationSchema = Yup.object().shape({
   projectInC2cSubVendorName: Yup.string().nullable(),
 });
 
+// Component for Employee Autocomplete field
+const EmployeeAutocomplete = ({ 
+  id, 
+  label, 
+  options, 
+  loading, 
+  value, 
+  onChange, 
+  error, 
+  helperText,
+  placeholder 
+}) => {
+  const [inputValue, setInputValue] = useState("");
+
+  return (
+    <Autocomplete
+      id={id}
+      options={options}
+      loading={loading}
+      value={options.find(opt => opt.value === value) || null}
+      getOptionLabel={(option) => option.label || ""}
+      isOptionEqualToValue={(option, value) => option.value === value.value}
+      onChange={(event, newValue) => {
+        onChange(newValue ? newValue.value : "");
+      }}
+      onInputChange={(event, newInputValue) => {
+        setInputValue(newInputValue);
+      }}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          fullWidth
+          label={label}
+          error={error}
+          helperText={helperText}
+          placeholder={placeholder}
+          InputProps={{
+            ...params.InputProps,
+            endAdornment: (
+              <>
+                {loading ? <CircularProgress color="inherit" size={20} /> : null}
+                {params.InputProps.endAdornment}
+              </>
+            ),
+          }}
+        />
+      )}
+      noOptionsText={loading ? "Loading employees..." : "No employees found"}
+      filterOptions={(options, { inputValue: filterValue }) => {
+        const searchLower = filterValue.toLowerCase();
+        return options.filter(option => 
+          option.label.toLowerCase().includes(searchLower) ||
+          (option.email && option.email.toLowerCase().includes(searchLower)) ||
+          (option.id && option.id.toLowerCase().includes(searchLower))
+        );
+      }}
+    />
+  );
+};
+
 const PlacementForm = ({
   initialValues = {},
   onCancel,
@@ -88,9 +150,22 @@ const PlacementForm = ({
     response: null,
   });
   
-  const {userId, encryptionKey} = useSelector((state) => state.auth);
+  const { userId, encryptionKey } = useSelector((state) => state.auth);
   const decryptionKey = atob(encryptionKey);
-  const FINANCIAL_SECRET_KEY = decryptionKey; 
+  const FINANCIAL_SECRET_KEY = decryptionKey;
+
+  // State for internal employees dropdown
+  const [internalEmployees, setInternalEmployees] = useState([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
+
+  // Company names for Project In dropdown
+  const companyNames = [
+    { value: "Adroit", label: "Adroit" },
+    { value: "Dataquad", label: "Dataquad" },
+    { value: "Cignaltech", label: "Cignaltech" },
+    { value: "Aivion", label: "Aivion" },
+    { value: "Trism", label: "Trism" },
+  ];
 
   const encryptFinancialValue = (value) => {
     if (!value) return value;
@@ -99,26 +174,58 @@ const PlacementForm = ({
       return CryptoJS.AES.encrypt(stringValue, FINANCIAL_SECRET_KEY).toString();
     } catch (error) {
       console.error("Encryption failed:", error);
-      return value; // Return original value if encryption fails
+      return value;
     }
   };
 
   const decryptFinancialValue = (encryptedValue) => {
     if (!encryptedValue) return encryptedValue;
     try {
-      // Check if the value is already decrypted (for backward compatibility)
       if (!isNaN(parseFloat(encryptedValue))) {
-        return encryptedValue; // Already a number, return as is
+        return encryptedValue;
       }
       
       const bytes = CryptoJS.AES.decrypt(encryptedValue, FINANCIAL_SECRET_KEY);
       const decryptedValue = bytes.toString(CryptoJS.enc.Utf8);
-      return decryptedValue || encryptedValue; // Return original if decryption fails
+      return decryptedValue || encryptedValue;
     } catch (error) {
       console.error("Decryption failed:", error);
-      return encryptedValue; // Return original value if decryption fails
+      return encryptedValue;
     }
   };
+
+  // Fetch all employees with entity US
+  useEffect(() => {
+  const fetchEmployees = async () => {
+    setLoadingEmployees(true);
+    try {
+      const response = await httpService.get("/users/employee?entity=US");
+
+      if (response.data && Array.isArray(response.data)) {
+        const employees = response.data
+          .filter(emp => emp.userName && emp.userName.trim() !== "")
+          .map(emp => ({
+            value: emp.userName,
+            label: emp.userName,
+            id: emp.employeeId,
+            email: emp.email,
+            designation: emp.designation,
+            roles: emp.roles,
+          }))
+          .sort((a, b) => a.label.localeCompare(b.label));
+
+        setInternalEmployees(employees);
+      }
+    } catch (error) {
+      console.error("Error fetching employees:", error?.response?.data || error.message);
+      setInternalEmployees([]);
+    } finally {
+      setLoadingEmployees(false);
+    }
+  };
+
+  fetchEmployees();
+}, []);
 
   // Form field configurations organized in arrays for better maintainability
   const consultantFields = [
@@ -175,14 +282,12 @@ const PlacementForm = ({
       required: true,
       type: "date",
       grid: { xs: 12, sm: 6 },
-      render: (row) => formatDateForDisplay(row.startDate),
     },
     {
       id: "endDate",
       label: "End Date",
       type: "date",
       grid: { xs: 12, sm: 6 },
-      render: (row) => formatDateForDisplay(row.endDate),
     },
   ];
 
@@ -268,8 +373,10 @@ const PlacementForm = ({
     },
     {
       id: "projectIn",
-      label: "Project In",
+      label: "Company",
       grid: { xs: 12, sm: 6 },
+      select: true,
+      options: companyNames,
     },
     {
       id: "visa",
@@ -293,31 +400,6 @@ const PlacementForm = ({
       id: "projectInC2cSubVendorName",
       label: "Project In/C2C Sub-Vendor Name",
       grid: { xs: 12, sm: 6 },
-    },
-  ];
-
-  const internalFields = [
-    {
-      id: "recruiterName",
-      label: "Recruiter",
-      grid: { xs: 12, sm: 6 },
-    },
-    {
-      id: "sales",
-      label: "Sales",
-      grid: { xs: 12, sm: 6 },
-    },
-    {
-      id: "statusMessage",
-      label: "Status Message",
-      grid: { xs: 12 },
-    },
-    {
-      id: "remarks",
-      label: "Remarks",
-      grid: { xs: 12 },
-      multiline: true,
-      rows: 3,
     },
   ];
 
@@ -408,11 +490,10 @@ const PlacementForm = ({
 
   // Prepare initial values with decryption for financial fields
   const getInitialFormValues = () => {
-    // Decrypt financial values if they exist
     const decryptedBillRate = initialValues.billRate ? decryptFinancialValue(initialValues.billRate) : "";
     const decryptedPayRate = initialValues.payRate ? decryptFinancialValue(initialValues.payRate) : "";
     const decryptedGrossProfit = initialValues.grossProfit ? decryptFinancialValue(initialValues.grossProfit) : "";
-    console.log(initialValues.payRate,"initialValues.payRate")
+    
     return {
       candidateFullName: initialValues.candidateFullName || "",
       candidateEmailId: initialValues.candidateEmailId || "",
@@ -455,7 +536,6 @@ const PlacementForm = ({
       });
 
       try {
-        // Parse and convert values
         const billRate = parseFloat(parseNumberFromFormatted(values.billRate)) || 0;
         const payRate = parseFloat(parseNumberFromFormatted(values.payRate)) || 0;
         
@@ -471,12 +551,10 @@ const PlacementForm = ({
         
         const grossProfit = Number((billRate - payRate).toFixed(2));
 
-        // Encrypt financial data before sending to backend
         const encryptedBillRate = encryptFinancialValue(billRate);
         const encryptedPayRate = encryptFinancialValue(payRate);
         const encryptedGrossProfit = encryptFinancialValue(grossProfit);
 
-        // Prepare the payload with encrypted financial data
         const payload = {
           ...values,
           startDate: formatDateForSubmission(values.startDate),
@@ -575,6 +653,7 @@ const PlacementForm = ({
       rows = 1,
       inputProps = {},
       readOnly = false,
+      loading = false,
     } = field;
 
     return (
@@ -588,7 +667,7 @@ const PlacementForm = ({
           value={
             id === "billRate" || id === "payRate" || id === "grossProfit"
               ? formatNumberWithCommas(formik.values[id])
-              : formik.values[id]
+              : formik.values[id] || ""
           }
           onChange={(e) => {
             if (id === "billRate" || id === "payRate") {
@@ -609,6 +688,7 @@ const PlacementForm = ({
           select={select}
           multiline={multiline}
           rows={rows}
+          disabled={loading}
           InputProps={{
             ...inputProps,
             readOnly: readOnly,
@@ -617,12 +697,17 @@ const PlacementForm = ({
             shrink: type === "date" ? true : undefined,
           }}
         >
-          {select &&
+          {select && options.length > 0 ? (
             options.map((option) => (
               <MenuItem key={option.value} value={option.value}>
                 {option.label}
               </MenuItem>
-            ))}
+            ))
+          ) : select && loading ? (
+            <MenuItem disabled>Loading employees...</MenuItem>
+          ) : select ? (
+            <MenuItem disabled>No options available</MenuItem>
+          ) : null}
         </TextField>
       </Grid>
     );
@@ -724,9 +809,81 @@ const PlacementForm = ({
               Internal Information
             </Typography>
           </Grid>
-          {internalFields.map((field) =>
-            renderTextField(field)
-          )}
+          
+          {/* Recruiter Field - Using Autocomplete with search */}
+          <Grid item xs={12} sm={6}>
+            <EmployeeAutocomplete
+              id="recruiterName"
+              label="Recruiter"
+              options={internalEmployees}
+              loading={loadingEmployees}
+              value={formik.values.recruiterName}
+              onChange={(newValue) => {
+                formik.setFieldValue("recruiterName", newValue);
+              }}
+              error={formik.touched.recruiterName && Boolean(formik.errors.recruiterName)}
+              helperText={
+                formik.touched.recruiterName && formik.errors.recruiterName
+                  ? formik.errors.recruiterName
+                  : ""
+              }
+              placeholder="Search for a recruiter..."
+            />
+          </Grid>
+
+          {/* Sales Field - Using Autocomplete with search */}
+          <Grid item xs={12} sm={6}>
+            <EmployeeAutocomplete
+              id="sales"
+              label="Sales"
+              options={internalEmployees}
+              loading={loadingEmployees}
+              value={formik.values.sales}
+              onChange={(newValue) => {
+                formik.setFieldValue("sales", newValue);
+              }}
+              error={formik.touched.sales && Boolean(formik.errors.sales)}
+              helperText={
+                formik.touched.sales && formik.errors.sales
+                  ? formik.errors.sales
+                  : ""
+              }
+              placeholder="Search for a sales person..."
+            />
+          </Grid>
+
+          {/* Status Message and Remarks */}
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              id="statusMessage"
+              name="statusMessage"
+              label="Status Message"
+              value={formik.values.statusMessage || ""}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={formik.touched.statusMessage && Boolean(formik.errors.statusMessage)}
+              helperText={formik.touched.statusMessage && formik.errors.statusMessage}
+              multiline
+              rows={2}
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              id="remarks"
+              name="remarks"
+              label="Remarks"
+              value={formik.values.remarks || ""}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={formik.touched.remarks && Boolean(formik.errors.remarks)}
+              helperText={formik.touched.remarks && formik.errors.remarks}
+              multiline
+              rows={3}
+            />
+          </Grid>
 
           {/* Form Actions */}
           <Grid
