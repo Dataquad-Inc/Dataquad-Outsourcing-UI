@@ -12,6 +12,7 @@ import {
   MenuItem,
   InputAdornment,
   CircularProgress,
+  Autocomplete,
 } from "@mui/material";
 import {
   CheckCircleOutline as SuccessIcon,
@@ -25,6 +26,7 @@ import { useFormik } from "formik";
 import * as Yup from "yup";
 import { createPlacement, updatePlacement } from "../../redux/placementSlice";
 import CryptoJS from "crypto-js";
+import httpService from "../../Services/httpService";
 
 const SuccessAlert = styled(Alert)(({ theme }) => ({
   borderLeft: `4px solid ${theme.palette.success.main}`,
@@ -71,6 +73,69 @@ const validationSchema = Yup.object().shape({
   company: Yup.string().required("Company is required"),
 });
 
+// Component for Employee Autocomplete field
+const EmployeeAutocomplete = ({ 
+  id, 
+  label, 
+  options, 
+  loading, 
+  value, 
+  onChange, 
+  error, 
+  helperText,
+  placeholder,
+  required = false,
+  disabled = false,
+}) => {
+  const [inputValue, setInputValue] = useState("");
+
+  return (
+    <Autocomplete
+      id={id}
+      options={options}
+      loading={loading}
+      value={options.find(opt => opt.value === value) || null}
+      getOptionLabel={(option) => option.label || ""}
+      isOptionEqualToValue={(option, value) => option.value === value.value}
+      onChange={(event, newValue) => {
+        onChange(newValue ? newValue.value : "");
+      }}
+      onInputChange={(event, newInputValue) => {
+        setInputValue(newInputValue);
+      }}
+      disabled={disabled}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          fullWidth
+          label={`${label}${required ? ' *' : ''}`}
+          error={error}
+          helperText={helperText}
+          placeholder={placeholder}
+          InputProps={{
+            ...params.InputProps,
+            endAdornment: (
+              <>
+                {loading ? <CircularProgress color="inherit" size={20} /> : null}
+                {params.InputProps.endAdornment}
+              </>
+            ),
+          }}
+        />
+      )}
+      noOptionsText={loading ? "Loading employees..." : "No employees found"}
+      filterOptions={(options, { inputValue: filterValue }) => {
+        const searchLower = filterValue.toLowerCase();
+        return options.filter(option => 
+          option.label.toLowerCase().includes(searchLower) ||
+          (option.email && option.email.toLowerCase().includes(searchLower)) ||
+          (option.id && option.id.toLowerCase().includes(searchLower))
+        );
+      }}
+    />
+  );
+};
+
 const PlacementForm = ({
   initialValues = {},
   onCancel,
@@ -86,28 +151,55 @@ const PlacementForm = ({
     response: null,
   });
   
-  const [employeeOptions, setEmployeeOptions] = useState({ recruiters: [], sales: [], teamleads: [] });
+  const [employeeOptions, setEmployeeOptions] = useState({ 
+    recruiters: [], 
+    sales: [], 
+    teamleads: [] 
+  });
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
 
-  useEffect(() => {
-    const fetchEmployees = async (role) => {
-      const res = await fetch(`https://mymulya.com/candidate/employees?role=${role}`);
-      const data = await res.json();
-      return Array.isArray(data) ? data : [];
-    };
-    Promise.all([
-      fetchEmployees("EMPLOYEE"),
-      fetchEmployees("BDM"),
-      fetchEmployees("TEAMLEAD"),
-    ]).then(([recruiters, sales, teamleads]) =>
-      setEmployeeOptions({ recruiters, sales, teamleads })
-    ).catch(console.error);
-  }, []);
-
-  const {userId, encryptionKey, role} = useSelector((state) => state.auth);
+  const { userId, encryptionKey, role } = useSelector((state) => state.auth);
   const isLocked = isEdit && (initialValues.lock === true || initialValues.lock === 'true') && role !== 'SUPERADMIN';
   console.log('lock debug:', { lock: initialValues.lock, lockType: typeof initialValues.lock, role, isLocked });
   const decryptionKey = atob(encryptionKey);
-  const FINANCIAL_SECRET_KEY = decryptionKey; 
+  const FINANCIAL_SECRET_KEY = decryptionKey;
+
+  // Fetch all employees with entity US
+  useEffect(() => {
+  const fetchEmployees = async () => {
+    setLoadingEmployees(true);
+    try {
+      const response = await httpService.get("/users/employee?entity=IN");
+
+      if (response.data && Array.isArray(response.data)) {
+        const employees = response.data
+          .filter(emp => emp.userName && emp.userName.trim() !== "")
+          .map(emp => ({
+            value: emp.userName,
+            label: emp.userName,
+            id: emp.employeeId,
+            email: emp.email,
+            designation: emp.designation,
+            roles: emp.roles,
+          }))
+          .sort((a, b) => a.label.localeCompare(b.label));
+
+        setEmployeeOptions({
+          recruiters: employees,
+          sales: employees,
+          teamleads: employees,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching employees:", error?.response?.data || error.message);
+      setEmployeeOptions({ recruiters: [], sales: [], teamleads: [] });
+    } finally {
+      setLoadingEmployees(false);
+    }
+  };
+
+  fetchEmployees();
+}, []);
 
   const encryptFinancialValue = (value) => {
     if (!value) return value;
@@ -202,45 +294,46 @@ const PlacementForm = ({
     },
   ];
 
-    const companyDetails = [
+  const companyDetails = [
     {
       id: "company",
       label: "Company",
       required: true,
       grid: { xs: 12, sm: 6 },
-       select: true,
+      select: true,
       options: [
         { value: "Dataquad", label: "Dataquad" },
         { value: "Adroit", label: "Adroit" },
       ]
     }
   ];
+
   const financialFields = [
-      {
-    id: "currency",
-    label: "Currency",
-    required: true,
-    grid: { xs: 12, sm: 6 },
-    select: true,
-    helperText: "Select currency",
-    options: [
-      { value: "INR", label: "INR" },
-      { value: "USD", label: "USD" },
-    ],
-  },
-  {
-    id: "ratePeriod",
-    label: "Rate Period",
-    required: true,
-    grid: { xs: 12, sm: 6 },
-    select: true,
-    options: [
-      { value: "HOUR", label: "Hour" },
-      { value: "DAY", label: "Day" },
-      { value: "MONTH", label: "Month" },
-      { value: "YEAR", label: "Year" },
-    ],
-  },
+    {
+      id: "currency",
+      label: "Currency",
+      required: true,
+      grid: { xs: 12, sm: 6 },
+      select: true,
+      helperText: "Select currency",
+      options: [
+        { value: "INR", label: "INR" },
+        { value: "USD", label: "USD" },
+      ],
+    },
+    {
+      id: "ratePeriod",
+      label: "Rate Period",
+      required: true,
+      grid: { xs: 12, sm: 6 },
+      select: true,
+      options: [
+        { value: "HOUR", label: "Hour" },
+        { value: "DAY", label: "Day" },
+        { value: "MONTH", label: "Month" },
+        { value: "YEAR", label: "Year" },
+      ],
+    },
     {
       id: "billRate",
       label: "Bill Rate",
@@ -304,42 +397,6 @@ const PlacementForm = ({
         { value: "Cancelled", label: "Cancelled" },
         { value: "BackOut", label: "BackOut" },
       ],
-    },
-  ];
-
-  const internalFields = [
-    {
-      id: "recruiterName",
-      label: "Recruiter",
-      grid: { xs: 12, sm: 6 },
-      select: true,
-      options: employeeOptions.recruiters.map((e) => ({ value: e, label: e })),
-    },
-    {
-      id: "sales",
-      label: "Sales",
-      grid: { xs: 12, sm: 6 },
-      select: true,
-      options: employeeOptions.sales.map((e) => ({ value: e, label: e })),
-    },
-    {
-      id: "teamLead",
-      label: "Team Lead",
-      grid: { xs: 12, sm: 6 },
-      select: true,
-      options: employeeOptions.teamleads.map((e) => ({ value: e, label: e })),
-    },
-    {
-      id: "statusMessage",
-      label: "Status Message",
-      grid: { xs: 12 },
-    },
-    {
-      id: "remarks",
-      label: "Remarks",
-      grid: { xs: 12 },
-      multiline: true,
-      rows: 3,
     },
   ];
 
@@ -745,9 +802,107 @@ const PlacementForm = ({
               Internal Information
             </Typography>
           </Grid>
-          {internalFields.map((field) =>
-            renderTextField(field)
-          )}
+          
+          {/* Recruiter Field - Using Autocomplete with search */}
+          <Grid item xs={12} sm={6}>
+            <EmployeeAutocomplete
+              id="recruiterName"
+              label="Recruiter"
+              options={employeeOptions.recruiters}
+              loading={loadingEmployees}
+              value={formik.values.recruiterName}
+              onChange={(newValue) => {
+                formik.setFieldValue("recruiterName", newValue);
+              }}
+              error={formik.touched.recruiterName && Boolean(formik.errors.recruiterName)}
+              helperText={
+                formik.touched.recruiterName && formik.errors.recruiterName
+                  ? formik.errors.recruiterName
+                  : ""
+              }
+              placeholder="Search for a recruiter..."
+              disabled={isLocked}
+            />
+          </Grid>
+
+          {/* Sales Field - Using Autocomplete with search */}
+          <Grid item xs={12} sm={6}>
+            <EmployeeAutocomplete
+              id="sales"
+              label="Sales"
+              options={employeeOptions.sales}
+              loading={loadingEmployees}
+              value={formik.values.sales}
+              onChange={(newValue) => {
+                formik.setFieldValue("sales", newValue);
+              }}
+              error={formik.touched.sales && Boolean(formik.errors.sales)}
+              helperText={
+                formik.touched.sales && formik.errors.sales
+                  ? formik.errors.sales
+                  : ""
+              }
+              placeholder="Search for a sales person..."
+              disabled={isLocked}
+            />
+          </Grid>
+
+          {/* Team Lead Field - Using Autocomplete with search */}
+          <Grid item xs={12} sm={6}>
+            <EmployeeAutocomplete
+              id="teamLead"
+              label="Team Lead"
+              options={employeeOptions.teamleads}
+              loading={loadingEmployees}
+              value={formik.values.teamLead}
+              onChange={(newValue) => {
+                formik.setFieldValue("teamLead", newValue);
+              }}
+              error={formik.touched.teamLead && Boolean(formik.errors.teamLead)}
+              helperText={
+                formik.touched.teamLead && formik.errors.teamLead
+                  ? formik.errors.teamLead
+                  : ""
+              }
+              placeholder="Search for a team lead..."
+              disabled={isLocked}
+            />
+          </Grid>
+
+          {/* Status Message and Remarks */}
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              id="statusMessage"
+              name="statusMessage"
+              label="Status Message"
+              value={formik.values.statusMessage || ""}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={formik.touched.statusMessage && Boolean(formik.errors.statusMessage)}
+              helperText={formik.touched.statusMessage && formik.errors.statusMessage}
+              multiline
+              rows={2}
+              disabled={isLocked}
+            />
+          </Grid>
+
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              id="remarks"
+              name="remarks"
+              label="Remarks"
+              value={formik.values.remarks || ""}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={formik.touched.remarks && Boolean(formik.errors.remarks)}
+              helperText={formik.touched.remarks && formik.errors.remarks}
+              multiline
+              rows={3}
+              disabled={isLocked}
+            />
+          </Grid>
 
           {/* Form Actions */}
           <Grid
@@ -775,7 +930,7 @@ const PlacementForm = ({
               variant="contained"
               color="primary"
               startIcon={<SaveIcon />}
-              disabled={loading || formik.isSubmitting}
+              disabled={loading || formik.isSubmitting || isLocked}
             >
               {loading || formik.isSubmitting ? (
                 <>

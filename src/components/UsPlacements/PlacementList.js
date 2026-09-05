@@ -553,7 +553,7 @@ const CandidateTablePage = ({
                       onClick={() => handleRequestSort('projectIn')}
                       sx={{ fontSize: '0.75rem' }}
                     >
-                      Project In
+                      Company
                     </TableSortLabel>
                   </TableCell>
                   <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
@@ -1246,7 +1246,7 @@ const PlacementsList = () => {
       },
       {
         key: "projectIn",
-        label: "Project In",
+        label: "Company",
         type: "text",
         sortable: true,
         filterable: true,
