@@ -25,7 +25,6 @@ export const fetchAllClients = createAsyncThunk(
   },
 );
 
-// Fetch clients by BDM userId — path param
 export const fetchClientsByBdm = createAsyncThunk(
   "clients/fetchByBdm",
   async (userId, { rejectWithValue }) => {
@@ -48,7 +47,6 @@ export const fetchClientsByBdm = createAsyncThunk(
   },
 );
 
-// ✅ Overall clients — SUPERADMIN only
 export const fetchOverallClients = createAsyncThunk(
   "clients/fetchOverall",
   async (_, { rejectWithValue }) => {
@@ -161,8 +159,7 @@ export const filterClientsByDateRange = createAsyncThunk(
   async ({ startDate, endDate }, { rejectWithValue }) => {
     try {
       const response = await httpService.get(
-        "/requirements/bdm/getAll/filterByDate",
-        { params: { startDate, endDate } },
+        `/requirements/bdm/getAll/filterByDate?startDate=${startDate}&endDate=${endDate}`
       );
       const clientsListDateRange = response.data?.data || [];
       if (!Array.isArray(clientsListDateRange)) {
@@ -185,9 +182,9 @@ const clientSlice = createSlice({
   name: "clients",
   initialState: {
     list: [],
-    overallList: [],          // ← overall clients (SUPERADMIN only)
+    overallList: [],
     loading: false,
-    overallStatus: "idle",    // ← "idle" | "loading" | "succeeded" | "failed"
+    overallStatus: "idle",
     error: null,
     downloadStatus: "idle",
     updateStatus: "idle",
@@ -205,10 +202,12 @@ const clientSlice = createSlice({
       state.overallStatus = "idle";
       state.error = null;
     },
+    clearFilteredClients: (state) => {
+      state.list = [];
+    },
   },
   extraReducers: (builder) => {
     builder
-      // ── Fetch all clients ──────────────────────────────────────────────────
       .addCase(fetchAllClients.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -222,8 +221,6 @@ const clientSlice = createSlice({
         state.error = action.payload;
         showToast(action.payload, "error");
       })
-
-      // ── Fetch clients by BDM ───────────────────────────────────────────────
       .addCase(fetchClientsByBdm.pending, (state) => {
         state.loading = true;
         state.fetchByBdmStatus = "loading";
@@ -240,8 +237,6 @@ const clientSlice = createSlice({
         state.error = action.payload;
         showToast(action.payload, "error");
       })
-
-      // ── Fetch overall clients (SUPERADMIN) ─────────────────────────────────
       .addCase(fetchOverallClients.pending, (state) => {
         state.overallStatus = "loading";
         state.error = null;
@@ -255,8 +250,6 @@ const clientSlice = createSlice({
         state.error = action.payload;
         showToast(action.payload, "error");
       })
-
-      // ── Download docs ──────────────────────────────────────────────────────
       .addCase(downloadClientDocs.pending, (state) => {
         state.downloadStatus = "loading";
       })
@@ -269,8 +262,6 @@ const clientSlice = createSlice({
         state.error = action.payload;
         showToast(`Download failed: ${action.payload}`, "error");
       })
-
-      // ── Update client ──────────────────────────────────────────────────────
       .addCase(updateClient.pending, (state) => {
         state.updateStatus = "loading";
       })
@@ -287,8 +278,6 @@ const clientSlice = createSlice({
         state.error = action.payload;
         showToast(action.payload, "error");
       })
-
-      // ── Delete client ──────────────────────────────────────────────────────
       .addCase(deleteClient.pending, (state) => {
         state.deleteStatus = "loading";
       })
@@ -304,8 +293,6 @@ const clientSlice = createSlice({
         state.error = action.payload;
         showToast(action.payload, "error");
       })
-
-      // ── Create client ──────────────────────────────────────────────────────
       .addCase(createClient.pending, (state) => {
         state.createStatus = "loading";
       })
@@ -319,8 +306,6 @@ const clientSlice = createSlice({
         state.error = action.payload;
         showToast(action.payload, "error");
       })
-
-      // ── Date range filter ──────────────────────────────────────────────────
       .addCase(filterClientsByDateRange.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -328,7 +313,6 @@ const clientSlice = createSlice({
       .addCase(filterClientsByDateRange.fulfilled, (state, action) => {
         state.loading = false;
         state.list = action.payload;
-        showToast("Filtered client list fetched successfully!", "success");
       })
       .addCase(filterClientsByDateRange.rejected, (state, action) => {
         state.loading = false;
@@ -338,5 +322,5 @@ const clientSlice = createSlice({
   },
 });
 
-export const { resetStatus } = clientSlice.actions;
+export const { resetStatus, clearFilteredClients } = clientSlice.actions;
 export default clientSlice.reducer;

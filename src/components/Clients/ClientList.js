@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import DataTable from "../muiComponents/DataTabel";
 import {
   Box,
@@ -30,7 +30,8 @@ import {
   createClient,
   resetStatus,
   fetchClientsByBdm,
-  fetchOverallClients, // ← new
+  fetchOverallClients,
+  filterClientsByDateRange,
 } from "../../redux/clientsSlice";
 import { showToast } from "../../utils/ToastNotification";
 import ToastNotification from "../../utils/ToastNotification";
@@ -54,9 +55,9 @@ const ClientList = () => {
 
   const {
     list: clients,
-    overallList, // ← new
+    overallList,
     loading,
-    overallStatus, // ← new
+    overallStatus,
     error,
     downloadStatus,
     updateStatus,
@@ -78,10 +79,22 @@ const ClientList = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState(null);
   const [levelFilter, setLevelFilter] = useState("ALL");
+  const [isFiltered, setIsFiltered] = useState(false);
 
-  // ─── Initial fetch ──────────────────────────────────────────────────────────
+  // ─── Refs to prevent multiple API calls ─────────────────────────────────────
+  const hasFetched = useRef(false);
+  const isRefreshing = useRef(false);
+  const isApplyingFilter = useRef(false);
+  const prevRoleRef = useRef(role);
+  const prevUserIdRef = useRef(userId);
+
+  // ─── Initial fetch - only once ─────────────────────────────────────────────
   useEffect(() => {
+    if (hasFetched.current) return;
     if (!role) return;
+    
+    hasFetched.current = true;
+    
     if (role === "BDM") {
       if (!userId) {
         showToast("User ID not found", "error");
@@ -93,6 +106,32 @@ const ClientList = () => {
     }
   }, [dispatch, role, userId]);
 
+  // ─── Handle role/userId changes ─────────────────────────────────────────────
+  useEffect(() => {
+    // Skip initial mount
+    if (!hasFetched.current) return;
+    
+    // Check if role or userId changed
+    if (prevRoleRef.current !== role || prevUserIdRef.current !== userId) {
+      prevRoleRef.current = role;
+      prevUserIdRef.current = userId;
+      
+      // Only refetch if not filtered
+      if (!isFiltered) {
+        if (role === "BDM") {
+          if (!userId) {
+            showToast("User ID not found", "error");
+            return;
+          }
+          dispatch(fetchClientsByBdm(userId));
+        } else {
+          dispatch(fetchAllClients());
+        }
+      }
+    }
+  }, [dispatch, role, userId, isFiltered]);
+
+  // ─── Handle overall tab fetch ──────────────────────────────────────────────
   useEffect(() => {
     if (levelFilter === "OVERALL" && canViewOverall) {
       dispatch(fetchOverallClients());
@@ -129,6 +168,74 @@ const ClientList = () => {
       dispatch(resetStatus());
     }
   }, [updateStatus, createStatus, deleteStatus, error, dispatch]);
+
+  // ─── Handle date range filter ──────────────────────────────────────────────
+  const handleDateRangeFilter = useCallback((startDate, endDate) => {
+    // Prevent multiple calls
+    if (isApplyingFilter.current) return;
+    isApplyingFilter.current = true;
+    
+    if (startDate && endDate) {
+      setIsFiltered(true);
+      dispatch(filterClientsByDateRange({ startDate, endDate }))
+        .finally(() => {
+          setTimeout(() => {
+            isApplyingFilter.current = false;
+          }, 300);
+        });
+    } else {
+      setIsFiltered(false);
+      // Clear filter - fetch all clients based on role
+      if (role === "BDM") {
+        if (!userId) {
+          showToast("User ID not found", "error");
+          return;
+        }
+        dispatch(fetchClientsByBdm(userId))
+          .finally(() => {
+            setTimeout(() => {
+              isApplyingFilter.current = false;
+            }, 300);
+          });
+      } else {
+        dispatch(fetchAllClients())
+          .finally(() => {
+            setTimeout(() => {
+              isApplyingFilter.current = false;
+            }, 300);
+          });
+      }
+    }
+  }, [dispatch, role, userId]);
+
+  // ─── Handle clear filter ────────────────────────────────────────────────────
+  const handleClearFilter = useCallback(() => {
+    // Prevent multiple calls
+    if (isRefreshing.current) return;
+    isRefreshing.current = true;
+    
+    setIsFiltered(false);
+    // Refresh data based on role
+    if (role === "BDM") {
+      if (!userId) {
+        showToast("User ID not found", "error");
+        return;
+      }
+      dispatch(fetchClientsByBdm(userId))
+        .finally(() => {
+          setTimeout(() => {
+            isRefreshing.current = false;
+          }, 300);
+        });
+    } else {
+      dispatch(fetchAllClients())
+        .finally(() => {
+          setTimeout(() => {
+            isRefreshing.current = false;
+          }, 300);
+        });
+    }
+  }, [dispatch, role, userId]);
 
   // ─── Handlers ───────────────────────────────────────────────────────────────
   const handleDownloadDocs = (clientId) => {
@@ -218,24 +325,43 @@ const ClientList = () => {
   };
 
   const fetchClients = useCallback(() => {
+    // Prevent multiple refresh calls
+    if (isRefreshing.current) return;
     if (!role) return;
+    if (isFiltered) {
+      // If filtered, don't refresh with normal fetch
+      return;
+    }
+    
+    isRefreshing.current = true;
+    
     if (role === "BDM") {
       if (!userId) {
         showToast("User ID not found. Cannot refresh BDM clients.", "error");
+        isRefreshing.current = false;
         return;
       }
-      dispatch(fetchClientsByBdm(userId));
+      dispatch(fetchClientsByBdm(userId))
+        .finally(() => {
+          setTimeout(() => {
+            isRefreshing.current = false;
+          }, 300);
+        });
     } else {
-      dispatch(fetchAllClients());
+      dispatch(fetchAllClients())
+        .finally(() => {
+          setTimeout(() => {
+            isRefreshing.current = false;
+          }, 300);
+        });
     }
-  }, [dispatch, role, userId]);
+  }, [dispatch, role, userId, isFiltered]);
 
-  // Refresh callback for OVERALL tab
   const fetchOverall = useCallback(() => {
     if (canViewOverall) dispatch(fetchOverallClients());
   }, [dispatch, canViewOverall]);
 
-  // ─── Full columns (ACTIVE / INACTIVE / ALL views) ───────────────────────────
+  // ─── Columns ────────────────────────────────────────────────────────────────
   const generateColumns = useCallback(
     () => [
       {
@@ -427,8 +553,6 @@ const ClientList = () => {
     [loading],
   );
 
-  // Field names match the /overall-clients API response:
-  // clientId, clientName, bdmName, clientWebsiteUrl, clientLinkedInUrl, clientAddress, location
   const generateOverallColumns = useCallback(
     () => [
       {
@@ -464,7 +588,6 @@ const ClientList = () => {
             row.bdmName || "N/A"
           ),
       },
-      
       {
         key: "clientWebsiteUrl",
         label: "Website",
@@ -581,7 +704,6 @@ const ClientList = () => {
             </Typography>
           ),
       },
-      
     ],
     [overallStatus],
   );
@@ -592,14 +714,12 @@ const ClientList = () => {
     [generateOverallColumns],
   );
 
-  // Pick columns and data based on active tab
   const isOverallTab = levelFilter === "OVERALL";
   const activeColumns = isOverallTab ? overallColumns : columns;
   const tableData = isOverallTab ? overallList : handleClientsByStatus(clients);
   const tableUniqueId = isOverallTab ? "clientId" : "id";
   const isTableLoading = isOverallTab ? overallStatus === "loading" : loading;
 
-  // ─── Derive table title ──────────────────────────────────────────────────────
   const tableTitle =
     levelFilter === "ACTIVE"
       ? "Active Clients"
@@ -614,7 +734,6 @@ const ClientList = () => {
     <>
       <ToastNotification />
 
-      {/* Header */}
       <Stack
         direction="row"
         alignItems="center"
@@ -640,10 +759,14 @@ const ClientList = () => {
           sx={{ ml: "auto" }}
         >
           <ExportButton
-          apiUrl="/requirements/bdm/getAll" // ← point to your real export endpoint
-          fileName="clients"
-        />
-          <DateRangeFilter component="Clients" />
+            apiUrl="/requirements/bdm/getAll"
+            fileName="clients"
+          />
+          <DateRangeFilter 
+            component="Clients"
+            onDateChange={handleDateRangeFilter}
+            onClearFilter={handleClearFilter}
+          />
           <Button
             variant="contained"
             color="primary"
@@ -652,7 +775,6 @@ const ClientList = () => {
             Add New Client
           </Button>
         </Stack>
-        
       </Stack>
 
       {error && (
@@ -661,7 +783,6 @@ const ClientList = () => {
         </Alert>
       )}
 
-      {/* Status filter */}
       <Box sx={{ mb: 2, display: "flex", justifyContent: "start" }}>
         <ToggleButtonGroup
           value={levelFilter}
@@ -691,8 +812,6 @@ const ClientList = () => {
           <ToggleButton value="INACTIVE" aria-label="inactive clients">
             INACTIVE
           </ToggleButton>
-
-          {/* OVERALL tab - visible to SUPERADMIN and BDM */}
           {canViewOverall && (
             <ToggleButton value="OVERALL" aria-label="overall clients">
               OVERALL CLIENTS
@@ -701,7 +820,6 @@ const ClientList = () => {
         </ToggleButtonGroup>
       </Box>
 
-      {/* Data Table */}
       <DataTable
         data={tableData}
         columns={activeColumns}

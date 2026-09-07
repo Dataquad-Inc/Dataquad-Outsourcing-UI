@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   Table,
   TableBody,
@@ -43,6 +43,23 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { LoadingSpinner } from "./LoadingSpinner";
 
+// ─── Custom debounce hook ──────────────────────────────────────────────────────
+const useDebounce = (value, delay = 500) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+};
+
 const CustomDataTable = ({
   title,
   columns,
@@ -60,6 +77,7 @@ const CustomDataTable = ({
   onSearchClear,
   onRefresh,
   onFiltersChange,
+  debounceDelay = 500, // Configurable debounce delay
 }) => {
   const theme = useTheme();
   const [showFilters, setShowFilters] = useState(false);
@@ -75,6 +93,12 @@ const CustomDataTable = ({
     }
     return filters;
   });
+
+  // ─── Debounced search state ──────────────────────────────────────────────────
+  const [searchInput, setSearchInput] = useState(search || "");
+  const debouncedSearch = useDebounce(searchInput, debounceDelay);
+  const isDebouncingRef = useRef(false);
+  const prevDebouncedSearchRef = useRef(debouncedSearch);
 
   const [columnSelectorAnchor, setColumnSelectorAnchor] = useState(null);
   const [sortBy, setSortBy] = useState(null);
@@ -113,9 +137,32 @@ const CustomDataTable = ({
 
   const FILTER_FIELD_WIDTH = 200;
   const DATE_RANGE_FIELD_WIDTH = 380;
-  
 
   const filterableColumns = columns.filter((col) => col.applyFilter === true);
+
+  // ─── Sync search prop with internal state ──────────────────────────────────
+  useEffect(() => {
+    if (search !== undefined && search !== searchInput) {
+      setSearchInput(search || "");
+    }
+  }, [search]);
+
+  // ─── Debounced search effect ─────────────────────────────────────────────────
+  useEffect(() => {
+    // Only trigger if the debounced value changed
+    if (prevDebouncedSearchRef.current !== debouncedSearch) {
+      prevDebouncedSearchRef.current = debouncedSearch;
+      
+      // Call the parent's search change handler with debounced value
+      if (onSearchChange && typeof onSearchChange === 'function') {
+        // Create a synthetic event-like object
+        const syntheticEvent = {
+          target: { value: debouncedSearch }
+        };
+        onSearchChange(syntheticEvent);
+      }
+    }
+  }, [debouncedSearch, onSearchChange]);
 
   useEffect(() => {
     if (JSON.stringify(filters) !== JSON.stringify(localFilters)) {
@@ -143,6 +190,25 @@ const CustomDataTable = ({
       }
     }
   }, [visibleColumns, filterStorageKey]);
+
+  // ─── Handle search input change (immediate) ────────────────────────────────
+  const handleSearchInputChange = useCallback((event) => {
+    const value = event.target.value;
+    setSearchInput(value);
+    
+    // If search is cleared, immediately trigger the clear
+    if (value === '' && onSearchClear) {
+      onSearchClear();
+    }
+  }, [onSearchClear]);
+
+  // ─── Handle search clear ────────────────────────────────────────────────────
+  const handleSearchClearClick = useCallback(() => {
+    setSearchInput('');
+    if (onSearchClear) {
+      onSearchClear();
+    }
+  }, [onSearchClear]);
 
   const handleFilterChange = (columnId, value, filterType) => {
     const newFilters = { ...localFilters };
@@ -407,7 +473,6 @@ const CustomDataTable = ({
     const currentFilter = localFilters[column.id];
     const currentValue = currentFilter?.value || "";
     
-    // Get custom width or use default based on filter type
     const getFilterWidth = () => {
       if (column.filterWidth) return column.filterWidth;
       if (column.filterType === "dateRange") return DATE_RANGE_FIELD_WIDTH;
@@ -480,182 +545,113 @@ const CustomDataTable = ({
         );
 
       case "dateRange":
-  return (
-    <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Box
-        sx={{
-          display: "flex",
-          gap: 1.5,
-          flexDirection: "row",
-          alignItems: "center",
-          width: "100%",
-        }}
-      >
-        <DatePicker
-          label={`${column.label} From`}
-          value={currentValue?.from ? new Date(currentValue.from) : null}
-          onChange={(date) =>
-            handleFilterChange(
-              column.id,
-              {
-                ...currentValue,
-                from: date?.toISOString(),
-              },
-              "dateRange"
-            )
-          }
-          renderInput={(params) => (
-            <TextField 
-              {...params} 
-              size="small" 
-              sx={{ 
-                flex: 1,
-                minWidth: 160, // ✅ Increased minimum width
+        return (
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <Box
+              sx={{
+                display: "flex",
+                gap: 1.5,
+                flexDirection: "row",
+                alignItems: "center",
                 width: "100%",
-                "& .MuiInputBase-root": {
-                  height: 40,
-                  borderRadius: "6px",
-                  paddingRight: "8px", // ✅ Add padding for icon
-                },
-                "& .MuiInputBase-input": {
-                  padding: "8px 12px", // ✅ Adjust padding to prevent text overlap
-                  fontSize: "0.875rem",
-                },
-                "& .MuiInputLabel-root": {
-                  fontSize: "0.75rem",
-                  transform: "translate(12px, 10px) scale(1)", // ✅ Adjust label position
-                },
-                "& .MuiInputLabel-shrink": {
-                  transform: "translate(12px, -6px) scale(0.75)", // ✅ Shrink label position
-                },
-                "& .MuiOutlinedInput-notchedOutline": {
-                  legend: {
-                    padding: "0 8px", // ✅ Add padding for label
-                  }
+              }}
+            >
+              <DatePicker
+                label={`${column.label} From`}
+                value={currentValue?.from ? new Date(currentValue.from) : null}
+                onChange={(date) =>
+                  handleFilterChange(
+                    column.id,
+                    {
+                      ...currentValue,
+                      from: date?.toISOString(),
+                    },
+                    "dateRange"
+                  )
                 }
-              }} 
-            />
-          )}
-        />
-        <DatePicker
-          label={`${column.label} To`}
-          value={currentValue?.to ? new Date(currentValue.to) : null}
-          onChange={(date) =>
-            handleFilterChange(
-              column.id,
-              {
-                ...currentValue,
-                to: date?.toISOString(),
-              },
-              "dateRange"
-            )
-          }
-          renderInput={(params) => (
-            <TextField 
-              {...params} 
-              size="small" 
-              sx={{ 
-                flex: 1,
-                minWidth: 160, // ✅ Increased minimum width
-                width: "100%",
-                "& .MuiInputBase-root": {
-                  height: 40,
-                  borderRadius: "6px",
-                  paddingRight: "8px", // ✅ Add padding for icon
-                },
-                "& .MuiInputBase-input": {
-                  padding: "8px 12px", // ✅ Adjust padding to prevent text overlap
-                  fontSize: "0.875rem",
-                },
-                "& .MuiInputLabel-root": {
-                  fontSize: "0.75rem",
-                  transform: "translate(12px, 10px) scale(1)", // ✅ Adjust label position
-                },
-                "& .MuiInputLabel-shrink": {
-                  transform: "translate(12px, -6px) scale(0.75)", // ✅ Shrink label position
-                },
-                "& .MuiOutlinedInput-notchedOutline": {
-                  legend: {
-                    padding: "0 8px", // ✅ Add padding for label
-                  }
+                renderInput={(params) => (
+                  <TextField 
+                    {...params} 
+                    size="small" 
+                    sx={{ 
+                      flex: 1,
+                      minWidth: 160,
+                      width: "100%",
+                      "& .MuiInputBase-root": {
+                        height: 40,
+                        borderRadius: "6px",
+                        paddingRight: "8px",
+                      },
+                      "& .MuiInputBase-input": {
+                        padding: "8px 12px",
+                        fontSize: "0.875rem",
+                      },
+                      "& .MuiInputLabel-root": {
+                        fontSize: "0.75rem",
+                        transform: "translate(12px, 10px) scale(1)",
+                      },
+                      "& .MuiInputLabel-shrink": {
+                        transform: "translate(12px, -6px) scale(0.75)",
+                      },
+                      "& .MuiOutlinedInput-notchedOutline": {
+                        legend: {
+                          padding: "0 8px",
+                        }
+                      }
+                    }} 
+                  />
+                )}
+              />
+              <DatePicker
+                label={`${column.label} To`}
+                value={currentValue?.to ? new Date(currentValue.to) : null}
+                onChange={(date) =>
+                  handleFilterChange(
+                    column.id,
+                    {
+                      ...currentValue,
+                      to: date?.toISOString(),
+                    },
+                    "dateRange"
+                  )
                 }
-              }} 
-            />
-          )}
-        />
-      </Box>
-    </LocalizationProvider>
-  );
-  return (
-    <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Box
-        sx={{
-          display: "flex",
-          gap: 1.5,
-          flexDirection: "row",
-          alignItems: "center",
-          width: "100%",
-        }}
-      >
-        <DatePicker
-          label={`${column.label} From`}
-          value={currentValue?.from ? new Date(currentValue.from) : null}
-          onChange={(date) =>
-            handleFilterChange(
-              column.id,
-              {
-                ...currentValue,
-                from: date?.toISOString(),
-              },
-              "dateRange"
-            )
-          }
-          renderInput={(params) => (
-            <TextField 
-              {...params} 
-              size="small" 
-              sx={{ 
-                flex: 1,
-                minWidth: 200, // ✅ Increased minimum width
-                width: "100%",
-                "& .MuiInputBase-root": {
-                  height: 40, // ✅ Slightly taller for better visibility
-                }
-              }} 
-            />
-          )}
-        />
-        <DatePicker
-          label={`${column.label} To`}
-          value={currentValue?.to ? new Date(currentValue.to) : null}
-          onChange={(date) =>
-            handleFilterChange(
-              column.id,
-              {
-                ...currentValue,
-                to: date?.toISOString(),
-              },
-              "dateRange"
-            )
-          }
-          renderInput={(params) => (
-            <TextField 
-              {...params} 
-              size="small" 
-              sx={{ 
-                flex: 1,
-                minWidth: 200, // ✅ Increased minimum width
-                width: "100%",
-                "& .MuiInputBase-root": {
-                  height: 40, // ✅ Slightly taller for better visibility
-                }
-              }} 
-            />
-          )}
-        />
-      </Box>
-    </LocalizationProvider>
-  );
+                renderInput={(params) => (
+                  <TextField 
+                    {...params} 
+                    size="small" 
+                    sx={{ 
+                      flex: 1,
+                      minWidth: 160,
+                      width: "100%",
+                      "& .MuiInputBase-root": {
+                        height: 40,
+                        borderRadius: "6px",
+                        paddingRight: "8px",
+                      },
+                      "& .MuiInputBase-input": {
+                        padding: "8px 12px",
+                        fontSize: "0.875rem",
+                      },
+                      "& .MuiInputLabel-root": {
+                        fontSize: "0.75rem",
+                        transform: "translate(12px, 10px) scale(1)",
+                      },
+                      "& .MuiInputLabel-shrink": {
+                        transform: "translate(12px, -6px) scale(0.75)",
+                      },
+                      "& .MuiOutlinedInput-notchedOutline": {
+                        legend: {
+                          padding: "0 8px",
+                        }
+                      }
+                    }} 
+                  />
+                )}
+              />
+            </Box>
+          </LocalizationProvider>
+        );
+
       case "number":
         return (
           <TextField
@@ -732,8 +728,8 @@ const CustomDataTable = ({
           <TextField
             size="small"
             placeholder="Search..."
-            value={search}
-            onChange={onSearchChange}
+            value={searchInput}
+            onChange={handleSearchInputChange}
             sx={{
               minWidth: 220,
               "& .MuiOutlinedInput-root": {
@@ -747,9 +743,9 @@ const CustomDataTable = ({
                   <SearchIcon color="action" />
                 </InputAdornment>
               ),
-              endAdornment: search && (
+              endAdornment: searchInput && (
                 <InputAdornment position="end">
-                  <IconButton size="small" onClick={onSearchClear}>
+                  <IconButton size="small" onClick={handleSearchClearClick}>
                     <ClearIcon />
                   </IconButton>
                 </InputAdornment>
@@ -1039,15 +1035,7 @@ const CustomDataTable = ({
             const column = columns.find((col) => col.id === columnId);
             const displayValue =
               filter.type === "dateRange"
-                ? `${
-                    filter.value.from
-                      ? new Date(filter.value.from).toLocaleDateString()
-                      : ""
-                  } - ${
-                    filter.value.to
-                      ? new Date(filter.value.to).toLocaleDateString()
-                      : ""
-                  }`
+                ? `${filter.value.from ? new Date(filter.value.from).toLocaleDateString() : ""} - ${filter.value.to ? new Date(filter.value.to).toLocaleDateString() : ""}`
                 : filter.type === "date"
                 ? new Date(filter.value).toLocaleDateString()
                 : filter.value;

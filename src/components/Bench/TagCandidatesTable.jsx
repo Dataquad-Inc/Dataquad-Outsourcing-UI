@@ -73,24 +73,31 @@ const COLUMNS = [
   { id: "referredBy",      label: "Referred By", width: 160 },
 ];
 
-// ─── Search filter ─────────────────────────────────────────────────────────────
+// ─── Search filter - searches across ALL columns including experience ────────
 function applySearch(rows, keyword) {
   if (!keyword.trim()) return rows;
   const kw = keyword.toLowerCase();
-  return rows.filter((r) =>
-    [
+  return rows.filter((r) => {
+    // Search across all fields including experience
+    const searchableFields = [
       r.fullName,
       r.email,
       r.technology,
       r.contactNumber,
       r.referredBy,
+      r.status,
+      r.totalExperience ? r.totalExperience.toString() : "",
+      r.totalExperience ? r.totalExperience.toString() + " years" : "",
+      r.totalExperience ? r.totalExperience.toString() + " yrs" : "",
       Array.isArray(r.skills) ? r.skills.join(" ") : "",
       Array.isArray(r.tags) ? r.tags.join(" ") : r.tags ?? "",
-    ]
+    ];
+    
+    return searchableFields
       .join(" ")
       .toLowerCase()
-      .includes(kw),
-  );
+      .includes(kw);
+  });
 }
 
 // ─── Cell renderers ────────────────────────────────────────────────────────────
@@ -120,6 +127,15 @@ function CellValue({ col, row }) {
     );
   if (col.id === "fullName")
     return <Typography variant="body2" fontWeight={500}>{row.fullName || "—"}</Typography>;
+  if (col.id === "totalExperience")
+    return (
+      <Chip 
+        label={row.totalExperience || "—"} 
+        size="small" 
+        color={row.totalExperience >= 5 ? "success" : row.totalExperience >= 3 ? "warning" : "default"}
+        variant="outlined"
+      />
+    );
   return <>{row[col.id] ?? "—"}</>;
 }
 
@@ -168,7 +184,6 @@ const EmailDialog = ({ open, onClose, onSend, selectedCount, submitting }) => {
     }
   };
 
-  // Reset form when dialog opens
   React.useEffect(() => {
     if (open) {
       setSubject("");
@@ -222,29 +237,19 @@ const EmailDialog = ({ open, onClose, onSend, selectedCount, submitting }) => {
 };
 
 // ─── TagCandidatesTable ────────────────────────────────────────────────────────
-/**
- * Props:
- *   rows    – candidate array (fetched by parent)
- *   loading – boolean
- *   tagName – string (for empty-state label)
- */
 const TagCandidatesTable = ({ rows = [], loading = false, tagName = "" }) => {
   const theme = useTheme();
 
-  const [order,       setOrder]       = useState("asc");
-  const [orderBy,     setOrderBy]     = useState("id");
-  const [selected,    setSelected]    = useState([]);
-  const [page,        setPage]        = useState(0);
+  const [order, setOrder] = useState("asc");
+  const [orderBy, setOrderBy] = useState("id");
+  const [selected, setSelected] = useState([]);
+  const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [search,      setSearch]      = useState("");
-  const [actionType,  setActionType]  = useState("email"); // "email" or "job"
-
-  // ── Job submission state ──────────────────────────────────────────────────────
-  const [jobId,        setJobId]        = useState("");
-  const [submitting,   setSubmitting]   = useState(false);
+  const [search, setSearch] = useState("");
+  const [actionType, setActionType] = useState("email");
+  const [jobId, setJobId] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState(null);
-
-  // ── Email dialog state ──────────────────────────────────────────────────────
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailResult, setEmailResult] = useState(null);
@@ -258,18 +263,21 @@ const TagCandidatesTable = ({ rows = [], loading = false, tagName = "" }) => {
     setPage(0);
   };
 
+  // Apply search filter across ALL columns including experience
   const filteredRows = useMemo(() => applySearch(rows, search), [rows, search]);
-  const sortedRows   = useMemo(
+
+  const sortedRows = useMemo(
     () => stableSort(filteredRows, getComparator(order, orderBy)),
     [filteredRows, order, orderBy],
   );
+  
   const pagedRows = useMemo(
     () => sortedRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
     [sortedRows, page, rowsPerPage],
   );
 
   const numSelected = selected.length;
-  const rowCount    = filteredRows.length;
+  const rowCount = filteredRows.length;
 
   const handleSelectAll = (e) =>
     setSelected(e.target.checked ? filteredRows.map((r) => r.id) : []);
@@ -279,7 +287,6 @@ const TagCandidatesTable = ({ rows = [], loading = false, tagName = "" }) => {
     );
   const isSelected = (id) => selected.includes(id);
 
-  // ── Clear results after timeout ─────────────────────────────────────────────
   const clearResultsAfterTimeout = () => {
     setTimeout(() => {
       setSubmitResult(null);
@@ -321,8 +328,8 @@ const TagCandidatesTable = ({ rows = [], loading = false, tagName = "" }) => {
       }
 
       setSubmitResult({ type: "success", message: detail });
-      setSelected([]); // clear selection on success
-      setJobId(""); // clear job ID
+      setSelected([]);
+      setJobId("");
       clearResultsAfterTimeout();
     } catch (err) {
       const msg =
@@ -346,7 +353,7 @@ const TagCandidatesTable = ({ rows = [], loading = false, tagName = "" }) => {
     setEmailDialogOpen(true);
   };
 
-  // ── Send email handler (UPDATED to match JSON structure) ────────────────────
+  // ── Send email handler ────────────────────────────────────────────────────
   const handleSendEmail = async (subject, mailBody) => {
     const selectedEmails = rows
       .filter((r) => selected.includes(r.id))
@@ -364,21 +371,19 @@ const TagCandidatesTable = ({ rows = [], loading = false, tagName = "" }) => {
     setEmailResult(null);
 
     try {
-      // Updated payload structure to match your JSON format
       const emailPayload = {
-        emails: selectedEmails,  // Array of email addresses
-        subject: subject,         // Email subject
-        body: mailBody           // Email body content (changed from mailBody to body)
+        emails: selectedEmails,
+        subject: subject,
+        body: mailBody
       };
 
-      
       const response = await axios.post("https://mymulya.com/candidate/send-jd", emailPayload);
 
-      setEmailResult({ 
-        type: "success", 
-        message: response.data.message || `Email sent successfully to ${selectedEmails.length} candidate(s)!` 
+      setEmailResult({
+        type: "success",
+        message: response.data.message || `Email sent successfully to ${selectedEmails.length} candidate(s)!`
       });
-      
+
       setEmailDialogOpen(false);
       setSelected([]);
       clearResultsAfterTimeout();
@@ -397,11 +402,9 @@ const TagCandidatesTable = ({ rows = [], loading = false, tagName = "" }) => {
   const canSubmitJob = numSelected > 0 && jobId.trim() !== "" && !submitting && actionType === "job";
   const canSendEmail = numSelected > 0 && !sendingEmail && actionType === "email";
 
-  // Handle action type change
   const handleActionTypeChange = (event, newActionType) => {
     if (newActionType !== null) {
       setActionType(newActionType);
-      // Clear any existing results when switching
       setSubmitResult(null);
       setEmailResult(null);
     }
@@ -423,11 +426,10 @@ const TagCandidatesTable = ({ rows = [], loading = false, tagName = "" }) => {
               submitResult.type === "success"
                 ? alpha(theme.palette.success.main, 0.1)
                 : alpha(theme.palette.error.main, 0.1),
-            borderBottom: `1px solid ${
-              submitResult.type === "success"
+            borderBottom: `1px solid ${submitResult.type === "success"
                 ? theme.palette.success.light
                 : theme.palette.error.light
-            }`,
+              }`,
           }}
         >
           <Typography
@@ -456,11 +458,10 @@ const TagCandidatesTable = ({ rows = [], loading = false, tagName = "" }) => {
               emailResult.type === "success"
                 ? alpha(theme.palette.success.main, 0.1)
                 : alpha(theme.palette.error.main, 0.1),
-            borderBottom: `1px solid ${
-              emailResult.type === "success"
+            borderBottom: `1px solid ${emailResult.type === "success"
                 ? theme.palette.success.light
                 : theme.palette.error.light
-            }`,
+              }`,
           }}
         >
           <Typography
@@ -490,14 +491,12 @@ const TagCandidatesTable = ({ rows = [], loading = false, tagName = "" }) => {
       >
         {numSelected > 0 ? (
           <>
-            {/* Selection mode: show count + action selector + action inputs/buttons */}
             <Typography variant="subtitle1" color="primary" fontWeight={600}>
               {numSelected} row{numSelected > 1 ? "s" : ""} selected
             </Typography>
 
             <Box sx={{ flex: 1 }} />
 
-            {/* Action Type Toggle */}
             <ToggleButtonGroup
               value={actionType}
               exclusive
@@ -557,13 +556,13 @@ const TagCandidatesTable = ({ rows = [], loading = false, tagName = "" }) => {
           </>
         ) : (
           <>
-            {/* Normal mode: search + count */}
+            {/* Single Search Bar - filters everything including experience */}
             <TextField
               size="small"
-              placeholder="Search candidates…"
+              placeholder="Search by name, email, experience, skills, tags, status..."
               value={search}
               onChange={handleSearchChange}
-              sx={{ width: 300 }}
+              sx={{ flex: 1, minWidth: 300 }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
