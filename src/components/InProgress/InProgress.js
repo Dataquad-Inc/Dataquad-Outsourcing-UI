@@ -1,6 +1,16 @@
-import React, { useEffect, useRef, useMemo, useState } from 'react';
+import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchInProgressData, clearFilterData, sendingUsersData, setPage, setRowsPerPage, setSearchQuery, setActiveDateRange, filterInProgressDataByDateRange } from '../../redux/inProgressSlice';
+import { 
+    fetchInProgressData, 
+    clearFilterData, 
+    resetInProgressState,
+    sendingUsersData, 
+    setPage, 
+    setRowsPerPage, 
+    setSearchQuery, 
+    setActiveDateRange, 
+    filterInProgressDataByDateRange 
+} from '../../redux/inProgressSlice';
 import DataTablePaginated from '../muiComponents/DataTablePaginated';
 import DateRangeFilter from '../muiComponents/DateRangeFilter';
 import { Stack, Typography, Alert, Snackbar, Link, Chip, Tooltip, Box } from '@mui/material';
@@ -13,7 +23,7 @@ const InProgress = ({
     fromPath = '/dashboard/InProgress',
 }) => {
     const dispatch = useDispatch();
-    const navigate=useNavigate();
+    const navigate = useNavigate();
     const { 
         inProgress = [], 
         loading, 
@@ -25,8 +35,7 @@ const InProgress = ({
 
     const { currentPage, rowsPerPage, totalCount, activeDateRange } = pagination;
     const { userName, userId } = useSelector((state) => state.auth);
-    const isUpdating = useRef(false);
-
+    
     const [sortConfig, setSortConfig] = useState({
         key: 'bdm',
         direction: 'asc'
@@ -38,102 +47,232 @@ const InProgress = ({
         severity: 'success'
     });
 
-    useEffect(() => {
-       if (isFiltered) return;
-    if (isUpdating.current) return;
+    // State to trigger DateRangeFilter reset
+    const [resetFilterTrigger, setResetFilterTrigger] = useState(false);
 
-    isUpdating.current = true;
-    dispatch(fetchInProgressData({
-        page: currentPage,
-        size: rowsPerPage,
-        search: searchQuery,
-        entity
-    }));
-    setTimeout(() => { isUpdating.current = false; }, 0);
-    }, [currentPage, rowsPerPage, searchQuery, entity]);
+    // Use refs to prevent multiple API calls
+    const isInitialMount = useRef(true);
+    const isFilteringRef = useRef(false);
+    const isFetchingRef = useRef(false);
+    const prevParamsRef = useRef({});
+    const prevEntityRef = useRef(entity);
+    const isEntityChangeRef = useRef(false);
+    const isResetInProgressRef = useRef(false);
 
-
-   useEffect(() => {
-    if (!isFiltered) return;
-    if (!activeDateRange.startDate || !activeDateRange.endDate) return;
-
-    dispatch(filterInProgressDataByDateRange({
-        startDate: activeDateRange.startDate,
-        endDate: activeDateRange.endDate,
-        page: currentPage,
-        size: rowsPerPage,
-        search: searchQuery,
-        entity
-    }));
-    }, [currentPage, rowsPerPage, searchQuery, isFiltered, entity]);
+    // Memoize the fetch function
+    const fetchData = useCallback((params) => {
+        if (isFetchingRef.current) return;
+        isFetchingRef.current = true;
         
-        // Enhanced sorting function
-const customSort = (a, b, key) => {
-    const valA = a[key];
-    const valB = b[key];
+        dispatch(fetchInProgressData(params)).finally(() => {
+            setTimeout(() => {
+                isFetchingRef.current = false;
+            }, 100);
+        });
+    }, [dispatch]);
 
-    const isNullA = valA === null || valA === undefined;
-    const isNullB = valB === null || valB === undefined;
+    // Memoize the filter function
+    const filterData = useCallback((params) => {
+        if (isFilteringRef.current) return;
+        isFilteringRef.current = true;
+        
+        dispatch(filterInProgressDataByDateRange(params)).finally(() => {
+            setTimeout(() => {
+                isFilteringRef.current = false;
+            }, 100);
+        });
+    }, [dispatch]);
 
-    if (isNullA && !isNullB) return 1;
-    if (!isNullA && isNullB) return -1;
-    if (isNullA && isNullB) return 0;
+    // Reset filter when entity changes
+    useEffect(() => {
+        // Check if entity has changed
+        if (prevEntityRef.current !== entity) {
+            prevEntityRef.current = entity;
+            isEntityChangeRef.current = true;
+            isResetInProgressRef.current = true;
+            
+            // Reset entire state
+            dispatch(resetInProgressState());
+            
+            // Trigger DateRangeFilter reset
+            setResetFilterTrigger(true);
+            
+            // Reset refs
+            isFilteringRef.current = false;
+            isFetchingRef.current = false;
+            prevParamsRef.current = {};
+            
+            // Fetch fresh data for new entity
+            fetchData({
+                page: 0,
+                size: rowsPerPage,
+                search: '',
+                entity
+            });
 
-    const stringA = valA.toString().trim().toLowerCase();
-    const stringB = valB.toString().trim().toLowerCase();
-
-    const isNameField = ['bdm', 'teamlead', 'recruiterName'].includes(key);
-
-    if (isNameField) {
-        const split = (name) => name.split(/(?=[A-Z])|\s+/).filter(Boolean);
-        const partsA = split(stringA);
-        const partsB = split(stringB);
-        for (let i = 0; i < Math.min(partsA.length, partsB.length); i++) {
-            const cmp = partsA[i].localeCompare(partsB[i], undefined, { sensitivity: 'base' });
-            if (cmp !== 0) return cmp;
+            // Reset the trigger after a short delay
+            setTimeout(() => {
+                setResetFilterTrigger(false);
+                isEntityChangeRef.current = false;
+                isResetInProgressRef.current = false;
+            }, 200);
         }
-        return partsA.length - partsB.length;
-    }
+    }, [entity, dispatch, rowsPerPage, fetchData]);
 
-    return stringA.localeCompare(stringB, undefined, { sensitivity: 'base' });
-};
+    // Initial data fetch
+    useEffect(() => {
+        if (isInitialMount.current) {
+            isInitialMount.current = false;
+            isResetInProgressRef.current = true;
+            
+            // Reset state on initial mount
+            dispatch(resetInProgressState());
+            
+            // Fetch initial data
+            fetchData({
+                page: 0,
+                size: rowsPerPage,
+                search: '',
+                entity
+            });
 
+            setTimeout(() => {
+                isResetInProgressRef.current = false;
+            }, 200);
+        }
+    }, []); // Empty dependency array for initial mount only
 
+    // Handle pagination and search changes
+    useEffect(() => {
+        // Skip initial mount and entity change
+        if (isInitialMount.current || isEntityChangeRef.current || isResetInProgressRef.current) return;
+        
+        // Create params object to compare
+        const params = {
+            page: currentPage,
+            size: rowsPerPage,
+            search: searchQuery,
+            entity
+        };
+
+        // Check if params actually changed
+        const paramsKey = JSON.stringify(params);
+        const prevKey = prevParamsRef.current.paramsKey;
+        
+        if (paramsKey === prevKey) return;
+        
+        prevParamsRef.current = { paramsKey };
+
+        // If filtered, use filter API
+        if (isFiltered && activeDateRange?.startDate && activeDateRange?.endDate) {
+            filterData({
+                startDate: activeDateRange.startDate,
+                endDate: activeDateRange.endDate,
+                page: currentPage,
+                size: rowsPerPage,
+                search: searchQuery,
+                entity
+            });
+        } else if (!isFiltered) {
+            // Otherwise fetch regular data
+            fetchData(params);
+        }
+    }, [currentPage, rowsPerPage, searchQuery, entity, isFiltered, activeDateRange, fetchData, filterData]);
+
+    // Handle filter changes separately
+    useEffect(() => {
+        if (isInitialMount.current || isEntityChangeRef.current || isResetInProgressRef.current) return;
+        if (!isFiltered) return;
+        if (!activeDateRange?.startDate || !activeDateRange?.endDate) return;
+
+        // Create filter params
+        const filterParams = {
+            startDate: activeDateRange.startDate,
+            endDate: activeDateRange.endDate,
+            page: currentPage,
+            size: rowsPerPage,
+            search: searchQuery,
+            entity
+        };
+
+        // Check if filter params actually changed
+        const paramsKey = JSON.stringify(filterParams);
+        const prevKey = prevParamsRef.current.filterKey;
+        
+        if (paramsKey === prevKey) return;
+        
+        prevParamsRef.current.filterKey = paramsKey;
+
+        filterData(filterParams);
+    }, [isFiltered, activeDateRange, currentPage, rowsPerPage, searchQuery, entity, filterData]);
+
+    // Enhanced sorting function
+    const customSort = useCallback((a, b, key) => {
+        const valA = a[key];
+        const valB = b[key];
+
+        const isNullA = valA === null || valA === undefined;
+        const isNullB = valB === null || valB === undefined;
+
+        if (isNullA && !isNullB) return 1;
+        if (!isNullA && isNullB) return -1;
+        if (isNullA && isNullB) return 0;
+
+        const stringA = valA.toString().trim().toLowerCase();
+        const stringB = valB.toString().trim().toLowerCase();
+
+        const isNameField = ['bdm', 'teamlead', 'recruiterName'].includes(key);
+
+        if (isNameField) {
+            const split = (name) => name.split(/(?=[A-Z])|\s+/).filter(Boolean);
+            const partsA = split(stringA);
+            const partsB = split(stringB);
+            for (let i = 0; i < Math.min(partsA.length, partsB.length); i++) {
+                const cmp = partsA[i].localeCompare(partsB[i], undefined, { sensitivity: 'base' });
+                if (cmp !== 0) return cmp;
+            }
+            return partsA.length - partsB.length;
+        }
+
+        return stringA.localeCompare(stringB, undefined, { sensitivity: 'base' });
+    }, []);
 
     // Apply filtering and sorting to the data
-const processedData = useMemo(() => {
-    const data = isFiltered ? filterinProgressByDateRange : inProgress;
-
-    const unique = [];
-    const seen = new Set();
-
-    for (const item of data) {
-        const key = JSON.stringify(item);
-        if (!seen.has(key)) {
-            seen.add(key);
-            unique.push(item);
+    const processedData = useMemo(() => {
+        const data = isFiltered ? filterinProgressByDateRange : inProgress;
+        
+        // Ensure data is an array
+        if (!data || !Array.isArray(data)) {
+            return [];
         }
-    }
 
-    // Apply sorting here
-    const sortedData = [...unique].sort((a, b) => {
-        const result = customSort(a, b, sortConfig.key);
-        return sortConfig.direction === 'asc' ? result : -result;
-    });
+        const unique = [];
+        const seen = new Set();
 
-    return sortedData;
-}, [inProgress, filterinProgressByDateRange, isFiltered, sortConfig]);
+        for (const item of data) {
+            const key = JSON.stringify(item);
+            if (!seen.has(key)) {
+                seen.add(key);
+                unique.push(item);
+            }
+        }
 
+        // Apply sorting here
+        const sortedData = [...unique].sort((a, b) => {
+            const result = customSort(a, b, sortConfig.key);
+            return sortConfig.direction === 'asc' ? result : -result;
+        });
+
+        return sortedData;
+    }, [inProgress, filterinProgressByDateRange, isFiltered, sortConfig, customSort]);
 
     // Filter data by current user's userId matching with recruiterId
-    const getUserFilteredData = () => {
+    const getUserFilteredData = useCallback(() => {
+        if (!Array.isArray(processedData)) return [];
         return processedData.filter(item => {
-            // Assuming recruiterId field exists in your data
-            // Adjust the field name based on your actual data structure
             return item.recruiterId === userId || item.recruiterName === userName;
         });
-    };
-
+    }, [processedData, userId, userName]);
 
     // Handle send email functionality
     const handleSendEmail = async () => {
@@ -149,10 +288,9 @@ const processedData = useMemo(() => {
                 return;
             }
 
-            // Dispatch the action with userId and filtered data
-            const result = await dispatch(sendingUsersData({ 
+            await dispatch(sendingUsersData({ 
                 userId: userId,
-                data: userFilteredData // Send the filtered data along with userId
+                data: userFilteredData
             })).unwrap();
 
             setEmailStatus({
@@ -171,15 +309,14 @@ const processedData = useMemo(() => {
         }
     };
 
-
- const handleJobIdClick = (jobId) => {
-  navigate(`${detailsBasePath}/${jobId}`, {
-    state: { from: fromPath }
-  });
-};
+    const handleJobIdClick = useCallback((jobId) => {
+        navigate(`${detailsBasePath}/${jobId}`, {
+            state: { from: fromPath }
+        });
+    }, [navigate, detailsBasePath, fromPath]);
 
     // Check if last login is today
-    const isLoggedInToday = (lastLoginTime) => {
+    const isLoggedInToday = useCallback((lastLoginTime) => {
         if (!lastLoginTime) return false;
         
         try {
@@ -195,50 +332,64 @@ const processedData = useMemo(() => {
             console.error('Error checking login date:', error);
             return false;
         }
-    };
+    }, []);
 
-    const handleSort = (key) => {
+    const handleSort = useCallback((key) => {
         setSortConfig((prev) => {
             if (prev.key === key) {
                 return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
             }
             return { key, direction: 'asc' };
         });
-    };
-    
-    const handleChangePage = (newPage) => {
+    }, []);
+
+    const handleChangePage = useCallback((newPage) => {
         dispatch(setPage(newPage));
-    };
+    }, [dispatch]);
 
-    const handleChangeRowsPerPage = (newRowsPerPage) => {
-        dispatch(setRowsPerPage(newRowsPerPage)); 
-    };
+    const handleChangeRowsPerPage = useCallback((newRowsPerPage) => {
+        dispatch(setRowsPerPage(newRowsPerPage));
+    }, [dispatch]);
 
-    const handleSearchChange = (value) => {
-        dispatch(setPage(0));           
-        dispatch(setSearchQuery(value)); 
-    };
+    const handleSearchChange = useCallback((value) => {
+        dispatch(setPage(0));
+        dispatch(setSearchQuery(value));
+    }, [dispatch]);
 
-    const handleDateChange = (startDate, endDate) => {
+    const handleDateChange = useCallback((startDate, endDate) => {
+        // Skip if this is a reset action during entity change
+        if (isResetInProgressRef.current) return;
+        
         if (!startDate || !endDate) {
+            // Clear filter and reset to normal data
             dispatch(clearFilterData());
+            dispatch(setPage(0));
+            // Fetch normal data after clearing filter
+            fetchData({
+                page: 0,
+                size: rowsPerPage,
+                search: searchQuery,
+                entity
+            });
             return;
         }
 
+        // Set page to 0 when applying date filter
         dispatch(setPage(0));
         dispatch(setActiveDateRange({ startDate, endDate }));
-        dispatch(filterInProgressDataByDateRange({
+        
+        // Apply date filter with page 0
+        filterData({
             startDate,
             endDate,
             page: 0,
             size: rowsPerPage,
             search: searchQuery,
             entity,
-        }));
-    };
+        });
+    }, [dispatch, rowsPerPage, searchQuery, entity, fetchData, filterData]);
 
-
-    const columns = [
+    const columns = useMemo(() => [
         {
             key: "recruiterName",
             label: "Recruiter",
@@ -317,25 +468,25 @@ const processedData = useMemo(() => {
             key: "jobId",
             label: "JOB ID",
             type: "text",
-             render: (row) => (
-                    <Link
-                      component="button"
-                      variant="body2"
-                      onClick={() => handleJobIdClick(row.jobId)}
-                      sx={{
+            render: (row) => (
+                <Link
+                    component="button"
+                    variant="body2"
+                    onClick={() => handleJobIdClick(row.jobId)}
+                    sx={{
                         textDecoration: "none",
                         cursor: "pointer",
                         "&:hover": { textDecoration: "underline" },
-                      }}
-                    >
-                      {row.jobId}
-                    </Link>
-                  ),
+                    }}
+                >
+                    {row.jobId}
+                </Link>
+            ),
             sortable: true,
             filterable: true,
             width: 120
         },
-         {
+        {
             key: "jobTitle",
             label: "Job Title",
             type: "text",
@@ -343,7 +494,7 @@ const processedData = useMemo(() => {
             filterable: true,
             width: 120
         },
-         {
+        {
             key: "jobMode",
             label: "Job Mode",
             type: "text",
@@ -351,7 +502,7 @@ const processedData = useMemo(() => {
             filterable: true,
             width: 120
         },
-         {
+        {
             key: "jobType",
             label: "Job Type",
             type: "text",
@@ -359,23 +510,23 @@ const processedData = useMemo(() => {
             filterable: true,
             width: 120
         },
-         {
+        {
             key: "experienceRequired",
             label: "Required Exp",
             type: "text",
             sortable: true,
             filterable: true,
-            align:'center',
+            align: 'center',
             width: 50
         },
-         {
+        {
             key: "relevantExperience",
             label: "Relevant Exp",
             type: "text",
             render: (row) => row.relevantExperience || '-',
             sortable: true,
             filterable: true,
-            align:'center',
+            align: 'center',
             width: 50
         },
         {
@@ -411,20 +562,30 @@ const processedData = useMemo(() => {
             filterable: true,
             width: 120,
         }
-    ];
+    ], [sortConfig, entity, handleSort, handleJobIdClick, isLoggedInToday]);
 
-    const handleRefresh = () => {
+    const handleRefresh = useCallback(() => {
         dispatch(clearFilterData());
-        if (currentPage !== 0) dispatch(setPage(0));
-        if (searchQuery !== '') dispatch(setSearchQuery(''));
-        if (currentPage === 0 && searchQuery === '') {
-            dispatch(fetchInProgressData({ page: 0, size: rowsPerPage, search: '', entity }));
-        }
-    };
+        dispatch(setPage(0));
+        dispatch(setSearchQuery(''));
+        
+        // Reset refs
+        isFilteringRef.current = false;
+        isFetchingRef.current = false;
+        prevParamsRef.current = {};
+        
+        // Fetch fresh data
+        fetchData({
+            page: 0,
+            size: rowsPerPage,
+            search: '',
+            entity
+        });
+    }, [dispatch, rowsPerPage, entity, fetchData]);
 
-    const handleCloseSnackbar = () => {
-        setEmailStatus({ ...emailStatus, open: false });
-    };
+    const handleCloseSnackbar = useCallback(() => {
+        setEmailStatus((prev) => ({ ...prev, open: false }));
+    }, []);
 
     return (
         <>
@@ -441,7 +602,12 @@ const processedData = useMemo(() => {
 
                 <Typography variant='h6' color='primary'>In-Progress Management</Typography>
                 <Stack direction="row" alignItems="center" spacing={2} sx={{ ml: 'auto' }}>
-                    <DateRangeFilter component="InProgress" onDateChange={handleDateChange} onClearFilter={handleRefresh}  />
+                    <DateRangeFilter 
+                        component="InProgress" 
+                        onDateChange={handleDateChange} 
+                        onClearFilter={handleRefresh}
+                        resetFilter={resetFilterTrigger}
+                    />
                 </Stack>
             </Stack>
 

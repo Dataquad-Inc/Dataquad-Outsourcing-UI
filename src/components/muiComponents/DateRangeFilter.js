@@ -70,13 +70,12 @@ const DateRangeFilter = ({
   onDateChange,
   onClearFilter,
   teamLeadId = null,
+  resetFilter = false,
 }) => {
   const dispatch = useDispatch();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const currentYear = dayjs().year();
-  const currentMonth = dayjs().month() + 1;
-  const currentDay = dayjs().date();
 
   const startYear = 2020;
   const endYear = currentYear + 0;
@@ -100,6 +99,11 @@ const DateRangeFilter = ({
     const urlDay = searchParams.get("day");
     return urlDay ? parseInt(urlDay) : null;
   });
+
+  // Ref to track if we're resetting
+  const isResettingRef = useRef(false);
+  const isInitialMountRef = useRef(true);
+  const hasTriggeredResetRef = useRef(false);
 
   const monthOptions = [
     { value: 1, label: "January" },
@@ -210,6 +214,34 @@ const DateRangeFilter = ({
     setSearchParams(newSearchParams, { replace: true });
   };
 
+  // Reset filter when resetFilter prop changes
+  useEffect(() => {
+    if (resetFilter && !hasTriggeredResetRef.current) {
+      hasTriggeredResetRef.current = true;
+      isResettingRef.current = true;
+      
+      // Clear URL params
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.delete("year");
+      newSearchParams.delete("month");
+      newSearchParams.delete("day");
+      newSearchParams.delete("startDate");
+      newSearchParams.delete("endDate");
+      setSearchParams(newSearchParams, { replace: true });
+
+      // Reset local state
+      setSelectedYear(null);
+      setSelectedMonth(null);
+      setSelectedDay(null);
+
+      // Reset the ref after a short delay
+      setTimeout(() => {
+        isResettingRef.current = false;
+        hasTriggeredResetRef.current = false;
+      }, 150);
+    }
+  }, [resetFilter, searchParams]);
+
   const handleYearChange = (event) => {
     const year = event.target.value;
     setSelectedMonth(null);
@@ -278,9 +310,15 @@ const DateRangeFilter = ({
 
   // Effect to handle date changes
   useEffect(() => {
+    // Skip if we're resetting or initial mount
+    if (isResettingRef.current) return;
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      return;
+    }
+    
     // Skip if nothing is selected
     if (!selectedYear && !selectedMonth && !selectedDay) {
-      console.log("No date selected, skipping effect");
       return;
     }
 

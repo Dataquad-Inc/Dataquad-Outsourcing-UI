@@ -210,10 +210,10 @@ const InProgressSlice = createSlice({
         inProgress: [],
         filterinProgressByDateRange: [],
         sendUsersData: [],
-        emailStatus: null, // Add email status tracking
+        emailStatus: null,
         error: null,
         loading: false,
-        emailLoading: false, // Separate loading state for email
+        emailLoading: false,
         isFiltered: false,
         searchQuery: '',
         pagination: {
@@ -228,6 +228,18 @@ const InProgressSlice = createSlice({
             state.filterinProgressByDateRange = [];
             state.isFiltered = false;
             state.loading = false;
+            state.pagination.activeDateRange = { startDate: null, endDate: null };
+        },
+        resetInProgressState: (state) => {
+            // Reset entire state to initial values
+            state.inProgress = [];
+            state.filterinProgressByDateRange = [];
+            state.isFiltered = false;
+            state.searchQuery = '';
+            state.loading = false;
+            state.error = null;
+            state.pagination.currentPage = 0;
+            state.pagination.totalCount = 0;
             state.pagination.activeDateRange = { startDate: null, endDate: null };
         },
         clearEmailStatus: (state) => {
@@ -255,11 +267,12 @@ const InProgressSlice = createSlice({
             })
             .addCase(fetchInProgressData.fulfilled, (state, action) => {
                 state.loading = false;
+                state.isFiltered = false; // Reset filtered flag when fetching fresh data
 
                 const unique = [];
                 const seen = new Set();
 
-                for (const item of action?.payload?.content) {
+                for (const item of action?.payload?.content || []) {
                     const key = JSON.stringify(item);
                     if (!seen.has(key)) {
                         seen.add(key);
@@ -281,9 +294,9 @@ const InProgressSlice = createSlice({
             })
             .addCase(filterInProgressDataByDateRange.fulfilled, (state, action) => {
                 state.loading = false;
-                state.filterinProgressByDateRange = action.payload.content;
+                state.filterinProgressByDateRange = action.payload.content || [];
                 state.isFiltered = true;
-                state.pagination.totalCount = action.payload.totalElements;
+                state.pagination.totalCount = action.payload.totalElements || 0;
                 state.pagination.activeDateRange = {
                     startDate: action.meta.arg.startDate,
                     endDate: action.meta.arg.endDate,
@@ -318,6 +331,14 @@ const InProgressSlice = createSlice({
     }
 });
 
-export const { clearFilterData, clearEmailStatus, setPage, setRowsPerPage, setSearchQuery, setActiveDateRange } = InProgressSlice.actions;
+export const { 
+    clearFilterData, 
+    resetInProgressState,
+    clearEmailStatus, 
+    setPage, 
+    setRowsPerPage, 
+    setSearchQuery, 
+    setActiveDateRange 
+} = InProgressSlice.actions;
 
 export default InProgressSlice.reducer;
