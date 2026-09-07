@@ -386,6 +386,7 @@ const UsEmployees = () => {
         }}
         onRefresh={() => setRefreshKey((prev) => prev + 1)}
         onCreateNew={handleCreateNew}
+        debounceDelay={500}
       />
 
       {/* ✅ Edit Dialog */}
