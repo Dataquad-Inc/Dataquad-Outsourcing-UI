@@ -21,6 +21,7 @@ const UserForm = ({
   onSubmit,
   isEditMode = false,
   loading = false,
+  onCancel, // Add onCancel prop
 }) => {
   const [showVerificationDialog, setShowVerificationDialog] = useState(false);
   const [emailToVerify, setEmailToVerify] = useState("");
@@ -192,7 +193,7 @@ const UserForm = ({
           { value: "BDM", label: "BDM" },
           { value: "PARTNER", label: "Partner" },
           { value: "INVOICE", label: "Invoice" },
-          { value: "FINANCE", label: "Finance" }, // Added Finance
+          { value: "FINANCE", label: "Finance" },
           { value: "COORDINATOR", label: "Coordinator" },
           {value:"SUPERACCOUNTS", label:"Super Accounts"},
         ],
@@ -366,6 +367,13 @@ const UserForm = ({
     });
   };
 
+  // Handle cancel button click
+  const handleCancel = () => {
+    if (onCancel) {
+      onCancel();
+    }
+  };
+
   return (
     <>
       {isEditMode && initialValues && (
@@ -455,15 +463,22 @@ const UserForm = ({
         elevation={0}
         maxWidth="100%"
         spacing={2}
+        onCancel={handleCancel} // Pass cancel handler to DynamicForm
         buttonConfig={{
           submitLabel: isEditMode ? "Update User" : "Register User",
           resetLabel: isEditMode ? "Revert Changes" : "Reset",
+          cancelLabel: "Cancel",
           submitVariant: "contained",
           submitColor: "primary",
           resetVariant: "outlined",
           resetColor: "secondary",
+          cancelVariant: "outlined",
+          cancelColor: "error",
           buttonAlignment: "flex-end",
           loading: loading,
+          showCancel: true, // IMPORTANT: Show cancel button
+          showReset: true, // Show reset button
+          showSubmit: true, // Show submit button
           submitSx: {
             mt: 3,
             minWidth: "150px",
@@ -486,6 +501,29 @@ const UserForm = ({
             mt: 3,
             minWidth: "150px",
             height: "45px",
+          },
+          cancelSx: {
+            color: "#f44336",
+            borderColor: "#f44336",
+            borderRadius: 1,
+            textTransform: "none",
+            "&:hover": {
+              borderColor: "#d32f2f",
+              backgroundColor: "rgba(244, 67, 54, 0.04)",
+            },
+            mr: 2,
+            mt: 3,
+            minWidth: "150px",
+            height: "45px",
+          },
+          buttonContainerProps: {
+            sx: {
+              mt: 3,
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: 2,
+              flexWrap: "wrap",
+            },
           },
         }}
       />
