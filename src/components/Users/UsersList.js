@@ -45,9 +45,12 @@ import {
   setUserType,
   setUserStatus,
   resetFilteredUsers,
+  filterUsersByDateRange,
 } from "../../redux/employeesSlice";
 import { showToast } from "../../utils/ToastNotification";
-import ToastNotification from "../../utils/ToastNotification";
+// Import ToastContainer and toast directly
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import ComponentTitle from "../../utils/ComponentTitle";
 import UserForm from "./UserForm";
 import httpService from "../../Services/httpService";
@@ -319,7 +322,6 @@ const UserDetailsDialog = ({ open, onClose, user }) => {
 const UsersList = () => {
   const [users, setUsers] = useState([]);
   const [columns, setColumns] = useState([]);
-  const hasFetched = useRef(false);
   const [openEditDrawer, setOpenEditDrawer] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
@@ -329,8 +331,14 @@ const UsersList = () => {
   const [userToView, setUserToView] = useState(null);
   const [userType, setUserTypeLocal] = useState(null);
   const [userStatus, setUserStatusLocal] = useState(null);
+  const [activeDateRange, setActiveDateRange] = useState(null);
 
+  // Refs to prevent multiple API calls
+  const hasFetched = useRef(false);
   const isFilterToggled = useRef(false);
+  const isRefreshing = useRef(false);
+  const isApplyingFilter = useRef(false);
+  const toastContainerRef = useRef(null);
 
   const { isFilteredDataRequested } = useSelector((state) => state.bench);
   const { filteredUsers, loading } = useSelector((state) => state.employee);
@@ -352,10 +360,20 @@ const UsersList = () => {
     externalIsolated,
   } = useSelector((state) => state.employee);
 
+  // Initial data fetch - only once
   useEffect(() => {
     if (hasFetched.current) return;
     hasFetched.current = true;
-    dispatch(fetchEmployees());
+    
+    // Check if there's a date range filter stored
+    const savedDateRange = localStorage.getItem('usersDateRange');
+    if (savedDateRange) {
+      const { startDate, endDate } = JSON.parse(savedDateRange);
+      setActiveDateRange({ startDate, endDate });
+      dispatch(filterUsersByDateRange({ startDate, endDate }));
+    } else {
+      dispatch(fetchEmployees());
+    }
   }, []);
 
   useEffect(() => {
@@ -369,8 +387,7 @@ const UsersList = () => {
     }
   }, [employeesList]);
 
-  // ✅ FILTERED CALL — fires only when the user clicks a toggle.
-  // The ref guard (isFilterToggled) prevents this from running on mount.
+  // FILTERED CALL — fires only when the user clicks a toggle.
   useEffect(() => {
     if (!isFilterToggled.current) return;
 
@@ -395,7 +412,7 @@ const UsersList = () => {
       showToast("User updated successfully!", "success");
       setOpenEditDrawer(false);
       dispatch(resetUpdateStatus());
-      dispatch(fetchEmployees());
+      refreshData();
     } else if (updateStatus === "failed") {
       showToast(updateError || "Failed to update user", "error");
     }
@@ -406,14 +423,36 @@ const UsersList = () => {
       showToast("User deleted successfully!", "success");
       setOpenDeleteDialog(false);
       dispatch(resetDeleteStatus());
-      dispatch(fetchEmployees()); 
+      refreshData();
     } else if (deleteStatus === "failed") {
       showToast(deleteError || "Failed to delete user", "error");
     }
   }, [deleteStatus, deleteError, dispatch]);
 
   const refreshData = () => {
-    dispatch(fetchEmployees());
+    // Prevent multiple refresh calls
+    if (isRefreshing.current) return;
+    isRefreshing.current = true;
+    
+    // Check if we have an active date range filter
+    if (activeDateRange && activeDateRange.startDate && activeDateRange.endDate) {
+      // Re-apply date range filter
+      dispatch(filterUsersByDateRange({
+        startDate: activeDateRange.startDate,
+        endDate: activeDateRange.endDate,
+      })).finally(() => {
+        setTimeout(() => {
+          isRefreshing.current = false;
+        }, 300);
+      });
+    } else {
+      // Fetch all employees
+      dispatch(fetchEmployees()).finally(() => {
+        setTimeout(() => {
+          isRefreshing.current = false;
+        }, 300);
+      });
+    }
   };
 
   const renderStatus = (status) => {
@@ -469,13 +508,27 @@ const UsersList = () => {
     setOpenAddDrawer(true);
   };
 
+  // Close Add User drawer
+  const handleCloseAddDrawer = () => {
+    setOpenAddDrawer(false);
+  };
+
+  // Close Edit User drawer
+  const handleCloseEditDrawer = () => {
+    setOpenEditDrawer(false);
+    // Clear current user after closing
+    setTimeout(() => {
+      setCurrentUser(null);
+    }, 300);
+  };
+
   const handleSubmitNewUser = async (values, actions) => {
     try {
       const response = await httpService.post("/auth/register", values);
       if (response.data.success) {
         showToast("Employee registered successfully!", "success");
         setOpenAddDrawer(false);
-        dispatch(fetchEmployees());
+        refreshData();
       } else {
         showToast(response.data.message || "Registration failed", "error");
       }
@@ -489,8 +542,33 @@ const UsersList = () => {
     }
   };
 
-  // ✅ Set the ref to true BEFORE updating state so the useEffect
-  // sees the flag as true when it runs after the state change.
+  // Handle date range filter changes
+  const handleDateRangeFilter = (startDate, endDate) => {
+    // Prevent multiple calls
+    if (isApplyingFilter.current) return;
+    isApplyingFilter.current = true;
+    
+    if (startDate && endDate) {
+      setActiveDateRange({ startDate, endDate });
+      // Save to localStorage to persist on refresh
+      localStorage.setItem('usersDateRange', JSON.stringify({ startDate, endDate }));
+      dispatch(filterUsersByDateRange({ startDate, endDate })).finally(() => {
+        setTimeout(() => {
+          isApplyingFilter.current = false;
+        }, 300);
+      });
+    } else {
+      // Clear filter
+      setActiveDateRange(null);
+      localStorage.removeItem('usersDateRange');
+      dispatch(fetchEmployees()).finally(() => {
+        setTimeout(() => {
+          isApplyingFilter.current = false;
+        }, 300);
+      });
+    }
+  };
+
   const handleUserTypeChange = (event, newUserType) => {
     if (newUserType !== null) {
       isFilterToggled.current = true;
@@ -507,7 +585,6 @@ const UsersList = () => {
     }
   };
 
-  // ✅ Handle "All" button click - reset both filters
   const handleAllFilter = () => {
     isFilterToggled.current = true;
     setUserTypeLocal(null);
@@ -662,10 +739,6 @@ const UsersList = () => {
     ];
   };
 
-  // ✅ Display logic:
-  // - If DateRangeFilter is active → show filteredUsers
-  // - If user clicked a toggle → show the relevant filtered slice
-  // - Otherwise (initial load) → show full employeesList from fetchEmployees()
   const getDisplayData = () => {
     if (isFilteredDataRequested && filteredUsers.length > 0) {
       return filteredUsers;
@@ -686,7 +759,6 @@ const UsersList = () => {
         return externalIsolated || [];
     }
 
-    // Default: full list from the single initial fetchEmployees() call
     return users || [];
   };
 
@@ -733,7 +805,31 @@ const UsersList = () => {
   };
 
   return (
-    <>
+    <Box sx={{ position: "relative" }}>
+      {/* ToastContainer positioned within the page */}
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        closeOnClick
+        pauseOnHover
+        draggable
+        pauseOnFocusLoss
+        newestOnTop
+        containerId="users-toast-container"
+        style={{
+          position: "absolute",
+          top: 0,
+          right: 0,
+          zIndex: 9999,
+        }}
+        toastStyle={{
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          marginTop: '10px',
+        }}
+      />
+
       <Stack
         direction="row"
         alignItems="center"
@@ -757,7 +853,15 @@ const UsersList = () => {
           spacing={2}
           sx={{ ml: "auto" }}
         >
-          <DateRangeFilter component="Users" />
+          <DateRangeFilter 
+            component="Users"
+            onDateChange={handleDateRangeFilter}
+            onClearFilter={() => {
+              setActiveDateRange(null);
+              localStorage.removeItem('usersDateRange');
+              dispatch(fetchEmployees());
+            }}
+          />
           <Button
             variant="contained"
             color="primary"
@@ -771,7 +875,6 @@ const UsersList = () => {
       </Stack>
 
       <Box sx={{ mb: 3, display: "flex", justifyContent: "center", gap: 2, flexWrap: "wrap" }}>
-        {/* All Button */}
         <Button
           variant={!userType && !userStatus ? "contained" : "outlined"}
           onClick={handleAllFilter}
@@ -882,7 +985,7 @@ const UsersList = () => {
       <Drawer
         anchor="right"
         open={openEditDrawer}
-        onClose={() => setOpenEditDrawer(false)}
+        onClose={handleCloseEditDrawer}
         sx={drawerStyles}
       >
         <AppBar position="static" sx={{ backgroundColor: "#00796b" }}>
@@ -902,7 +1005,7 @@ const UsersList = () => {
             <IconButton
               edge="end"
               color="inherit"
-              onClick={() => setOpenEditDrawer(false)}
+              onClick={handleCloseEditDrawer}
               aria-label="close"
             >
               <Close />
@@ -916,6 +1019,7 @@ const UsersList = () => {
               onSubmit={handleSubmitEdit}
               isEditMode={true}
               loading={updateStatus === "loading"}
+              onCancel={handleCloseEditDrawer}
             />
           )}
         </Box>
@@ -925,7 +1029,7 @@ const UsersList = () => {
       <Drawer
         anchor="right"
         open={openAddDrawer}
-        onClose={() => setOpenAddDrawer(false)}
+        onClose={handleCloseAddDrawer}
         sx={drawerStyles}
       >
         <AppBar position="static" sx={{ backgroundColor: "#00796b" }}>
@@ -945,7 +1049,7 @@ const UsersList = () => {
             <IconButton
               edge="end"
               color="inherit"
-              onClick={() => setOpenAddDrawer(false)}
+              onClick={handleCloseAddDrawer}
               aria-label="close"
             >
               <Close />
@@ -953,7 +1057,13 @@ const UsersList = () => {
           </Toolbar>
         </AppBar>
         <Box sx={{ p: 3, overflowY: "auto" }}>
-          <Registration onRegistrationSuccess={() => setOpenAddDrawer(false)} />
+          <Registration 
+            onRegistrationSuccess={() => {
+              setOpenAddDrawer(false);
+              refreshData();
+            }}
+            onCancel={handleCloseAddDrawer}
+          />
         </Box>
       </Drawer>
 
@@ -981,7 +1091,7 @@ const UsersList = () => {
             This action cannot be undone.
           </Typography>
         </DialogContent>
-        <Box sx={{ p: 3, display: "flex", justifyContent: "flex-end" }}>
+        <DialogActions sx={{ p: 3, gap: 2 }}>
           <Button
             variant="outlined"
             onClick={() => setOpenDeleteDialog(false)}
@@ -1008,18 +1118,15 @@ const UsersList = () => {
             }
             sx={{
               ...buttonStyles,
-              ml: 2,
               backgroundColor: "#f44336",
               "&:hover": { backgroundColor: "#d32f2f" },
             }}
           >
             {deleteStatus === "loading" ? "Deleting..." : "Delete"}
           </Button>
-        </Box>
+        </DialogActions>
       </Dialog>
-
-      <ToastNotification />
-    </>
+    </Box>
   );
 };
 

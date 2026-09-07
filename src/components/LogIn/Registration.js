@@ -10,11 +10,18 @@ import DynamicForm from "../FormContainer/DynamicForm";
 import ComponentTitle from "../../utils/ComponentTitle";
 import EmailVerificationDialog from "./EmailVerificationDialog";
 
-const Registration = ({ onSwitchView }) => {
+const Registration = ({ onSwitchView, onCancel }) => {  // Added onCancel prop
   const [showVerificationDialog, setShowVerificationDialog] = useState(false);
   const [formValues, setFormValues] = useState(null);
   const [emailToVerify, setEmailToVerify] = useState("");
   const [isEmailVerified, setIsEmailVerified] = useState(false);
+
+  // Handle cancel button click
+  const handleCancel = () => {
+    if (onCancel) {
+      onCancel();
+    }
+  };
 
   const fields = [
     {
@@ -45,13 +52,12 @@ const Registration = ({ onSwitchView }) => {
               return /^ADRTUS\d{2,4}$/.test(value);
             }
             
-
             return false;
           }
         )
         .required("User ID is required"),
       gridProps: { xs: 12, sm: 6, md: 6, lg: 5, xl: 4, xxl: 3 },
-      watchFields: ["entity"], // This will re-validate when entity changes
+      watchFields: ["entity"],
     },
     {
       name: "userName",
@@ -291,15 +297,20 @@ const Registration = ({ onSwitchView }) => {
         maxWidth="100%"
         spacing={2}
         dense={false}
+        onCancel={handleCancel}  // Pass cancel handler to DynamicForm
         buttonConfig={{
           showSubmit: true,
           showReset: true,
+          showCancel: true,  // Show cancel button
           submitLabel: "Register",
           resetLabel: "Reset",
+          cancelLabel: "Cancel",  // Cancel button label
           submitColor: "primary",
           resetColor: "inherit",
+          cancelColor: "error",  // Cancel button color
           submitVariant: "contained",
           resetVariant: "outlined",
+          cancelVariant: "outlined",  // Cancel button variant
           submitSx: { width: "120px", height: "40px", borderRadius: "8px" },
           resetSx: {
             width: "100px",
@@ -311,6 +322,18 @@ const Registration = ({ onSwitchView }) => {
               borderColor: "primary.main",
               color: "primary.main",
               backgroundColor: "transparent",
+            },
+          },
+          cancelSx: {  // Cancel button styles
+            width: "100px",
+            height: "40px",
+            borderRadius: "8px",
+            borderColor: "#f44336",
+            color: "#f44336",
+            "&:hover": {
+              borderColor: "#d32f2f",
+              color: "#d32f2f",
+              backgroundColor: "rgba(244, 67, 54, 0.04)",
             },
           },
           buttonContainerProps: {
