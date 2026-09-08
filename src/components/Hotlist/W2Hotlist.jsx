@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState } from "react";
+import React, { useEffect, useCallback, useState, useRef } from "react";
 import { useTheme, Box, Button, ToggleButton, ToggleButtonGroup, Tooltip } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import CustomDataTable from "../../ui-lib/CustomDataTable";
@@ -56,6 +56,15 @@ const W2Hotlist = React.memo(() => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingConsultant, setEditingConsultant] = useState(null);
 
+  // Use refs to track fetch state
+  const isFetching = useRef(false);
+  const initialFetchDone = useRef(false);
+  const prevDebouncedSearch = useRef("");
+  const prevFilters = useRef({});
+  const prevStatusFilter = useRef("ACTIVE");
+  const prevPage = useRef(0);
+  const prevRowsPerPage = useRef(20);
+
   // Fetch filter options
   const fetchFilterOptions = useCallback(async () => {
     try {
@@ -66,7 +75,6 @@ const W2Hotlist = React.memo(() => {
       }
     } catch (error) {
       console.error("Error fetching filter options:", error);
-      // Set default empty options if API fails
       setFilterOptions({
         technology: [],
         teamleadName: [],
@@ -94,7 +102,6 @@ const W2Hotlist = React.memo(() => {
     };
 
     data.forEach((consultant) => {
-      // Extract unique values for each filterable field
       Object.keys(options).forEach((field) => {
         const value = consultant[field];
         if (value && !options[field].find((opt) => opt.value === value)) {
@@ -106,7 +113,6 @@ const W2Hotlist = React.memo(() => {
       });
     });
 
-    // Sort options alphabetically
     Object.keys(options).forEach((field) => {
       options[field].sort((a, b) => a.label?.localeCompare(b.label || "") || 0);
     });
@@ -116,7 +122,13 @@ const W2Hotlist = React.memo(() => {
 
   /** ---------------- Fetch Data ---------------- */
   const fetchData = useCallback(async () => {
+    // Prevent multiple simultaneous calls
+    if (isFetching.current) {
+      return;
+    }
+
     try {
+      isFetching.current = true;
       setLoading(true);
 
       // Build filter parameters
@@ -154,11 +166,13 @@ const W2Hotlist = React.memo(() => {
       if (Object.keys(filterOptions).length === 0 && result?.data?.content) {
         extractFilterOptionsFromData(result.data.content);
       }
+      
     } catch (err) {
       console.error("Error fetching W2 consultants:", err);
       showErrorToast("Failed to load W2 consultants ");
     } finally {
       setLoading(false);
+      isFetching.current = false;
     }
   }, [
     page,
@@ -170,18 +184,45 @@ const W2Hotlist = React.memo(() => {
     extractFilterOptionsFromData,
   ]);
 
+  // Fetch filter options on mount
   useEffect(() => {
     fetchFilterOptions();
-  }, [fetchFilterOptions]);
+  }, []);
 
+  // Fetch data only when dependencies change
   useEffect(() => {
-    fetchData();
-  }, [fetchData, refreshKey, debouncedSearch]);
+    // Check if it's the initial mount
+    if (!initialFetchDone.current) {
+      initialFetchDone.current = true;
+      fetchData();
+      return;
+    }
+
+    // Check if any dependency actually changed
+    const searchChanged = prevDebouncedSearch.current !== debouncedSearch;
+    const filtersChanged = JSON.stringify(prevFilters.current) !== JSON.stringify(filters);
+    const statusChanged = prevStatusFilter.current !== statusFilter;
+    const pageChanged = prevPage.current !== page;
+    const rowsChanged = prevRowsPerPage.current !== rowsPerPage;
+    const refreshTriggered = refreshKey > 0;
+
+    // Update refs with current values
+    prevDebouncedSearch.current = debouncedSearch;
+    prevFilters.current = filters;
+    prevStatusFilter.current = statusFilter;
+    prevPage.current = page;
+    prevRowsPerPage.current = rowsPerPage;
+
+    // Only fetch if something actually changed
+    if (searchChanged || filtersChanged || statusChanged || pageChanged || rowsChanged || refreshTriggered) {
+      fetchData();
+    }
+  }, [fetchData, refreshKey, debouncedSearch, filters, statusFilter, page, rowsPerPage]);
 
   /** ---------------- Status Filter Handler ---------------- */
   const handleStatusFilterChange = useCallback((event, newStatus) => {
     setStatusFilter(newStatus);
-    setPage(0); // Reset to first page when status filter changes
+    setPage(0);
   }, []);
 
   /** ---------------- Clear Status Filter ---------------- */
@@ -193,7 +234,7 @@ const W2Hotlist = React.memo(() => {
   /** ---------------- Filter Handlers ---------------- */
   const handleFiltersChange = useCallback((newFilters) => {
     setFilters(newFilters);
-    setPage(0); // Reset to first page when filters change
+    setPage(0);
   }, []);
 
   /** ---------------- CRUD Handlers ---------------- */
@@ -321,25 +362,6 @@ const W2Hotlist = React.memo(() => {
       userId,
       filterOptions,
     }),
-    //    {
-    //   id: "Yet-To-OnBoard",
-    //   label: "Move Yet-To-OnBoard",
-    //   width: 180,
-    //   render: (_, row) => (
-    //     <Button
-    //       variant="text"
-    //       color="primary"
-    //       disabled={loading}
-    //       onClick={() => handleMoveToYetToOnboard(row)}
-    //       sx={{
-    //         textTransform: "none",
-    //         minWidth: 180,
-    //       }}
-    //     >
-    //       Move Yet-To-OnBoard
-    //     </Button>
-    //   ),
-    // },
   ];
 
   /** ---------------- Render ---------------- */
