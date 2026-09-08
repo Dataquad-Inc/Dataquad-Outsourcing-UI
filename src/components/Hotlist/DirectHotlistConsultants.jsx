@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState } from "react";
+import React, { useEffect, useCallback, useState, useRef } from "react";
 import { useTheme, Box, Button, ToggleButton, ToggleButtonGroup, Tooltip } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import CustomDataTable from "../../ui-lib/CustomDataTable";
@@ -36,7 +36,7 @@ const DirectHotlistConsultants = React.memo(() => {
   const debouncedSearch = useDebounce(search, 500);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Status filter state for guest house
+  // Status filter state for direct hotlist
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
 
   // Initialize filters from localStorage
@@ -55,7 +55,16 @@ const DirectHotlistConsultants = React.memo(() => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingConsultant, setEditingConsultant] = useState(null);
 
-  // Fetch filter options for guest house consultants
+  // Use refs to track fetch state
+  const isFetching = useRef(false);
+  const initialFetchDone = useRef(false);
+  const prevDebouncedSearch = useRef("");
+  const prevFilters = useRef({});
+  const prevStatusFilter = useRef("ACTIVE");
+  const prevPage = useRef(0);
+  const prevRowsPerPage = useRef(20);
+
+  // Fetch filter options for direct hotlist consultants
   const fetchFilterOptions = useCallback(async () => {
     try {
       const result = await hotlistAPI.getGuestHouseFilterOptions?.() || await hotlistAPI.getFilterOptions();
@@ -65,7 +74,6 @@ const DirectHotlistConsultants = React.memo(() => {
       }
     } catch (error) {
       console.error("Error fetching filter options:", error);
-      // Set default empty options if API fails
       setFilterOptions({
         technology: [],
         teamleadName: [],
@@ -95,7 +103,6 @@ const DirectHotlistConsultants = React.memo(() => {
     };
 
     data.forEach((consultant) => {
-      // Extract unique values for each filterable field
       Object.keys(options).forEach((field) => {
         const value = consultant[field];
         if (value && !options[field].find((opt) => opt.value === value)) {
@@ -107,7 +114,6 @@ const DirectHotlistConsultants = React.memo(() => {
       });
     });
 
-    // Sort options alphabetically
     Object.keys(options).forEach((field) => {
       options[field].sort((a, b) => a.label?.localeCompare(b.label || "") || 0);
     });
@@ -115,9 +121,15 @@ const DirectHotlistConsultants = React.memo(() => {
     setFilterOptions(options);
   }, []);
 
-  /** ---------------- Fetch Guest House Data ---------------- */
+  /** ---------------- Fetch Direct Hotlist Data ---------------- */
   const fetchData = useCallback(async () => {
+    // Prevent multiple simultaneous calls
+    if (isFetching.current) {
+      return;
+    }
+
     try {
+      isFetching.current = true;
       setLoading(true);
 
       // Build filter parameters
@@ -160,11 +172,13 @@ const DirectHotlistConsultants = React.memo(() => {
       if (Object.keys(filterOptions).length === 0 && result?.data?.content) {
         extractFilterOptionsFromData(result.data.content);
       }
+      
     } catch (err) {
       console.error("Error fetching direct hotlist consultants:", err);
       showErrorToast("Failed to load direct hotlist consultants");
     } finally {
       setLoading(false);
+      isFetching.current = false;
     }
   }, [
     page,
@@ -176,18 +190,45 @@ const DirectHotlistConsultants = React.memo(() => {
     extractFilterOptionsFromData,
   ]);
 
+  // Fetch filter options on mount
   useEffect(() => {
     fetchFilterOptions();
-  }, [fetchFilterOptions]);
+  }, []);
 
+  // Fetch data only when dependencies change
   useEffect(() => {
-    fetchData();
-  }, [fetchData, refreshKey, debouncedSearch]);
+    // Check if it's the initial mount
+    if (!initialFetchDone.current) {
+      initialFetchDone.current = true;
+      fetchData();
+      return;
+    }
+
+    // Check if any dependency actually changed
+    const searchChanged = prevDebouncedSearch.current !== debouncedSearch;
+    const filtersChanged = JSON.stringify(prevFilters.current) !== JSON.stringify(filters);
+    const statusChanged = prevStatusFilter.current !== statusFilter;
+    const pageChanged = prevPage.current !== page;
+    const rowsChanged = prevRowsPerPage.current !== rowsPerPage;
+    const refreshTriggered = refreshKey > 0;
+
+    // Update refs with current values
+    prevDebouncedSearch.current = debouncedSearch;
+    prevFilters.current = filters;
+    prevStatusFilter.current = statusFilter;
+    prevPage.current = page;
+    prevRowsPerPage.current = rowsPerPage;
+
+    // Only fetch if something actually changed
+    if (searchChanged || filtersChanged || statusChanged || pageChanged || rowsChanged || refreshTriggered) {
+      fetchData();
+    }
+  }, [fetchData, refreshKey, debouncedSearch, filters, statusFilter, page, rowsPerPage]);
 
   /** ---------------- Status Filter Handler ---------------- */
   const handleStatusFilterChange = useCallback((event, newStatus) => {
     setStatusFilter(newStatus);
-    setPage(0); // Reset to first page when status filter changes
+    setPage(0);
   }, []);
 
   /** ---------------- Clear Status Filter ---------------- */
@@ -199,7 +240,7 @@ const DirectHotlistConsultants = React.memo(() => {
   /** ---------------- Filter Handlers ---------------- */
   const handleFiltersChange = useCallback((newFilters) => {
     setFilters(newFilters);
-    setPage(0); // Reset to first page when filters change
+    setPage(0);
   }, []);
 
   /** ---------------- CRUD Handlers ---------------- */
@@ -217,7 +258,7 @@ const DirectHotlistConsultants = React.memo(() => {
       ...cleanEditData
     } = editData;
 
-    console.log("Setting edit data (GuestHouseConsultants):", cleanEditData);
+    console.log("Setting edit data (DirectHotlistConsultants):", cleanEditData);
     setEditingConsultant(cleanEditData);
     setShowCreateForm(true);
   }, []);
@@ -228,7 +269,7 @@ const DirectHotlistConsultants = React.memo(() => {
   }, []);
 
   const handleFormCancel = useCallback(() => {
-    console.log("Cancel button clicked (GuestHouseConsultants)");
+    console.log("Cancel button clicked (DirectHotlistConsultants)");
     setShowCreateForm(false);
     setEditingConsultant(null);
   }, []);
@@ -236,8 +277,8 @@ const DirectHotlistConsultants = React.memo(() => {
   const handleFormSuccess = useCallback((data, action) => {
     showSuccessToast(
       action === "create"
-        ? "Guest house consultant created successfully"
-        : "Guest house consultant updated successfully"
+        ? "Direct hotlist consultant created successfully"
+        : "Direct hotlist consultant updated successfully"
     );
     setShowCreateForm(false);
     setEditingConsultant(null);
@@ -256,20 +297,20 @@ const DirectHotlistConsultants = React.memo(() => {
             row.consultantId,
             userId
           );
-          showSuccessToast(result.message || "Guest house consultant deleted");
+          showSuccessToast(result.message || "Direct hotlist consultant deleted");
           setRefreshKey((prev) => prev + 1);
         } catch (error) {
           console.error("Delete error:", error);
-          showErrorToast("Failed to delete guest house consultant");
+          showErrorToast("Failed to delete direct hotlist consultant");
         }
       };
-      showDeleteConfirm(deleteConsultantAction, row.name || "this guest house consultant");
+      showDeleteConfirm(deleteConsultantAction, row.name || "this direct hotlist consultant");
     },
     [userId]
   );
 
   const handleNavigate = (consultantId) => {
-    navigate(`/dashboard/hotlist/guest-house/${consultantId}`);
+    navigate(`/dashboard/hotlist/direct/${consultantId}`);
   };
 
   const handleMoveToMasterHotlist = useCallback(async (row) => {
@@ -373,7 +414,7 @@ const DirectHotlistConsultants = React.memo(() => {
               value={statusFilter}
               exclusive
               onChange={handleStatusFilterChange}
-              aria-label="guest house consultant status"
+              aria-label="direct hotlist consultant status"
               size="small"
             >
               <ToggleButton 
@@ -434,7 +475,7 @@ const DirectHotlistConsultants = React.memo(() => {
             search={search}
             loading={loading}
             filters={filters}
-            filterStorageKey="guesthouse_hotlist_filters"
+            filterStorageKey="directhotlist_filters"
             onPageChange={(e, newPage) => setPage(newPage)}
             onRowsPerPageChange={(e) => {
               setRowsPerPage(parseInt(e.target.value, 10));
@@ -451,7 +492,7 @@ const DirectHotlistConsultants = React.memo(() => {
             onRefresh={() => setRefreshKey((prev) => prev + 1)}
             onFiltersChange={handleFiltersChange}
             onCreateNew={handleCreateNew}
-            createButtonText="Add Guest House Consultant"
+            createButtonText="Add Direct Hotlist Consultant"
           />
         </>
       ) : (

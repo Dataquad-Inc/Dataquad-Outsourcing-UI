@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState } from "react";
+import React, { useEffect, useCallback, useState, useRef } from "react";
 import { useTheme, Box, Button, ToggleButton, ToggleButtonGroup } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import CustomDataTable from "../../ui-lib/CustomDataTable";
@@ -42,7 +42,7 @@ const FullTimeHotlist = React.memo(() => {
   // Initialize filters from localStorage
   const [filters, setFilters] = useState(() => {
     try {
-      const stored = localStorage.getItem("w2_hotlist_filters");
+      const stored = localStorage.getItem("fulltime_hotlist_filters");
       return stored ? JSON.parse(stored) : {};
     } catch (error) {
       console.error("Error loading filters:", error);
@@ -55,6 +55,15 @@ const FullTimeHotlist = React.memo(() => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingConsultant, setEditingConsultant] = useState(null);
 
+  // Use refs to track fetch state
+  const isFetching = useRef(false);
+  const initialFetchDone = useRef(false);
+  const prevDebouncedSearch = useRef("");
+  const prevFilters = useRef({});
+  const prevStatusFilter = useRef("ACTIVE");
+  const prevPage = useRef(0);
+  const prevRowsPerPage = useRef(20);
+
   // Fetch filter options
   const fetchFilterOptions = useCallback(async () => {
     try {
@@ -65,7 +74,6 @@ const FullTimeHotlist = React.memo(() => {
       }
     } catch (error) {
       console.error("Error fetching filter options:", error);
-      // Set default empty options if API fails
       setFilterOptions({
         technology: [],
         teamleadName: [],
@@ -93,7 +101,6 @@ const FullTimeHotlist = React.memo(() => {
     };
 
     data.forEach((consultant) => {
-      // Extract unique values for each filterable field
       Object.keys(options).forEach((field) => {
         const value = consultant[field];
         if (value && !options[field].find((opt) => opt.value === value)) {
@@ -105,7 +112,6 @@ const FullTimeHotlist = React.memo(() => {
       });
     });
 
-    // Sort options alphabetically
     Object.keys(options).forEach((field) => {
       options[field].sort((a, b) => a.label?.localeCompare(b.label || "") || 0);
     });
@@ -115,7 +121,13 @@ const FullTimeHotlist = React.memo(() => {
 
   /** ---------------- Fetch Data ---------------- */
   const fetchData = useCallback(async () => {
+    // Prevent multiple simultaneous calls
+    if (isFetching.current) {
+      return;
+    }
+
     try {
+      isFetching.current = true;
       setLoading(true);
 
       // Build filter parameters
@@ -153,11 +165,13 @@ const FullTimeHotlist = React.memo(() => {
       if (Object.keys(filterOptions).length === 0 && result?.data?.content) {
         extractFilterOptionsFromData(result.data.content);
       }
+      
     } catch (err) {
-      console.error("Error fetching W2 consultants:", err);
-      showErrorToast("Failed to load W2 consultants ");
+      console.error("Error fetching FullTime consultants:", err);
+      showErrorToast("Failed to load FullTime consultants ");
     } finally {
       setLoading(false);
+      isFetching.current = false;
     }
   }, [
     page,
@@ -169,18 +183,45 @@ const FullTimeHotlist = React.memo(() => {
     extractFilterOptionsFromData,
   ]);
 
+  // Fetch filter options on mount
   useEffect(() => {
     fetchFilterOptions();
-  }, [fetchFilterOptions]);
+  }, []);
 
+  // Fetch data only when dependencies change
   useEffect(() => {
-    fetchData();
-  }, [fetchData, refreshKey, debouncedSearch]);
+    // Check if it's the initial mount
+    if (!initialFetchDone.current) {
+      initialFetchDone.current = true;
+      fetchData();
+      return;
+    }
+
+    // Check if any dependency actually changed
+    const searchChanged = prevDebouncedSearch.current !== debouncedSearch;
+    const filtersChanged = JSON.stringify(prevFilters.current) !== JSON.stringify(filters);
+    const statusChanged = prevStatusFilter.current !== statusFilter;
+    const pageChanged = prevPage.current !== page;
+    const rowsChanged = prevRowsPerPage.current !== rowsPerPage;
+    const refreshTriggered = refreshKey > 0;
+
+    // Update refs with current values
+    prevDebouncedSearch.current = debouncedSearch;
+    prevFilters.current = filters;
+    prevStatusFilter.current = statusFilter;
+    prevPage.current = page;
+    prevRowsPerPage.current = rowsPerPage;
+
+    // Only fetch if something actually changed
+    if (searchChanged || filtersChanged || statusChanged || pageChanged || rowsChanged || refreshTriggered) {
+      fetchData();
+    }
+  }, [fetchData, refreshKey, debouncedSearch, filters, statusFilter, page, rowsPerPage]);
 
   /** ---------------- Status Filter Handler ---------------- */
   const handleStatusFilterChange = useCallback((event, newStatus) => {
     setStatusFilter(newStatus);
-    setPage(0); // Reset to first page when status filter changes
+    setPage(0);
   }, []);
 
   /** ---------------- Clear Status Filter ---------------- */
@@ -192,7 +233,7 @@ const FullTimeHotlist = React.memo(() => {
   /** ---------------- Filter Handlers ---------------- */
   const handleFiltersChange = useCallback((newFilters) => {
     setFilters(newFilters);
-    setPage(0); // Reset to first page when filters change
+    setPage(0);
   }, []);
 
   /** ---------------- CRUD Handlers ---------------- */
@@ -210,7 +251,7 @@ const FullTimeHotlist = React.memo(() => {
       ...cleanEditData
     } = editData;
 
-    console.log("Setting edit data (W2Hotlist):", cleanEditData);
+    console.log("Setting edit data (FullTimeHotlist):", cleanEditData);
     setEditingConsultant(cleanEditData);
     setShowCreateForm(true);
   }, []);
@@ -221,7 +262,7 @@ const FullTimeHotlist = React.memo(() => {
   }, []);
 
   const handleFormCancel = useCallback(() => {
-    console.log("Cancel button clicked (W2Hotlist)");
+    console.log("Cancel button clicked (FullTimeHotlist)");
     setShowCreateForm(false);
     setEditingConsultant(null);
   }, []);
@@ -229,8 +270,8 @@ const FullTimeHotlist = React.memo(() => {
   const handleFormSuccess = useCallback((data, action) => {
     showSuccessToast(
       action === "create"
-        ? "W2 Consultant created successfully "
-        : "W2 Consultant updated successfully "
+        ? "FullTime Consultant created successfully "
+        : "FullTime Consultant updated successfully "
     );
     setShowCreateForm(false);
     setEditingConsultant(null);
@@ -294,25 +335,6 @@ const FullTimeHotlist = React.memo(() => {
       userId,
       filterOptions,
     }),
-    // {
-    //   id: "move-to-master",
-    //   label: "Move to Master",
-    //   width: 150,
-    //   render: (_, row) => (
-    //     <Button
-    //       variant="text"
-    //       color="primary"
-    //       disabled={loading}
-    //       onClick={() => handleMoveToMaster(row)}
-    //       sx={{
-    //         textTransform: "none",
-    //         minWidth: 150,
-    //       }}
-    //     >
-    //       Move to Master
-    //     </Button>
-    //   ),
-    // },
   ];
 
   /** ---------------- Render ---------------- */

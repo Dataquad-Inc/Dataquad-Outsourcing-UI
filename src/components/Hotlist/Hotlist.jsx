@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState } from "react";
+import React, { useEffect, useCallback, useState, useRef } from "react";
 import { Box, useTheme, Button, ToggleButton, ToggleButtonGroup, Tooltip } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import CustomDataTable from "../../ui-lib/CustomDataTable";
@@ -45,6 +45,9 @@ const HotList = React.memo(() => {
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingConsultant, setEditingConsultant] = useState(null);
+
+  // Use ref to track if initial fetch has been done
+  const initialFetchDone = useRef(false);
 
   /** ---------------- Extract Filter Options from Data ---------------- */
   const extractFilterOptionsFromData = useCallback((data) => {
@@ -139,7 +142,13 @@ const HotList = React.memo(() => {
   ]);
 
   useEffect(() => {
-    fetchData();
+    // Only fetch if not initial load or if refreshKey changes
+    if (!initialFetchDone.current) {
+      initialFetchDone.current = true;
+      fetchData();
+    } else {
+      fetchData();
+    }
   }, [fetchData, refreshKey, debouncedSearch]);
 
   /** ---------------- Status Filter Handler ---------------- */
