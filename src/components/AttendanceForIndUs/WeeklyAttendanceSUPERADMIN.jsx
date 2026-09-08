@@ -54,6 +54,28 @@ import {
 // CONSTANTS
 // ============================================================
 
+// TEST EMPLOYEE IDs to be filtered out
+const TEST_EMPLOYEE_IDS = [
+    'ADRTIN9099',
+    'ADRTIN9092',
+    'ADRTIN3333',
+    'ADRTIN3131',
+    'ADRTIN2121',
+    'ADRTIN004',
+    'ADRTUS9988',
+    'ADRTIN9940',
+    'ADRTUS5007',
+    'ADRTUS5004',
+    'ADRTUS5003',
+    'ADRTUS5002',
+    'ADRTUS5001',
+    'ADRTUS5000',
+    'ADRTUS0990',
+    'ADRTUS0100',
+    'ADRTUS0041',
+    'ADRTUS002'
+];
+
 const ATTENDANCE_STATUS_COLORS = {
     P: "#4CAF50",
     WO: "#FFA726",
@@ -81,21 +103,34 @@ const ATTENDANCE_STATUS_LABELS = {
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
+// ============================================================
+// CYCLE HELPERS - SINGLE MONTH CYCLE (26th to 25th)
+// ============================================================
+
 const getCycleInfo = (month, year) => {
-    const nextMonth = month;
-    const nextYear = year;
-    const cycleMonth = month === 1 ? 12 : month - 1;
-    const cycleYear = month === 1 ? year - 1 : year;
-    return { cycleMonth, cycleYear, nextMonth, nextYear };
+    // For a given month, the cycle is: 26th of previous month to 25th of current month
+    const prevMonth = month === 1 ? 12 : month - 1;
+    const prevYear = month === 1 ? year - 1 : year;
+    return { 
+        cycleMonth: prevMonth, 
+        cycleYear: prevYear, 
+        currentMonth: month, 
+        currentYear: year 
+    };
 };
 
 const getMondaySundayWeeks = (month, year) => {
-    const { cycleMonth, cycleYear, nextMonth, nextYear } = getCycleInfo(month, year);
+    const { cycleMonth, cycleYear, currentMonth, currentYear } = getCycleInfo(month, year);
+    
+    // Cycle start: 26th of previous month
     const cycleStart = new Date(cycleYear, cycleMonth - 1, 26);
-    const cycleEnd = new Date(nextYear, nextMonth - 1, 25);
+    // Cycle end: 25th of current month
+    const cycleEnd = new Date(currentYear, currentMonth - 1, 25);
 
     const weeks = [];
     let currentDate = new Date(cycleStart);
+    
+    // Find the Monday of the week containing cycleStart
     while (currentDate.getDay() !== 1) {
         currentDate.setDate(currentDate.getDate() - 1);
     }
@@ -106,15 +141,19 @@ const getMondaySundayWeeks = (month, year) => {
         const weekEnd = new Date(currentDate);
         weekEnd.setDate(weekEnd.getDate() + 6);
 
-        if (weekEnd >= cycleStart || weekStart <= cycleEnd) {
-            const adjustedStart = weekStart < cycleStart ? new Date(cycleStart) : new Date(weekStart);
-            const adjustedEnd = weekEnd > cycleEnd ? new Date(cycleEnd) : new Date(weekEnd);
+        // Adjust if week extends beyond cycle bounds
+        const adjustedStart = weekStart < cycleStart ? new Date(cycleStart) : new Date(weekStart);
+        const adjustedEnd = weekEnd > cycleEnd ? new Date(cycleEnd) : new Date(weekEnd);
+        
+        // Only include if there's overlap with the cycle
+        if (adjustedStart <= cycleEnd && adjustedEnd >= cycleStart) {
             weeks.push({
                 weekNumber: weekNumber,
                 startDate: adjustedStart,
                 endDate: adjustedEnd,
             });
         }
+        
         currentDate.setDate(currentDate.getDate() + 7);
         weekNumber++;
     }
@@ -146,6 +185,10 @@ const getAllDaysInWeek = (weekStart, weekEnd) => {
 const getWorkingDaysInWeek = (weekStart, weekEnd) => {
     return getAllDaysInWeek(weekStart, weekEnd).filter(d => !d.isWeekend);
 };
+
+// ============================================================
+// DATE HELPERS
+// ============================================================
 
 const getWeekNumberForDay = (day, month, year, weeks) => {
     const date = new Date(year, month - 1, parseInt(day, 10));
@@ -197,14 +240,29 @@ const WeeklyAttendanceSUPERADMIN = () => {
     // HELPER FUNCTIONS
     // ============================================================
 
-    const getAttendanceForWeek = useCallback((attendanceGrid, weekStart, weekEnd) => {
+    const getAttendanceForWeek = useCallback((submittedDates, weekStart, weekEnd) => {
         const weekDays = {};
         const allDays = getAllDaysInWeek(weekStart, weekEnd);
         allDays.forEach(({ day }) => {
-            const dayKey = String(day);
-            weekDays[dayKey] = attendanceGrid[String(parseInt(day, 10))] || '';
+            const dayKey = String(parseInt(day, 10));
+            weekDays[dayKey] = submittedDates[dayKey] || '';
         });
         return weekDays;
+    }, []);
+
+    // ============================================================
+    // GET MONTH FOR A GIVEN DAY NUMBER
+    // ============================================================
+
+    const getMonthForDay = useCallback((dayNumber, selectedMonth, selectedYear) => {
+        // Days 1-25 belong to the selected month
+        // Days 26-31 belong to the previous month
+        const { cycleMonth, cycleYear } = getCycleInfo(selectedMonth, selectedYear);
+        if (dayNumber >= 26) {
+            return { month: cycleMonth, year: cycleYear };
+        } else {
+            return { month: selectedMonth, year: selectedYear };
+        }
     }, []);
 
     // ============================================================
@@ -219,9 +277,22 @@ const WeeklyAttendanceSUPERADMIN = () => {
 
         setLoadingWeeks(true);
         try {
-            const weeks = getMondaySundayWeeks(selectedMonth, selectedYear);
-            const { cycleMonth, cycleYear, nextMonth, nextYear } = getCycleInfo(selectedMonth, selectedYear);
+            // Filter out test employees first
+            const filteredAttendanceData = attendanceData.filter(
+                (employee) => !TEST_EMPLOYEE_IDS.includes(employee.employeeId)
+            );
 
+            if (filteredAttendanceData.length === 0) {
+                setWeeklyData([]);
+                setLoadingWeeks(false);
+                return;
+            }
+
+            // Get weeks for the selected month cycle
+            const weeks = getMondaySundayWeeks(selectedMonth, selectedYear);
+            const { cycleMonth, cycleYear, currentMonth, currentYear } = getCycleInfo(selectedMonth, selectedYear);
+
+            // Initialize weeks map
             const weeksMap = new Map();
             weeks.forEach((week, index) => {
                 const weekNumber = index + 1;
@@ -236,26 +307,47 @@ const WeeklyAttendanceSUPERADMIN = () => {
                     allDays,
                     workingDays,
                     totalEmployees: 0,
+                    weekDates: allDays.map(d => d.day),
                 });
             });
 
-            attendanceData.forEach(employee => {
-                const attendanceGrid = employee.attendanceGrid || {};
-                const days = Object.keys(attendanceGrid);
+            // Process each employee's submitted dates
+            filteredAttendanceData.forEach(employee => {
+                const submittedDates = employee.submittedDates || {};
+                const days = Object.keys(submittedDates);
+
+                if (days.length === 0) return;
+
+                // Group days by week
+                const weekMap = new Map();
 
                 days.forEach(day => {
                     const dayNumber = parseInt(day, 10);
-                    const actualMonth = dayNumber >= 26 ? cycleMonth : nextMonth;
-                    const actualYear = dayNumber >= 26 ? cycleYear : nextYear;
-                    const weekNumber = getWeekNumberForDay(day, actualMonth, actualYear, weeks);
+                    // Determine which month this day belongs to
+                    const { month: dayMonth, year: dayYear } = getMonthForDay(dayNumber, selectedMonth, selectedYear);
+                    
+                    // Only process days that belong to the current cycle
+                    const weekNumber = getWeekNumberForDay(day, dayMonth, dayYear, weeks);
+                    if (weekNumber) {
+                        if (!weekMap.has(weekNumber)) {
+                            weekMap.set(weekNumber, []);
+                        }
+                        weekMap.get(weekNumber).push(day);
+                    }
+                });
 
-                    if (weekNumber && weeksMap.has(weekNumber)) {
+                // Add employee to each week they have data for
+                for (const [weekNumber, daysInWeek] of weekMap) {
+                    if (weeksMap.has(weekNumber)) {
                         const weekData = weeksMap.get(weekNumber);
+                        
+                        // Check if employee already exists in this week
                         const existingEmployee = weekData.employees.find(e => e.id === employee.employeeId);
-
+                        
                         if (!existingEmployee) {
+                            // Get attendance for all days in this week
                             const weekAttendance = getAttendanceForWeek(
-                                attendanceGrid,
+                                submittedDates,
                                 weekData.startDate,
                                 weekData.endDate
                             );
@@ -265,21 +357,26 @@ const WeeklyAttendanceSUPERADMIN = () => {
                                 name: employee.employeeName,
                                 designation: employee.designation,
                                 attendance: weekAttendance,
+                                submittedDays: daysInWeek,
                             });
                         }
                     }
-                });
+                }
             });
 
+            // Process weeks and filter out empty ones
             const processedWeeks = [];
             for (let week = 1; week <= weeksMap.size; week++) {
                 const weekData = weeksMap.get(week);
                 if (!weekData) continue;
 
-                processedWeeks.push({
-                    ...weekData,
-                    totalEmployees: weekData.employees.length,
-                });
+                // Only include weeks that have employees with data
+                if (weekData.employees.length > 0) {
+                    processedWeeks.push({
+                        ...weekData,
+                        totalEmployees: weekData.employees.length,
+                    });
+                }
             }
 
             setWeeklyData(processedWeeks);
@@ -288,7 +385,7 @@ const WeeklyAttendanceSUPERADMIN = () => {
         } finally {
             setLoadingWeeks(false);
         }
-    }, [attendanceData, selectedMonth, selectedYear, getAttendanceForWeek]);
+    }, [attendanceData, selectedMonth, selectedYear, getAttendanceForWeek, getMonthForDay]);
 
     // ============================================================
     // EFFECTS
@@ -497,8 +594,8 @@ const WeeklyAttendanceSUPERADMIN = () => {
 
         return (
             <Box>
-                <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                    <Box display="flex" alignItems="center" gap={2}>
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
+                    <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
                         <Typography variant="body2" color="text.secondary">
                             {formatDateRange(weekData.startDate, weekData.endDate)}
                         </Typography>
@@ -508,8 +605,14 @@ const WeeklyAttendanceSUPERADMIN = () => {
                         <Typography variant="body2" color="text.secondary">
                             Total: {weekData.employees?.length || 0} employees
                         </Typography>
+                        <Chip
+                            label={`Week ${weekData.weekNumber}`}
+                            size="small"
+                            variant="outlined"
+                            color="primary"
+                        />
                     </Box>
-                    <Box display="flex" gap={1}>
+                    <Box display="flex" gap={1} flexWrap="wrap">
                         <Button
                             variant="contained"
                             size="small"
@@ -600,14 +703,24 @@ const WeeklyAttendanceSUPERADMIN = () => {
                                         </TableCell>
                                         <TableCell>{emp.designation || '—'}</TableCell>
                                         {weekData.allDays?.map(d => {
-                                            const status = emp.attendance?.[d.day] || '';
+                                            const status = emp.attendance?.[String(parseInt(d.day, 10))] || '';
+                                            const hasData = emp.submittedDays?.includes(String(parseInt(d.day, 10)));
                                             return (
                                                 <TableCell
                                                     key={d.day}
                                                     align="center"
-                                                    sx={{ backgroundColor: d.isWeekend ? alpha('#9E9E9E', 0.04) : 'transparent' }}
+                                                    sx={{ 
+                                                        backgroundColor: d.isWeekend ? alpha('#9E9E9E', 0.04) : 'transparent',
+                                                        opacity: hasData ? 1 : 0.4,
+                                                    }}
                                                 >
-                                                    <Tooltip title={`${emp.name} — ${d.displayDate} (${d.dayName}): ${ATTENDANCE_STATUS_LABELS[status] || 'Not Marked'}`}>
+                                                    <Tooltip 
+                                                        title={
+                                                            hasData 
+                                                                ? `${emp.name} — ${d.displayDate} (${d.dayName}): ${ATTENDANCE_STATUS_LABELS[status] || 'Not Marked'}`
+                                                                : `${emp.name} — ${d.displayDate} (${d.dayName}): No data submitted`
+                                                        }
+                                                    >
                                                         <Box
                                                             sx={{
                                                                 width: 28,
@@ -638,7 +751,9 @@ const WeeklyAttendanceSUPERADMIN = () => {
                 </TableContainer>
 
                 <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
-                    <Box />
+                    <Typography variant="caption" color="text.secondary">
+                        Showing {paginatedEmployees.length} of {weekData.employees?.length || 0} employees
+                    </Typography>
                     <TablePagination
                         component="div"
                         count={weekData.employees?.length || 0}
@@ -646,7 +761,7 @@ const WeeklyAttendanceSUPERADMIN = () => {
                         onPageChange={handleChangePage}
                         rowsPerPage={rowsPerPage}
                         onRowsPerPageChange={handleChangeRowsPerPage}
-                        rowsPerPageOptions={[5, 10, 25, 50,100]}
+                        rowsPerPageOptions={[5, 10, 25, 50, 100]}
                         sx={{
                             borderBottom: 'none',
                             '& .MuiTablePagination-select': {
@@ -664,7 +779,7 @@ const WeeklyAttendanceSUPERADMIN = () => {
     // ============================================================
 
     const filteredWeeklyData = weeklyData.filter(w => w.totalEmployees > 0);
-    const { cycleMonth, cycleYear, nextMonth, nextYear } = getCycleInfo(selectedMonth, selectedYear);
+    const { cycleMonth, cycleYear, currentMonth, currentYear } = getCycleInfo(selectedMonth, selectedYear);
 
     if (loadingWeeks || loading) {
         return (
@@ -713,16 +828,21 @@ const WeeklyAttendanceSUPERADMIN = () => {
                         Review Pending Weekly Attendance
                     </Typography>
                     <Typography variant="body2" color="textSecondary">
-                        Cycle: 26th {MONTHS[cycleMonth - 1]} to 25th {MONTHS[nextMonth - 1]}
+                        Cycle: 26th {MONTHS[cycleMonth - 1]} to 25th {MONTHS[currentMonth - 1]}
                     </Typography>
                     <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 0.5 }}>
                         Showing weeks with pending submissions that require review
                     </Typography>
+                    {attendanceData.filter(item => TEST_EMPLOYEE_IDS.includes(item.employeeId)).length > 0 && (
+                        <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 0.5 }}>
+                            {attendanceData.filter(item => TEST_EMPLOYEE_IDS.includes(item.employeeId)).length} test user(s) hidden
+                        </Typography>
+                    )}
                 </Box>
                 <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
                     <Chip
                         icon={<Calendar size={16} />}
-                        label={`${MONTHS[cycleMonth - 1]} ${cycleYear} - ${MONTHS[nextMonth - 1]} ${nextYear}`}
+                        label={`${MONTHS[cycleMonth - 1]} ${cycleYear} - ${MONTHS[currentMonth - 1]} ${currentYear}`}
                         variant="outlined"
                     />
                     <Button
@@ -802,6 +922,13 @@ const WeeklyAttendanceSUPERADMIN = () => {
                             label={
                                 <Box display="flex" alignItems="center" gap={0.5}>
                                     <span>Week {week.weekNumber}</span>
+                                    <Chip 
+                                        label={week.totalEmployees} 
+                                        size="small" 
+                                        color="primary" 
+                                        variant="outlined"
+                                        sx={{ ml: 0.5, height: 20, fontSize: '10px' }}
+                                    />
                                 </Box>
                             }
                         />
