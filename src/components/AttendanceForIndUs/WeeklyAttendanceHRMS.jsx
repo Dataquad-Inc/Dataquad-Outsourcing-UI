@@ -49,6 +49,28 @@ import {
 // CONSTANTS
 // ============================================================
 
+// TEST EMPLOYEE IDs to be filtered out
+const TEST_EMPLOYEE_IDS = [
+    'ADRTIN9099',
+    'ADRTIN9092',
+    'ADRTIN3333',
+    'ADRTIN3131',
+    'ADRTIN2121',
+    'ADRTIN004',
+    'ADRTUS9988',
+    'ADRTIN9940',
+    'ADRTUS5007',
+    'ADRTUS5004',
+    'ADRTUS5003',
+    'ADRTUS5002',
+    'ADRTUS5001',
+    'ADRTUS5000',
+    'ADRTUS0990',
+    'ADRTUS0100',
+    'ADRTUS0041',
+    'ADRTUS002'
+];
+
 const ATTENDANCE_STATUS_COLORS = {
     P: "#4CAF50",
     WO: "#FFA726",
@@ -228,6 +250,17 @@ const WeeklyAttendanceHRMS = () => {
 
         setLoadingWeeks(true);
         try {
+            // Filter out test employees first
+            const filteredAttendanceData = attendanceData.filter(
+                (employee) => !TEST_EMPLOYEE_IDS.includes(employee.employeeId)
+            );
+
+            if (filteredAttendanceData.length === 0) {
+                setWeeklyData([]);
+                setLoadingWeeks(false);
+                return;
+            }
+
             const weeks = getMondaySundayWeeks(selectedMonth, selectedYear);
             const { cycleMonth, cycleYear, nextMonth, nextYear } = getCycleInfo(selectedMonth, selectedYear);
 
@@ -248,7 +281,7 @@ const WeeklyAttendanceHRMS = () => {
                 });
             });
 
-            attendanceData.forEach(employee => {
+            filteredAttendanceData.forEach(employee => {
                 const attendanceGrid = employee.attendanceGrid || {};
                 const days = Object.keys(attendanceGrid);
 
@@ -652,6 +685,11 @@ const WeeklyAttendanceHRMS = () => {
                     <Typography variant="body2" color="textSecondary">
                         Cycle: 26th {MONTHS[cycleMonth - 1]} to 25th {MONTHS[nextMonth - 1]}
                     </Typography>
+                    {attendanceData.filter(item => TEST_EMPLOYEE_IDS.includes(item.employeeId)).length > 0 && (
+                        <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 0.5 }}>
+                            {attendanceData.filter(item => TEST_EMPLOYEE_IDS.includes(item.employeeId)).length} test user(s) hidden
+                        </Typography>
+                    )}
                 </Box>
                 <Box display="flex" gap={2} alignItems="center">
                     <Chip
