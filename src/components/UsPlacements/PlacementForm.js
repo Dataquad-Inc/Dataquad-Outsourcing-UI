@@ -162,6 +162,7 @@ const PlacementForm = ({
   const companyNames = [
     { value: "Adroit", label: "Adroit" },
     { value: "Dataquad", label: "Dataquad" },
+    { value: "Indus", label: "Indus" },
     { value: "Cignaltech", label: "Cignaltech" },
     { value: "Aivion", label: "Aivion" },
     { value: "Trism", label: "Trism" },
