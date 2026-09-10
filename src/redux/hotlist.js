@@ -9,16 +9,8 @@ export const fetchConsultants = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      // Prepare query parameters
-      const queryParams = {
-        page,
-        size,
-        ...filters,
-        ...sort,
-      };
-
+      const queryParams = { page, size, ...filters, ...sort };
       const response = await hotlistAPI.getConsultantsByUserId(userId, queryParams);
-
       const { content = [], totalElements = 0 } = response.data || {};
       return {
         data: content,
@@ -43,16 +35,8 @@ export const fetchTeamConsultants = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      // Prepare query parameters
-      const queryParams = {
-        page,
-        size,
-        ...filters,
-        ...sort,
-      };
-
+      const queryParams = { page, size, ...filters, ...sort };
       const response = await hotlistAPI.getTeamConsultants(userId, queryParams);
-
       const { content = [], totalElements = 0 } = response.data;
       return {
         data: content,
@@ -70,24 +54,12 @@ export const fetchTeamConsultants = createAsyncThunk(
   }
 );
 
-// Get all consultants
 export const fetchAllConsultants = createAsyncThunk(
   "hotlist/fetchAllConsultants",
-  async (
-    { page, size, filters = {}, sort = {} },
-    { rejectWithValue }
-  ) => {
+  async ({ page, size, filters = {}, sort = {} }, { rejectWithValue }) => {
     try {
-      // Prepare query parameters
-      const queryParams = {
-        page,
-        size,
-        ...filters,
-        ...sort,
-      };
-
+      const queryParams = { page, size, ...filters, ...sort };
       const response = await hotlistAPI.getAllConsultants(queryParams);
-
       const { content = [], totalElements = 0 } = response.data;
       return {
         data: content,
@@ -96,7 +68,6 @@ export const fetchAllConsultants = createAsyncThunk(
         size,
       };
     } catch (error) {
-      console.log(error);
       const errorMessage =
         error.response?.data?.errorMessage || error.message || "Fetch failed";
       return rejectWithValue(errorMessage);
@@ -129,12 +100,12 @@ export const createConsultant = createAsyncThunk(
 
 export const updateConsultant = createAsyncThunk(
   "hotlist/updateConsultant",
-  async ({ consultantId, consultantDto ,isAssignAll}, { rejectWithValue }) => {
+  async ({ consultantId, consultantDto, isAssignAll }, { rejectWithValue }) => {
     try {
       const response = await hotlistAPI.updateConsultant(
         consultantId,
-        consultantDto,
-        isAssignAll
+        consultantDto, // FormData
+        isAssignAll ?? false
       );
       if (!response.success)
         throw new Error(response.message || "Update failed");
@@ -170,7 +141,6 @@ export const deleteConsultant = createAsyncThunk(
 
 // Initial state
 const initialState = {
-  // Personal consultants data
   consultants: [],
   consultantsTotal: 0,
   consultantsCurrentPage: 1,
@@ -178,7 +148,6 @@ const initialState = {
   consultantsLoading: false,
   consultantsError: null,
 
-  // Team consultants data
   teamConsultants: [],
   teamConsultantsTotal: 0,
   teamConsultantsCurrentPage: 1,
@@ -186,7 +155,6 @@ const initialState = {
   teamConsultantsLoading: false,
   teamConsultantsError: null,
 
-  // All consultants data for superadmin
   allConsultants: [],
   allConsultantsTotal: 0,
   allConsultantsCurrentPage: 1,
@@ -194,7 +162,6 @@ const initialState = {
   allConsultantsLoading: false,
   allConsultantsError: null,
 
-  // Form states
   isCreating: false,
   createError: null,
   isUpdating: false,
@@ -202,10 +169,9 @@ const initialState = {
   isDeleting: false,
   deleteError: null,
 
-  // UI states
   showCreateForm: false,
   editingConsultant: null,
-  currentView: "personal", // 'personal' or 'team'
+  currentView: "personal",
 };
 
 // Slice
@@ -213,30 +179,23 @@ const hotlist = createSlice({
   name: "hotlist",
   initialState,
   reducers: {
-    // View management
     setCurrentView: (state, action) => {
-      state.currentView = action.payload; // 'personal' or 'team'
+      state.currentView = action.payload;
     },
-
-    // UI actions
     setShowCreateForm: (state, action) => {
       state.showCreateForm = action.payload;
       if (!action.payload) {
         state.editingConsultant = null;
       }
     },
-
     setEditingConsultant: (state, action) => {
       state.editingConsultant = action.payload;
       state.showCreateForm = !!action.payload;
     },
-
     clearEditingConsultant: (state) => {
       state.editingConsultant = null;
       state.showCreateForm = false;
     },
-
-    // Error clearing actions
     clearErrors: (state) => {
       state.consultantsError = null;
       state.teamConsultantsError = null;
@@ -245,23 +204,16 @@ const hotlist = createSlice({
       state.updateError = null;
       state.deleteError = null;
     },
-
     clearCreateError: (state) => {
       state.createError = null;
     },
-
     clearUpdateError: (state) => {
       state.updateError = null;
     },
-
     clearDeleteError: (state) => {
       state.deleteError = null;
     },
-
-    // Reset state
-    resetHotlist: (state) => {
-      return { ...initialState };
-    },
+    resetHotlist: () => ({ ...initialState }),
   },
 
   extraReducers: (builder) => {
@@ -307,7 +259,7 @@ const hotlist = createSlice({
         state.teamConsultantsTotal = 0;
       });
 
-    // Fetch All SuperAdmin consultants
+    // Fetch all consultants
     builder
       .addCase(fetchAllConsultants.pending, (state) => {
         state.allConsultantsLoading = true;
@@ -323,7 +275,7 @@ const hotlist = createSlice({
       })
       .addCase(fetchAllConsultants.rejected, (state, action) => {
         state.allConsultantsLoading = false;
-        state.allConsultantsError = action.payload; // This will be your message string
+        state.allConsultantsError = action.payload;
         state.allConsultants = [];
         state.allConsultantsTotal = 0;
       });
@@ -337,7 +289,6 @@ const hotlist = createSlice({
       .addCase(createConsultant.fulfilled, (state, action) => {
         state.isCreating = false;
         state.createError = null;
-        // Add to personal consultants only
         if (action.payload.data) {
           state.consultants.unshift(action.payload.data);
           state.consultantsTotal += 1;
@@ -357,11 +308,9 @@ const hotlist = createSlice({
       .addCase(updateConsultant.fulfilled, (state, action) => {
         state.isUpdating = false;
         state.updateError = null;
-        // Update in both lists if found
         if (action.payload.data) {
           const consultantId = action.payload.data.consultantId;
 
-          // Update in personal consultants
           const personalIndex = state.consultants.findIndex(
             (c) => c.consultantId === consultantId
           );
@@ -369,7 +318,6 @@ const hotlist = createSlice({
             state.consultants[personalIndex] = action.payload.data;
           }
 
-          // Update in team consultants
           const teamIndex = state.teamConsultants.findIndex(
             (c) => c.consultantId === consultantId
           );
@@ -394,7 +342,6 @@ const hotlist = createSlice({
         state.deleteError = null;
         const consultantId = action.payload.consultantId;
 
-        // Remove from personal consultants
         const personalCount = state.consultants.length;
         state.consultants = state.consultants.filter(
           (c) => c.consultantId !== consultantId
@@ -403,7 +350,6 @@ const hotlist = createSlice({
           state.consultantsTotal = Math.max(0, state.consultantsTotal - 1);
         }
 
-        // Remove from team consultants
         const teamCount = state.teamConsultants.length;
         state.teamConsultants = state.teamConsultants.filter(
           (c) => c.consultantId !== consultantId
@@ -435,7 +381,7 @@ export const {
   resetHotlist,
 } = hotlist.actions;
 
-// Selectors - Personal consultants
+// Selectors
 export const selectConsultants = (state) => state.hotlist.consultants;
 export const selectConsultantsTotal = (state) => state.hotlist.consultantsTotal;
 export const selectConsultantsCurrentPage = (state) =>
@@ -446,7 +392,6 @@ export const selectConsultantsLoading = (state) =>
   state.hotlist.consultantsLoading;
 export const selectConsultantsError = (state) => state.hotlist.consultantsError;
 
-// Selectors - Team consultants
 export const selectTeamConsultants = (state) => state.hotlist.teamConsultants;
 export const selectTeamConsultantsTotal = (state) =>
   state.hotlist.teamConsultantsTotal;
@@ -459,9 +404,6 @@ export const selectTeamConsultantsLoading = (state) =>
 export const selectTeamConsultantsError = (state) =>
   state.hotlist.teamConsultantsError;
 
-//all consultants
-
-// Selectors - Team consultants
 export const selectAllConsultants = (state) => state.hotlist.allConsultants;
 export const selectAllConsultantsTotal = (state) =>
   state.hotlist.allConsultantsTotal;
@@ -474,10 +416,8 @@ export const selectAllConsultantsLoading = (state) =>
 export const selectAllConsultantsError = (state) =>
   state.hotlist.allConsultantsError;
 
-// Selectors - Combined/Dynamic based on current view
 export const selectCurrentView = (state) => state.hotlist.currentView;
 
-// Dynamic selectors that return data based on current view
 export const selectCurrentData = (state) => {
   const isTeamView = state.hotlist.currentView === "team";
   return isTeamView ? state.hotlist.teamConsultants : state.hotlist.consultants;
@@ -504,12 +444,10 @@ export const selectCurrentError = (state) => {
     : state.hotlist.consultantsError;
 };
 
-// Legacy selectors for backward compatibility
 export const selectTotal = (state) => selectCurrentTotal(state);
 export const selectLoading = (state) => selectCurrentLoading(state);
 export const selectError = (state) => selectCurrentError(state);
 
-// Form selectors
 export const selectIsCreating = (state) => state.hotlist.isCreating;
 export const selectCreateError = (state) => state.hotlist.createError;
 export const selectIsUpdating = (state) => state.hotlist.isUpdating;
@@ -521,5 +459,4 @@ export const selectShowCreateForm = (state) => state.hotlist.showCreateForm;
 export const selectEditingConsultant = (state) =>
   state.hotlist.editingConsultant;
 
-// Export reducer
 export default hotlist.reducer;
