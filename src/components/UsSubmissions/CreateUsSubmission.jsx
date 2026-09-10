@@ -298,7 +298,7 @@ const CreateUSSubmission = ({
   // Extract values passed from navigation state
   const {
     job,
-    jobId,
+    jobId: redirectedJobId,
     userId: redirectedUserId,
     billRate: jobBillRate,
     payRate: jobPayRate,
@@ -328,7 +328,7 @@ const CreateUSSubmission = ({
       mobileNumber: "",
       dob: "",
       visaType: "",
-      jobId: jobId || "",
+      jobId: redirectedJobId || "",
       totalExperience: "",
       relevantExperience: "",
       qualification: "",
@@ -346,13 +346,16 @@ const CreateUSSubmission = ({
       resume: null,
       documents: [],
     }),
-    [jobId, jobBillRate, jobPayRate]
+    [redirectedJobId, jobBillRate, jobPayRate]
   );
 
   const handleSubmit = async (values, { setSubmitting, resetForm }) => {
     try {
+      // ✅ FIX: Use values.jobId (form value) with fallback to redirectedJobId
+      const finalJobId = values.jobId || redirectedJobId;
+
       // Validation
-      if (!jobId) {
+      if (!finalJobId) {
         showErrorToast("Job ID is required");
         return;
       }
@@ -389,7 +392,7 @@ const CreateUSSubmission = ({
         mobileNumber: values.mobileNumber?.trim() || "",
         recruiterId: userId,
         recruiterName: userName,
-        jobId: values.jobId?.trim() || "",
+        jobId: finalJobId?.trim() || "", // ✅ Use finalJobId
         visaType: values.visaType || "",
         billRate: values.billRate?.trim() || "",
         payRate: values.payRate ? parseFloat(values.payRate) : null,

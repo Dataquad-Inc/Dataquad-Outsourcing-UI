@@ -37,8 +37,8 @@ export const generateSubmissionColumns = (handlers = {}, role = "EMPLOYEE", load
       key: "candidateId",
       label: "Candidate ID",
       type: "text",
-      sortable: false,
-      filterable: false,
+      sortable: true,
+      filterable: true,
       width: 120,
       render: (row) => (
         <Typography
@@ -110,8 +110,8 @@ export const generateSubmissionColumns = (handlers = {}, role = "EMPLOYEE", load
       key: "jobId",
       label: "Job ID",
       type: "text",
-      sortable: false,
-      filterable: false,
+      sortable: true,
+      filterable: true,
       width: 100,
       render: (row) => {
         const canClickJobId = role === "SUPERADMIN" || role === "COORDINATOR" || 
@@ -149,8 +149,8 @@ export const generateSubmissionColumns = (handlers = {}, role = "EMPLOYEE", load
       key: "candidateEmailId",
       label: "Email",
       type: "text",
-      sortable: false,
-      filterable: false,
+      sortable: true,
+      filterable: true,
       width: 220,
       render: (row) => (
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -176,8 +176,8 @@ export const generateSubmissionColumns = (handlers = {}, role = "EMPLOYEE", load
       key: "contactNumber",
       label: "Contact",
       type: "text",
-       sortable: false,
-      filterable: false,
+       sortable: true,
+      filterable: true,
       width: 120,
       render: (row) => (
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
