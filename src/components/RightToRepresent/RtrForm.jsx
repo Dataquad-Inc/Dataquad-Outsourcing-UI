@@ -9,7 +9,7 @@ import { usClientsAPI, rightToRepresentAPI } from "../../utils/api";
 const RtrForm = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { userId } = useSelector((state) => state.auth);
+  const { userId, role } = useSelector((state) => state.auth);
 
   // Get consultant data from route state
   const consultantId = location.state?.consultantId || "";
@@ -209,14 +209,19 @@ const RtrForm = () => {
       console.error("Error submitting RTR:", error);
       showErrorToast(
         error.response?.data?.message ||
-          "Something went wrong while submitting RTR"
+        "Something went wrong while submitting RTR"
       );
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleCancel = () => navigate("/dashboard/rtr/rtr-list");
+  const handleCancel = () =>
+    navigate(
+      role === "SUPERADMIN" || role === "ADMIN"
+        ? "/dashboard/hotlist/master"
+        : "/dashboard/hotlist/consultants"
+    );
 
   return (
     <DynamicFormUltra

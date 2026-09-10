@@ -190,7 +190,11 @@ const AdroitHome = () => {
       title: "View Hotlist",
       icon: PeopleIcon,
       color: theme.palette.secondary.main,
-      path: "/dashboard/hotlist/consultants",
+      // ✅ SUPERADMIN → /dashboard/hotlist/master, others → /dashboard/hotlist/consultants
+      path:
+        userRole === "SUPERADMIN"
+          ? "/dashboard/hotlist/master"
+          : "/dashboard/hotlist/consultants",
       description: "View US consultants hotlist",
       roles: [
         "SUPERADMIN",
@@ -317,7 +321,7 @@ const AdroitHome = () => {
         icon: GroupIcon,
         color: theme.palette.primary.main,
         bgColor: alpha(theme.palette.primary.main, 0.1),
-        change: "+5%",
+        //change: "+5%",
         changeType: "positive",
         description: "Total Placements for US projects",
         roles: [
@@ -333,7 +337,7 @@ const AdroitHome = () => {
         icon: GroupIcon,
         color: theme.palette.primary.main,
         bgColor: alpha(theme.palette.primary.main, 0.1),
-        change: "+5%",
+        //change: "+5%",
         changeType: "positive",
         description: "Total consultants available for US projects",
         roles: [
@@ -345,7 +349,11 @@ const AdroitHome = () => {
           "GRANDSALES",
         ],
         suffix: "",
-        navigateTo: "/dashboard/hotlist/consultants",
+        // ✅ SUPERADMIN → /dashboard/hotlist/master, others → /dashboard/hotlist/consultants
+        navigateTo:
+          userRole === "SUPERADMIN"
+            ? "/dashboard/hotlist/master"
+            : "/dashboard/hotlist/consultants",
       },
       {
         id: "w2HotlistCount",
@@ -354,7 +362,7 @@ const AdroitHome = () => {
         icon: PersonIcon,
         color: theme.palette.info.main,
         bgColor: alpha(theme.palette.info.main, 0.1),
-        change: "+2%",
+        //change: "+2%",
         changeType: "positive",
         description: "W2 employees available in US",
         roles: ["SUPERADMIN", "ADMIN", "TEAMLEAD", "RECRUITER", "GRANDSALES"],
@@ -368,7 +376,7 @@ const AdroitHome = () => {
         icon: Diversity3Icon,
         color: theme.palette.secondary.main,
         bgColor: alpha(theme.palette.secondary.main, 0.1),
-        change: "+12%",
+        //change: "+12%",
         changeType: "positive",
         description: "Ready to recruit this month in US",
         roles: ["SUPERADMIN", "ADMIN", "TEAMLEAD", "RECRUITER", "GRANDSALES"],
@@ -382,7 +390,7 @@ const AdroitHome = () => {
         icon: CalendarMonthIcon,
         color: theme.palette.success.main,
         bgColor: alpha(theme.palette.success.main, 0.1),
-        change: "+15%",
+        //change: "+15%",
         changeType: "positive",
         description: "Interviews scheduled this month in US",
         roles: [
@@ -404,7 +412,7 @@ const AdroitHome = () => {
         icon: AssignmentIcon,
         color: theme.palette.warning.main,
         bgColor: alpha(theme.palette.warning.main, 0.1),
-        change: "+8%",
+        //change: "+8%",
         changeType: "positive",
         description: "New requirements this month in US",
         roles: [
@@ -424,7 +432,7 @@ const AdroitHome = () => {
         icon: UploadFileIcon,
         color: theme.palette.error.main,
         bgColor: alpha(theme.palette.error.main, 0.1),
-        change: "+10%",
+        //change: "+10%",
         changeType: "positive",
         description: "Submissions made this month in US",
         roles: ["SUPERADMIN", "ADMIN", "TEAMLEAD", "RECRUITER", "GRANDSALES", "COORDINATOR"],
@@ -445,7 +453,7 @@ const AdroitHome = () => {
           icon: CheckCircleIcon,
           color: theme.palette.success.dark,
           bgColor: alpha(theme.palette.success.dark, 0.1),
-          change: "+25%",
+          //change: "+25%",
           changeType: "positive",
           description: "Placements made this month in US",
           roles: [
@@ -467,7 +475,7 @@ const AdroitHome = () => {
           icon: AssignmentTurnedInIcon,
           color: theme.palette.success.main,
           bgColor: alpha(theme.palette.success.main, 0.1),
-          change: "+18%",
+          //change: "+18%",
           changeType: "positive",
           description: "All-time US placements",
           roles: [
@@ -617,7 +625,7 @@ const AdroitHome = () => {
                   <IconComponent />
                 </Avatar>
               </Tooltip>
-              <Chip
+              {/* <Chip
                 label={card.change}
                 size="small"
                 icon={<TrendingUpIcon />}
@@ -631,7 +639,7 @@ const AdroitHome = () => {
                   fontWeight: "bold",
                   fontSize: "0.75rem",
                 }}
-              />
+              /> */}
             </Stack>
 
             <Typography

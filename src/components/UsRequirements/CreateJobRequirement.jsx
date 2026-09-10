@@ -47,17 +47,23 @@ const CreateJobRequirement = ({
   };
 
   // Transform employees for multiselect
-  const employeeOptions = recruiters.map((emp) => ({
+ const employeeOptions = recruiters
+  .filter((emp) => emp && emp.employeeId && emp.employeeName)
+  .map((emp) => ({
     label: emp.employeeName,
     value: emp.employeeId,
   }));
 
-  const teamLeadOptions = employees.map((emp) => ({
+const teamLeadOptions = employees
+  .filter((emp) => emp && emp.employeeId && emp.employeeName)
+  .map((emp) => ({
     label: emp.employeeName,
     value: emp.employeeId,
   }));
 
-  const clientOptions = clients.map((client) => ({
+const clientOptions = clients
+  .filter((client) => client && client.clientName)
+  .map((client) => ({
     label: client.clientName,
     value: client.clientName,
   }));
@@ -68,7 +74,7 @@ const CreateJobRequirement = ({
     fetchClients();
   }, [dispatch]);
 
-  // Default form values
+  // Default form values - now includes assignedBy populated with userName
   const defaultInitialValues = {
     clientName: "",
     jobTitle: "",
@@ -83,6 +89,7 @@ const CreateJobRequirement = ({
     noticePeriod: "",
     salaryPackage: "",
     status: "Open",
+    assignedBy: userName || "", // ✅ Populated with logged-in user's name
     assignedUsers: [],
     teamLeadIds: [],
     jobDescriptionType: "text",
