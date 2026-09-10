@@ -1,18 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import DynamicFormUltra from "../../components/FormContainer/DynamicFormUltra";
 import SimpleDocumentsDisplay from "./SimpleDocumentsDisplay";
-import { useFormik } from "formik"; // Import useFormik
 import { showSuccessToast, showErrorToast } from "../../utils/toastUtils";
 import getHotListUserSections from "./hotListUserSections";
-import {
-  Box,
-  Alert,
-  Typography,
-  Paper,
-  Stack,
-  Button,
-  Collapse,
-} from "@mui/material";
+import { Box, Typography, Stack, Button, Collapse } from "@mui/material";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchEmployeesUs, fetchTeamMembers } from "../../redux/usEmployees";
 import {
@@ -39,20 +30,15 @@ const CreateHotListUser = ({
   const [selectedTeamleadId, setSelectedTeamleadId] = useState(
     initialValues.teamleadId || initialValues.teamLeadId || ""
   );
-  
 
-  // State to store predefined options for edit mode
   const [predefinedRecruiters, setPredefinedRecruiters] = useState([]);
   const [predefinedSalesExecutives, setPredefinedSalesExecutives] = useState(
     []
   );
 
-  // Selectors
   const employees = useSelector((state) => state.usEmployees.employees);
   const { role, userId } = useSelector((state) => state.auth);
 
-
-  // Hotlist specific selectors
   const isCreating = useSelector(selectIsCreating);
   const isUpdating = useSelector(selectIsUpdating);
   const createError = useSelector(selectCreateError);
@@ -73,19 +59,17 @@ const CreateHotListUser = ({
     ? "Update Consultant"
     : "Submit Consultant";
 
-  // When teamleadId changes, fetch recruiters & sales executives
+  // Fetch team leads and team members
   useEffect(() => {
     dispatch(fetchEmployeesUs("TEAMLEAD"));
-
     if (selectedTeamleadId) {
       dispatch(fetchTeamMembers(selectedTeamleadId));
     }
   }, [userId, dispatch, selectedTeamleadId]);
 
-  // Handle predefined values for edit mode
+  // Predefined values for edit mode
   useEffect(() => {
     if (isEditMode && initialValues) {
-      // Create predefined options for recruiter if recruiterId exists
       if (initialValues.recruiterId && initialValues.recruiterName) {
         setPredefinedRecruiters([
           {
@@ -94,8 +78,6 @@ const CreateHotListUser = ({
           },
         ]);
       }
-
-      // Create predefined options for sales executive if salesExecutiveId exists
       if (initialValues.salesExecutiveId && initialValues.salesExecutive) {
         setPredefinedSalesExecutives([
           {
@@ -107,7 +89,7 @@ const CreateHotListUser = ({
     }
   }, [isEditMode, initialValues]);
 
-  // Clear errors on mount and when switching modes
+  // Clear errors
   useEffect(() => {
     if (isEditMode) {
       dispatch(clearUpdateError());
@@ -116,22 +98,16 @@ const CreateHotListUser = ({
     }
   }, [dispatch, isEditMode]);
 
-  // Handle error display
+  // Show error toasts
   useEffect(() => {
     if (currentError) {
       showErrorToast(currentError);
     }
   }, [currentError]);
 
-  // Enhanced cancel handler
   const handleCancel = () => {
-    if (typeof onCancel === "function") {
-      onCancel();
-    }
-
-    if (typeof onClose === "function") {
-      onClose();
-    }
+    if (typeof onCancel === "function") onCancel();
+    if (typeof onClose === "function") onClose();
 
     if (isEditMode) {
       dispatch(clearUpdateError());
@@ -142,109 +118,129 @@ const CreateHotListUser = ({
 
   const handleTeamleadChange = (teamLeadId) => {
     setSelectedTeamleadId(teamLeadId);
-    // Clear predefined values when team lead changes (only in edit mode)
     if (isEditMode) {
       setPredefinedRecruiters([]);
       setPredefinedSalesExecutives([]);
     }
   };
 
-  const handleSubmit = async (values, formikHelpers) => {
-    console.log("from component - values:", values);
-    console.log("from component - consultantId:", values.consultantId);
+  // ---------- FormData Builder ----------
 
+  // Robustly normalizes any shape a file field might hand us
+  // (File, FileList, real Array, or an array-like / plain object such as
+  // {0: File, 1: File, length: 2}) down to a flat array of File instances.
+  // Anything that isn't an actual File instance (e.g. leftover document
+  // metadata like `{}` from the server) is filtered out here so it can
+  // never leak into the multipart payload as a bogus part.
+  const normalizeToFileArray = (fileInput) => {
+    if (!fileInput) return [];
+
+    if (fileInput instanceof File) {
+      return [fileInput];
+    }
+
+    if (fileInput instanceof FileList) {
+      return Array.from(fileInput);
+    }
+
+    if (Array.isArray(fileInput)) {
+      return fileInput.filter((f) => f instanceof File);
+    }
+
+    if (typeof fileInput === "object") {
+      return Object.values(fileInput).filter((f) => f instanceof File);
+    }
+
+    return [];
+  };
+
+  const appendFiles = (formData, fieldName, fileInput) => {
+    const files = normalizeToFileArray(fileInput);
+    files.forEach((f) => formData.append(fieldName, f, f.name));
+    return files.length;
+  };
+
+  const buildFormData = (values) => {
+    const formData = new FormData();
+
+    Object.entries(values).forEach(([key, val]) => {
+      // Skip empty, files (handled separately), and server-managed fields
+      if (val === undefined || val === null) return;
+      if (key === "resumes" || key === "documents") return;
+      if (key === "consultantId") return; // goes in URL path, not body
+      if (key === "teamleadName") return;
+      if (key === "recruiterName") return;
+      if (key === "consultantAddedTimeStamp") return;
+      if (key === "updatedTimeStamp") return;
+      if (key === "isAssignAll") return; // sent as query param
+
+      // For @ModelAttribute binding:
+      // - Primitives (string/number/boolean) → plain string
+      // - Complex objects/arrays → JSON string (backend should parse)
+      if (
+        typeof val === "object" &&
+        !(val instanceof File) &&
+        !(val instanceof Blob)
+      ) {
+        formData.append(key, JSON.stringify(val));
+      } else {
+        formData.append(key, String(val));
+      }
+    });
+
+    // Append files LAST with exact field names backend expects
+    const resumeCount = appendFiles(formData, "resumes", values.resumes);
+    const documentCount = appendFiles(formData, "documents", values.documents);
+
+    if (process.env.NODE_ENV === "development") {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[FormData] Attached ${resumeCount} resume(s), ${documentCount} document(s)`
+      );
+    }
+
+    return formData;
+  };
+
+  const handleSubmit = async (values, formikHelpers) => {
     const { setSubmitting, resetForm } = formikHelpers || {};
 
-    // Remove unwanted fields globally for both create & update
-    const {
-      teamleadName,
-      recruiterName,
-      consultantAddedTimeStamp,
-      updatedTimeStamp,
-      ...cleanValues
-    } = values;
+    const consultantId = values.consultantId;
 
-    // Validate consultantId for edit mode
-    if (isEditMode && !cleanValues.consultantId) {
-      console.error("Missing consultantId for update operation");
+    if (isEditMode && !consultantId) {
       showErrorToast("Missing consultant ID for update operation");
       if (setSubmitting) setSubmitting(false);
       return;
     }
 
     try {
+      const formData = buildFormData(values);
+
+      // Debug: verify FormData contents
+      if (process.env.NODE_ENV === "development") {
+        // eslint-disable-next-line no-restricted-syntax
+        for (const pair of formData.entries()) {
+          // eslint-disable-next-line no-console
+          console.log("[FormData]", pair[0], pair[1]);
+        }
+      }
+
       let result;
 
       if (isEditMode) {
-        // UPDATE: Send JSON data (no FormData)
-        console.log("Updating consultant with ID:", cleanValues.consultantId);
-
-        const updatePayload = {
-          ...cleanValues,
-          recruiterId: cleanValues.recruiterId,
-        };
-
-        // Remove file fields from JSON payload if they exist
-        delete updatePayload.resumes;
-        delete updatePayload.documents;
-
-        console.log("Update payload (JSON):", updatePayload);
-
         result = await dispatch(
           updateConsultant({
-            consultantId: cleanValues.consultantId,
-            consultantDto: updatePayload,
-            isAssignAll: values.isAssignAll ?? false, // send from form values or default
+            consultantId,
+            consultantDto: formData,
+            isAssignAll: values.isAssignAll ?? false,
           })
         ).unwrap();
       } else {
-        // CREATE: Send FormData (for file uploads)
-        console.log("Creating new consultant");
-
-        const appendFiles = (formData, fieldName, fileInput) => {
-          if (!fileInput) return;
-          if (fileInput instanceof File) {
-            formData.append(fieldName, fileInput);
-          } else if (fileInput instanceof FileList) {
-            Array.from(fileInput).forEach((f) => formData.append(fieldName, f));
-          } else if (Array.isArray(fileInput)) {
-            fileInput.forEach((f) => {
-              if (f instanceof File) formData.append(fieldName, f);
-            });
-          }
-        };
-
-        const createFormData = () => {
-          const formData = new FormData();
-
-          Object.entries(cleanValues).forEach(([key, val]) => {
-            if (val === undefined || val === null) return;
-            if (key === "resumes" || key === "documents") return;
-
-            if (
-              typeof val === "object" &&
-              !(val instanceof File) &&
-              !(val instanceof Blob)
-            ) {
-              formData.append(key, JSON.stringify(val));
-            } else {
-              formData.append(key, String(val));
-            }
-          });
-
-          appendFiles(formData, "resumes", cleanValues.resumes);
-          appendFiles(formData, "documents", cleanValues.documents);
-
-          return formData;
-        };
-
-        const formData = createFormData();
-
         result = await dispatch(
           createConsultant({
             formData,
-            candidateName: cleanValues.candidateName,
-            source: cleanValues.source,
+            candidateName: values.candidateName,
+            source: values.source,
           })
         ).unwrap();
       }
@@ -260,6 +256,8 @@ const CreateHotListUser = ({
         onSuccess(result.data, isEditMode ? "update" : "create");
       }
     } catch (error) {
+      // Error toast already handled by currentError effect
+      // eslint-disable-next-line no-console
       console.error(`${isEditMode ? "Update" : "Create"} Error:`, error);
     } finally {
       if (typeof setSubmitting === "function") {
@@ -268,17 +266,34 @@ const CreateHotListUser = ({
     }
   };
 
-  // Enhanced form initial values with better preservation of consultantId
-  const formInitialValues = {
-    ...initialValues,
-    // Explicitly preserve consultantId if it exists
-    ...(initialValues?.consultantId && {
-      consultantId: initialValues.consultantId,
-    }),
-    teamLeadId: selectedTeamleadId || initialValues.teamLeadId,
-  };
+  // Memoized so this object only gets a new identity when values that
+  // should actually trigger a form reinitialize change (initialValues
+  // itself, or the selected team lead). DynamicFormUltra runs with
+  // enableReinitialize: true, so an unstable object reference here would
+  // reset the whole form — including a resume the user already picked —
+  // on every unrelated re-render of this component.
+  //
+  // `resumes` / `documents` are also stripped out here: those keys, when
+  // present on initialValues, hold existing-document METADATA returned by
+  // the API (shown separately via SimpleDocumentsDisplay below), never
+  // real File objects. The file fields must always start empty so
+  // DynamicFormUltra only ever populates them with freshly selected Files.
+  const formInitialValues = useMemo(() => {
+    const {
+      resumes: _existingResumes,
+      documents: _existingDocuments,
+      ...restInitialValues
+    } = initialValues;
 
-  // Get the effective recruiters and sales executives for the form
+    return {
+      ...restInitialValues,
+      ...(initialValues?.consultantId && {
+        consultantId: initialValues.consultantId,
+      }),
+      teamLeadId: selectedTeamleadId || initialValues.teamLeadId,
+    };
+  }, [initialValues, selectedTeamleadId]);
+
   const effectiveRecruiters =
     isEditMode && predefinedRecruiters.length > 0
       ? predefinedRecruiters
@@ -291,7 +306,6 @@ const CreateHotListUser = ({
 
   return (
     <Box>
-      {/* Show existing documents in edit mode */}
       {isEditMode && formInitialValues?.consultantId && (
         <Box mb={3}>
           <Stack
@@ -326,7 +340,6 @@ const CreateHotListUser = ({
         </Box>
       )}
 
-      {/* Main Form */}
       <DynamicFormUltra
         config={getHotListUserSections(
           employees,

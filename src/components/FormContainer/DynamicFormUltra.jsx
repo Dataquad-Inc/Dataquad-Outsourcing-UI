@@ -491,29 +491,40 @@ const DynamicFormUltra = ({
   const validationSchema = {};
 
   const allFields = config.flatMap((section) => section.fields);
+  const fileFieldNames = new Set(
+    allFields.filter((f) => f.type === "file").map((f) => f.name)
+  );
 
-  // Process all initial values, not just config fields
+  // Pass 1: copy every key from initialValues EXCEPT file fields.
+  // File fields must never be seeded from server data (they contain
+  // existing-document metadata like `{}` or arrays of objects, never
+  // real File instances). They are always initialized fresh in Pass 2.
   Object.keys(initialValues).forEach((key) => {
+    if (fileFieldNames.has(key)) return;
     generatedInitialValues[key] = initialValues[key];
   });
 
   allFields.forEach((field) => {
-    if (initialValues[field.name] !== undefined) {
+    // File fields ALWAYS start clean (null / []), regardless of what
+    // initialValues contains for this key. This is the fix: previously
+    // this branch only ran when initialValues[field.name] === undefined,
+    // so any existing document metadata from the backend (e.g. `resumes: {}`)
+    // would get copied straight into Formik state and silently replace
+    // any File the user selected once the form reinitialized.
+    if (field.type === "file") {
+      generatedInitialValues[field.name] = field.multiple ? [] : null;
+    } else if (initialValues[field.name] !== undefined) {
       generatedInitialValues[field.name] = field.multiple
         ? [...initialValues[field.name]]
         : initialValues[field.name];
+    } else if (field.type === "multiselect") {
+      generatedInitialValues[field.name] = [];
+    } else if (field.type === "checkbox") {
+      generatedInitialValues[field.name] = field.defaultChecked || false;
+    } else if (field.type === "checkbox-group" || field.type === "radio") {
+      generatedInitialValues[field.name] = "";
     } else {
-      if (field.type === "multiselect") {
-        generatedInitialValues[field.name] = [];
-      } else if (field.type === "file") {
-        generatedInitialValues[field.name] = field.multiple ? [] : null;
-      } else if (field.type === "checkbox") {
-        generatedInitialValues[field.name] = field.defaultChecked || false;
-      } else if (field.type === "checkbox-group" || field.type === "radio") {
-        generatedInitialValues[field.name] = "";
-      } else {
-        generatedInitialValues[field.name] = field.multiple ? [""] : "";
-      }
+      generatedInitialValues[field.name] = field.multiple ? [""] : "";
     }
 
     // Initialize country code for phone fields
@@ -722,6 +733,9 @@ const DynamicFormUltra = ({
                 isMultiple ? Array.from(files) : files[0]
               );
             }
+            // Allow re-selecting the same file (browsers don't fire
+            // onChange again otherwise if the same file is picked twice)
+            event.target.value = "";
           }}
           onBlur={formik.handleBlur}
           accept={field.accept || "*"}
