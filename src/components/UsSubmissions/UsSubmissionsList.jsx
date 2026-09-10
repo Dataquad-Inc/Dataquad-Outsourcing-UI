@@ -123,6 +123,36 @@ const UsSubmissionsList = () => {
     return params;
   }, []);
 
+  // ✅ Extract filter options — memoized, returns options (does NOT call setState)
+  const extractFilterOptionsFromData = useCallback((data) => {
+    const options = {
+      candidateName: [],
+      recruiterName: [],
+      visaType: [],
+      currentLocation: [],
+      qualification: [],
+      employmentType: [],
+    };
+
+    data.forEach((row) => {
+      Object.keys(options).forEach((field) => {
+        const value = row[field];
+        if (value && !options[field].find((opt) => opt.value === value)) {
+          options[field].push({
+            value: value,
+            label: value,
+          });
+        }
+      });
+    });
+
+    Object.keys(options).forEach((field) => {
+      options[field].sort((a, b) => a.label?.localeCompare(b.label || "") || 0);
+    });
+
+    return options;
+  }, []);
+
   /** ---------------- Fetch Data ---------------- */
   const fetchData = useCallback(async () => {
     try {
@@ -174,13 +204,13 @@ const UsSubmissionsList = () => {
         setSubmissions(data.content);
         setTotal(data.totalElements || 0);
 
-        // Extract filter options if not already loaded
-        if (
-          Object.keys(filterOptions).length === 0 &&
-          data.content.length > 0
-        ) {
-          extractFilterOptionsFromData(data.content);
-        }
+        // ✅ Use functional update so `filterOptions` isn't a dependency
+        setFilterOptions((prev) => {
+          if (Object.keys(prev).length === 0 && data.content.length > 0) {
+            return extractFilterOptionsFromData(data.content);
+          }
+          return prev;
+        });
       } else {
         showErrorToast("Failed to load submissions: Invalid data format");
         setSubmissions([]);
@@ -202,44 +232,16 @@ const UsSubmissionsList = () => {
     debouncedSearch,
     filters,
     buildFilterParams,
-    filterOptions,
+    extractFilterOptionsFromData,
     role,
     isCoordinator,
     userId,
   ]);
 
-  const extractFilterOptionsFromData = (data) => {
-    const options = {
-      candidateName: [],
-      recruiterName: [],
-      visaType: [],
-      currentLocation: [],
-      qualification: [],
-      employmentType: [],
-    };
-
-    data.forEach((row) => {
-      Object.keys(options).forEach((field) => {
-        const value = row[field];
-        if (value && !options[field].find((opt) => opt.value === value)) {
-          options[field].push({
-            value: value,
-            label: value,
-          });
-        }
-      });
-    });
-
-    Object.keys(options).forEach((field) => {
-      options[field].sort((a, b) => a.label?.localeCompare(b.label || "") || 0);
-    });
-
-    setFilterOptions(options);
-  };
-
+  // ✅ `debouncedSearch` removed — it's already a dependency of `fetchData`
   useEffect(() => {
     fetchData();
-  }, [fetchData, refreshKey, debouncedSearch]);
+  }, [fetchData, refreshKey]);
 
   /** ---------------- Filter Handlers ---------------- */
   const handleFiltersChange = useCallback((newFilters) => {

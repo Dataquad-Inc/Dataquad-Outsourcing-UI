@@ -165,84 +165,8 @@ const RequirementsList = () => {
     }
   }, []);
 
-  // Main fetch data function
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-
-      const filterParams = buildFilterParams(filters);
-      const params = {
-        page,
-        size: rowsPerPage,
-        ...filterParams,
-      };
-
-      if (debouncedSearch.trim()) {
-        params.keyword = debouncedSearch.trim();
-      }
-
-      // Log the params for debugging
-      console.log("API Request Params:", params);
-
-      let response;
-      if (role === "RECRUITER" || role === "GRANDSALES" || role === "TEAMLEAD" || role === "SUPERADMIN") {
-        // For date range filter, use the API endpoint with fromDate and toDate
-        response = await axios.get(
-          `https://mymulya.com/api/us/requirements/v2/get-requirements/${userId}`,
-          {
-            params,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      } else {
-        response = await axios.get(
-          "https://mymulya.com/api/us/requirements/allRequirements",
-          {
-            params,
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-      }
-
-      const data = response.data;
-      console.log("API Response:", data);
-
-      if (data.content) {
-        setRequirements(data.content || []);
-        setTotal(data.totalElements || 0);
-
-        // Extract filter options from data if filter options not already loaded
-        if (Object.keys(filterOptions).length === 0 && data.content.length > 0) {
-          extractFilterOptionsFromData(data.content || []);
-        }
-      } else {
-        showErrorToast(data.message || "Failed to load requirements");
-        setRequirements([]);
-        setTotal(0);
-      }
-    } catch (error) {
-      console.error("Error fetching requirements:", error);
-      showErrorToast(
-        error.response?.data?.message || "Failed to load requirements"
-      );
-      setRequirements([]);
-      setTotal(0);
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    page,
-    rowsPerPage,
-    debouncedSearch,
-    filters,
-    buildFilterParams,
-    filterOptions,
-    role,
-    userId,
-  ]);
-
-  // Extract filter options from data
-  const extractFilterOptionsFromData = (data) => {
+  // ✅ Extract filter options from data — moved outside fetchData
+  const extractFilterOptionsFromData = useCallback((data) => {
     const options = {
       clientName: [],
       jobType: [],
@@ -269,17 +193,102 @@ const RequirementsList = () => {
       options[field].sort((a, b) => (a.label || "").localeCompare(b.label || ""));
     });
 
-    setFilterOptions(options);
-  };
+    return options;
+  }, []);
+
+  // Main fetch data function
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      const filterParams = buildFilterParams(filters);
+      const params = {
+        page,
+        size: rowsPerPage,
+        ...filterParams,
+      };
+
+      if (debouncedSearch.trim()) {
+        params.keyword = debouncedSearch.trim();
+      }
+
+      // Log the params for debugging
+      console.log("API Request Params:", params);
+
+      let response;
+      if (
+        role === "RECRUITER" ||
+        role === "GRANDSALES" ||
+        role === "TEAMLEAD" ||
+        role === "SUPERADMIN"
+      ) {
+        // For date range filter, use the API endpoint with fromDate and toDate
+        response = await axios.get(
+          `https://mymulya.com/api/us/requirements/v2/get-requirements/${userId}`,
+          {
+            params,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      } else {
+        response = await axios.get(
+          "https://mymulya.com/api/us/requirements/allRequirements",
+          {
+            params,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      const data = response.data;
+      console.log("API Response:", data);
+
+      if (data.content) {
+        setRequirements(data.content || []);
+        setTotal(data.totalElements || 0);
+
+        // ✅ Use functional update so `filterOptions` isn't a dependency
+        setFilterOptions((prev) => {
+          if (Object.keys(prev).length === 0 && data.content.length > 0) {
+            return extractFilterOptionsFromData(data.content || []);
+          }
+          return prev;
+        });
+      } else {
+        showErrorToast(data.message || "Failed to load requirements");
+        setRequirements([]);
+        setTotal(0);
+      }
+    } catch (error) {
+      console.error("Error fetching requirements:", error);
+      showErrorToast(
+        error.response?.data?.message || "Failed to load requirements"
+      );
+      setRequirements([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    page,
+    rowsPerPage,
+    debouncedSearch,
+    filters,
+    buildFilterParams,
+    extractFilterOptionsFromData,
+    role,
+    userId,
+  ]);
 
   // Initial data and filter options fetch
-  useEffect(() => {
-    fetchFilterOptions();
-  }, [fetchFilterOptions]);
+  // useEffect(() => {
+  //   fetchFilterOptions();
+  // }, [fetchFilterOptions]);
 
+  // ✅ `debouncedSearch` removed — it's already a dependency of `fetchData`
   useEffect(() => {
     fetchData();
-  }, [fetchData, refreshKey, debouncedSearch]);
+  }, [fetchData, refreshKey]);
 
   /** ---------------- Navigate to Requirement Profile ---------------- */
   const handleNagivateToReqProfile = (row) => {
@@ -333,14 +342,14 @@ const RequirementsList = () => {
 
   /** ---------------- Submit Candidate ---------------- */
   const handleSubmitCandidate = (job) => {
-    navigate(`/dashboard/us-submissions/create-submission`, { 
-      state: { 
+    navigate(`/dashboard/us-submissions/create-submission`, {
+      state: {
         job,
         jobId: job.jobId,
         userId: userId,
         billRate: job.billRate,
-        payRate: job.payRate
-      } 
+        payRate: job.payRate,
+      },
     });
   };
 

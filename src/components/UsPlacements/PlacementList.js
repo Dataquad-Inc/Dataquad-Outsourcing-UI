@@ -69,7 +69,6 @@ import PlacementCard from "./PlacementCard";
 import ConfirmDialog from "../muiComponents/ConfirmDialog";
 import {
   fetchUsPlacements,
-  fetchUsPlacementCounts,
   deleteUsPlacement,
   setSelectedPlacement,
   resetPlacementState,
@@ -806,6 +805,9 @@ const PlacementsList = () => {
     statusFilter: 'active'
   });
 
+  // Ref to ensure the initial fetch fires exactly once (React 18 StrictMode safe)
+  const initialFetchDone = useRef(false);
+
   const decoded = atob(encryptionKey);
   const FINANCIAL_SECRET_KEY = decoded;
 
@@ -952,13 +954,14 @@ const PlacementsList = () => {
     setFilteredPlacements(filtered);
   }, [processedPlacements, activeFilter]);
 
-  // Fetch all placements once when component mounts
+  // Fetch all placements ONCE on mount.
+  // - Single dispatch (no fetchUsPlacementCounts — it hit the same endpoint).
+  // - useRef guard makes it idempotent under React 18 StrictMode.
   useEffect(() => {
-    dispatch(fetchUsPlacements({ page: 0, size: 1000 }));
-  }, [dispatch]);
+    if (initialFetchDone.current) return;
+    initialFetchDone.current = true;
 
-  useEffect(() => {
-    dispatch(fetchUsPlacementCounts());
+    dispatch(fetchUsPlacements({ page: 0, size: 1000 }));
   }, [dispatch]);
 
   const handleFilterChange = (filterType) => {
@@ -1089,12 +1092,10 @@ const PlacementsList = () => {
 
   const handleDelete = () => {
     if (placementToDelete) {
+      // deleteUsPlacement thunk already refetches US placements (and counts are
+      // recomputed inside fetchUsPlacements.fulfilled) — no extra dispatch needed.
       dispatch(deleteUsPlacement(placementToDelete.id));
       handleCloseDeleteDialog();
-      setTimeout(() => {
-        dispatch(fetchUsPlacements({ page: 0, size: 1000 }));
-        dispatch(fetchUsPlacementCounts());
-      }, 500);
     }
   };
 
@@ -1916,8 +1917,8 @@ const PlacementsList = () => {
           onSearchChange={handleSearchChange}
           onSearchClear={handleSearchClear}
           onRefresh={() => {
+            // Single refresh call — counts are recomputed inside the slice
             dispatch(fetchUsPlacements({ page: 0, size: 1000 }));
-            dispatch(fetchUsPlacementCounts());
           }}
           onFiltersChange={handleTableFiltersChange}
         />
