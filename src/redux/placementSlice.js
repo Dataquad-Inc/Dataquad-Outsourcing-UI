@@ -82,6 +82,34 @@ const formatDateForFormInput = (dateStr) => {
   }
 };
 
+// Helper to compute counts locally from a placements array (no extra API call)
+const computeUsPlacementCounts = (placements) => {
+  return placements.reduce(
+    (counts, placement) => {
+      const status = String(placement.status || "").toLowerCase();
+      const employmentType = String(
+        placement.employmentType || ""
+      ).toLowerCase();
+      const isFullTime = employmentType === "full-time";
+
+      counts.all += 1;
+
+      if (isFullTime) {
+        counts.fulltime += 1;
+      } else if (status === "active") {
+        counts.active += 1;
+      } else if (status === "pending") {
+        counts.pending += 1;
+      } else {
+        counts.inactive += 1;
+      }
+
+      return counts;
+    },
+    { all: 0, active: 0, inactive: 0, fulltime: 0, pending: 0 }
+  );
+};
+
 // Async thunk to fetch placements list
 export const fetchPlacements = createAsyncThunk(
   "placement/fetchPlacements",
@@ -142,6 +170,13 @@ export const fetchUsPlacements = createAsyncThunk(
   }
 );
 
+/**
+ * NOTE: fetchUsPlacementCounts previously hit the SAME endpoint
+ * (/candidate/us-placement/placements-list) with a larger size, causing a
+ * duplicate API call. Counts are now derived locally from the already-fetched
+ * usPlacements array via computeUsPlacementCounts(). This thunk is kept for
+ * backward compatibility but is NOT dispatched anywhere anymore.
+ */
 export const fetchUsPlacementCounts = createAsyncThunk(
   "placement/fetchUsPlacementCounts",
   async (_, { rejectWithValue }) => {
@@ -151,29 +186,7 @@ export const fetchUsPlacementCounts = createAsyncThunk(
         { page: 0, size: 10000 }
       );
       const rawData = response?.data?.data || response?.data || [];
-
-      return rawData.reduce(
-        (counts, placement) => {
-          const status = String(placement.status || "").toLowerCase();
-          const employmentType = String(placement.employmentType || "").toLowerCase();
-          const isFullTime = employmentType === "full-time";
-
-          counts.all += 1;
-
-          if (isFullTime) {
-            counts.fulltime += 1;
-          } else if (status === "active") {
-            counts.active += 1;
-          } else if (status === "pending") {
-            counts.pending += 1;
-          } else {
-            counts.inactive += 1;
-          }
-
-          return counts;
-        },
-        { all: 0, active: 0, inactive: 0, fulltime: 0, pending: 0 }
-      );
+      return computeUsPlacementCounts(rawData);
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch US placement counts"
@@ -206,7 +219,6 @@ export const createPlacement = createAsyncThunk(
 
       if (response.data.success) {
         ToastService.success("New placement created successfully!");
-        // Refetch placements after creating a new one
         dispatch(fetchPlacements());
         return response.data;
       } else {
@@ -238,7 +250,7 @@ export const updatePlacement = createAsyncThunk(
           ? formatDateForAPI(placementData.endDate)
           : null,
       };
-      
+
       const state = getState();
       const userId = state.auth.userId;
       const response = await httpService.put(
@@ -251,7 +263,6 @@ export const updatePlacement = createAsyncThunk(
         ToastService.success(
           `${message}! Candidate ID: ${data.id}, Name: ${data.candidateFullName}`
         );
-        // Refetch placements after updating
         dispatch(fetchPlacements());
         return response.data;
       } else {
@@ -293,13 +304,9 @@ export const createUsPlacement = createAsyncThunk(
 
       if (response.data.success) {
         ToastService.success("New US placement created successfully!");
-        // Refetch US placements after creating a new one
-        dispatch(fetchUsPlacements());
-        dispatch(fetchUsPlacementCounts());
-        
-        // Fetch RTR interviews from hotlist/rtrInterviews-list
+        // Single refetch — counts are recomputed inside fetchUsPlacements.fulfilled
+        dispatch(fetchUsPlacements({ page: 0, size: 1000 }));
         dispatch(fetchRTRInterviews());
-        
         return response.data;
       } else {
         throw new Error(response.data.error || "Failed to create US placement");
@@ -330,7 +337,7 @@ export const updateUsPlacement = createAsyncThunk(
           ? formatDateForAPI(placementData.endDate)
           : null,
       };
-      
+
       const state = getState();
       const userId = state.auth.userId;
       const response = await httpService.put(
@@ -343,9 +350,8 @@ export const updateUsPlacement = createAsyncThunk(
         ToastService.success(
           `${message}! Candidate ID: ${data.id}, Name: ${data.candidateFullName}`
         );
-        // Refetch US placements after updating
-        dispatch(fetchUsPlacements());
-        dispatch(fetchUsPlacementCounts());
+        // Single refetch — counts are recomputed inside fetchUsPlacements.fulfilled
+        dispatch(fetchUsPlacements({ page: 0, size: 1000 }));
         return response;
       } else {
         throw new Error(response.data.error || "Failed to update US placement");
@@ -382,7 +388,8 @@ export const lockPlacement = createAsyncThunk(
       }
     } catch (error) {
       ToastService.error(
-        error.response?.data?.message || "Failed to lock placement. Please try again."
+        error.response?.data?.message ||
+          "Failed to lock placement. Please try again."
       );
       return rejectWithValue(
         error.response?.data?.message || "Failed to lock placement"
@@ -458,7 +465,6 @@ export const deletePlacement = createAsyncThunk(
 
       if (response.data.success) {
         ToastService.success("Placement deleted successfully!");
-        // Refetch placements after deleting
         dispatch(fetchPlacements());
         return response.data;
       } else {
@@ -487,9 +493,8 @@ export const deleteUsPlacement = createAsyncThunk(
 
       if (response.success || response.data?.success) {
         ToastService.success("US Placement deleted successfully!");
-        // Refetch US placements after deleting
-        dispatch(fetchUsPlacements());
-        dispatch(fetchUsPlacementCounts());
+        // Single refetch — counts are recomputed inside fetchUsPlacements.fulfilled
+        dispatch(fetchUsPlacements({ page: 0, size: 1000 }));
         return response;
       } else {
         throw new Error(response.error || "Failed to delete US placement");
@@ -515,7 +520,6 @@ export const filterPlacementByDateRange = createAsyncThunk(
         `/candidate/placement/filterByDate?startDate=${startDate}&endDate=${endDate}`
       );
 
-      // Format the filtered data for UI display
       const rawData = response.data.data || response.data;
       const formattedData = rawData.map((item) => ({
         ...item,
@@ -654,7 +658,7 @@ const placementSlice = createSlice({
         state.actionType = null;
       })
 
-      // Fetch US placements
+      // Fetch US placements — also recomputes counts locally (single API call)
       .addCase(fetchUsPlacements.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -664,6 +668,7 @@ const placementSlice = createSlice({
         state.loading = false;
         state.usPlacements = action.payload.data;
         state.usPlacementsPagination = action.payload.pagination;
+        state.usPlacementCounts = computeUsPlacementCounts(action.payload.data);
         state.actionType = null;
         state.isFiltered = false;
       })
@@ -673,7 +678,7 @@ const placementSlice = createSlice({
         state.actionType = null;
       })
 
-      // Fetch US placement counts
+      // Fetch US placement counts (kept for backward compatibility — not dispatched)
       .addCase(fetchUsPlacementCounts.fulfilled, (state, action) => {
         state.usPlacementCounts = action.payload;
       })
@@ -880,6 +885,7 @@ const placementSlice = createSlice({
       .addCase(filterUsPlacementByDateRange.fulfilled, (state, action) => {
         state.loading = false;
         state.usPlacements = action.payload;
+        state.usPlacementCounts = computeUsPlacementCounts(action.payload);
         state.success = true;
         state.actionType = null;
         state.isFiltered = true;

@@ -62,33 +62,7 @@ const YetToOnboard = React.memo(() => {
     isSubmitting: false,
   });
 
-  // Fetch filter options
-  const fetchFilterOptions = useCallback(async () => {
-    try {
-      // You can either call a dedicated API endpoint for filter options
-      // or extract them from the existing data
-      const result = await hotlistAPI.getFilterOptions();
-
-      if (result?.data) {
-        setFilterOptions(result.data);
-      }
-    } catch (error) {
-      console.error("Error fetching filter options:", error);
-      // Set default empty options if API fails
-      setFilterOptions({
-        technology: [],
-        teamleadName: [],
-        salesExecutive: [],
-        recruiterName: [],
-        reference: [],
-        payroll: [],
-        marketingVisa: [],
-        actualVisa: [],
-      });
-    }
-  }, []);
-
-  // Extract filter options from consultants data
+  // ✅ Extract filter options — memoized, returns options (does NOT call setState)
   const extractFilterOptionsFromData = useCallback((data) => {
     const options = {
       technology: [],
@@ -119,7 +93,7 @@ const YetToOnboard = React.memo(() => {
       options[field].sort((a, b) => a.label?.localeCompare(b.label || "") || 0);
     });
 
-    setFilterOptions(options);
+    return options;
   }, []);
 
   /** ---------------- Fetch Data ---------------- */
@@ -153,10 +127,13 @@ const YetToOnboard = React.memo(() => {
       setConsultants(result?.data?.content || []);
       setTotal(result?.data?.totalElements || 0);
 
-      // Extract filter options from the data if not already set
-      if (Object.keys(filterOptions).length === 0 && result?.data?.content) {
-        extractFilterOptionsFromData(result.data.content);
-      }
+      // ✅ Use functional update so `filterOptions` isn't a dependency
+      setFilterOptions((prev) => {
+        if (Object.keys(prev).length === 0 && result?.data?.content?.length > 0) {
+          return extractFilterOptionsFromData(result.data.content);
+        }
+        return prev;
+      });
 
       showInfoToast("Yet-to-onboard consultants loaded successfully");
     } catch (err) {
@@ -165,15 +142,18 @@ const YetToOnboard = React.memo(() => {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, debouncedSearch, filters, filterOptions, extractFilterOptionsFromData]);
+  }, [
+    page,
+    rowsPerPage,
+    debouncedSearch,
+    filters,
+    extractFilterOptionsFromData,
+  ]);
 
-  useEffect(() => {
-    fetchFilterOptions();
-  }, [fetchFilterOptions]);
-
+  // ✅ Removed `debouncedSearch` — already a dependency of `fetchData`
   useEffect(() => {
     fetchData();
-  }, [fetchData, refreshKey, debouncedSearch]);
+  }, [fetchData, refreshKey]);
 
   /** ---------------- Filter Handlers ---------------- */
   const handleFiltersChange = useCallback((newFilters) => {
