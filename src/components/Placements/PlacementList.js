@@ -1549,126 +1549,182 @@ const PlacementsList = () => {
         label: "Actions",
         sortable: false,
         filterable: false,
-        width: 280,
+        width: 320,
         align: "center",
         render: (row) => {
-          // Check if submitted is true
           const isSubmitted = row.submitted === true;
           const isApproved = row.approved === true;
 
           return (
             <Box
-              sx={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 0.5 }}
+              sx={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: 1.5,
+              }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Submit Button - Only for ADMIN role and only if not submitted */}
-              {isAdmin && !isSubmitted && (
-                <Tooltip title="Submit for Review">
-                  <Button
-                    variant="contained"
-                    color="success"
-                    size="small"
-                    onClick={() => handleOpenSubmitDialog(row)}
-                    sx={{
-                      textTransform: 'none',
-                      fontSize: '0.65rem',
-                      minWidth: '60px',
-                      py: 0.5,
-                      px: 1
-                    }}
-                  >
-                    Submit
-                  </Button>
-                </Tooltip>
-              )}
+              {/* ============ ADMIN BLOCK ============ */}
+              {isAdmin && (
+                <>
+                  {/* Pre-submit: Submit button */}
+                  {!isSubmitted && (
+                    <Tooltip title="Submit for Review">
+                      <Button
+                        variant="contained"
+                        color="success"
+                        size="small"
+                        onClick={() => handleOpenSubmitDialog(row)}
+                        sx={{
+                          textTransform: 'none',
+                          fontSize: '0.65rem',
+                          minWidth: '60px',
+                          py: 0.5,
+                          px: 1
+                        }}
+                      >
+                        Submit
+                      </Button>
+                    </Tooltip>
+                  )}
 
-              {/* Review Button - Only for SUPERADMIN role and only if submitted AND not approved */}
-              {isSuperAdmin && isSubmitted && !isApproved && (
-                <Tooltip title="Review & Approve">
-                  <Button
-                    variant="contained"
-                    color="warning"
-                    size="small"
-                    onClick={() => handleOpenApproveDialog(row)}
-                    sx={{
-                      textTransform: 'none',
-                      fontSize: '0.65rem',
-                      minWidth: '60px',
-                      py: 0.5,
-                      px: 1
-                    }}
-                  >
-                    Review
-                  </Button>
-                </Tooltip>
-              )}
-
-              {/* Status badge for submitted/approved */}
-              {isSubmitted && isApproved && (
-                <Chip
-                  label="Approved"
-                  color="success"
-                  size="small"
-                  sx={{ fontSize: '0.6rem', height: '20px' }}
-                />
-              )}
-              {isSubmitted && !isApproved && isAdmin && (
-                <Chip
-                  label="Pending Review"
-                  color="warning"
-                  size="small"
-                  sx={{ fontSize: '0.6rem', height: '20px' }}
-                />
-              )}
-
-              {/* View Button - Always enabled */}
-              <Tooltip title="View">
-                <IconButton
-                  color="info"
-                  size="small"
-                  onClick={() => handleOpenDetailsDialog(row)}
-                >
-                  <Visibility fontSize="small" />
-                </IconButton>
-              </Tooltip>
-
-              {/* Edit Button - Always enabled */}
-              <Tooltip title="Edit">
-                <IconButton
-                  color="primary"
-                  size="small"
-                  onClick={() => handleOpenDrawer(row)}
-                >
-                  <Edit fontSize="small" />
-                </IconButton>
-              </Tooltip>
-
-              {/* Delete Button - Always enabled */}
-              <Tooltip title="Delete">
-                <IconButton
-                  color="error"
-                  size="small"
-                  onClick={() => handleOpenDeleteDialog(row)}
-                >
-                  <Delete fontSize="small" />
-                </IconButton>
-              </Tooltip>
-
-              {/* Lock Button - Only for SUPERADMIN */}
-              {isSuperAdmin && (
-                <Tooltip title={row.lock ? "Locked" : "Lock Placement"}>
-                  <span>
-                    <IconButton
+                  {/* Post-submit: status chip */}
+                  {isSubmitted && isApproved && (
+                    <Chip
+                      label="Approved"
+                      color="success"
                       size="small"
-                      onClick={() => !row.lock && handleOpenLockDialog(row)}
-                      disabled={row.lock}
-                      sx={{ color: row.lock ? 'warning.main' : 'text.secondary' }}
-                    >
-                      {row.lock ? <Lock fontSize="small" /> : <LockOpen fontSize="small" />}
-                    </IconButton>
-                  </span>
-                </Tooltip>
+                      sx={{ fontSize: '0.7rem', height: '22px', fontWeight: 500 }}
+                    />
+                  )}
+                  {isSubmitted && !isApproved && (
+                    <Chip
+                      label="Pending Review"
+                      size="small"
+                      sx={{
+                        fontSize: '0.7rem',
+                        height: '22px',
+                        fontWeight: 500,
+                        backgroundColor: '#fff3e0',
+                        color: '#e65100',
+                        border: '1px solid #ffcc80',
+                      }}
+                    />
+                  )}
+                </>
               )}
+
+              {/* ============ SUPERADMIN BLOCK ============ */}
+              {isSuperAdmin && (
+                <>
+                  {/* Case 1: submitted && approved → Green Approved chip */}
+                  {isSubmitted && isApproved && (
+                    <Chip
+                      label="Approved"
+                      color="success"
+                      size="small"
+                      sx={{ fontSize: '0.7rem', height: '22px', fontWeight: 500 }}
+                    />
+                  )}
+
+                  {/* Case 2: submitted && !approved → Review button */}
+                  {isSubmitted && !isApproved && (
+                    <Tooltip title="Review & Approve">
+                      <Button
+                        variant="contained"
+                        color="warning"
+                        size="small"
+                        onClick={() => handleOpenApproveDialog(row)}
+                        sx={{
+                          textTransform: 'none',
+                          fontSize: '0.65rem',
+                          minWidth: '60px',
+                          py: 0.5,
+                          px: 1
+                        }}
+                      >
+                        Review
+                      </Button>
+                    </Tooltip>
+                  )}
+
+                  {/* Case 3: !submitted → Default grey Approved chip */}
+                  {!isSubmitted && (
+                    <Chip
+                      label="Approved"
+                      size="small"
+                      sx={{
+                        fontSize: '0.7rem',
+                        height: '22px',
+                        fontWeight: 500,
+                        backgroundColor: '#e0e0e0',
+                        color: '#616161',
+                        border: '1px solid #bdbdbd',
+                      }}
+                    />
+                  )}
+                </>
+              )}
+
+              {/* ============ ACTION BUTTONS (all roles) ============ */}
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.5,
+                  pl: 1,
+                }}
+              >
+                {/* View Button */}
+                <Tooltip title="View">
+                  <IconButton
+                    color="info"
+                    size="small"
+                    onClick={() => handleOpenDetailsDialog(row)}
+                  >
+                    <Visibility fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+
+                {/* Edit Button */}
+                <Tooltip title="Edit">
+                  <IconButton
+                    color="primary"
+                    size="small"
+                    onClick={() => handleOpenDrawer(row)}
+                  >
+                    <Edit fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+
+                {/* Delete Button */}
+                <Tooltip title="Delete">
+                  <IconButton
+                    color="error"
+                    size="small"
+                    onClick={() => handleOpenDeleteDialog(row)}
+                  >
+                    <Delete fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+
+                {/* Lock Button - Only for SUPERADMIN */}
+                {isSuperAdmin && (
+                  <Tooltip title={row.lock ? "Locked" : "Lock Placement"}>
+                    <span>
+                      <IconButton
+                        size="small"
+                        onClick={() => !row.lock && handleOpenLockDialog(row)}
+                        disabled={row.lock}
+                        sx={{ color: row.lock ? 'warning.main' : 'text.secondary' }}
+                      >
+                        {row.lock ? <Lock fontSize="small" /> : <LockOpen fontSize="small" />}
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                )}
+              </Box>
             </Box>
           );
         },
