@@ -831,7 +831,7 @@ const appendProfileFields = (formData, profile) => {
   formData.append("finalSettlement", profile.fAndF || "");
   formData.append("exitFromPfDate", profile.exitFromPfDate || "");
   formData.append("existFromPfDate", profile.exitFromPfDate || "");
-  formData.append("exitFromPFDate", profile.exitFromPFDate || "");
+  formData.append("exitFromPFDate", profile.exitFromPfDate || "");
   formData.append("existFromPFDate", profile.exitFromPfDate || "");
   formData.append("lastWorkingDay", profile.lastWorkingDay || "");
   formData.append("lastWorkingDate", profile.lastWorkingDay || "");
@@ -1048,8 +1048,86 @@ const HRMS = () => {
   const [order, setOrder] = useState("asc");
   const [orderBy, setOrderBy] = useState("Employee ID");
   const [activeTab, setActiveTab] = useState(0);
+  const [teamLeadOptions, setTeamLeadOptions] = useState([]);
 
   const isAdmin = role === "ADMIN";
+
+  // Helper function to check if user has a specific role
+  const hasRole = (user, roleName) => {
+    const roles = Array.isArray(user?.roles) ? user.roles : [user?.roles || user?.role];
+    return roles
+      .filter(Boolean)
+      .map((nextRole) => String(nextRole).toUpperCase())
+      .includes(roleName);
+  };
+
+  // Fetch reporting manager options based on entity
+  useEffect(() => {
+    const fetchReportingManagers = async () => {
+      try {
+        const response = await httpService.get("/users/employee", { entity: activeEntity });
+        const employees = normalizeArrayPayload(response);
+        
+        // Filter based on entity and roles
+        const filteredEmployees = employees.filter((employee) => {
+          const isActive = employee.status === "ACTIVE";
+          
+          if (activeEntity === "IN") {
+            // For IN entity: include BDM, TEAMLEAD, and SUPERADMIN
+            const hasValidRole = hasRole(employee, "BDM") || 
+                               hasRole(employee, "TEAMLEAD") || 
+                               hasRole(employee, "SUPERADMIN");
+            return isActive && hasValidRole;
+          } else {
+            // For US entity: include TEAMLEAD and SUPERADMIN
+            const hasValidRole = hasRole(employee, "TEAMLEAD") || 
+                               hasRole(employee, "SUPERADMIN");
+            return isActive && hasValidRole;
+          }
+        });
+
+        const options = filteredEmployees.map((employee) => {
+          const userName = employee.userName || employee.name || employee.email || "";
+          return {
+            label: userName,
+            value: userName,
+          };
+        });
+
+        setTeamLeadOptions(options);
+      } catch (error) {
+        console.error("Error fetching reporting managers:", error);
+        setTeamLeadOptions([]);
+      }
+    };
+
+    fetchReportingManagers();
+  }, [activeEntity]);
+
+  // Create reporting manager options including current value if not in list
+  const reportingManagerOptions = useMemo(() => {
+    const currentValue = profile.reportingManager || "";
+    
+    // If no options, return empty array
+    if (!teamLeadOptions || teamLeadOptions.length === 0) {
+      return [];
+    }
+    
+    // Check if current value exists in options
+    const exists = teamLeadOptions.some((option) => option.value === currentValue);
+    
+    // If current value exists, return all options
+    if (exists) {
+      return teamLeadOptions;
+    }
+    
+    // If current value doesn't exist, add it as the first option
+    if (currentValue) {
+      return [{ label: currentValue, value: currentValue }, ...teamLeadOptions];
+    }
+    
+    return teamLeadOptions;
+  }, [profile.reportingManager, teamLeadOptions]);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -2115,9 +2193,29 @@ const sortedUsers = useMemo(() => {
                     value={profile.joiningDate ? calculateProbationStatus(profile.joiningDate) : profile.probation}
                     disabled={Boolean(profile.joiningDate)}
                     fullWidth
+                    size="small"
                   />
                 </Grid>
-                <EditableField label="Reporting Manager" field="reportingManager" value={profile.reportingManager} onChange={handleProfileChange} />
+                <Grid item xs={12} sm={6} md={4}>
+                  <TextField
+                    label="Reporting Manager"
+                    value={profile.reportingManager || ""}
+                    onChange={(event) => handleProfileChange("reportingManager", event.target.value)}
+                    fullWidth
+                    size="small"
+                    select
+                  >
+                    {reportingManagerOptions.length > 0 ? (
+                      reportingManagerOptions.map((option) => (
+                        <MenuItem key={option.value} value={option.value}>
+                          {option.label}
+                        </MenuItem>
+                      ))
+                    ) : (
+                      <MenuItem value="">No options available</MenuItem>
+                    )}
+                  </TextField>
+                </Grid>
                 <EditableField
                   label="Department"
                   field="department"
@@ -2128,78 +2226,12 @@ const sortedUsers = useMemo(() => {
                 <EditableField label="LinkedIn URL" field="linkedInUrl" value={profile.linkedInUrl} onChange={handleProfileChange} />
               </Section>
 
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>
-                  Payroll Verification
-                </Typography>
-                <Stack spacing={2}>
-                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
-                    <Grid container spacing={2} alignItems="stretch">
-                      <Grid item xs={12} md={6}>
-                        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
-                          PAN details
-                        </Typography>
-                        <Grid container spacing={2}>
-                          <EditableField
-                            label="PAN Number"
-                            field="payrollPanNumber"
-                            value={profile.payrollPanNumber}
-                            onChange={handleProfileChange}
-                            gridProps={{ xs: 12 }}
-                          />
-                        </Grid>
-                      </Grid>
-                      <Grid item xs={12} md={6}>
-                        {renderDocumentPanel("pan")}
-                      </Grid>
-                    </Grid>
-                  </Paper>
-
-                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
-                    <Grid container spacing={2} alignItems="stretch">
-                      <Grid item xs={12} md={6}>
-                        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
-                          Aadhar details
-                        </Typography>
-                        <Grid container spacing={2}>
-                          <EditableField
-                            label="Aadhar Number"
-                            field="payrollAadharNumber"
-                            value={profile.payrollAadharNumber}
-                            onChange={handleProfileChange}
-                            gridProps={{ xs: 12 }}
-                          />
-                        </Grid>
-                      </Grid>
-                      <Grid item xs={12} md={6}>
-                        {renderDocumentPanel("adhar")}
-                      </Grid>
-                    </Grid>
-                  </Paper>
-
-                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 1 }}>
-                    <Grid container spacing={2} alignItems="stretch">
-                      <Grid item xs={12} md={6}>
-                        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
-                          Bank details
-                        </Typography>
-                        <Grid container spacing={2}>
-                          <EditableField label="Bank Name" field="bankName" value={profile.bankName} onChange={handleProfileChange} gridProps={{ xs: 12, sm: 6 }} />
-                          <EditableField label="Account Number" field="accountNumber" value={profile.accountNumber} onChange={handleProfileChange} gridProps={{ xs: 12, sm: 6 }} />
-                          <EditableField label="Branch" field="branch" value={profile.branch} onChange={handleProfileChange} gridProps={{ xs: 12, sm: 6 }} />
-                          <EditableField label="Account Holder Name" field="accountHolderName" value={profile.accountHolderName} onChange={handleProfileChange} gridProps={{ xs: 12, sm: 6 }} />
-                          <EditableField label="IFSC Code" field="ifscCode" value={profile.ifscCode} onChange={handleProfileChange} gridProps={{ xs: 12 }} />
-                        </Grid>
-                      </Grid>
-                      <Grid item xs={12} md={6}>
-                        {renderDocumentPanel("bankPassbook")}
-                      </Grid>
-                    </Grid>
-                  </Paper>
-                </Stack>
-              </Box>
-
-              <Section title="Other Payroll Inputs">
+              <Section title="Payroll Inputs">
+                <EditableField label="Bank Name" field="bankName" value={profile.bankName} onChange={handleProfileChange} />
+                <EditableField label="Account Number" field="accountNumber" value={profile.accountNumber} onChange={handleProfileChange} />
+                <EditableField label="Branch" field="branch" value={profile.branch} onChange={handleProfileChange} />
+                <EditableField label="Account Holder Name" field="accountHolderName" value={profile.accountHolderName} onChange={handleProfileChange} />
+                <EditableField label="IFSC Code" field="ifscCode" value={profile.ifscCode} onChange={handleProfileChange} />
                 <EditableField label="UAN Number" field="uanNumber" value={profile.uanNumber} onChange={handleProfileChange} />
                 <EditableField label="PF Number" field="pfNumber" value={profile.pfNumber} onChange={handleProfileChange} />
                 <EditableField
@@ -2215,6 +2247,8 @@ const sortedUsers = useMemo(() => {
                 {isTruthyFlag(profile.isEmployeeHavingESI) && (
                   <EditableField label="ESI Number" field="esiNumber" value={profile.esiNumber} onChange={handleProfileChange} />
                 )}
+                <EditableField label="PAN Number" field="payrollPanNumber" value={profile.payrollPanNumber} onChange={handleProfileChange} />
+                <EditableField label="Aadhar Number" field="payrollAadharNumber" value={profile.payrollAadharNumber} onChange={handleProfileChange} />
               </Section>
 
               <Box sx={{ mb: 3 }}>
@@ -2226,7 +2260,7 @@ const sortedUsers = useMemo(() => {
                   sx={{ mb: 1.5 }}
                 >
                   <Typography variant="subtitle1" fontWeight={700}>
-                    Other Documents
+                    Documents
                   </Typography>
                   <Stack direction={{ xs: "column", sm: "row" }} gap={1}>
                     <input ref={fileInputRef} type="file" hidden multiple onChange={handleFileChange} />
@@ -2257,16 +2291,68 @@ const sortedUsers = useMemo(() => {
                 )}
 
                 <Stack spacing={2}>
-                  {primaryDocumentSections
-                    .filter((section) => ["insurance", "form16"].includes(section.key))
-                    .map((section) => (
-                      <Box key={section.key}>{renderDocumentPanel(section.key)}</Box>
-                    ))}
+                  {primaryDocumentSections.map((section) => {
+                    const sectionDocuments = groupedDocuments.grouped[section.key] || [];
+
+                    return (
+                      <Paper variant="outlined" sx={{ borderRadius: 1, overflow: "hidden" }} key={section.key}>
+                        <Box
+                          sx={{
+                            px: 2,
+                            py: 1.25,
+                            bgcolor: "background.default",
+                            borderBottom: "1px solid",
+                            borderColor: "divider",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 1,
+                          }}
+                        >
+                          <Typography variant="subtitle2" fontWeight={700}>
+                            {section.label}
+                          </Typography>
+                          {section.allowSectionUpload && (
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              component="label"
+                              startIcon={
+                                uploadingSectionKey === section.key ? (
+                                  <CircularProgress size={16} color="inherit" />
+                                ) : (
+                                  <UploadFileOutlined />
+                                )
+                              }
+                              disabled={Boolean(uploadingSectionKey)}
+                            >
+                              Upload
+                              <input
+                                type="file"
+                                hidden
+                                onChange={handleSectionDocumentUpload(section)}
+                                disabled={Boolean(uploadingSectionKey)}
+                              />
+                            </Button>
+                          )}
+                        </Box>
+                        {sectionDocuments.length ? (
+                          sectionDocuments.map((documentWithIndex, index) =>
+                            renderDocumentRow(documentWithIndex, index > 0)
+                          )
+                        ) : (
+                          <Alert severity="info" sx={{ borderRadius: 0 }}>
+                            No {section.label} document uploaded.
+                          </Alert>
+                        )}
+                      </Paper>
+                    );
+                  })}
 
                   <Paper variant="outlined" sx={{ borderRadius: 1, overflow: "hidden" }}>
                     <Box sx={{ px: 2, py: 1.25, bgcolor: "background.default", borderBottom: "1px solid", borderColor: "divider" }}>
                       <Typography variant="subtitle2" fontWeight={700}>
-                        Additional Documents
+                        Other Documents
                       </Typography>
                     </Box>
                     {groupedDocuments.otherDocuments.length ? (
