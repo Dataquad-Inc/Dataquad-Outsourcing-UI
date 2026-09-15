@@ -87,21 +87,58 @@ const EmployeeAutocomplete = ({
   required = false,
   disabled = false,
 }) => {
-  const [inputValue, setInputValue] = useState("");
+  const [inputValue, setInputValue] = useState(value || "");
+
+  // Keep inputValue in sync when the parent value changes (e.g., on edit load)
+  useEffect(() => {
+    setInputValue(value || "");
+  }, [value]);
+
+  // Find the matching option for the current value
+  const matchedOption = options.find(opt => opt.value === value);
 
   return (
     <Autocomplete
       id={id}
+      freeSolo
       options={options}
       loading={loading}
-      value={options.find(opt => opt.value === value) || null}
-      getOptionLabel={(option) => option.label || ""}
-      isOptionEqualToValue={(option, value) => option.value === value.value}
-      onChange={(event, newValue) => {
-        onChange(newValue ? newValue.value : "");
+      value={matchedOption || (value ? { value: value, label: value } : null)}
+      inputValue={inputValue}
+      getOptionLabel={(option) => {
+        // Handle both string and object options
+        if (typeof option === "string") return option;
+        return option?.label || "";
       }}
-      onInputChange={(event, newInputValue) => {
+      isOptionEqualToValue={(option, value) => {
+        if (!option || !value) return false;
+        return option.value === value.value;
+      }}
+      onChange={(event, newValue) => {
+        // Handle freeSolo input (string) and selected option (object)
+        if (typeof newValue === "string") {
+          onChange(newValue);
+          setInputValue(newValue);
+        } else if (newValue && newValue.value !== undefined) {
+          onChange(newValue.value);
+          setInputValue(newValue.value);
+        } else {
+          onChange("");
+          setInputValue("");
+        }
+      }}
+      onInputChange={(event, newInputValue, reason) => {
         setInputValue(newInputValue);
+        // When user clears the field, propagate empty value up
+        if (reason === "clear") {
+          onChange("");
+        }
+      }}
+      onBlur={() => {
+        // Commit any typed-but-not-selected text when the field loses focus
+        if (inputValue && inputValue !== value) {
+          onChange(inputValue);
+        }
       }}
       disabled={disabled}
       renderInput={(params) => (
@@ -820,7 +857,7 @@ const PlacementForm = ({
                   ? formik.errors.recruiterName
                   : ""
               }
-              placeholder="Search for a recruiter..."
+              placeholder="Search or type a recruiter name..."
               disabled={isLocked}
             />
           </Grid>
@@ -842,7 +879,7 @@ const PlacementForm = ({
                   ? formik.errors.sales
                   : ""
               }
-              placeholder="Search for a sales person..."
+              placeholder="Search or type a sales person name..."
               disabled={isLocked}
             />
           </Grid>
@@ -864,7 +901,7 @@ const PlacementForm = ({
                   ? formik.errors.teamLead
                   : ""
               }
-              placeholder="Search for a team lead..."
+              placeholder="Search or type a team lead name..."
               disabled={isLocked}
             />
           </Grid>
