@@ -102,28 +102,56 @@ import httpService from "../../Services/httpService";
 import ToastService from "../../Services/toastService";
 import ExportButton from "../../utils/ExportButton";
 
+// ─── Date formatting helper ────────────────────────────────────────────────
+// Backend returns dates in "yyyy-mm-dd" (ISO) format.
+// Converts them to a friendly short text format: "2nd Sep 2026"
+// Returns "-" for empty/invalid values.
+const MONTH_SHORT_NAMES = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+];
+
+// Returns the ordinal suffix for a day number: 1 → "st", 2 → "nd", 3 → "rd", 4 → "th"
+const getOrdinalSuffix = (day) => {
+  const d = day % 100;
+  if (d >= 11 && d <= 13) return "th";
+  switch (day % 10) {
+    case 1: return "st";
+    case 2: return "nd";
+    case 3: return "rd";
+    default: return "th";
+  }
+};
 
 const formatDate = (dateString) => {
   if (!dateString) return "-";
 
   const str = String(dateString).trim();
 
+  let day, month, year;
+
   // ISO format: yyyy-mm-dd (optionally with time like yyyy-mm-ddTHH:mm:ss)
   const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (isoMatch) {
-    const [, year, month, day] = isoMatch;
-    return `${day}/${month}/${year}`;
+    year = parseInt(isoMatch[1], 10);
+    month = parseInt(isoMatch[2], 10);
+    day = parseInt(isoMatch[3], 10);
+  } else {
+    // Fallback: try parsing with Date object
+    const date = new Date(str);
+    if (isNaN(date.getTime())) return str; // return raw if unparseable
+    day = date.getDate();
+    month = date.getMonth() + 1;
+    year = date.getFullYear();
   }
 
-  // Fallback: try parsing with Date object
-  const date = new Date(str);
-  if (isNaN(date.getTime())) return str; // return raw if unparseable
+  // Guard against invalid month
+  if (month < 1 || month > 12) return str;
 
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = date.getFullYear();
+  const monthName = MONTH_SHORT_NAMES[month - 1];
+  const suffix = getOrdinalSuffix(day);
 
-  return `${day}/${month}/${year}`;
+  return `${day}${suffix} ${monthName} ${year}`;
 };
 
 // Tab panel component
@@ -1455,7 +1483,7 @@ const PlacementsList = () => {
         type: "text",
         sortable: true,
         filterable: true,
-        width: 120,
+        width: 150,
         render: (row) => formatDate(row.startDate),
       },
       {
@@ -1464,7 +1492,7 @@ const PlacementsList = () => {
         type: "text",
         sortable: true,
         filterable: true,
-        width: 120,
+        width: 150,
         render: (row) => formatDate(row.endDate),
       },
       {
