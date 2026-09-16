@@ -102,6 +102,30 @@ import httpService from "../../Services/httpService";
 import ToastService from "../../Services/toastService";
 import ExportButton from "../../utils/ExportButton";
 
+
+const formatDate = (dateString) => {
+  if (!dateString) return "-";
+
+  const str = String(dateString).trim();
+
+  // ISO format: yyyy-mm-dd (optionally with time like yyyy-mm-ddTHH:mm:ss)
+  const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    return `${day}/${month}/${year}`;
+  }
+
+  // Fallback: try parsing with Date object
+  const date = new Date(str);
+  if (isNaN(date.getTime())) return str; // return raw if unparseable
+
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+
+  return `${day}/${month}/${year}`;
+};
+
 // Tab panel component
 const TabPanel = ({ children, value, index, ...other }) => {
   return (
@@ -737,12 +761,12 @@ const CandidateTablePage = ({
                     </TableCell>
                     <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
                       <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                        {placement.startDate || '-'}
+                        {formatDate(placement.startDate)}
                       </Typography>
                     </TableCell>
                     <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
                       <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                        {placement.endDate || '-'}
+                        {formatDate(placement.endDate)}
                       </Typography>
                     </TableCell>
                     <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
@@ -1432,6 +1456,7 @@ const PlacementsList = () => {
         sortable: true,
         filterable: true,
         width: 120,
+        render: (row) => formatDate(row.startDate),
       },
       {
         key: "endDate",
@@ -1440,6 +1465,7 @@ const PlacementsList = () => {
         sortable: true,
         filterable: true,
         width: 120,
+        render: (row) => formatDate(row.endDate),
       },
       {
         key: "currency",
