@@ -78,6 +78,58 @@ import CryptoJS from "crypto-js";
 import httpService from "../../Services/httpService";
 import ToastService from "../../Services/toastService";
 
+// ─── Date formatting helper ────────────────────────────────────────────────
+// Backend returns dates in "yyyy-mm-dd" (ISO) format.
+// Converts them to a friendly short text format: "2nd Sep 2026"
+// Returns "-" for empty/invalid values.
+const MONTH_SHORT_NAMES = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+];
+
+// Returns the ordinal suffix for a day number: 1 → "st", 2 → "nd", 3 → "rd", 4 → "th"
+const getOrdinalSuffix = (day) => {
+  const d = day % 100;
+  if (d >= 11 && d <= 13) return "th";
+  switch (day % 10) {
+    case 1: return "st";
+    case 2: return "nd";
+    case 3: return "rd";
+    default: return "th";
+  }
+};
+
+const formatDate = (dateString) => {
+  if (!dateString) return "-";
+
+  const str = String(dateString).trim();
+
+  let day, month, year;
+
+  // ISO format: yyyy-mm-dd (optionally with time like yyyy-mm-ddTHH:mm:ss)
+  const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    year = parseInt(isoMatch[1], 10);
+    month = parseInt(isoMatch[2], 10);
+    day = parseInt(isoMatch[3], 10);
+  } else {
+    // Fallback: try parsing with Date object
+    const date = new Date(str);
+    if (isNaN(date.getTime())) return str; // return raw if unparseable
+    day = date.getDate();
+    month = date.getMonth() + 1;
+    year = date.getFullYear();
+  }
+
+  // Guard against invalid month
+  if (month < 1 || month > 12) return str;
+
+  const monthName = MONTH_SHORT_NAMES[month - 1];
+  const suffix = getOrdinalSuffix(day);
+
+  return `${day}${suffix} ${monthName} ${year}`;
+};
+
 // Tab panel component
 const TabPanel = ({ children, value, index, ...other }) => {
   return (
@@ -96,9 +148,9 @@ const TabPanel = ({ children, value, index, ...other }) => {
 // Dashboard Card component with click handler
 const DashboardCard = ({ title, count, icon, color, subtitle, onClick, isActive = false }) => {
   return (
-    <Card 
+    <Card
       onClick={onClick}
-      sx={{ 
+      sx={{
         height: '100%',
         transition: 'all 0.3s ease',
         cursor: 'pointer',
@@ -128,11 +180,11 @@ const DashboardCard = ({ title, count, icon, color, subtitle, onClick, isActive 
           <Avatar sx={{ bgcolor: color, mr: 2 }}>
             {icon}
           </Avatar>
-          <Typography 
-            variant="subtitle1" 
-            fontWeight="bold" 
+          <Typography
+            variant="subtitle1"
+            fontWeight="bold"
             noWrap
-            sx={{ 
+            sx={{
               flex: 1,
               textOverflow: 'ellipsis',
               overflow: 'hidden',
@@ -151,9 +203,9 @@ const DashboardCard = ({ title, count, icon, color, subtitle, onClick, isActive 
         <Typography
           variant="caption"
           color="primary"
-          sx={{ 
-            mt: 1.5, 
-            display: "block", 
+          sx={{
+            mt: 1.5,
+            display: "block",
             opacity: 0.75,
             fontWeight: 500,
           }}
@@ -166,9 +218,9 @@ const DashboardCard = ({ title, count, icon, color, subtitle, onClick, isActive 
 };
 
 // ─── Candidate Table Page Component ────────────────────────────────────────
-const CandidateTablePage = ({ 
-  title, 
-  placements, 
+const CandidateTablePage = ({
+  title,
+  placements,
   type,
   categoryName,
   onBack,
@@ -233,10 +285,10 @@ const CandidateTablePage = ({
   // Filter placements by search and status
   const filteredPlacements = React.useMemo(() => {
     let filtered = [...placements];
-    
+
     // Apply search filter
     if (searchQuery.trim()) {
-      filtered = filtered.filter(p => 
+      filtered = filtered.filter(p =>
         p.candidateFullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.candidateEmailId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.technology?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -246,14 +298,14 @@ const CandidateTablePage = ({
         p.vendorName?.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-    
+
     // Apply status filter - Toggle buttons for Active/Inactive
     if (statusFilter === 'active') {
       filtered = filtered.filter(p => p.status === 'Active');
     } else if (statusFilter === 'inactive') {
       filtered = filtered.filter(p => p.status !== 'Active');
     }
-    
+
     return filtered;
   }, [placements, searchQuery, statusFilter]);
 
@@ -301,8 +353,8 @@ const CandidateTablePage = ({
   return (
     <Box sx={{ p: 3 }}>
       {/* Breadcrumbs Navigation */}
-      <Breadcrumbs 
-        separator={<NavigateNext fontSize="small" />} 
+      <Breadcrumbs
+        separator={<NavigateNext fontSize="small" />}
         aria-label="breadcrumb"
         sx={{ mb: 3 }}
       >
@@ -324,9 +376,9 @@ const CandidateTablePage = ({
       </Breadcrumbs>
 
       {/* Header */}
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
         alignItems: 'center',
         mb: 3,
         pb: 2,
@@ -350,10 +402,10 @@ const CandidateTablePage = ({
       </Box>
 
       {/* Toggle Buttons - Only Active and Inactive */}
-      <Box sx={{ 
-        mb: 2, 
-        p: 1.5, 
-        backgroundColor: '#f5f5f5', 
+      <Box sx={{
+        mb: 2,
+        p: 1.5,
+        backgroundColor: '#f5f5f5',
         borderRadius: 2,
         display: 'flex',
         alignItems: 'center',
@@ -384,8 +436,8 @@ const CandidateTablePage = ({
             },
           }}
         >
-          <ToggleButton 
-            value="active" 
+          <ToggleButton
+            value="active"
             aria-label="active"
             sx={{
               '&.Mui-selected': {
@@ -400,8 +452,8 @@ const CandidateTablePage = ({
             <CheckCircle sx={{ mr: 1, fontSize: 20 }} />
             Active ({getStatusCounts.active})
           </ToggleButton>
-          <ToggleButton 
-            value="inactive" 
+          <ToggleButton
+            value="inactive"
             aria-label="inactive"
             sx={{
               '&.Mui-selected': {
@@ -454,8 +506,8 @@ const CandidateTablePage = ({
       {filteredPlacements.length === 0 ? (
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <Typography variant="body1" color="text.secondary">
-            {searchQuery 
-              ? 'No placements found matching your search.' 
+            {searchQuery
+              ? 'No placements found matching your search.'
               : `No ${statusFilter} placements found for this category.`}
           </Typography>
         </Paper>
@@ -565,7 +617,7 @@ const CandidateTablePage = ({
                       Visa
                     </TableSortLabel>
                   </TableCell>
-                  <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
+                  <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold', minWidth: 160, whiteSpace: 'nowrap' }}>
                     <TableSortLabel
                       active={orderBy === 'startDate'}
                       direction={orderBy === 'startDate' ? order : 'asc'}
@@ -575,7 +627,7 @@ const CandidateTablePage = ({
                       Start Date
                     </TableSortLabel>
                   </TableCell>
-                  <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold' }}>
+                  <TableCell sx={{ py: 1, fontSize: '0.75rem', fontWeight: 'bold', minWidth: 160, whiteSpace: 'nowrap' }}>
                     <TableSortLabel
                       active={orderBy === 'endDate'}
                       direction={orderBy === 'endDate' ? order : 'asc'}
@@ -629,7 +681,7 @@ const CandidateTablePage = ({
               </TableHead>
               <TableBody>
                 {paginatedPlacements.map((placement, index) => (
-                  <TableRow 
+                  <TableRow
                     key={placement.id || index}
                     hover
                     sx={{
@@ -691,14 +743,14 @@ const CandidateTablePage = ({
                         {placement.visa || '-'}
                       </Typography>
                     </TableCell>
-                    <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
-                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                        {placement.startDate || '-'}
+                    <TableCell sx={{ py: 0.5, fontSize: '0.75rem', minWidth: 160, whiteSpace: 'nowrap' }}>
+                      <Typography variant="body2" sx={{ fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+                        {formatDate(placement.startDate)}
                       </Typography>
                     </TableCell>
-                    <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
-                      <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                        {placement.endDate || '-'}
+                    <TableCell sx={{ py: 0.5, fontSize: '0.75rem', minWidth: 160, whiteSpace: 'nowrap' }}>
+                      <Typography variant="body2" sx={{ fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+                        {formatDate(placement.endDate)}
                       </Typography>
                     </TableCell>
                     <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}>
@@ -765,7 +817,7 @@ const PlacementsList = () => {
     (state) => state.placement
   );
 
-  console.log("Placements data from Redux:", usPlacements);  
+  console.log("Placements data from Redux:", usPlacements);
 
   const { userId, encryptionKey } = useSelector((state) => state.auth);
 
@@ -1275,7 +1327,12 @@ const PlacementsList = () => {
         type: "text",
         sortable: true,
         filterable: true,
-        width: 120,
+        width: 160,
+        minWidth: 160,
+        whiteSpace: "nowrap",
+        render: (row) => (
+          <span style={{ whiteSpace: "nowrap" }}>{formatDate(row.startDate)}</span>
+        ),
       },
       {
         key: "endDate",
@@ -1283,7 +1340,12 @@ const PlacementsList = () => {
         type: "text",
         sortable: true,
         filterable: true,
-        width: 120,
+        width: 160,
+        minWidth: 160,
+        whiteSpace: "nowrap",
+        render: (row) => (
+          <span style={{ whiteSpace: "nowrap" }}>{formatDate(row.endDate)}</span>
+        ),
       },
       {
         key: "billRate",
@@ -1656,7 +1718,7 @@ const PlacementsList = () => {
             size="medium"
             startIcon={showDashboard ? <ExpandLess sx={{ color: '#000' }} /> : <Dashboard sx={{ color: '#000' }} />}
             onClick={toggleDashboard}
-            sx={{ 
+            sx={{
               ml: 1,
               fontWeight: 'bold',
               color: '#000000',
@@ -1694,17 +1756,13 @@ const PlacementsList = () => {
             sx={{ mt: 1, fontStyle: "italic" }}
           >
             {activeFilter === "active" &&
-              "Showing active placements (excludes full-time employment)"
-            }
+              "Showing active placements (excludes full-time employment)"}
             {activeFilter === "inactive" &&
-              "Showing inactive placements (excludes full-time employment)"
-            }
+              "Showing inactive placements (excludes full-time employment)"}
             {activeFilter === "fulltime" &&
-              "Showing all full-time placements (active and inactive)"
-            }
+              "Showing all full-time placements (active and inactive)"}
             {activeFilter === "pending" &&
-              "Showing pending placements (excludes full-time employment)"
-            }
+              "Showing pending placements (excludes full-time employment)"}
           </Typography>
         )}
       </Box>
@@ -1713,11 +1771,11 @@ const PlacementsList = () => {
       {showDashboard ? (
         // Dashboard Panel
         <Paper sx={{ p: 0, borderRadius: 2, boxShadow: 3, overflow: 'hidden' }}>
-        
-          
+
+
           <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-            <Tabs 
-              value={dashboardTabValue} 
+            <Tabs
+              value={dashboardTabValue}
               onChange={handleDashboardTabChange}
               aria-label="dashboard tabs"
               variant="scrollable"
@@ -1730,24 +1788,24 @@ const PlacementsList = () => {
                 }
               }}
             >
-              <Tab 
-                icon={<Business />} 
-                label={`Clients (${dashboardData.clients.length})`} 
+              <Tab
+                icon={<Business />}
+                label={`Clients (${dashboardData.clients.length})`}
                 iconPosition="start"
               />
-              <Tab 
-                icon={<Business />} 
-                label={`Vendors (${dashboardData.vendors.length})`} 
+              <Tab
+                icon={<Business />}
+                label={`Vendors (${dashboardData.vendors.length})`}
                 iconPosition="start"
               />
-              <Tab 
-                icon={<AttachMoney />} 
-                label={`Sales (${dashboardData.sales.length})`} 
+              <Tab
+                icon={<AttachMoney />}
+                label={`Sales (${dashboardData.sales.length})`}
                 iconPosition="start"
               />
-              <Tab 
-                icon={<Person />} 
-                label={`Recruiters (${dashboardData.recruiters.length})`} 
+              <Tab
+                icon={<Person />}
+                label={`Recruiters (${dashboardData.recruiters.length})`}
                 iconPosition="start"
               />
             </Tabs>
@@ -1782,7 +1840,7 @@ const PlacementsList = () => {
           <TabPanel value={dashboardTabValue} index={0}>
             <Grid container spacing={2}>
               {dashboardData.clients
-                .filter(item => 
+                .filter(item =>
                   item.name.toLowerCase().includes(dashboardSearchQuery.toLowerCase())
                 )
                 .map((item, index) => (
@@ -1797,22 +1855,22 @@ const PlacementsList = () => {
                     />
                   </Grid>
                 ))}
-              {dashboardData.clients.filter(item => 
+              {dashboardData.clients.filter(item =>
                 item.name.toLowerCase().includes(dashboardSearchQuery.toLowerCase())
               ).length === 0 && (
-                <Grid item xs={12}>
-                  <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
-                    No clients found matching your search.
-                  </Typography>
-                </Grid>
-              )}
+                  <Grid item xs={12}>
+                    <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
+                      No clients found matching your search.
+                    </Typography>
+                  </Grid>
+                )}
             </Grid>
           </TabPanel>
 
           <TabPanel value={dashboardTabValue} index={1}>
             <Grid container spacing={2}>
               {dashboardData.vendors
-                .filter(item => 
+                .filter(item =>
                   item.name.toLowerCase().includes(dashboardSearchQuery.toLowerCase())
                 )
                 .map((item, index) => (
@@ -1827,22 +1885,22 @@ const PlacementsList = () => {
                     />
                   </Grid>
                 ))}
-              {dashboardData.vendors.filter(item => 
+              {dashboardData.vendors.filter(item =>
                 item.name.toLowerCase().includes(dashboardSearchQuery.toLowerCase())
               ).length === 0 && (
-                <Grid item xs={12}>
-                  <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
-                    No vendors found matching your search.
-                  </Typography>
-                </Grid>
-              )}
+                  <Grid item xs={12}>
+                    <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
+                      No vendors found matching your search.
+                    </Typography>
+                  </Grid>
+                )}
             </Grid>
           </TabPanel>
 
           <TabPanel value={dashboardTabValue} index={2}>
             <Grid container spacing={2}>
               {dashboardData.sales
-                .filter(item => 
+                .filter(item =>
                   item.name.toLowerCase().includes(dashboardSearchQuery.toLowerCase())
                 )
                 .map((item, index) => (
@@ -1857,22 +1915,22 @@ const PlacementsList = () => {
                     />
                   </Grid>
                 ))}
-              {dashboardData.sales.filter(item => 
+              {dashboardData.sales.filter(item =>
                 item.name.toLowerCase().includes(dashboardSearchQuery.toLowerCase())
               ).length === 0 && (
-                <Grid item xs={12}>
-                  <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
-                    No sales persons found matching your search.
-                  </Typography>
-                </Grid>
-              )}
+                  <Grid item xs={12}>
+                    <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
+                      No sales persons found matching your search.
+                    </Typography>
+                  </Grid>
+                )}
             </Grid>
           </TabPanel>
 
           <TabPanel value={dashboardTabValue} index={3}>
             <Grid container spacing={2}>
               {dashboardData.recruiters
-                .filter(item => 
+                .filter(item =>
                   item.name.toLowerCase().includes(dashboardSearchQuery.toLowerCase())
                 )
                 .map((item, index) => (
@@ -1887,15 +1945,15 @@ const PlacementsList = () => {
                     />
                   </Grid>
                 ))}
-              {dashboardData.recruiters.filter(item => 
+              {dashboardData.recruiters.filter(item =>
                 item.name.toLowerCase().includes(dashboardSearchQuery.toLowerCase())
               ).length === 0 && (
-                <Grid item xs={12}>
-                  <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
-                    No recruiters found matching your search.
-                  </Typography>
-                </Grid>
-              )}
+                  <Grid item xs={12}>
+                    <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
+                      No recruiters found matching your search.
+                    </Typography>
+                  </Grid>
+                )}
             </Grid>
           </TabPanel>
         </Paper>

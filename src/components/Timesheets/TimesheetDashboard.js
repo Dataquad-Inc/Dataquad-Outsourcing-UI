@@ -118,11 +118,40 @@ const TimesheetDashboard = ({
     [tableRows]
   );
 
+  // Earliest month index (0-based) that should be editable, derived from the
+  // row's startDate relative to the selected year. Months before this are
+  // disabled in the edit dialog. If startDate is in a future year relative
+  // to selectedYear, all months are disabled. If startDate is in a past
+  // year, all months are enabled.
+  const minEditableMonthIndex = useMemo(() => {
+    if (!editingRow?.startDate) return 0;
+    const start = dayjs(editingRow.startDate);
+    if (!start.isValid()) return 0;
+
+    const startYear = start.year();
+    if (startYear < selectedYear) return 0;        // started earlier → all months editable
+    if (startYear > selectedYear) return 12;       // hasn't started yet → none editable
+    return start.month();                          // same year → from that month onwards
+  }, [editingRow, selectedYear]);
+
   const openEditDialog = (row, event) => {
     event?.stopPropagation();
     setEditingRow(row);
+
+    // Determine the earliest editable month based on startDate vs. the
+    // currently selected year (mirrors minEditableMonthIndex logic so the
+    // disabled months are blank from the very first render).
+    let minMonth = 0;
+    const start = row?.startDate ? dayjs(row.startDate) : null;
+    if (start && start.isValid()) {
+      if (start.year() < selectedYear) minMonth = 0;
+      else if (start.year() > selectedYear) minMonth = 12;
+      else minMonth = start.month();
+    }
+
     setEditHours(
       MONTH_LABELS.map((_, monthIndex) => {
+        if (monthIndex < minMonth) return ""; // disabled months stay blank
         const hours = Number(row[`month${monthIndex}`] || 0);
         return hours > 0 ? String(hours) : "";
       })
@@ -149,7 +178,8 @@ const TimesheetDashboard = ({
       return;
     }
 
-    const monthlyHours = editHours.map((value) => {
+    const monthlyHours = editHours.map((value, monthIndex) => {
+      if (monthIndex < minEditableMonthIndex) return 0; // never persist hours before startDate
       const hours = Number(value);
       return Number.isFinite(hours) && hours > 0 ? Math.round(hours) : 0;
     });
@@ -379,28 +409,34 @@ const TimesheetDashboard = ({
         <DialogContent dividers>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Enter hours for each month in {selectedYear}. Leave a month blank to keep it at 0.
+            Months before the candidate's start date are disabled.
           </Typography>
           <Grid container spacing={2}>
-            {MONTH_LABELS.map((label, monthIndex) => (
-              <Grid item xs={6} sm={4} md={3} key={label}>
-                <TextField
-                  label={`${label}-${yearSuffix}`}
-                  type="number"
-                  size="small"
-                  fullWidth
-                  value={editHours[monthIndex]}
-                  onChange={(event) => {
-                    const nextValue = event.target.value;
-                    setEditHours((current) => {
-                      const next = [...current];
-                      next[monthIndex] = nextValue;
-                      return next;
-                    });
-                  }}
-                  inputProps={{ min: 0, step: 1 }}
-                />
-              </Grid>
-            ))}
+            {MONTH_LABELS.map((label, monthIndex) => {
+              const isDisabled = monthIndex < minEditableMonthIndex;
+              return (
+                <Grid item xs={6} sm={4} md={3} key={label}>
+                  <TextField
+                    label={`${label}-${yearSuffix}`}
+                    type="number"
+                    size="small"
+                    fullWidth
+                    disabled={isDisabled}
+                    value={isDisabled ? "" : editHours[monthIndex]}
+                    onChange={(event) => {
+                      const nextValue = event.target.value;
+                      setEditHours((current) => {
+                        const next = [...current];
+                        next[monthIndex] = nextValue;
+                        return next;
+                      });
+                    }}
+                    inputProps={{ min: 0, step: 1 }}
+                    helperText={isDisabled ? "Before start date" : " "}
+                  />
+                </Grid>
+              );
+            })}
           </Grid>
           <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end" }}>
             <Chip icon={<AccessTime />} color="primary" label={`Total: ${editTotal}h`} />
