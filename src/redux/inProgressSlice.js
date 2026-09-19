@@ -124,6 +124,12 @@ const getYesterdayDate = () => {
     return date;
 };
 
+// Helper to append location param only when provided
+const buildLocationParam = (location) => {
+    if (!location) return '';
+    return `&location=${encodeURIComponent(location)}`;
+};
+
 const fetchUsInProgressData = async ({ page, size, search, startDate, endDate }) => {
     const fromDate = formatUsDateParam(startDate);
     const toDate = formatUsDateParam(endDate);
@@ -140,7 +146,7 @@ const fetchUsInProgressData = async ({ page, size, search, startDate, endDate })
 
 export const fetchInProgressData = createAsyncThunk(
     'inProgress/fetchInProgressDate',
-    async ({ page = 0, size = 20, search = '', entity = 'IN' } = {}, { rejectWithValue }) => {
+    async ({ page = 0, size = 20, search = '', entity = 'IN', location } = {}, { rejectWithValue }) => {
         try {
             const trimmedSearch = search.trim();
             if (entity === 'US') {
@@ -154,8 +160,9 @@ export const fetchInProgressData = createAsyncThunk(
             }
 
             const searchParam = trimmedSearch ? `&search=${encodeURIComponent(trimmedSearch)}` : '';
+            const locationParam = buildLocationParam(location);
             const response = await httpService.get(
-                `/requirements/inprogress?page=${page}&size=${size}&entity=${encodeURIComponent(entity)}${searchParam}`
+                `/requirements/inprogress?page=${page}&size=${size}&entity=${encodeURIComponent(entity)}${locationParam}${searchParam}`
             );
             return response.data;
         } catch (error) {
@@ -166,7 +173,7 @@ export const fetchInProgressData = createAsyncThunk(
 
 export const filterInProgressDataByDateRange = createAsyncThunk(
     'inProgress/filterInProgressDataByDateRange',
-    async ({ startDate, endDate, page = 0, size = 20, search = '', entity = 'IN' }, { rejectWithValue }) => {
+    async ({ startDate, endDate, page = 0, size = 20, search = '', entity = 'IN', location }, { rejectWithValue }) => {
         try {
             const trimmedSearch = search.trim();
             if (entity === 'US') {
@@ -180,7 +187,8 @@ export const filterInProgressDataByDateRange = createAsyncThunk(
             }
 
             const searchParam = trimmedSearch ? `&search=${encodeURIComponent(trimmedSearch)}` : '';
-            const response = await httpService.get(`/requirements/inprogress/filterByDate?startDate=${startDate}&endDate=${endDate}&page=${page}&size=${size}&entity=${encodeURIComponent(entity)}${searchParam}`);
+            const locationParam = buildLocationParam(location);
+            const response = await httpService.get(`/requirements/inprogress/filterByDate?startDate=${startDate}&endDate=${endDate}&page=${page}&size=${size}&entity=${encodeURIComponent(entity)}${locationParam}${searchParam}`);
             return response.data
         }
         catch (error) {
