@@ -13,9 +13,14 @@ import {
 } from '../../redux/inProgressSlice';
 import DataTablePaginated from '../muiComponents/DataTablePaginated';
 import DateRangeFilter from '../muiComponents/DateRangeFilter';
-import { Stack, Typography, Alert, Snackbar, Link, Chip, Tooltip, Box } from '@mui/material';
+import { Stack, Typography, Alert, Snackbar, Link, Chip, Tooltip, Box, Tabs, Tab } from '@mui/material';
 import { formatDateTime } from '../../utils/dateformate';
 import { useNavigate } from 'react-router-dom';
+
+const IN_LOCATION_TABS = [
+    { label: 'Hyderabad', value: 'Hyderabad' },
+    { label: 'Bangalore', value: 'Bangalore' },
+];
 
 const InProgress = ({
     entity = 'IN',
@@ -50,14 +55,26 @@ const InProgress = ({
     // State to trigger DateRangeFilter reset
     const [resetFilterTrigger, setResetFilterTrigger] = useState(false);
 
+    // State for IN entity location tabs (Hyderabad / Bangalore)
+    const [activeLocationTab, setActiveLocationTab] = useState(IN_LOCATION_TABS[0].value);
+
     // Use refs to prevent multiple API calls
     const isInitialMount = useRef(true);
     const isFilteringRef = useRef(false);
     const isFetchingRef = useRef(false);
     const prevParamsRef = useRef({});
     const prevEntityRef = useRef(entity);
+    const prevLocationRef = useRef(activeLocationTab);
     const isEntityChangeRef = useRef(false);
+    const isLocationChangeRef = useRef(false);
     const isResetInProgressRef = useRef(false);
+
+    // Compute the location param that should be sent to the API.
+    // Only the IN entity uses the location filter; US entity should not send it.
+    const locationParam = useMemo(() => {
+        if (entity !== 'IN') return undefined;
+        return activeLocationTab;
+    }, [entity, activeLocationTab]);
 
     // Memoize the fetch function
     const fetchData = useCallback((params) => {
@@ -142,17 +159,52 @@ const InProgress = ({
         }
     }, []); // Empty dependency array for initial mount only
 
+    // Handle location tab change for IN entity
+    useEffect(() => {
+        if (entity !== 'IN') return;
+        if (prevLocationRef.current === activeLocationTab) return;
+
+        prevLocationRef.current = activeLocationTab;
+        isLocationChangeRef.current = true;
+        isResetInProgressRef.current = true;
+
+        // Reset state for the new location
+        dispatch(resetInProgressState());
+        setResetFilterTrigger(true);
+
+        // Reset refs
+        isFilteringRef.current = false;
+        isFetchingRef.current = false;
+        prevParamsRef.current = {};
+
+        // Fetch fresh data for the selected location
+        fetchData({
+            page: 0,
+            size: rowsPerPage,
+            search: '',
+            entity,
+            location: activeLocationTab,
+        });
+
+        setTimeout(() => {
+            setResetFilterTrigger(false);
+            isLocationChangeRef.current = false;
+            isResetInProgressRef.current = false;
+        }, 200);
+    }, [activeLocationTab, entity, dispatch, rowsPerPage, fetchData]);
+
     // Handle pagination and search changes
     useEffect(() => {
-        // Skip initial mount and entity change
-        if (isInitialMount.current || isEntityChangeRef.current || isResetInProgressRef.current) return;
+        // Skip initial mount, entity change and location change
+        if (isInitialMount.current || isEntityChangeRef.current || isLocationChangeRef.current || isResetInProgressRef.current) return;
         
         // Create params object to compare
         const params = {
             page: currentPage,
             size: rowsPerPage,
             search: searchQuery,
-            entity
+            entity,
+            ...(locationParam ? { location: locationParam } : {}),
         };
 
         // Check if params actually changed
@@ -171,17 +223,18 @@ const InProgress = ({
                 page: currentPage,
                 size: rowsPerPage,
                 search: searchQuery,
-                entity
+                entity,
+                ...(locationParam ? { location: locationParam } : {}),
             });
         } else if (!isFiltered) {
             // Otherwise fetch regular data
             fetchData(params);
         }
-    }, [currentPage, rowsPerPage, searchQuery, entity, isFiltered, activeDateRange, fetchData, filterData]);
+    }, [currentPage, rowsPerPage, searchQuery, entity, isFiltered, activeDateRange, locationParam, fetchData, filterData]);
 
     // Handle filter changes separately
     useEffect(() => {
-        if (isInitialMount.current || isEntityChangeRef.current || isResetInProgressRef.current) return;
+        if (isInitialMount.current || isEntityChangeRef.current || isLocationChangeRef.current || isResetInProgressRef.current) return;
         if (!isFiltered) return;
         if (!activeDateRange?.startDate || !activeDateRange?.endDate) return;
 
@@ -192,7 +245,8 @@ const InProgress = ({
             page: currentPage,
             size: rowsPerPage,
             search: searchQuery,
-            entity
+            entity,
+            ...(locationParam ? { location: locationParam } : {}),
         };
 
         // Check if filter params actually changed
@@ -204,7 +258,7 @@ const InProgress = ({
         prevParamsRef.current.filterKey = paramsKey;
 
         filterData(filterParams);
-    }, [isFiltered, activeDateRange, currentPage, rowsPerPage, searchQuery, entity, filterData]);
+    }, [isFiltered, activeDateRange, currentPage, rowsPerPage, searchQuery, entity, locationParam, filterData]);
 
     // Enhanced sorting function
     const customSort = useCallback((a, b, key) => {
@@ -357,7 +411,7 @@ const InProgress = ({
     }, [dispatch]);
 
     const handleDateChange = useCallback((startDate, endDate) => {
-        // Skip if this is a reset action during entity change
+        // Skip if this is a reset action during entity/location change
         if (isResetInProgressRef.current) return;
         
         if (!startDate || !endDate) {
@@ -369,7 +423,8 @@ const InProgress = ({
                 page: 0,
                 size: rowsPerPage,
                 search: searchQuery,
-                entity
+                entity,
+                ...(locationParam ? { location: locationParam } : {}),
             });
             return;
         }
@@ -386,8 +441,9 @@ const InProgress = ({
             size: rowsPerPage,
             search: searchQuery,
             entity,
+            ...(locationParam ? { location: locationParam } : {}),
         });
-    }, [dispatch, rowsPerPage, searchQuery, entity, fetchData, filterData]);
+    }, [dispatch, rowsPerPage, searchQuery, entity, locationParam, fetchData, filterData]);
 
     const columns = useMemo(() => [
         {
@@ -579,36 +635,67 @@ const InProgress = ({
             page: 0,
             size: rowsPerPage,
             search: '',
-            entity
+            entity,
+            ...(locationParam ? { location: locationParam } : {}),
         });
-    }, [dispatch, rowsPerPage, entity, fetchData]);
+    }, [dispatch, rowsPerPage, entity, locationParam, fetchData]);
 
     const handleCloseSnackbar = useCallback(() => {
         setEmailStatus((prev) => ({ ...prev, open: false }));
     }, []);
 
+    const handleLocationTabChange = useCallback((event, newValue) => {
+        setActiveLocationTab(newValue);
+    }, []);
+
+    const showLocationTabs = entity === 'IN';
+
     return (
         <>
-            <Stack direction="row" alignItems="center" spacing={2}
+            <Stack
                 sx={{
-                    flexWrap: 'wrap',
                     mb: 3,
-                    justifyContent: 'space-between',
                     p: 2,
                     backgroundColor: '#f9f9f9',
                     borderRadius: 2,
                     boxShadow: 1,
-                }}>
-
-                <Typography variant='h6' color='primary'>In-Progress Management</Typography>
-                <Stack direction="row" alignItems="center" spacing={2} sx={{ ml: 'auto' }}>
-                    <DateRangeFilter 
-                        component="InProgress" 
-                        onDateChange={handleDateChange} 
-                        onClearFilter={handleRefresh}
-                        resetFilter={resetFilterTrigger}
-                    />
+                }}
+            >
+                <Stack
+                    direction="row"
+                    alignItems="center"
+                    spacing={2}
+                    sx={{ flexWrap: 'wrap', justifyContent: 'space-between' }}
+                >
+                    <Typography variant='h6' color='primary'>In-Progress Management</Typography>
+                    <Stack direction="row" alignItems="center" spacing={2} sx={{ ml: 'auto' }}>
+                        <DateRangeFilter 
+                            component="InProgress" 
+                            onDateChange={handleDateChange} 
+                            onClearFilter={handleRefresh}
+                            resetFilter={resetFilterTrigger}
+                        />
+                    </Stack>
                 </Stack>
+
+                {showLocationTabs && (
+                    <Tabs
+                        value={activeLocationTab}
+                        onChange={handleLocationTabChange}
+                        textColor="primary"
+                        indicatorColor="primary"
+                        sx={{ mt: 1, minHeight: 36 }}
+                    >
+                        {IN_LOCATION_TABS.map((tab) => (
+                            <Tab
+                                key={tab.value}
+                                label={tab.label}
+                                value={tab.value}
+                                sx={{ textTransform: 'none', minHeight: 36 }}
+                            />
+                        ))}
+                    </Tabs>
+                )}
             </Stack>
 
             <DataTablePaginated
