@@ -437,6 +437,28 @@ const CoordinatorInterviews = () => {
         ),
     },
     {
+      key: "recruiterName",
+      label: "Recruiter",
+      sortable: true,
+      filterable: true,
+    },
+    {
+      key: "coordinatorName",
+      label: "Coordinator",
+      sortable: true,
+      filterable: true,
+      width: 140,
+      render: (row) => row.coordinatorName || "-",
+    },
+    {
+      key: "profileHoldStatus",
+      label: "Profile Hold",
+      sortable: true,
+      filterable: true,
+      width: 130,
+      render: (row) => row.profileHoldStatus || "-",
+    },
+    {
       key: "comments",
       label: "Recruiter Comments",
       sortable: false,

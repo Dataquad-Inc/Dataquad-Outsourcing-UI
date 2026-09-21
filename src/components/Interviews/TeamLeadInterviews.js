@@ -444,6 +444,18 @@ const handleEdit = (row, isReschedule = false, isScheduleJoining = false) => {
             isLoading={moveToBenchLoading}
           />
         ),
+      },
+      {
+        key: "coordinatorName",
+        label: "Coordinator",
+        width: 140,
+        render: (row) => row.coordinatorName || "-",
+      },
+      {
+        key: "profileHoldStatus",
+        label: "Profile Hold",
+        width: 130,
+        render: (row) => row.profileHoldStatus || "-",
       }
     ];
 

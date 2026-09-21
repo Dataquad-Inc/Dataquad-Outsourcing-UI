@@ -14,6 +14,7 @@ import {
     selectFilteredBdms,
     selectFilteredTeamLeads,
     selectFilteredEmployees,
+    selectFilteredCoordinators,
     selectIsLoading
 } from '../../redux/teamMetricsSlice';
 
@@ -27,7 +28,7 @@ const TeamMetrics = () => {
     const filteredBdmUsers = useSelector(selectFilteredBdms);
     const filteredTeamLeadUsers = useSelector(selectFilteredTeamLeads);
     const filteredEmployeeUsers = useSelector(selectFilteredEmployees);
-    const coordinators = useSelector((state) => state.teamMetrics.coordinators || []);
+    const filteredCoordinators = useSelector(selectFilteredCoordinators);
     const isLoading = useSelector(selectIsLoading);
     
     const startDate = searchParams.get('startDate');
@@ -134,10 +135,10 @@ const TeamMetrics = () => {
             case 'BDM':         return filteredBdmUsers;
             case 'TEAMLEAD':    return filteredTeamLeadUsers;
             case 'EMPLOYEE':    return filteredEmployeeUsers;
-            case 'COORDINATOR': return coordinators;
+            case 'COORDINATOR': return filteredCoordinators;
             default:            return [];
         }
-    }, [activeTab, filteredBdmUsers, filteredTeamLeadUsers, filteredEmployeeUsers, coordinators, tabsConfig]);
+    }, [activeTab, filteredBdmUsers, filteredTeamLeadUsers, filteredEmployeeUsers, filteredCoordinators, tabsConfig]);
 
     const renderTabContent = () => {
         const currentTabConfig = tabsConfig[activeTab];

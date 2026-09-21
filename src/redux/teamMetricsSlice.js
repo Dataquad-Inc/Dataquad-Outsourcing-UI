@@ -132,6 +132,7 @@ export const teamMetricsSlice = createSlice({
             state.filteredBdmUsers = state.bdmUsers;
             state.filteredTeamLeadUsers = state.teamLeadUsers;
             state.filteredEmployeeUsers = state.employeeUsers;
+            state.filteredCoordinators = state.coordinators;
             state.isFiltered = false;
             state.employeeDetails = null;
         }
@@ -233,7 +234,7 @@ export const teamMetricsSlice = createSlice({
                 state.isLoading = false;
                 state.coordinators = action.payload.coordinators;
                 if (!state.isFiltered) {
-                    state.filteredEmployeeUsers = action.payload.coordinators;
+                    state.filteredCoordinators = action.payload.coordinators;
                 }
             })
             .addCase(fetchCoordinators.rejected, (state, action) => {
@@ -252,6 +253,7 @@ export const selectEmployeeDetails = (state) => state.teamMetrics.employeeDetail
 export const selectFilteredEmployees = (state) => state.teamMetrics.filteredEmployeeUsers;
 export const selectFilteredTeamLeads = (state) => state.teamMetrics.filteredTeamLeadUsers;
 export const selectFilteredBdms = (state) => state.teamMetrics.filteredBdmUsers;
+export const selectFilteredCoordinators = (state) => state.teamMetrics.filteredCoordinators;
 export const selectIsLoading = (state) => state.teamMetrics.isLoading;
 
 export default teamMetricsSlice.reducer;

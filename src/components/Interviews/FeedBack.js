@@ -103,7 +103,7 @@ const InternalFeedbackCell = ({
             </Button>
           </Tooltip>
         )}
-        {isCoordinator && !value.length > maxLength && (
+        {isCoordinator && !(value.length > maxLength) && (
           <Button
             onClick={handleViewFull}
             size="small"

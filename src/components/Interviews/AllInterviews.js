@@ -394,6 +394,28 @@ const AllInterviews = () => {
           ),
       },
       {
+        key: "coordinatorName",
+        label: "Coordinator",
+        width: 140,
+        render: (row) =>
+          loading || coordinatorLoading ? (
+            <Skeleton width={100} height={24} />
+          ) : (
+            row.coordinatorName || "-"
+          ),
+      },
+      {
+        key: "profileHoldStatus",
+        label: "Profile Hold",
+        width: 130,
+        render: (row) =>
+          loading || coordinatorLoading ? (
+            <Skeleton width={80} height={24} />
+          ) : (
+            row.profileHoldStatus || "-"
+          ),
+      },
+      {
         key: "clientName",
         label: "Client Name",
         width: 150,
