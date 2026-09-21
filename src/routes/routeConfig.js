@@ -1240,6 +1240,7 @@ const routeConfig = [
   },
 
   { path: "/", element: Loadable(LoginPage) },
+  { path: "/onboarding/:token", element: Loadable(lazy(() => import("../components/Onboarding/OnboardingPage"))) },
   { path: "/access", element: Loadable(DeniedAccessCard) },
   { path: "/unauthorized", element: Loadable(Unauthorized) },
   { path: "*", element: Loadable(NotFound) },

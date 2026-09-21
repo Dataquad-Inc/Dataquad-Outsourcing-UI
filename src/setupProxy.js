@@ -16,23 +16,20 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 const USER_REGISTER = 'http://localhost:8083';
 const CANDIDATE = 'http://localhost:8085';
 const HOTLIST = 'http://localhost:8092';
-const REQUIREMENTS = 'http://localhost:8222';
+// India requirements (bdmlist/stats/team metrics) — Dataquad-Requirements-Api
+const REQUIREMENTS_IN = 'http://localhost:8223';
+// US requirements (/api/us/requirements) — Adroit-Requirements-Api
+const REQUIREMENTS_US = 'http://localhost:8222';
 const TIMESHEET = 'http://localhost:7071';
-
-// No local service implements /api/us/requirements/*. The India requirements
-// repos expose an unrelated set of routes (/bdm, /assignJob, /inprogress), so
-// forwarding there silently matched /{jobId} and returned misleading 200s.
-// These calls go to production until that service is available locally.
-const PRODUCTION = 'https://mymulya.com';
 
 const routes = [
   { path: '/users', target: USER_REGISTER },
   { path: '/candidate', target: CANDIDATE },
   { path: '/hotlist', target: HOTLIST },
   { path: '/api/c2c-employers', target: HOTLIST },
-  { path: '/requirements', target: REQUIREMENTS },
+  { path: '/requirements', target: REQUIREMENTS_IN },
   { path: '/timesheet', target: TIMESHEET },
-  { path: '/api/us/requirements', target: PRODUCTION },
+  { path: '/api/us/requirements', target: REQUIREMENTS_US },
 ];
 
 module.exports = function (app) {

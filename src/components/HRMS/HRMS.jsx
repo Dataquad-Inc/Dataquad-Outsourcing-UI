@@ -32,16 +32,21 @@ import {
   Typography,
   Tabs,
   Tab,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@mui/material";
 import {
   BadgeOutlined,
+  CheckCircleOutline,
   Close,
+  CommentOutlined,
   DeleteOutline,
   DescriptionOutlined,
   DownloadOutlined,
   EmailOutlined,
   ImageOutlined,
   InsertDriveFileOutlined,
+  MailOutline,
   PhoneOutlined,
   Refresh,
   Search,
@@ -1048,7 +1053,13 @@ const HRMS = () => {
   const [order, setOrder] = useState("asc");
   const [orderBy, setOrderBy] = useState("Employee ID");
   const [activeTab, setActiveTab] = useState(0);
+  const [statusFilter, setStatusFilter] = useState("active"); // active | inactive | isolated
   const [teamLeadOptions, setTeamLeadOptions] = useState([]);
+  const [inviteLoadingId, setInviteLoadingId] = useState(null);
+  const [ackLoadingId, setAckLoadingId] = useState(null);
+  const [remarksDialog, setRemarksDialog] = useState({ open: false, userId: null, name: "" });
+  const [remarksText, setRemarksText] = useState("");
+  const [remarksSaving, setRemarksSaving] = useState(false);
 
   const isAdmin = role === "ADMIN";
 
@@ -1132,9 +1143,16 @@ const HRMS = () => {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await httpService.get("/users/employee", { entity: activeEntity });
+      const isExternal = activeTab === 1;
+      let endpoint = "/users/active-internal/employee";
+      if (isExternal && statusFilter === "active") endpoint = "/users/active-external/employee";
+      else if (isExternal && statusFilter === "inactive") endpoint = "/users/inactive-external/employee";
+      else if (isExternal && statusFilter === "isolated") endpoint = "/users/isolated-external/employee";
+      else if (!isExternal && statusFilter === "inactive") endpoint = "/users/inactive-internal/employee";
+      else if (!isExternal && statusFilter === "isolated") endpoint = "/users/isolated-internal/employee";
+
+      const response = await httpService.get(endpoint, { entity: activeEntity });
       const allUsers = normalizeArrayPayload(response);
-      // Filter out test users immediately after fetching
       const filteredUsers = allUsers.filter((user) => {
         const employeeId = getEmployeeId(user);
         return !TEST_EMPLOYEE_IDS.includes(employeeId);
@@ -1143,37 +1161,103 @@ const HRMS = () => {
       setProfileDetailsByEmployeeId({});
       setPage(0);
     } catch (error) {
-      showToast("Unable to load HRMS users", "error");
+      // 204 No Content from status endpoints should show empty list
+      if (error?.response?.status === 204) {
+        setUsers([]);
+      } else {
+        showToast("Unable to load HRMS users", "error");
+        setUsers([]);
+      }
     } finally {
       setLoading(false);
     }
-  }, [activeEntity]);
+  }, [activeEntity, activeTab, statusFilter]);
 
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
 
-  // Filter users based on active tab
+  const handleSendInvite = async (user) => {
+    const employeeId = getEmployeeId(user);
+    if (!employeeId) return;
+    setInviteLoadingId(employeeId);
+    try {
+      await httpService.post(`/users/onboarding/invite/${employeeId}`);
+      showToast("Onboarding invitation sent to candidate email", "success");
+      fetchUsers();
+    } catch (error) {
+      showToast(error?.response?.data?.message || "Failed to send invitation", "error");
+    } finally {
+      setInviteLoadingId(null);
+    }
+  };
+
+  const handleAcknowledge = async (user) => {
+    const employeeId = getEmployeeId(user);
+    if (!employeeId) return;
+    setAckLoadingId(employeeId);
+    try {
+      const response = await httpService.post(`/users/onboarding/acknowledge/${employeeId}`);
+      const payload = response?.data?.data || response?.data || {};
+      const placementId = payload.placementId || user.placementId;
+      if (placementId) {
+        try {
+          await httpService.post(`/candidate/${placementId}/initialize-leave/${employeeId}`);
+        } catch (leaveErr) {
+          console.warn("Leave init after acknowledge failed", leaveErr);
+        }
+      }
+      showToast("Candidate acknowledged as active employee", "success");
+      setStatusFilter("active");
+      fetchUsers();
+    } catch (error) {
+      showToast(error?.response?.data?.message || "Failed to acknowledge candidate", "error");
+    } finally {
+      setAckLoadingId(null);
+    }
+  };
+
+  const handleSubmitRemarks = async () => {
+    if (!remarksDialog.userId || !remarksText.trim()) {
+      showToast("Please enter remarks", "error");
+      return;
+    }
+    setRemarksSaving(true);
+    try {
+      await httpService.post(`/users/onboarding/remarks/${remarksDialog.userId}`, {
+        remarks: remarksText.trim(),
+      });
+      showToast("Remarks sent to candidate", "success");
+      setRemarksDialog({ open: false, userId: null, name: "" });
+      setRemarksText("");
+      fetchUsers();
+    } catch (error) {
+      showToast(error?.response?.data?.message || "Failed to send remarks", "error");
+    } finally {
+      setRemarksSaving(false);
+    }
+  };
+
+  // Filter users based on active tab (status already applied by API)
   const filteredUsersByTab = useMemo(() => {
     if (activeTab === 0) {
-      // INTERNAL tab - users with role NOT containing "EXTERNALEMPLOYEE"
       return users.filter((user) => {
         const userRole = user.role || user.roles || "";
         if (Array.isArray(userRole)) {
-          return !userRole.some(role => role.toUpperCase().includes("EXTERNALEMPLOYEE"));
+          return !userRole.some((role) => String(role).toUpperCase().includes("EXTERNALEMPLOYEE"));
         }
         return !String(userRole).toUpperCase().includes("EXTERNALEMPLOYEE");
       });
-    } else {
-      // EXTERNAL tab - users with role containing "EXTERNALEMPLOYEE"
-      return users.filter((user) => {
-        const userRole = user.role || user.roles || "";
-        if (Array.isArray(userRole)) {
-          return userRole.some(role => role.toUpperCase().includes("EXTERNALEMPLOYEE"));
-        }
-        return String(userRole).toUpperCase().includes("EXTERNALEMPLOYEE");
-      });
     }
+    return users.filter((user) => {
+      const userRole = user.role || user.roles || "";
+      if (Array.isArray(userRole)) {
+        return userRole.some((role) => String(role).toUpperCase().includes("EXTERNALEMPLOYEE"))
+          || String(user.designation || "").toLowerCase() === "candidate";
+      }
+      return String(userRole).toUpperCase().includes("EXTERNALEMPLOYEE")
+        || String(user.designation || "").toLowerCase() === "candidate";
+    });
   }, [users, activeTab]);
 
   const filteredUsers = useMemo(() => {
@@ -1270,6 +1354,7 @@ const sortedUsers = useMemo(() => {
     setPage(0);
     setOrder("asc");
     setOrderBy("Employee ID");
+    setStatusFilter("active");
   };
 
   const groupedDocuments = useMemo(() => groupDocumentsForHRMS(documents), [documents]);
@@ -1864,25 +1949,31 @@ const sortedUsers = useMemo(() => {
             onChange={handleTabChange}
             sx={{ px: 2 }}
           >
-            <Tab 
-              label={`INTERNAL (${users.filter(user => {
-                const userRole = user.role || user.roles || "";
-                if (Array.isArray(userRole)) {
-                  return !userRole.some(role => role.toUpperCase().includes("EXTERNALEMPLOYEE"));
-                }
-                return !String(userRole).toUpperCase().includes("EXTERNALEMPLOYEE");
-              }).length})`} 
-            />
-            <Tab 
-              label={`EXTERNAL (${users.filter(user => {
-                const userRole = user.role || user.roles || "";
-                if (Array.isArray(userRole)) {
-                  return userRole.some(role => role.toUpperCase().includes("EXTERNALEMPLOYEE"));
-                }
-                return String(userRole).toUpperCase().includes("EXTERNALEMPLOYEE");
-              }).length})`} 
-            />
+            <Tab label="INTERNAL" />
+            <Tab label="EXTERNAL" />
           </Tabs>
+          <Box sx={{ px: 2, pb: 1.5, display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={statusFilter}
+              onChange={(e, value) => {
+                if (value) {
+                  setStatusFilter(value);
+                  setPage(0);
+                }
+              }}
+            >
+              <ToggleButton value="active">ACTIVE ({statusFilter === "active" ? users.length : "…"})</ToggleButton>
+              <ToggleButton value="inactive">INACTIVE ({statusFilter === "inactive" ? users.length : "…"})</ToggleButton>
+              <ToggleButton value="isolated">ISOLATE ({statusFilter === "isolated" ? users.length : "…"})</ToggleButton>
+            </ToggleButtonGroup>
+            {activeTab === 1 && (
+              <Typography variant="caption" color="text.secondary">
+                Placed candidates sync here with name, email &amp; phone. Use Invitation to start onboarding.
+              </Typography>
+            )}
+          </Box>
         </Box>
 
         {loading ? (
@@ -1984,6 +2075,31 @@ const sortedUsers = useMemo(() => {
                         Editable Access
                       </TableSortLabel>
                     </TableCell>
+                    {activeTab === 1 && (
+                      <>
+                        <TableCell
+                          sx={{
+                            color: "primary.contrastText",
+                            fontWeight: 700,
+                            bgcolor: "primary.main",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          Onboarding
+                        </TableCell>
+                        <TableCell
+                          align="center"
+                          sx={{
+                            color: "primary.contrastText",
+                            fontWeight: 700,
+                            bgcolor: "primary.main",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          Invitation
+                        </TableCell>
+                      </>
+                    )}
                     {!isAdmin && (
                       <TableCell
                         align="center"
@@ -2075,16 +2191,98 @@ const sortedUsers = useMemo(() => {
                             sx={{ minWidth: 70 }}
                           />
                         </TableCell>
+                        {activeTab === 1 && (
+                          <>
+                            <TableCell>
+                              <Chip
+                                size="small"
+                                label={user.onboardingStatus || (statusFilter === "active" ? "APPROVED" : "PENDING_INVITE")}
+                                color={
+                                  String(user.onboardingStatus || "").toUpperCase() === "SUBMITTED"
+                                    ? "warning"
+                                    : String(user.onboardingStatus || "").toUpperCase() === "APPROVED"
+                                    ? "success"
+                                    : String(user.onboardingStatus || "").toUpperCase() === "REMARKS_REQUESTED"
+                                    ? "error"
+                                    : "default"
+                                }
+                              />
+                              {user.onboardingRemarks ? (
+                                <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5, maxWidth: 160 }}>
+                                  {user.onboardingRemarks}
+                                </Typography>
+                              ) : null}
+                            </TableCell>
+                            <TableCell align="center">
+                              <Tooltip title={user.inviteSentAt ? "Resend invitation" : "Send onboarding invitation"}>
+                                <span>
+                                  <IconButton
+                                    color="primary"
+                                    size="small"
+                                    disabled={
+                                      inviteLoadingId === employeeId ||
+                                      String(user.onboardingStatus || "").toUpperCase() === "APPROVED" ||
+                                      String(user.status || "").toUpperCase() === "ACTIVE"
+                                    }
+                                    onClick={() => handleSendInvite(user)}
+                                  >
+                                    {inviteLoadingId === employeeId ? (
+                                      <CircularProgress size={16} />
+                                    ) : (
+                                      <MailOutline fontSize="small" />
+                                    )}
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                            </TableCell>
+                          </>
+                        )}
                         {!isAdmin && (
                           <TableCell align="center" sx={{ 
                             ...stickyStyles.stickyActionsColumnSx,
                             backgroundColor: rowColor !== 'transparent' ? rowColor : undefined,
                           }}>
-                            <Tooltip title="View HRMS profile">
-                              <IconButton color="primary" size="small" onClick={() => fetchUserProfile(user)}>
-                                <Visibility fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
+                            <Stack direction="row" spacing={0.5} justifyContent="center" alignItems="center">
+                              <Tooltip title="View HRMS profile">
+                                <IconButton color="primary" size="small" onClick={() => fetchUserProfile(user)}>
+                                  <Visibility fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              {activeTab === 1 && String(user.onboardingStatus || "").toUpperCase() === "SUBMITTED" && (
+                                <>
+                                  <Tooltip title="Request additional details">
+                                    <IconButton
+                                      color="warning"
+                                      size="small"
+                                      onClick={() => {
+                                        setRemarksDialog({
+                                          open: true,
+                                          userId: employeeId,
+                                          name: user.userName || user.employeeName || "",
+                                        });
+                                        setRemarksText("");
+                                      }}
+                                    >
+                                      <CommentOutlined fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                  <Tooltip title="Acknowledge as active employee">
+                                    <IconButton
+                                      color="success"
+                                      size="small"
+                                      disabled={ackLoadingId === employeeId}
+                                      onClick={() => handleAcknowledge(user)}
+                                    >
+                                      {ackLoadingId === employeeId ? (
+                                        <CircularProgress size={16} />
+                                      ) : (
+                                        <CheckCircleOutline fontSize="small" />
+                                      )}
+                                    </IconButton>
+                                  </Tooltip>
+                                </>
+                              )}
+                            </Stack>
                           </TableCell>
                         )}
                       </TableRow>
@@ -2092,9 +2290,12 @@ const sortedUsers = useMemo(() => {
                   })}
                   {!paginatedUsers.length && (
                     <TableRow>
-                      <TableCell colSpan={!isAdmin ? hrmsTableColumns.length + 3 : hrmsTableColumns.length + 1}>
+                      <TableCell colSpan={
+                        (!isAdmin ? hrmsTableColumns.length + 3 : hrmsTableColumns.length + 1)
+                        + (activeTab === 1 ? 2 : 0)
+                      }>
                         <Alert severity="info">
-                          No {activeTab === 0 ? "internal" : "external"} employees found.
+                          No {activeTab === 0 ? "internal" : "external"} {statusFilter} employees found.
                           {query && " Try adjusting your search."}
                         </Alert>
                       </TableCell>
@@ -2475,6 +2676,45 @@ const sortedUsers = useMemo(() => {
             Download
           </Button>
           <Button onClick={closeDocumentViewer}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={remarksDialog.open}
+        onClose={() => !remarksSaving && setRemarksDialog({ open: false, userId: null, name: "" })}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>Request additional details</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Candidate: <strong>{remarksDialog.name || remarksDialog.userId}</strong>
+          </Typography>
+          <TextField
+            autoFocus
+            fullWidth
+            multiline
+            minRows={3}
+            label="Remarks"
+            value={remarksText}
+            onChange={(e) => setRemarksText(e.target.value)}
+            placeholder="Specify what additional information or documents are required"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button
+            disabled={remarksSaving}
+            onClick={() => setRemarksDialog({ open: false, userId: null, name: "" })}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            disabled={remarksSaving || !remarksText.trim()}
+            onClick={handleSubmitRemarks}
+          >
+            {remarksSaving ? <CircularProgress size={18} /> : "Send remarks"}
+          </Button>
         </DialogActions>
       </Dialog>
 

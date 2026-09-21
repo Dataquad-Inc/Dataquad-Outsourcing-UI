@@ -1288,7 +1288,7 @@ const PlacementsList = () => {
     setIsLoading(true);
 
     try {
-      ToastService.loading("Sending Link...", {
+        ToastService.loading("Syncing to HRMS...", {
         toastId: "sendLink",
         autoClose: false,
       });
@@ -1303,7 +1303,7 @@ const PlacementsList = () => {
         );
 
         ToastService.dismiss("sendLink");
-        ToastService.success("Link has been sent to email.", {
+        ToastService.success("Candidate added to HRMS External. HR can send the onboarding invitation from HRMS.", {
           autoClose: 4000,
         });
         await dispatch(fetchPlacements());
