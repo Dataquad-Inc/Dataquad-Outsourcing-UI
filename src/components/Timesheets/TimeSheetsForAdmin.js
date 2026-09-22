@@ -43,6 +43,66 @@ import { useDispatch, useSelector } from 'react-redux';
 import httpService from '../../Services/httpService';
 import { inactiveExternalUsers, activeExternalUsers } from '../../redux/employeesSlice';
 import { fetchPlacements } from '../../redux/placementSlice'
+
+// ---------------------------------------------------------------------------
+// Helper: normalize ANY API response shape into a plain array.
+// This is the actual fix for "totalTimesheetData.filter is not a function".
+// Previously the code only handled `response.data` being an array or
+// `response.data.data` being an array. If the backend ever returns something
+// like { data: { timesheets: [...] } }, { success, data: {...} }, or an
+// error object, `rows` ended up being a non-array value, which then crashed
+// `.filter()` on the next render (especially noticeable during hot reloads,
+// since the stale non-array value could stick around in state).
+// ---------------------------------------------------------------------------
+const normalizeTimesheetRows = (responseData) => {
+  if (Array.isArray(responseData)) {
+    return responseData;
+  }
+  // Paginated shape actually returned by /timesheet/monthly-timesheets:
+  // { success, message, data: { content: [...], page, size, totalElements, totalPages }, error, timestamp }
+  if (Array.isArray(responseData?.data?.content)) {
+    return responseData.data.content;
+  }
+  if (Array.isArray(responseData?.content)) {
+    return responseData.content;
+  }
+  if (Array.isArray(responseData?.data)) {
+    return responseData.data;
+  }
+  if (Array.isArray(responseData?.data?.timesheets)) {
+    return responseData.data.timesheets;
+  }
+  if (Array.isArray(responseData?.timesheets)) {
+    return responseData.timesheets;
+  }
+  if (Array.isArray(responseData?.data?.data)) {
+    return responseData.data.data;
+  }
+
+  console.warn(
+    'fetchTimesheetData: unexpected response shape, expected an array of timesheets. Defaulting to []. Received:',
+    responseData
+  );
+  return [];
+};
+
+// Pull out pagination metadata (page, totalPages) from whichever shape the
+// API returned, so fetchTimesheetData can page through all results instead
+// of silently only using page 0.
+const extractPageInfo = (responseData) => {
+  const paged = responseData?.data && typeof responseData.data === 'object' && 'totalPages' in responseData.data
+    ? responseData.data
+    : (responseData && typeof responseData === 'object' && 'totalPages' in responseData ? responseData : null);
+
+  if (!paged) return null;
+
+  return {
+    page: paged.page ?? 0,
+    totalPages: paged.totalPages ?? 1,
+    totalElements: paged.totalElements ?? null
+  };
+};
+
 // Main TimeSheetsForAdmin Component
 const TimeSheetsForAdmin = () => {
   return (
@@ -99,8 +159,6 @@ const TimesheetList = () => {
     dispatch(fetchPlacements());
   }, []);
 
-  console.log("Active external users:", externalActive);
-
   // Check if we should restore month/year from navigation state
   useEffect(() => {
     const handlePopState = (event) => {
@@ -122,15 +180,19 @@ const TimesheetList = () => {
     sessionStorage.setItem('timesheetsAdmin_selectedYear', selectedYear.toString());
   }, [selectedMonth, selectedYear]);
 
+  // Guard placements too — it comes from redux and could theoretically be
+  // undefined/null on the very first render before the fetch resolves.
+  const safePlacements = Array.isArray(placements) ? placements : [];
+
   const vendorMap = useMemo(() => {
     const map = {};
-    placements.forEach(p => {
+    safePlacements.forEach(p => {
       if (p.candidateFullName) {
         map[p.candidateFullName.toLowerCase().trim()] = p.vendorName || '—';
       }
     });
     return map;
-  }, [placements]);
+  }, [safePlacements]);
 
   // ✅ Always compute based on state
   const monthStart = dayjs(`${selectedYear}-${selectedMonth + 1}-01`)
@@ -144,19 +206,34 @@ const TimesheetList = () => {
     setLoading(true);
     setError(null);
     try {
-      const url = `/timesheet/monthly-timesheets?monthStart=${start}&monthEnd=${end}`;
-      console.log('Fetching timesheet data with URL:', url);
-      const response = await httpService.get(url);
+      // Request a large page size up front. Most backends built on Spring's
+      // Pageable respect ?size=..., so this alone often gets everything in
+      // one call. We still fall back to walking pages below in case size is
+      // capped server-side and totalPages > 1 comes back anyway.
+      const baseUrl = `/timesheet/monthly-timesheets?monthStart=${start}&monthEnd=${end}`;
+      const firstResponse = await httpService.get(`${baseUrl}&page=0&size=500`);
 
-      const rows = Array.isArray(response.data)
-        ? response.data
-        : response.data?.data || [];
+      let rows = normalizeTimesheetRows(firstResponse?.data);
+      const pageInfo = extractPageInfo(firstResponse?.data);
 
-      console.log('Received timesheet data:', rows.length, 'rows');
+      // If the server capped page size and there's more than one page left,
+      // fetch the remaining pages and merge them in.
+      if (pageInfo && pageInfo.totalPages > 1) {
+        const remainingPageRequests = [];
+        for (let p = 1; p < pageInfo.totalPages; p++) {
+          remainingPageRequests.push(httpService.get(`${baseUrl}&page=${p}&size=500`));
+        }
+        const remainingResponses = await Promise.all(remainingPageRequests);
+        remainingResponses.forEach(res => {
+          rows = rows.concat(normalizeTimesheetRows(res?.data));
+        });
+      }
+
       setTotalTimesheetData(rows);
     } catch (err) {
       console.error('Error fetching timesheet data:', err);
       setError('Failed to fetch timesheet data');
+      setTotalTimesheetData([]); // never leave state in a non-array shape
       ToastService.error('Failed to fetch timesheet data', { type: 'error' });
     } finally {
       setLoading(false);
@@ -168,10 +245,13 @@ const TimesheetList = () => {
     fetchTimesheetData(monthStart, monthEnd);
   }, [selectedMonth, selectedYear]);
 
+  // Safe array to feed into filtering / length checks below, no matter what
+  // ended up in state.
+  const safeTotalTimesheetData = Array.isArray(totalTimesheetData) ? totalTimesheetData : [];
+
   // Filter timesheet data to only include active external users
   const filteredTimesheetData = useMemo(() => {
-    if (!externalActive || externalActive.length === 0) {
-      console.log('No active external users data available');
+    if (!Array.isArray(externalActive) || externalActive.length === 0) {
       return [];
     }
 
@@ -182,40 +262,23 @@ const TimesheetList = () => {
         .map(emp => emp.userName?.toLowerCase().trim()) // Normalize names for comparison
     );
 
-    console.log('Active employee names:', Array.from(activeEmployeeNames));
-
     // Filter timesheet data to only include employees whose names are in the active set
-    const filtered = totalTimesheetData.filter(row => {
+    return safeTotalTimesheetData.filter(row => {
       const employeeName = row.employeeName?.toLowerCase().trim();
-      const isActive = activeEmployeeNames.has(employeeName);
-
-      if (!isActive) {
-        console.log(`Filtering out inactive employee: ${row.employeeName}`);
-      }
-
-      return isActive;
+      return activeEmployeeNames.has(employeeName);
     });
-
-    console.log(`Filtered from ${totalTimesheetData.length} to ${filtered.length} active employees`);
-    return filtered;
-  }, [totalTimesheetData, externalActive]);
+  }, [safeTotalTimesheetData, externalActive]);
 
   const handleMonthChange = (event) => {
-    const newMonth = event.target.value;
-    console.log('Month changed to:', newMonth);
-    setSelectedMonth(newMonth);
+    setSelectedMonth(event.target.value);
   };
 
   const handleYearChange = (event) => {
-    const newYear = event.target.value;
-    console.log('Year changed to:', newYear);
-    setSelectedYear(newYear);
+    setSelectedYear(event.target.value);
   };
 
   const handleEmployeeClick = (row) => {
     try {
-      console.log('Employee click handler called with:', { row, role, selectedMonth, selectedYear });
-
       if (!handleEmployeeNameClick) {
         console.error('handleEmployeeNameClick is not available');
         ToastService.error('Navigation function is not available');
@@ -578,7 +641,7 @@ const TimesheetList = () => {
           </Typography>
           {externalActive && (
             <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Showing {filteredTimesheetData.length} active employees out of {totalTimesheetData.length} total
+              Showing {filteredTimesheetData.length} active employees out of {safeTotalTimesheetData.length} total
             </Typography>
           )}
         </Box>
@@ -712,7 +775,7 @@ const TimesheetList = () => {
       )}
 
       {/* Warning when no active users found */}
-      {!loading && totalTimesheetData.length > 0 && filteredTimesheetData.length === 0 && (
+      {!loading && safeTotalTimesheetData.length > 0 && filteredTimesheetData.length === 0 && (
         <Alert
           severity="warning"
           sx={{ mb: 3, borderRadius: 2 }}
