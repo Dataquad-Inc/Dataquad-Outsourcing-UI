@@ -39,7 +39,7 @@ export const fetchApprovedSummary = createAsyncThunk(
   async ({ month, year, entity }, { rejectWithValue }) => {
     try {
       const response = await axios.get(
-        `${API_BASE_URL}/users/attendance/approved-summary`,
+        `${API_BASE_URL}/users/attendance/dashboard/approved-summary`,
         {
           params: { month, year, entity },
           headers: { 'Content-Type': 'application/json' },
