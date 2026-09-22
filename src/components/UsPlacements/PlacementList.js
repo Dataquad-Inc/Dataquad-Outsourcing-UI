@@ -69,9 +69,11 @@ import PlacementCard from "./PlacementCard";
 import ConfirmDialog from "../muiComponents/ConfirmDialog";
 import {
   fetchUsPlacements,
+  filterUsPlacementByDateRange,
   deleteUsPlacement,
   setSelectedPlacement,
   resetPlacementState,
+  clearUsDateRange,
 } from "../../redux/placementSlice";
 import DateRangeFilter from "../muiComponents/DateRangeFilter";
 import CryptoJS from "crypto-js";
@@ -79,15 +81,11 @@ import httpService from "../../Services/httpService";
 import ToastService from "../../Services/toastService";
 
 // ─── Date formatting helper ────────────────────────────────────────────────
-// Backend returns dates in "yyyy-mm-dd" (ISO) format.
-// Converts them to a friendly short text format: "2nd Sep 2026"
-// Returns "-" for empty/invalid values.
 const MONTH_SHORT_NAMES = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 ];
 
-// Returns the ordinal suffix for a day number: 1 → "st", 2 → "nd", 3 → "rd", 4 → "th"
 const getOrdinalSuffix = (day) => {
   const d = day % 100;
   if (d >= 11 && d <= 13) return "th";
@@ -106,22 +104,19 @@ const formatDate = (dateString) => {
 
   let day, month, year;
 
-  // ISO format: yyyy-mm-dd (optionally with time like yyyy-mm-ddTHH:mm:ss)
   const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (isoMatch) {
     year = parseInt(isoMatch[1], 10);
     month = parseInt(isoMatch[2], 10);
     day = parseInt(isoMatch[3], 10);
   } else {
-    // Fallback: try parsing with Date object
     const date = new Date(str);
-    if (isNaN(date.getTime())) return str; // return raw if unparseable
+    if (isNaN(date.getTime())) return str;
     day = date.getDate();
     month = date.getMonth() + 1;
     year = date.getFullYear();
   }
 
-  // Guard against invalid month
   if (month < 1 || month > 12) return str;
 
   const monthName = MONTH_SHORT_NAMES[month - 1];
@@ -145,7 +140,7 @@ const TabPanel = ({ children, value, index, ...other }) => {
   );
 };
 
-// Dashboard Card component with click handler
+// Dashboard Card component
 const DashboardCard = ({ title, count, icon, color, subtitle, onClick, isActive = false }) => {
   return (
     <Card
@@ -282,11 +277,9 @@ const CandidateTablePage = ({
     }
   };
 
-  // Filter placements by search and status
   const filteredPlacements = React.useMemo(() => {
     let filtered = [...placements];
 
-    // Apply search filter
     if (searchQuery.trim()) {
       filtered = filtered.filter(p =>
         p.candidateFullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -299,7 +292,6 @@ const CandidateTablePage = ({
       );
     }
 
-    // Apply status filter - Toggle buttons for Active/Inactive
     if (statusFilter === 'active') {
       filtered = filtered.filter(p => p.status === 'Active');
     } else if (statusFilter === 'inactive') {
@@ -309,7 +301,6 @@ const CandidateTablePage = ({
     return filtered;
   }, [placements, searchQuery, statusFilter]);
 
-  // Sort placements
   const sortedPlacements = React.useMemo(() => {
     const comparator = (a, b) => {
       if (a[orderBy] < b[orderBy]) {
@@ -323,7 +314,6 @@ const CandidateTablePage = ({
     return [...filteredPlacements].sort(comparator);
   }, [filteredPlacements, order, orderBy]);
 
-  // Paginate placements
   const paginatedPlacements = sortedPlacements.slice(
     page * rowsPerPage,
     page * rowsPerPage + rowsPerPage
@@ -341,7 +331,6 @@ const CandidateTablePage = ({
       : "-";
   };
 
-  // Get status counts
   const getStatusCounts = React.useMemo(() => {
     const counts = {
       active: placements.filter(p => p.status === 'Active').length,
@@ -352,7 +341,6 @@ const CandidateTablePage = ({
 
   return (
     <Box sx={{ p: 3 }}>
-      {/* Breadcrumbs Navigation */}
       <Breadcrumbs
         separator={<NavigateNext fontSize="small" />}
         aria-label="breadcrumb"
@@ -375,7 +363,6 @@ const CandidateTablePage = ({
         </Typography>
       </Breadcrumbs>
 
-      {/* Header */}
       <Box sx={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -401,7 +388,6 @@ const CandidateTablePage = ({
         </Button>
       </Box>
 
-      {/* Toggle Buttons - Only Active and Inactive */}
       <Box sx={{
         mb: 2,
         p: 1.5,
@@ -471,7 +457,6 @@ const CandidateTablePage = ({
         </ToggleButtonGroup>
       </Box>
 
-      {/* Search Bar */}
       <Box sx={{ mb: 3 }}>
         <TextField
           fullWidth
@@ -502,7 +487,6 @@ const CandidateTablePage = ({
         />
       </Box>
 
-      {/* Table */}
       {filteredPlacements.length === 0 ? (
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <Typography variant="body1" color="text.secondary">
@@ -811,13 +795,10 @@ const PlacementsList = () => {
     usPlacements,
     usPlacementsPagination,
     usPlacementCounts,
+    activeDateRange,
     loading,
     selectedPlacement,
-  } = useSelector(
-    (state) => state.placement
-  );
-
-  console.log("Placements data from Redux:", usPlacements);
+  } = useSelector((state) => state.placement);
 
   const { userId, encryptionKey } = useSelector((state) => state.auth);
 
@@ -906,7 +887,6 @@ const PlacementsList = () => {
   // Extract dashboard data from placements
   useEffect(() => {
     if (processedPlacements.length > 0) {
-      // Extract unique clients
       const clientMap = new Map();
       processedPlacements.forEach(p => {
         if (p.clientName) {
@@ -919,7 +899,6 @@ const PlacementsList = () => {
         }
       });
 
-      // Extract unique vendors
       const vendorMap = new Map();
       processedPlacements.forEach(p => {
         if (p.vendorName) {
@@ -932,7 +911,6 @@ const PlacementsList = () => {
         }
       });
 
-      // Extract unique sales persons
       const salesMap = new Map();
       processedPlacements.forEach(p => {
         if (p.sales) {
@@ -945,7 +923,6 @@ const PlacementsList = () => {
         }
       });
 
-      // Extract unique recruiters
       const recruiterMap = new Map();
       processedPlacements.forEach(p => {
         if (p.recruiterName) {
@@ -1007,8 +984,6 @@ const PlacementsList = () => {
   }, [processedPlacements, activeFilter]);
 
   // Fetch all placements ONCE on mount.
-  // - Single dispatch (no fetchUsPlacementCounts — it hit the same endpoint).
-  // - useRef guard makes it idempotent under React 18 StrictMode.
   useEffect(() => {
     if (initialFetchDone.current) return;
     initialFetchDone.current = true;
@@ -1068,7 +1043,6 @@ const PlacementsList = () => {
     }
   };
 
-  // Handle card click - navigate to candidate page
   const handleCardClick = (item, type, index) => {
     setCandidatePageData({
       title: `${item.name}`,
@@ -1081,7 +1055,6 @@ const PlacementsList = () => {
     setShowDashboard(false);
   };
 
-  // Handle back from candidate page
   const handleBackToDashboard = () => {
     setShowCandidatePage(false);
     setShowDashboard(true);
@@ -1094,7 +1067,6 @@ const PlacementsList = () => {
     });
   };
 
-  // Handle status filter change from candidate page
   const handleTableStatusFilterChange = (filterValue) => {
     setCandidatePageData(prev => ({
       ...prev,
@@ -1144,8 +1116,6 @@ const PlacementsList = () => {
 
   const handleDelete = () => {
     if (placementToDelete) {
-      // deleteUsPlacement thunk already refetches US placements (and counts are
-      // recomputed inside fetchUsPlacements.fulfilled) — no extra dispatch needed.
       dispatch(deleteUsPlacement(placementToDelete.id));
       handleCloseDeleteDialog();
     }
@@ -1155,7 +1125,7 @@ const PlacementsList = () => {
     setIsLoading(true);
 
     try {
-        ToastService.loading("Syncing to HRMS...", {
+      ToastService.loading("Syncing to HRMS...", {
         toastId: "sendLink",
         autoClose: false,
       });
@@ -1505,7 +1475,10 @@ const PlacementsList = () => {
     []
   );
 
-  // Apply search and table filters to filtered placements
+  // ─── Server pagination when a date range is active ─────────────────────
+  const isServerPaginated = Boolean(activeDateRange);
+
+  // Apply search + column filters locally (works in both modes)
   const tableFilteredPlacements = React.useMemo(() => {
     let result = [...filteredPlacements];
 
@@ -1538,8 +1511,11 @@ const PlacementsList = () => {
     return result;
   }, [filteredPlacements, keyword, tableFilters, customTableColumns]);
 
-  const totalPlacements = tableFilteredPlacements.length;
+  const totalPlacements = isServerPaginated
+    ? usPlacementsPagination?.totalElements ?? tableFilteredPlacements.length
+    : tableFilteredPlacements.length;
 
+  // Reset page when the result count shrinks below the current page window
   useEffect(() => {
     const totalPages = Math.ceil(totalPlacements / rowsPerPage);
     if (page > 0 && page >= totalPages) {
@@ -1549,11 +1525,35 @@ const PlacementsList = () => {
 
   const handlePageChange = (_event, newPage) => {
     setPage(newPage);
+
+    // Server pagination — refetch with the new page
+    if (isServerPaginated && activeDateRange) {
+      dispatch(
+        filterUsPlacementByDateRange({
+          startDate: activeDateRange.startDate,
+          endDate: activeDateRange.endDate,
+          page: newPage,
+          size: rowsPerPage,
+        })
+      );
+    }
   };
 
   const handleRowsPerPageChange = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
+    const newSize = parseInt(event.target.value, 10);
+    setRowsPerPage(newSize);
     setPage(0);
+
+    if (isServerPaginated && activeDateRange) {
+      dispatch(
+        filterUsPlacementByDateRange({
+          startDate: activeDateRange.startDate,
+          endDate: activeDateRange.endDate,
+          page: 0,
+          size: newSize,
+        })
+      );
+    }
   };
 
   const handleSearchChange = (event) => {
@@ -1572,10 +1572,14 @@ const PlacementsList = () => {
   };
 
   const paginatedData = React.useMemo(() => {
+    if (isServerPaginated) {
+      // The API already returned just this page
+      return tableFilteredPlacements;
+    }
     const start = page * rowsPerPage;
     const end = start + rowsPerPage;
     return tableFilteredPlacements.slice(start, end);
-  }, [tableFilteredPlacements, page, rowsPerPage]);
+  }, [isServerPaginated, tableFilteredPlacements, page, rowsPerPage]);
 
   const getDashboardCardColor = (index) => {
     const colors = [
@@ -1591,7 +1595,6 @@ const PlacementsList = () => {
     return labels[index] || '';
   };
 
-  // If showing candidate page, render it instead of dashboard
   if (showCandidatePage) {
     return (
       <CandidateTablePage
@@ -1632,7 +1635,14 @@ const PlacementsList = () => {
           spacing={2}
           sx={{ ml: "auto" }}
         >
-          <DateRangeFilter component="placements" />
+          <DateRangeFilter
+            component="usPlacements"
+            onClearFilter={() => {
+              dispatch(clearUsDateRange());
+              dispatch(fetchUsPlacements({ page: 0, size: 1000 }));
+              setPage(0);
+            }}
+          />
           <Button
             variant="contained"
             color="primary"
@@ -1711,7 +1721,6 @@ const PlacementsList = () => {
             </Button>
           </ButtonGroup>
 
-          {/* Dashboard Button */}
           <Button
             variant="outlined"
             color="inherit"
@@ -1748,7 +1757,6 @@ const PlacementsList = () => {
           )}
         </Stack>
 
-        {/* Filter Description */}
         {activeFilter !== "all" && (
           <Typography
             variant="body2"
@@ -1767,12 +1775,8 @@ const PlacementsList = () => {
         )}
       </Box>
 
-      {/* Conditionally render either Dashboard or Table */}
       {showDashboard ? (
-        // Dashboard Panel
         <Paper sx={{ p: 0, borderRadius: 2, boxShadow: 3, overflow: 'hidden' }}>
-
-
           <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
             <Tabs
               value={dashboardTabValue}
@@ -1811,7 +1815,6 @@ const PlacementsList = () => {
             </Tabs>
           </Box>
 
-          {/* Search input for filtering cards */}
           <Box sx={{ px: 2, py: 1.5 }}>
             <TextField
               fullWidth
@@ -1836,7 +1839,6 @@ const PlacementsList = () => {
             />
           </Box>
 
-          {/* Dashboard Cards */}
           <TabPanel value={dashboardTabValue} index={0}>
             <Grid container spacing={2}>
               {dashboardData.clients
@@ -1858,12 +1860,12 @@ const PlacementsList = () => {
               {dashboardData.clients.filter(item =>
                 item.name.toLowerCase().includes(dashboardSearchQuery.toLowerCase())
               ).length === 0 && (
-                  <Grid item xs={12}>
-                    <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
-                      No clients found matching your search.
-                    </Typography>
-                  </Grid>
-                )}
+                <Grid item xs={12}>
+                  <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
+                    No clients found matching your search.
+                  </Typography>
+                </Grid>
+              )}
             </Grid>
           </TabPanel>
 
@@ -1888,12 +1890,12 @@ const PlacementsList = () => {
               {dashboardData.vendors.filter(item =>
                 item.name.toLowerCase().includes(dashboardSearchQuery.toLowerCase())
               ).length === 0 && (
-                  <Grid item xs={12}>
-                    <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
-                      No vendors found matching your search.
-                    </Typography>
-                  </Grid>
-                )}
+                <Grid item xs={12}>
+                  <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
+                    No vendors found matching your search.
+                  </Typography>
+                </Grid>
+              )}
             </Grid>
           </TabPanel>
 
@@ -1918,12 +1920,12 @@ const PlacementsList = () => {
               {dashboardData.sales.filter(item =>
                 item.name.toLowerCase().includes(dashboardSearchQuery.toLowerCase())
               ).length === 0 && (
-                  <Grid item xs={12}>
-                    <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
-                      No sales persons found matching your search.
-                    </Typography>
-                  </Grid>
-                )}
+                <Grid item xs={12}>
+                  <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
+                    No sales persons found matching your search.
+                  </Typography>
+                </Grid>
+              )}
             </Grid>
           </TabPanel>
 
@@ -1948,17 +1950,16 @@ const PlacementsList = () => {
               {dashboardData.recruiters.filter(item =>
                 item.name.toLowerCase().includes(dashboardSearchQuery.toLowerCase())
               ).length === 0 && (
-                  <Grid item xs={12}>
-                    <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
-                      No recruiters found matching your search.
-                    </Typography>
-                  </Grid>
-                )}
+                <Grid item xs={12}>
+                  <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
+                    No recruiters found matching your search.
+                  </Typography>
+                </Grid>
+              )}
             </Grid>
           </TabPanel>
         </Paper>
       ) : (
-        // Data Table
         <CustomDataTable
           rows={paginatedData}
           columns={customTableColumns}
@@ -1975,8 +1976,18 @@ const PlacementsList = () => {
           onSearchChange={handleSearchChange}
           onSearchClear={handleSearchClear}
           onRefresh={() => {
-            // Single refresh call — counts are recomputed inside the slice
-            dispatch(fetchUsPlacements({ page: 0, size: 1000 }));
+            if (isServerPaginated && activeDateRange) {
+              dispatch(
+                filterUsPlacementByDateRange({
+                  startDate: activeDateRange.startDate,
+                  endDate: activeDateRange.endDate,
+                  page,
+                  size: rowsPerPage,
+                })
+              );
+            } else {
+              dispatch(fetchUsPlacements({ page: 0, size: 1000 }));
+            }
           }}
           onFiltersChange={handleTableFiltersChange}
         />

@@ -537,24 +537,50 @@ export const filterPlacementByDateRange = createAsyncThunk(
   }
 );
 
+/**
+ * US date range filter — supports server-side pagination.
+ * - Sends formatted dates (YYYY-MM-DD) to the API.
+ * - Accepts page/size for server-side pagination.
+ * - Returns { data, pagination, dateRange } so the slice can track the
+ *   active filter and the UI can re-dispatch on page/rows change.
+ */
 export const filterUsPlacementByDateRange = createAsyncThunk(
   "placement/filterUsByDateRange",
-  async ({ startDate, endDate, page = 0, size = 1000 }, thunkAPI) => {
+  async ({ startDate, endDate, page = 0, size = 20 }, thunkAPI) => {
     try {
+      const apiStartDate = formatDateForAPI(startDate);
+      const apiEndDate = formatDateForAPI(endDate);
+
       const response = await httpService.get(
-        `/candidate/us-placement/placements-list`,
-        { page, size }
+        `/candidate/us-placement/filterByDate`,
+        {
+          startDate: apiStartDate,
+          endDate: apiEndDate,
+          page,
+          size,
+        }
       );
-      const rawData = response.data?.data || response.data || [];
+
+      const rawData = response?.data?.data || response?.data || [];
       const list = Array.isArray(rawData) ? rawData : [];
-      const start = new Date(`${startDate}T00:00:00`);
-      const end = new Date(`${endDate}T23:59:59`);
-      const filtered = list.filter((item) => {
-        if (!item?.startDate) return false;
-        const value = new Date(item.startDate);
-        return !Number.isNaN(value.getTime()) && value >= start && value <= end;
-      });
-      return filtered;
+
+      const formatted = list.map((item) => ({
+        ...item,
+        startDate: item.startDate ? formatDateForUI(item.startDate) : "",
+        endDate: item.endDate ? formatDateForUI(item.endDate) : "",
+      }));
+
+      return {
+        data: formatted,
+        pagination: response?.data?.pagination || {
+          totalPages: 1,
+          pageSize: size,
+          isLast: true,
+          totalElements: formatted.length,
+          currentPage: page,
+        },
+        dateRange: { startDate: apiStartDate, endDate: apiEndDate },
+      };
     } catch (error) {
       ToastService.error("Failed to filter US placements by date range.");
       return thunkAPI.rejectWithValue(
@@ -581,6 +607,7 @@ const initialState = {
     fulltime: 0,
     pending: 0,
   },
+  activeDateRange: null, // { startDate, endDate } when a US date filter is active
   loading: false,
   error: null,
   success: false,
@@ -637,6 +664,10 @@ const placementSlice = createSlice({
     clearPlacementFilter: (state) => {
       state.isFiltered = false;
     },
+    clearUsDateRange: (state) => {
+      state.activeDateRange = null;
+      state.isFiltered = false;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -669,6 +700,7 @@ const placementSlice = createSlice({
         state.usPlacements = action.payload.data;
         state.usPlacementsPagination = action.payload.pagination;
         state.usPlacementCounts = computeUsPlacementCounts(action.payload.data);
+        state.activeDateRange = null; // full fetch resets any date filter
         state.actionType = null;
         state.isFiltered = false;
       })
@@ -884,8 +916,10 @@ const placementSlice = createSlice({
       })
       .addCase(filterUsPlacementByDateRange.fulfilled, (state, action) => {
         state.loading = false;
-        state.usPlacements = action.payload;
-        state.usPlacementCounts = computeUsPlacementCounts(action.payload);
+        state.usPlacements = action.payload.data;
+        state.usPlacementsPagination = action.payload.pagination;
+        state.usPlacementCounts = computeUsPlacementCounts(action.payload.data);
+        state.activeDateRange = action.payload.dateRange;
         state.success = true;
         state.actionType = null;
         state.isFiltered = true;
@@ -904,6 +938,7 @@ export const {
   resetPlacementState,
   setSelectedPlacement,
   clearPlacementFilter,
+  clearUsDateRange,
 } = placementSlice.actions;
 
 export default placementSlice.reducer;
