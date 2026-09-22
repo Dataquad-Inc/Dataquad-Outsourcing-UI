@@ -17,6 +17,8 @@ import {
   InputLabel,
   MenuItem,
   Select,
+  Tab,
+  Tabs,
   TextField,
   Tooltip,
   Typography,
@@ -43,6 +45,33 @@ const formatDisplayDate = (value) => {
 
 const emptyMonthValues = () => Array.from({ length: 12 }, () => "");
 
+const STATUS_TABS = [
+  { label: "OverAll", value: "all" },
+  { label: "Active", value: "active" },
+  { label: "In-Active", value: "inactive" },
+];
+
+/**
+ * Resolve the dashboard endpoint prefix based on the entity AND status tab.
+ *
+ * - OverAll tab ("all")   -> "yearly-dashboard"      (for both US & IN)
+ * - Active/In-Active tab:
+ *     - US entity          -> "us-yearly-dashboard"
+ *     - everything else    -> "in-yearly-dashboard"
+ *
+ * @param {string} entity    - "us" | "in" | anything else
+ * @param {string} statusTab - "all" | "active" | "inactive"
+ */
+const getEntityEndpointPrefix = (entity, statusTab) => {
+  // OverAll tab always uses the generic yearly-dashboard for both entities.
+  if (statusTab === "all") return "yearly-dashboard";
+
+  // For Active / In-Active tabs, only "us" maps to US; everything else maps to IN.
+  const normalized = String(entity || "").trim().toLowerCase();
+  if (normalized === "us") return "us-yearly-dashboard";
+  return "in-yearly-dashboard";
+};
+
 const TimesheetDashboard = ({
   apiBase = "/timesheet",
   entity,
@@ -62,18 +91,26 @@ const TimesheetDashboard = ({
   const [editingRow, setEditingRow] = useState(null);
   const [editHours, setEditHours] = useState(emptyMonthValues());
   const [saving, setSaving] = useState(false);
+  const [statusTab, setStatusTab] = useState("all");
 
   const currentYear = dayjs().year();
   const years = Array.from({ length: 6 }, (_, index) => currentYear - 4 + index);
   const yearSuffix = String(selectedYear).slice(-2);
 
-  const fetchDashboard = async (year) => {
+  const fetchDashboard = async (year, tab = statusTab) => {
     setLoading(true);
     setError(null);
     try {
       const params = { year };
       if (entity) params.entity = entity;
-      const response = await httpService.get(`${apiBase}/yearly-dashboard`, params);
+
+      const endpointPrefix = getEntityEndpointPrefix(entity, tab);
+      const endpoint =
+        tab === "all"
+          ? `${apiBase}/${endpointPrefix}`
+          : `${apiBase}/${endpointPrefix}/${tab}`;
+
+      const response = await httpService.get(endpoint, params);
       const payload = Array.isArray(response.data)
         ? response.data
         : response.data?.data || [];
@@ -89,8 +126,8 @@ const TimesheetDashboard = ({
   };
 
   useEffect(() => {
-    fetchDashboard(selectedYear);
-  }, [selectedYear, entity, apiBase]);
+    fetchDashboard(selectedYear, statusTab);
+  }, [selectedYear, entity, apiBase, statusTab]);
 
   const tableRows = useMemo(
     () =>
@@ -100,47 +137,73 @@ const TimesheetDashboard = ({
         MONTH_LABELS.forEach((_, monthIndex) => {
           flattened[`month${monthIndex}`] = Number(monthlyHours[monthIndex] || 0);
         });
+
+        // Guaranteed-unique id: business id + index prevents collisions
+        // when multiple rows share employeeId/candidateId (or both are missing),
+        // which was causing duplicate rows during search.
+        const baseId =
+          row.employeeId ||
+          row.candidateId ||
+          row.id ||
+          "timesheet-row";
+
         return {
           ...row,
-          id: row.employeeId || row.candidateId || `row-${index}`,
+          id: `${baseId}-${index}`,
+          employeeId: row.employeeId ?? null,
           vendor: row.vendor || "—",
           client: row.client || "—",
           employmentType: row.employmentType || "—",
           candidateId: row.candidateId || "—",
+          candidateName: row.candidateName || "—",
           ...flattened,
         };
       }),
     [rows]
   );
 
+  // Server already filters by status via the endpoint,
+  // so no client-side re-filtering is needed.
+  const filteredTableRows = tableRows;
+
   const employmentTypeOptions = useMemo(
-    () => [...new Set(tableRows.map((row) => row.employmentType).filter(Boolean))],
+    () =>
+      [
+        ...new Set(
+          tableRows
+            .map((row) => row.employmentType)
+            .filter((v) => v && v !== "—")
+        ),
+      ],
     [tableRows]
   );
 
-  // Earliest month index (0-based) that should be editable, derived from the
-  // row's startDate relative to the selected year. Months before this are
-  // disabled in the edit dialog. If startDate is in a future year relative
-  // to selectedYear, all months are disabled. If startDate is in a past
-  // year, all months are enabled.
   const minEditableMonthIndex = useMemo(() => {
     if (!editingRow?.startDate) return 0;
     const start = dayjs(editingRow.startDate);
     if (!start.isValid()) return 0;
 
     const startYear = start.year();
-    if (startYear < selectedYear) return 0;        // started earlier → all months editable
-    if (startYear > selectedYear) return 12;       // hasn't started yet → none editable
-    return start.month();                          // same year → from that month onwards
+    if (startYear < selectedYear) return 0;
+    if (startYear > selectedYear) return 12;
+    return start.month();
+  }, [editingRow, selectedYear]);
+
+  const maxEditableMonthIndex = useMemo(() => {
+    if (!editingRow?.endDate) return 11;
+    const end = dayjs(editingRow.endDate);
+    if (!end.isValid()) return 11;
+
+    const endYear = end.year();
+    if (endYear < selectedYear) return -1;
+    if (endYear > selectedYear) return 11;
+    return end.month();
   }, [editingRow, selectedYear]);
 
   const openEditDialog = (row, event) => {
     event?.stopPropagation();
     setEditingRow(row);
 
-    // Determine the earliest editable month based on startDate vs. the
-    // currently selected year (mirrors minEditableMonthIndex logic so the
-    // disabled months are blank from the very first render).
     let minMonth = 0;
     const start = row?.startDate ? dayjs(row.startDate) : null;
     if (start && start.isValid()) {
@@ -149,9 +212,17 @@ const TimesheetDashboard = ({
       else minMonth = start.month();
     }
 
+    let maxMonth = 11;
+    const end = row?.endDate ? dayjs(row.endDate) : null;
+    if (end && end.isValid()) {
+      if (end.year() < selectedYear) maxMonth = -1;
+      else if (end.year() > selectedYear) maxMonth = 11;
+      else maxMonth = end.month();
+    }
+
     setEditHours(
       MONTH_LABELS.map((_, monthIndex) => {
-        if (monthIndex < minMonth) return ""; // disabled months stay blank
+        if (monthIndex < minMonth || monthIndex > maxMonth) return "";
         const hours = Number(row[`month${monthIndex}`] || 0);
         return hours > 0 ? String(hours) : "";
       })
@@ -179,14 +250,19 @@ const TimesheetDashboard = ({
     }
 
     const monthlyHours = editHours.map((value, monthIndex) => {
-      if (monthIndex < minEditableMonthIndex) return 0; // never persist hours before startDate
+      if (monthIndex < minEditableMonthIndex || monthIndex > maxEditableMonthIndex) return 0;
       const hours = Number(value);
       return Number.isFinite(hours) && hours > 0 ? Math.round(hours) : 0;
     });
 
     setSaving(true);
     try {
-      await httpService.put(`${apiBase}/yearly-dashboard/hours`, {
+      // OverAll tab     -> /yearly-dashboard/hours
+      // Active/In-Active:
+      //   US entity     -> /us-yearly-dashboard/hours
+      //   everything else -> /in-yearly-dashboard/hours
+      const endpointPrefix = getEntityEndpointPrefix(entity, statusTab);
+      await httpService.put(`${apiBase}/${endpointPrefix}/hours`, {
         employeeId: editingRow.employeeId,
         year: selectedYear,
         monthlyHours,
@@ -194,7 +270,7 @@ const TimesheetDashboard = ({
       });
       ToastService.success("Monthly hours updated");
       closeEditDialog();
-      await fetchDashboard(selectedYear);
+      await fetchDashboard(selectedYear, statusTab);
     } catch (err) {
       console.error("Failed to save monthly hours:", err);
       ToastService.error(err.response?.data?.message || "Failed to save monthly hours");
@@ -211,6 +287,7 @@ const TimesheetDashboard = ({
         width: 120,
         filterable: true,
         sortable: true,
+        searchable: true,
       },
       {
         key: "candidateName",
@@ -218,6 +295,7 @@ const TimesheetDashboard = ({
         width: 180,
         filterable: true,
         sortable: true,
+        searchable: true,
       },
       {
         key: "employmentType",
@@ -226,6 +304,7 @@ const TimesheetDashboard = ({
         type: "select",
         filterable: true,
         sortable: true,
+        searchable: true,
         options: employmentTypeOptions,
         render: (row) => (
           <Chip label={row.employmentType || "—"} size="small" variant="outlined" />
@@ -237,6 +316,7 @@ const TimesheetDashboard = ({
         width: 140,
         filterable: true,
         sortable: true,
+        searchable: true,
       },
       {
         key: "client",
@@ -244,6 +324,7 @@ const TimesheetDashboard = ({
         width: 140,
         filterable: true,
         sortable: true,
+        searchable: true,
       },
       {
         key: "startDate",
@@ -251,6 +332,7 @@ const TimesheetDashboard = ({
         width: 130,
         filterable: true,
         sortable: true,
+        searchable: true,
         render: (row) => formatDisplayDate(row.startDate),
       },
       {
@@ -259,6 +341,7 @@ const TimesheetDashboard = ({
         width: 130,
         filterable: true,
         sortable: true,
+        searchable: true,
         render: (row) => formatDisplayDate(row.endDate),
       },
       ...MONTH_LABELS.map((label, monthIndex) => ({
@@ -268,6 +351,7 @@ const TimesheetDashboard = ({
         type: "number",
         filterable: true,
         sortable: true,
+        searchable: true,
         total: true,
         align: "right",
         render: (row) => {
@@ -282,6 +366,7 @@ const TimesheetDashboard = ({
         type: "number",
         filterable: true,
         sortable: true,
+        searchable: true,
         total: true,
         align: "right",
         render: (row) => (
@@ -299,6 +384,7 @@ const TimesheetDashboard = ({
         width: 90,
         filterable: false,
         sortable: false,
+        searchable: false,
         render: (row) => (
           <Tooltip title="Edit monthly hours">
             <IconButton
@@ -385,16 +471,35 @@ const TimesheetDashboard = ({
       )}
 
       <Card elevation={3} sx={{ borderRadius: 3, overflow: "hidden" }}>
+        <Box sx={{ borderBottom: 1, borderColor: "divider", px: 2 }}>
+          <Tabs
+            value={statusTab}
+            onChange={(event, nextValue) => setStatusTab(nextValue)}
+            textColor="primary"
+            indicatorColor="primary"
+            variant="scrollable"
+            scrollButtons="auto"
+          >
+            {STATUS_TABS.map((tab) => (
+              <Tab
+                key={tab.value}
+                label={tab.label}
+                value={tab.value}
+                sx={{ textTransform: "none", fontWeight: 600 }}
+              />
+            ))}
+          </Tabs>
+        </Box>
         <CardContent sx={{ p: 0 }}>
           <Box sx={{ overflow: "auto" }}>
             <DataTable
               title={`Timesheet Dashboard ${selectedYear}`}
-              data={tableRows}
+              data={filteredTableRows}
               columns={columns}
               enableSelection={false}
               uniqueId="id"
               loading={loading}
-              refreshData={() => fetchDashboard(selectedYear)}
+              refreshData={() => fetchDashboard(selectedYear, statusTab)}
               enableColumnTotals
             />
           </Box>
@@ -409,11 +514,15 @@ const TimesheetDashboard = ({
         <DialogContent dividers>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Enter hours for each month in {selectedYear}. Leave a month blank to keep it at 0.
-            Months before the candidate's start date are disabled.
+            Months before the candidate's start date and after the end date are disabled.
           </Typography>
           <Grid container spacing={2}>
             {MONTH_LABELS.map((label, monthIndex) => {
-              const isDisabled = monthIndex < minEditableMonthIndex;
+              const isDisabled =
+                monthIndex < minEditableMonthIndex || monthIndex > maxEditableMonthIndex;
+              let helperText = " ";
+              if (monthIndex < minEditableMonthIndex) helperText = "Before start date";
+              else if (monthIndex > maxEditableMonthIndex) helperText = "After end date";
               return (
                 <Grid item xs={6} sm={4} md={3} key={label}>
                   <TextField
@@ -432,7 +541,7 @@ const TimesheetDashboard = ({
                       });
                     }}
                     inputProps={{ min: 0, step: 1 }}
-                    helperText={isDisabled ? "Before start date" : " "}
+                    helperText={helperText}
                   />
                 </Grid>
               );
