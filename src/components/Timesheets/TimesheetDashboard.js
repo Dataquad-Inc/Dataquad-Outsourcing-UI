@@ -263,6 +263,7 @@ const TimesheetDashboard = ({
       //   everything else -> /in-yearly-dashboard/hours
       const endpointPrefix = getEntityEndpointPrefix(entity, statusTab);
       await httpService.put(`${apiBase}/${endpointPrefix}/hours`, {
+        candidateId: editingRow.candidateId,
         employeeId: editingRow.employeeId,
         year: selectedYear,
         monthlyHours,
