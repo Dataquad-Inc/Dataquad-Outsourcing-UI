@@ -20,6 +20,7 @@ export const getStatusColor = (status) => {
     SELECTED: { bg: "#E0F2F1", text: "#00695C" },
     REJECTED: { bg: "#FFEBEE", text: "#D32F2F" },
     FEEDBACK_PENDING: { bg: "#FFFDE7", text: "#F9A825" },
+    "PROFILE HOLD": { bg: "#FFF8E1", text: "#F57F17" },
   };
 
   return statusColors[normalized] || { bg: "#F3F4F6", text: "#374151" };
@@ -63,8 +64,8 @@ const StatusChipWithDispatch = ({ status, row, isUs }) => {
   if (canAddToPlacement) {
     // If placed and not moved to placement, show the Add to Placement button
     return (
-      <Button 
-        variant="contained" 
+      <Button
+        variant="contained"
         onClick={() => validateIfPlaced(status, row, dispatch, isUs)}
       >
         Add to Placement
