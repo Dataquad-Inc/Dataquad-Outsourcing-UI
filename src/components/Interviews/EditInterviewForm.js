@@ -106,6 +106,10 @@ const EditInterviewForm = ({
         value: "POSITION IS HOLD",
         label: "POSITION IS HOLD",
       },
+      {
+        value: "PROFILE HOLD",
+        label: "Profile Hold",
+      }
     ];
 
     const fields = [

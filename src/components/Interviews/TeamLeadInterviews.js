@@ -451,12 +451,12 @@ const handleEdit = (row, isReschedule = false, isScheduleJoining = false) => {
         width: 140,
         render: (row) => row.coordinatorName || "-",
       },
-      {
-        key: "profileHoldStatus",
-        label: "Profile Hold",
-        width: 130,
-        render: (row) => row.profileHoldStatus || "-",
-      }
+      // {
+      //   key: "profileHoldStatus",
+      //   label: "Profile Hold",
+      //   width: 130,
+      //   render: (row) => row.profileHoldStatus || "-",
+      // }
     ];
 
     if (showCoordinatorView) {

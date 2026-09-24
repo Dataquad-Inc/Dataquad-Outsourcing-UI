@@ -450,14 +450,14 @@ const CoordinatorInterviews = () => {
       width: 140,
       render: (row) => row.coordinatorName || "-",
     },
-    {
-      key: "profileHoldStatus",
-      label: "Profile Hold",
-      sortable: true,
-      filterable: true,
-      width: 130,
-      render: (row) => row.profileHoldStatus || "-",
-    },
+    // {
+    //   key: "profileHoldStatus",
+    //   label: "Profile Hold",
+    //   sortable: true,
+    //   filterable: true,
+    //   width: 130,
+    //   render: (row) => row.profileHoldStatus || "-",
+    // },
     {
       key: "comments",
       label: "Recruiter Comments",
