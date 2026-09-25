@@ -1963,7 +1963,7 @@ const PlacementsList = () => {
                 },
               }}
             >
-              Direct Pass-Through 
+              Pass-Through 
             </Button>
           </ButtonGroup>
 
