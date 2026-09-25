@@ -103,15 +103,11 @@ import ToastService from "../../Services/toastService";
 import ExportButton from "../../utils/ExportButton";
 
 // ─── Date formatting helper ────────────────────────────────────────────────
-// Backend returns dates in "yyyy-mm-dd" (ISO) format.
-// Converts them to a friendly short text format: "2nd Sep 2026"
-// Returns "-" for empty/invalid values.
 const MONTH_SHORT_NAMES = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 ];
 
-// Returns the ordinal suffix for a day number: 1 → "st", 2 → "nd", 3 → "rd", 4 → "th"
 const getOrdinalSuffix = (day) => {
   const d = day % 100;
   if (d >= 11 && d <= 13) return "th";
@@ -130,22 +126,19 @@ const formatDate = (dateString) => {
 
   let day, month, year;
 
-  // ISO format: yyyy-mm-dd (optionally with time like yyyy-mm-ddTHH:mm:ss)
   const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (isoMatch) {
     year = parseInt(isoMatch[1], 10);
     month = parseInt(isoMatch[2], 10);
     day = parseInt(isoMatch[3], 10);
   } else {
-    // Fallback: try parsing with Date object
     const date = new Date(str);
-    if (isNaN(date.getTime())) return str; // return raw if unparseable
+    if (isNaN(date.getTime())) return str;
     day = date.getDate();
     month = date.getMonth() + 1;
     year = date.getFullYear();
   }
 
-  // Guard against invalid month
   if (month < 1 || month > 12) return str;
 
   const monthName = MONTH_SHORT_NAMES[month - 1];
@@ -306,11 +299,9 @@ const CandidateTablePage = ({
     }
   };
 
-  // Filter placements by search and status
   const filteredPlacements = React.useMemo(() => {
     let filtered = [...placements];
 
-    // Apply search filter
     if (searchQuery.trim()) {
       filtered = filtered.filter(p =>
         p.candidateFullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -323,7 +314,6 @@ const CandidateTablePage = ({
       );
     }
 
-    // Apply status filter - Toggle buttons for Active/Inactive
     if (statusFilter === 'active') {
       filtered = filtered.filter(p => p.status === 'Active');
     } else if (statusFilter === 'inactive') {
@@ -333,7 +323,6 @@ const CandidateTablePage = ({
     return filtered;
   }, [placements, searchQuery, statusFilter]);
 
-  // Sort placements
   const sortedPlacements = React.useMemo(() => {
     const comparator = (a, b) => {
       if (a[orderBy] < b[orderBy]) {
@@ -347,7 +336,6 @@ const CandidateTablePage = ({
     return [...filteredPlacements].sort(comparator);
   }, [filteredPlacements, order, orderBy]);
 
-  // Paginate placements
   const paginatedPlacements = sortedPlacements.slice(
     page * rowsPerPage,
     page * rowsPerPage + rowsPerPage
@@ -365,7 +353,6 @@ const CandidateTablePage = ({
       : "-";
   };
 
-  // Get status counts
   const getStatusCounts = React.useMemo(() => {
     const counts = {
       active: placements.filter(p => p.status === 'Active').length,
@@ -376,7 +363,6 @@ const CandidateTablePage = ({
 
   return (
     <Box sx={{ p: 3 }}>
-      {/* Breadcrumbs Navigation */}
       <Breadcrumbs
         separator={<NavigateNext fontSize="small" />}
         aria-label="breadcrumb"
@@ -399,7 +385,6 @@ const CandidateTablePage = ({
         </Typography>
       </Breadcrumbs>
 
-      {/* Header */}
       <Box sx={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -425,7 +410,6 @@ const CandidateTablePage = ({
         </Button>
       </Box>
 
-      {/* Toggle Buttons - Only Active and Inactive */}
       <Box sx={{
         mb: 2,
         p: 1.5,
@@ -495,7 +479,6 @@ const CandidateTablePage = ({
         </ToggleButtonGroup>
       </Box>
 
-      {/* Search Bar */}
       <Box sx={{ mb: 3 }}>
         <TextField
           fullWidth
@@ -526,7 +509,6 @@ const CandidateTablePage = ({
         />
       </Box>
 
-      {/* Table */}
       {filteredPlacements.length === 0 ? (
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <Typography variant="body1" color="text.secondary">
@@ -958,7 +940,6 @@ const PlacementsList = () => {
   // Extract dashboard data from placements
   useEffect(() => {
     if (processedPlacements.length > 0) {
-      // Extract unique clients
       const clientMap = new Map();
       processedPlacements.forEach(p => {
         if (p.clientName) {
@@ -971,7 +952,6 @@ const PlacementsList = () => {
         }
       });
 
-      // Extract unique vendors
       const vendorMap = new Map();
       processedPlacements.forEach(p => {
         if (p.vendorName) {
@@ -984,7 +964,6 @@ const PlacementsList = () => {
         }
       });
 
-      // Extract unique sales persons
       const salesMap = new Map();
       processedPlacements.forEach(p => {
         if (p.sales) {
@@ -997,7 +976,6 @@ const PlacementsList = () => {
         }
       });
 
-      // Extract unique recruiters
       const recruiterMap = new Map();
       processedPlacements.forEach(p => {
         if (p.recruiterName) {
@@ -1023,7 +1001,6 @@ const PlacementsList = () => {
   useEffect(() => {
     let filtered = [...processedPlacements];
 
-    // Apply status/type filter
     switch (activeFilter) {
       case "active":
         filtered = processedPlacements.filter(
@@ -1047,6 +1024,11 @@ const PlacementsList = () => {
       case "Pending":
         filtered = processedPlacements.filter(
           (placement) => placement.status === "Pending"
+        );
+        break;
+      case "passthrough":
+        filtered = processedPlacements.filter(
+          (placement) => placement.employmentType === "Pass-Through"
         );
         break;
       default:
@@ -1091,6 +1073,10 @@ const PlacementsList = () => {
         return processedPlacements.filter(
           (placement) => placement.status === "Pending"
         ).length;
+      case "passthrough":
+        return processedPlacements.filter(
+          (placement) => placement.employmentType === "Pass-Through"
+        ).length;
       default:
         return processedPlacements.length;
     }
@@ -1108,7 +1094,6 @@ const PlacementsList = () => {
     }
   };
 
-  // Handle card click - navigate to candidate page
   const handleCardClick = (item, type, index) => {
     setCandidatePageData({
       title: `${item.name}`,
@@ -1121,7 +1106,6 @@ const PlacementsList = () => {
     setShowDashboard(false);
   };
 
-  // Handle back from candidate page
   const handleBackToDashboard = () => {
     setShowCandidatePage(false);
     setShowDashboard(true);
@@ -1134,7 +1118,6 @@ const PlacementsList = () => {
     });
   };
 
-  // Handle status filter change from candidate page
   const handleTableStatusFilterChange = (filterValue) => {
     setCandidatePageData(prev => ({
       ...prev,
@@ -1142,7 +1125,6 @@ const PlacementsList = () => {
     }));
   };
 
-  // Document Manager handlers
   const handleOpenDocumentManager = (placement) => {
     setSelectedPlacementForDocs(placement);
     setDocumentManagerOpen(true);
@@ -1153,7 +1135,6 @@ const PlacementsList = () => {
     setSelectedPlacementForDocs(null);
   };
 
-  // Helper function to get filter params for export
   const getExportFilterParams = () => {
     const params = {};
     if (activeFilter === "active") {
@@ -1162,6 +1143,8 @@ const PlacementsList = () => {
       params.status = "inactive";
     } else if (activeFilter === "fulltime") {
       params.employmentType = "Full-time";
+    } else if (activeFilter === "passthrough") {
+      params.employmentType = "Pass-Through";
     }
     return params;
   };
@@ -1230,7 +1213,6 @@ const PlacementsList = () => {
     }
   };
 
-  // Submit Placement Handler
   const handleOpenSubmitDialog = (row) => {
     setSelectedPlacementForAction(row);
     setSubmitDialogOpen(true);
@@ -1257,7 +1239,6 @@ const PlacementsList = () => {
     }
   };
 
-  // Approve Placement Handler
   const handleOpenApproveDialog = (row) => {
     setSelectedPlacementForAction(row);
     setApproveDialogOpen(true);
@@ -1288,7 +1269,7 @@ const PlacementsList = () => {
     setIsLoading(true);
 
     try {
-        ToastService.loading("Syncing to HRMS...", {
+      ToastService.loading("Syncing to HRMS...", {
         toastId: "sendLink",
         autoClose: false,
       });
@@ -1622,7 +1603,6 @@ const PlacementsList = () => {
               {/* ============ ADMIN BLOCK ============ */}
               {isAdmin && (
                 <>
-                  {/* Pre-submit: Submit button */}
                   {!isSubmitted && (
                     <Tooltip title="Submit for Review">
                       <Button
@@ -1643,7 +1623,6 @@ const PlacementsList = () => {
                     </Tooltip>
                   )}
 
-                  {/* Post-submit: status chip */}
                   {isSubmitted && isApproved && (
                     <Chip
                       label="Approved"
@@ -1672,7 +1651,6 @@ const PlacementsList = () => {
               {/* ============ SUPERADMIN BLOCK ============ */}
               {isSuperAdmin && (
                 <>
-                  {/* Case 1: submitted && approved → Green Approved chip */}
                   {isSubmitted && isApproved && (
                     <Chip
                       label="Approved"
@@ -1682,7 +1660,6 @@ const PlacementsList = () => {
                     />
                   )}
 
-                  {/* Case 2: submitted && !approved → Review button */}
                   {isSubmitted && !isApproved && (
                     <Tooltip title="Review & Approve">
                       <Button
@@ -1703,7 +1680,6 @@ const PlacementsList = () => {
                     </Tooltip>
                   )}
 
-                  {/* Case 3: !submitted → Default grey Approved chip */}
                   {!isSubmitted && (
                     <Chip
                       label="Approved"
@@ -1730,7 +1706,6 @@ const PlacementsList = () => {
                   pl: 1,
                 }}
               >
-                {/* View Button */}
                 <Tooltip title="View">
                   <IconButton
                     color="info"
@@ -1741,7 +1716,6 @@ const PlacementsList = () => {
                   </IconButton>
                 </Tooltip>
 
-                {/* Edit Button */}
                 <Tooltip title="Edit">
                   <IconButton
                     color="primary"
@@ -1752,7 +1726,6 @@ const PlacementsList = () => {
                   </IconButton>
                 </Tooltip>
 
-                {/* Delete Button */}
                 <Tooltip title="Delete">
                   <IconButton
                     color="error"
@@ -1763,7 +1736,6 @@ const PlacementsList = () => {
                   </IconButton>
                 </Tooltip>
 
-                {/* Lock Button - Only for SUPERADMIN */}
                 {isSuperAdmin && (
                   <Tooltip title={row.lock ? "Locked" : "Lock Placement"}>
                     <span>
@@ -1832,7 +1804,6 @@ const PlacementsList = () => {
     return colors[index % colors.length];
   };
 
-  // If showing candidate page, render it instead of dashboard
   if (showCandidatePage) {
     return (
       <CandidateTablePage
@@ -1950,6 +1921,7 @@ const PlacementsList = () => {
             >
               Full-time ({getFilterCount("fulltime")})
             </Button>
+
             <Button
               variant={getFilterButtonColor("Pending")}
               color="warning"
@@ -1957,6 +1929,41 @@ const PlacementsList = () => {
               sx={{ minWidth: 110 }}
             >
               Pending ({getFilterCount("Pending")})
+            </Button>
+
+            {/* NEW: Direct Pass-Through Tab */}
+            <Button
+              variant={getFilterButtonColor("passthrough")}
+              onClick={() => handleFilterChange("passthrough")}
+              sx={{
+                minWidth: 150,
+                fontWeight: activeFilter === "passthrough" ? 700 : 500,
+                textTransform: 'none',
+                position: 'relative',
+                // Match the neutral look of the other tabs when idle
+                backgroundColor:
+                  activeFilter === "passthrough" ? '#7b1fa2' : '#ffffff',
+                color:
+                  activeFilter === "passthrough" ? '#ffffff' : '#4a148c',
+                border: '1px solid',
+                borderColor:
+                  activeFilter === "passthrough" ? '#7b1fa2' : '#ce93d8',
+                boxShadow:
+                  activeFilter === "passthrough"
+                    ? '0 2px 8px rgba(123, 31, 162, 0.35)'
+                    : 'none',
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  backgroundColor:
+                    activeFilter === "passthrough" ? '#6a1b9a' : '#f3e5f5',
+                  borderColor: '#7b1fa2',
+                  color:
+                    activeFilter === "passthrough" ? '#ffffff' : '#6a1b9a',
+                  boxShadow: '0 3px 10px rgba(123, 31, 162, 0.25)',
+                },
+              }}
+            >
+              Direct Pass-Through 
             </Button>
           </ButtonGroup>
 
@@ -1997,6 +2004,8 @@ const PlacementsList = () => {
                 "Showing all full-time placements (active and inactive)"}
               {activeFilter === "Pending" &&
                 "Showing all pending placements"}
+              {activeFilter === "passthrough" &&
+                "Showing all direct pass-through placements"}
             </Typography>
           )}
         </Stack>
@@ -2004,7 +2013,6 @@ const PlacementsList = () => {
 
       {/* Conditionally render either Dashboard or Table */}
       {showDashboard ? (
-        // Dashboard Panel - Full width, no empty space
         <Paper sx={{ p: 0, borderRadius: 2, boxShadow: 3, overflow: 'hidden' }}>
 
           <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
@@ -2045,7 +2053,6 @@ const PlacementsList = () => {
             </Tabs>
           </Box>
 
-          {/* Search input for filtering cards */}
           <Box sx={{ px: 2, py: 1.5 }}>
             <TextField
               fullWidth
@@ -2070,7 +2077,6 @@ const PlacementsList = () => {
             />
           </Box>
 
-          {/* Dashboard Cards */}
           <TabPanel value={dashboardTabValue} index={0}>
             <Grid container spacing={2}>
               {dashboardData.clients
@@ -2192,7 +2198,6 @@ const PlacementsList = () => {
           </TabPanel>
         </Paper>
       ) : (
-        // Data Table - Only shown when dashboard is hidden
         <DataTable
           data={filteredPlacements}
           columns={generateColumns()}
@@ -2213,7 +2218,11 @@ const PlacementsList = () => {
               <Typography variant="body2" color="text.secondary">
                 {activeFilter === "all"
                   ? "No placement records found."
-                  : `No ${activeFilter === "fulltime" ? "full-time" : activeFilter} placement records found.`}
+                  : activeFilter === "fulltime"
+                    ? "No full-time placement records found."
+                    : activeFilter === "passthrough"
+                      ? "No direct pass-through placement records found."
+                      : `No ${activeFilter} placement records found.`}
               </Typography>
               {activeFilter !== "all" && (
                 <Button

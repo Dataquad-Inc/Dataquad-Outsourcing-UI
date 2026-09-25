@@ -120,6 +120,7 @@ export const placementFormFields = {
         { value: "Part-time", label: "Part-time" },
         { value: "Contract", label: "Contract" },
         { value: "Contract-to-hire", label: "Contract-to-hire" },
+        {value : "Pass-Through", label: "Pass-Through"}
       ],
     },
     {
