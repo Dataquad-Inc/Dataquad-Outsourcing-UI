@@ -1,6 +1,13 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, {
+  useEffect,
+  useRef,
+  useMemo,
+  useState,
+  useCallback
+} from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Routes, Route, useNavigate } from 'react-router-dom';
-import DataTable from '../muiComponents/DataTabel';
+import DataTablePaginated from '../muiComponents/DataTablePaginated';
 import {
   FormControl,
   InputLabel,
@@ -16,8 +23,6 @@ import {
   Alert,
   Chip,
   Fade,
-  IconButton,
-  Tooltip,
   alpha,
   useTheme
 } from '@mui/material';
@@ -27,319 +32,443 @@ import {
   Add,
   Person,
   Business,
-  Edit,
-  Visibility,
   Dashboard as DashboardIcon
 } from '@mui/icons-material';
-import axios from 'axios';
 import dayjs from 'dayjs';
 import ToastService from '../../Services/toastService';
 import {
   handleEmployeeNameClick,
-  getCurrentUserRole,
   clearPrepopulatedEmployeeData
 } from './navigationHelpers';
-import { useDispatch, useSelector } from 'react-redux';
 import httpService from '../../Services/httpService';
-import { inactiveExternalUsers, activeExternalUsers } from '../../redux/employeesSlice';
-import { fetchPlacements } from '../../redux/placementSlice'
+import { activeExternalUsers } from '../../redux/employeesSlice';
+import { fetchPlacements } from '../../redux/placementSlice';
+import {
+  fetchMonthlyTimesheets,
+  resetMonthlyTimesheets,
+  setPage,
+  setRowsPerPage,
+  setMonthRange
+} from '../../redux/timesheetSlice';
+import * as XLSX from 'xlsx';
 
 // ---------------------------------------------------------------------------
-// Helper: normalize ANY API response shape into a plain array.
-// This is the actual fix for "totalTimesheetData.filter is not a function".
-// Previously the code only handled `response.data` being an array or
-// `response.data.data` being an array. If the backend ever returns something
-// like { data: { timesheets: [...] } }, { success, data: {...} }, or an
-// error object, `rows` ended up being a non-array value, which then crashed
-// `.filter()` on the next render (especially noticeable during hot reloads,
-// since the stale non-array value could stick around in state).
+// HELPERS
 // ---------------------------------------------------------------------------
-const normalizeTimesheetRows = (responseData) => {
-  if (Array.isArray(responseData)) {
-    return responseData;
-  }
-  // Paginated shape actually returned by /timesheet/monthly-timesheets:
-  // { success, message, data: { content: [...], page, size, totalElements, totalPages }, error, timestamp }
-  if (Array.isArray(responseData?.data?.content)) {
-    return responseData.data.content;
-  }
-  if (Array.isArray(responseData?.content)) {
-    return responseData.content;
-  }
-  if (Array.isArray(responseData?.data)) {
-    return responseData.data;
-  }
-  if (Array.isArray(responseData?.data?.timesheets)) {
-    return responseData.data.timesheets;
-  }
-  if (Array.isArray(responseData?.timesheets)) {
-    return responseData.timesheets;
-  }
-  if (Array.isArray(responseData?.data?.data)) {
-    return responseData.data.data;
-  }
+const normalizeName = (name) =>
+  String(name || '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\./g, '');
 
-  console.warn(
-    'fetchTimesheetData: unexpected response shape, expected an array of timesheets. Defaulting to []. Received:',
-    responseData
-  );
-  return [];
-};
+// ---------------------------------------------------------------------------
+// ROOT
+// ---------------------------------------------------------------------------
+const TimeSheetsForAdmin = () => (
+  <Routes>
+    <Route path="/" element={<TimesheetList />} />
+    <Route
+      path="/employee/:userId"
+      element={<EmployeeTimesheetDetailWrapper />}
+    />
+  </Routes>
+);
 
-// Pull out pagination metadata (page, totalPages) from whichever shape the
-// API returned, so fetchTimesheetData can page through all results instead
-// of silently only using page 0.
-const extractPageInfo = (responseData) => {
-  const paged = responseData?.data && typeof responseData.data === 'object' && 'totalPages' in responseData.data
-    ? responseData.data
-    : (responseData && typeof responseData === 'object' && 'totalPages' in responseData ? responseData : null);
-
-  if (!paged) return null;
-
-  return {
-    page: paged.page ?? 0,
-    totalPages: paged.totalPages ?? 1,
-    totalElements: paged.totalElements ?? null
-  };
-};
-
-// Main TimeSheetsForAdmin Component
-const TimeSheetsForAdmin = () => {
-  return (
-    <Routes>
-      <Route path="/" element={<TimesheetList />} />
-      <Route path="/employee/:userId" element={<EmployeeTimesheetDetailWrapper />} />
-    </Routes>
-  );
-};
-
-// Wrapper to import the separate EmployeeTimesheetDetail component
 const EmployeeTimesheetDetailWrapper = () => {
-  const EmployeeTimesheetDetail = React.lazy(() => import('./EmployeeTimesheetDetail'));
-
+  const EmployeeTimesheetDetail = React.lazy(() =>
+    import('./EmployeeTimesheetDetail')
+  );
   return (
-    <React.Suspense fallback={
-      <Box sx={{ p: 3, backgroundColor: '#f8fafc', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-        <CircularProgress size={50} thickness={4} />
-      </Box>
-    }>
+    <React.Suspense
+      fallback={
+        <Box
+          sx={{
+            p: 3,
+            backgroundColor: '#f8fafc',
+            minHeight: '100vh',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center'
+          }}
+        >
+          <CircularProgress size={50} thickness={4} />
+        </Box>
+      }
+    >
       <EmployeeTimesheetDetail />
     </React.Suspense>
   );
 };
 
-// Timesheet List Component
+// ---------------------------------------------------------------------------
+// TimesheetList
+// ---------------------------------------------------------------------------
+const DEFAULT_ROWS_PER_PAGE = 20;
+
 const TimesheetList = () => {
-  const [totalTimesheetData, setTotalTimesheetData] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [selectedMonth, setSelectedMonth] = useState(() => {
-    // Check if there's a saved month in sessionStorage
-    const savedMonth = sessionStorage.getItem('timesheetsAdmin_selectedMonth');
-    return savedMonth !== null ? parseInt(savedMonth) : dayjs().month();
-  });
-
-  const [selectedYear, setSelectedYear] = useState(() => {
-    // Check if there's a saved year in sessionStorage
-    const savedYear = sessionStorage.getItem('timesheetsAdmin_selectedYear');
-    return savedYear !== null ? parseInt(savedYear) : dayjs().year();
-  });
-  const theme = useTheme();
-  const navigate = useNavigate();
-
-  const { role } = useSelector((state) => state.auth);
-  const { externalActive } = useSelector((state) => state.employee);
-  const { placements } = useSelector((state) => state.placement);
-
   const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const theme = useTheme();
 
-  // Fetch active external users
-  useEffect(() => {
-    dispatch(activeExternalUsers());
-    dispatch(fetchPlacements());
-  }, []);
+  // ---- Redux state ----
+  const {
+    monthlyTimesheets = [],
+    monthlyLoading,
+    monthlyError,
+    pagination
+  } = useSelector((state) => state.timesheet);
 
-  // Check if we should restore month/year from navigation state
-  useEffect(() => {
-    const handlePopState = (event) => {
-      if (event.state?.selectedMonth !== undefined) {
-        setSelectedMonth(event.state.selectedMonth);
-      }
-      if (event.state?.selectedYear !== undefined) {
-        setSelectedYear(event.state.selectedYear);
-      }
+  const { currentPage, rowsPerPage, totalCount, totalPages } = pagination;
+
+  const role = useSelector((s) => s.auth?.role);
+  const externalActive = useSelector((s) => s.employee?.externalActive);
+  const placements = useSelector((s) => s.placement?.placements);
+
+  // ---- Month / year (local UI state, persisted) ----
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const saved = sessionStorage.getItem('timesheetsAdmin_selectedMonth');
+    return saved !== null ? parseInt(saved, 10) : dayjs().month();
+  });
+  const [selectedYear, setSelectedYear] = useState(() => {
+    const saved = sessionStorage.getItem('timesheetsAdmin_selectedYear');
+    return saved !== null ? parseInt(saved, 10) : dayjs().year();
+  });
+
+  // ---- Refs ----
+  // We keep a SINGLE source of truth for "what request we last dispatched".
+  // When currentPage/rowsPerPage/monthStart/monthEnd change, the effect compares
+  // the current tuple against this ref, and dispatches only if they differ.
+  const isInitialMount = useRef(true);
+  const lastDispatchedParamsRef = useRef(null);
+
+  // ---- Month range ----
+  const { monthStart, monthEnd } = useMemo(() => {
+    const base = dayjs(`${selectedYear}-${selectedMonth + 1}-01`);
+    return {
+      monthStart: base.startOf('month').format('YYYY-MM-DD'),
+      monthEnd: base.endOf('month').format('YYYY-MM-DD')
     };
+  }, [selectedMonth, selectedYear]);
 
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+  // ---- Persist month/year ----
+  useEffect(() => {
+    sessionStorage.setItem(
+      'timesheetsAdmin_selectedMonth',
+      String(selectedMonth)
+    );
+    sessionStorage.setItem(
+      'timesheetsAdmin_selectedYear',
+      String(selectedYear)
+    );
+  }, [selectedMonth, selectedYear]);
+
+  // ---- Dispatch employees/placements once ----
+  useEffect(() => {
+    if (!Array.isArray(externalActive) || externalActive.length === 0) {
+      dispatch(activeExternalUsers());
+    }
+    if (!Array.isArray(placements) || placements.length === 0) {
+      dispatch(fetchPlacements());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Persist selected month and year to sessionStorage whenever they change
+  // -------------------------------------------------------------------------
+  // THE ONLY EFFECT THAT FETCHES.
+  //
+  // It runs whenever (page, rowsPerPage, monthStart, monthEnd) change.
+  // It compares the current tuple against lastDispatchedParamsRef; if they
+  // differ, it dispatches a fresh thunk and records the tuple.
+  //
+  // This is exactly the InProgress pattern: no isFetchingRef, no isMonthChangeRef,
+  // no isInitialMount short-circuit for subsequent changes — just one comparison.
+  // -------------------------------------------------------------------------
   useEffect(() => {
-    sessionStorage.setItem('timesheetsAdmin_selectedMonth', selectedMonth.toString());
-    sessionStorage.setItem('timesheetsAdmin_selectedYear', selectedYear.toString());
-  }, [selectedMonth, selectedYear]);
+    const params = {
+      page: currentPage,
+      size: rowsPerPage,
+      monthStart,
+      monthEnd
+    };
+    const key = JSON.stringify(params);
 
-  // Guard placements too — it comes from redux and could theoretically be
-  // undefined/null on the very first render before the fetch resolves.
-  const safePlacements = Array.isArray(placements) ? placements : [];
+    if (lastDispatchedParamsRef.current === key) {
+      // Already dispatched for this exact tuple → skip
+      return;
+    }
+    lastDispatchedParamsRef.current = key;
 
-  const vendorMap = useMemo(() => {
-    const map = {};
-    safePlacements.forEach(p => {
-      if (p.candidateFullName) {
-        map[p.candidateFullName.toLowerCase().trim()] = p.vendorName || '—';
-      }
-    });
-    return map;
-  }, [safePlacements]);
+    // eslint-disable-next-line no-console
+    console.log('[timesheets] dispatch fetchMonthlyTimesheets', params);
 
-  // ✅ Always compute based on state
-  const monthStart = dayjs(`${selectedYear}-${selectedMonth + 1}-01`)
-    .startOf('month')
-    .format('YYYY-MM-DD');
-  const monthEnd = dayjs(`${selectedYear}-${selectedMonth + 1}-01`)
-    .endOf('month')
-    .format('YYYY-MM-DD');
+    dispatch(fetchMonthlyTimesheets(params));
+  }, [currentPage, rowsPerPage, monthStart, monthEnd, dispatch]);
 
-  const fetchTimesheetData = async (start, end) => {
-    setLoading(true);
-    setError(null);
-    try {
-      // Request a large page size up front. Most backends built on Spring's
-      // Pageable respect ?size=..., so this alone often gets everything in
-      // one call. We still fall back to walking pages below in case size is
-      // capped server-side and totalPages > 1 comes back anyway.
-      const baseUrl = `/timesheet/monthly-timesheets?monthStart=${start}&monthEnd=${end}`;
-      const firstResponse = await httpService.get(`${baseUrl}&page=0&size=500`);
+  // -------------------------------------------------------------------------
+  // Reset pagination when month/year changes.
+  // We reset via slice action, and clear lastDispatched so the effect above
+  // will fire again with the new month + page 0.
+  // -------------------------------------------------------------------------
+  const prevMonthRef = useRef({ monthStart, monthEnd });
+  useEffect(() => {
+    if (
+      prevMonthRef.current.monthStart === monthStart &&
+      prevMonthRef.current.monthEnd === monthEnd
+    ) {
+      return;
+    }
+    prevMonthRef.current = { monthStart, monthEnd };
 
-      let rows = normalizeTimesheetRows(firstResponse?.data);
-      const pageInfo = extractPageInfo(firstResponse?.data);
+    // Reset monthly list, page to 0, totalCount to 0
+    dispatch(resetMonthlyTimesheets());
+    dispatch(setMonthRange({ monthStart, monthEnd }));
 
-      // If the server capped page size and there's more than one page left,
-      // fetch the remaining pages and merge them in.
-      if (pageInfo && pageInfo.totalPages > 1) {
-        const remainingPageRequests = [];
-        for (let p = 1; p < pageInfo.totalPages; p++) {
-          remainingPageRequests.push(httpService.get(`${baseUrl}&page=${p}&size=500`));
+    // Force the fetch effect to fire even if page/size unchanged
+    lastDispatchedParamsRef.current = null;
+  }, [monthStart, monthEnd, dispatch]);
+
+  // Mark initial mount complete AFTER first effect cycle
+  useEffect(() => {
+    isInitialMount.current = false;
+  }, []);
+
+  // -------------------------------------------------------------------------
+  // Handlers — just dispatch; the effect does the fetching
+  // -------------------------------------------------------------------------
+  const handleChangePage = useCallback(
+    (newPage) => {
+      dispatch(setPage(newPage));
+    },
+    [dispatch]
+  );
+
+  const handleChangeRowsPerPage = useCallback(
+    (newRowsPerPage) => {
+      dispatch(setRowsPerPage(newRowsPerPage));
+    },
+    [dispatch]
+  );
+
+  const handleRefresh = useCallback(() => {
+    // Reset current page to 0, clear totalCount, and force refetch
+    dispatch(resetMonthlyTimesheets());
+    dispatch(setPage(0));
+    lastDispatchedParamsRef.current = null;
+    // The effect above will fire because lastDispatched is null.
+  }, [dispatch]);
+
+  // ---- Export ----
+  const handleExportData = useCallback(
+    async (format, meta) => {
+      try {
+        const visibleColumns = (meta?.allColumns || []).filter(
+          (col) => col.visible !== false && col.key !== 'actions'
+        );
+        if (visibleColumns.length === 0) {
+          ToastService.warning('No columns to export');
+          return;
         }
-        const remainingResponses = await Promise.all(remainingPageRequests);
-        remainingResponses.forEach(res => {
-          rows = rows.concat(normalizeTimesheetRows(res?.data));
+
+        ToastService.info('Preparing export...');
+        const allRows = [];
+
+        // Walk every page at size=100
+        const first = await httpService.get(
+          `/timesheet/monthly-timesheets?monthStart=${monthStart}&monthEnd=${monthEnd}&page=0&size=100`
+        );
+        const firstBody = first?.data !== undefined ? first.data : first;
+        const firstPaged = firstBody?.data?.content
+          ? firstBody.data
+          : firstBody;
+        allRows.push(...(firstPaged?.content || []));
+        const discoveredTotalPages = firstPaged?.totalPages ?? 1;
+
+        for (let p = 1; p < discoveredTotalPages; p++) {
+          // eslint-disable-next-line no-await-in-loop
+          const resp = await httpService.get(
+            `/timesheet/monthly-timesheets?monthStart=${monthStart}&monthEnd=${monthEnd}&page=${p}&size=100`
+          );
+          const body = resp?.data !== undefined ? resp.data : resp;
+          const paged = body?.data?.content ? body.data : body;
+          allRows.push(...(paged?.content || []));
+        }
+
+        const headers = visibleColumns.map((c) => c.label);
+        const exportRows = allRows.map((row) => {
+          const obj = {};
+          visibleColumns.forEach((c) => {
+            const raw = row[c.key];
+            obj[c.label] = raw === null || raw === undefined ? '' : raw;
+          });
+          return obj;
         });
+
+        const fileName = `Timesheets_${monthStart}_to_${monthEnd}`;
+
+        if (format === 'csv') {
+          const headerRow = headers.join(',');
+          const dataRows = exportRows.map((r) =>
+            headers
+              .map((h) => {
+                const v = r[h];
+                return typeof v === 'string'
+                  ? `"${v.replace(/"/g, '""')}"`
+                  : v;
+              })
+              .join(',')
+          );
+          const csvContent = [headerRow, ...dataRows].join('\n');
+          const blob = new Blob([csvContent], {
+            type: 'text/csv;charset=utf-8;'
+          });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `${fileName}.csv`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        } else {
+          const wb = XLSX.utils.book_new();
+          const ws = XLSX.utils.json_to_sheet(exportRows, {
+            header: headers
+          });
+          XLSX.utils.book_append_sheet(wb, ws, 'Timesheets');
+          XLSX.writeFile(wb, `${fileName}.xlsx`);
+        }
+        ToastService.success(`Exported ${exportRows.length} records`);
+      } catch (err) {
+        console.error('Export failed:', err);
+        ToastService.error('Export failed');
       }
+    },
+    [monthStart, monthEnd]
+  );
 
-      setTotalTimesheetData(rows);
-    } catch (err) {
-      console.error('Error fetching timesheet data:', err);
-      setError('Failed to fetch timesheet data');
-      setTotalTimesheetData([]); // never leave state in a non-array shape
-      ToastService.error('Failed to fetch timesheet data', { type: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch data whenever month/year changes
-  useEffect(() => {
-    fetchTimesheetData(monthStart, monthEnd);
-  }, [selectedMonth, selectedYear]);
-
-  // Safe array to feed into filtering / length checks below, no matter what
-  // ended up in state.
-  const safeTotalTimesheetData = Array.isArray(totalTimesheetData) ? totalTimesheetData : [];
-
-  // Filter timesheet data to only include active external users
-  const filteredTimesheetData = useMemo(() => {
-    if (!Array.isArray(externalActive) || externalActive.length === 0) {
-      return [];
-    }
-
-    // Create a Set of active employee names for faster lookup
-    const activeEmployeeNames = new Set(
-      externalActive
-        .filter(emp => emp.status === 'ACTIVE') // Filter by ACTIVE status
-        .map(emp => emp.userName?.toLowerCase().trim()) // Normalize names for comparison
-    );
-
-    // Filter timesheet data to only include employees whose names are in the active set
-    return safeTotalTimesheetData.filter(row => {
-      const employeeName = row.employeeName?.toLowerCase().trim();
-      return activeEmployeeNames.has(employeeName);
-    });
-  }, [safeTotalTimesheetData, externalActive]);
-
-  const handleMonthChange = (event) => {
-    setSelectedMonth(event.target.value);
-  };
-
-  const handleYearChange = (event) => {
-    setSelectedYear(event.target.value);
-  };
+  const handleMonthChange = (e) => setSelectedMonth(e.target.value);
+  const handleYearChange = (e) => setSelectedYear(e.target.value);
 
   const handleEmployeeClick = (row) => {
     try {
       if (!handleEmployeeNameClick) {
-        console.error('handleEmployeeNameClick is not available');
         ToastService.error('Navigation function is not available');
         return;
       }
-
-      if (role === 'ACCOUNTS' || role === 'SUPERADMIN' || role === 'ADMIN') {
-        // Save the current month and year before navigation
-        sessionStorage.setItem('timesheetsAdmin_selectedMonth', selectedMonth.toString());
-        sessionStorage.setItem('timesheetsAdmin_selectedYear', selectedYear.toString());
-
-        handleEmployeeNameClick(row, navigate, role, selectedMonth, selectedYear);
+      if (
+        role === 'ACCOUNTS' ||
+        role === 'SUPERADMIN' ||
+        role === 'ADMIN'
+      ) {
+        sessionStorage.setItem(
+          'timesheetsAdmin_selectedMonth',
+          String(selectedMonth)
+        );
+        sessionStorage.setItem(
+          'timesheetsAdmin_selectedYear',
+          String(selectedYear)
+        );
+        handleEmployeeNameClick(
+          row,
+          navigate,
+          role,
+          selectedMonth,
+          selectedYear
+        );
       } else {
-        console.warn('User role does not have permission to view employee details:', role);
-        ToastService.warning('You do not have permission to view employee details');
+        ToastService.warning(
+          'You do not have permission to view employee details'
+        );
       }
-    } catch (error) {
-      console.error('Error in employee click handler:', error);
+    } catch (err) {
+      console.error('Error in employee click handler:', err);
       ToastService.error('Failed to navigate to employee details');
     }
   };
 
-  const Month = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+  const vendorMap = useMemo(() => {
+    const map = {};
+    (Array.isArray(placements) ? placements : []).forEach((p) => {
+      if (p?.candidateFullName) {
+        map[normalizeName(p.candidateFullName)] = p.vendorName || '—';
+      }
+    });
+    return map;
+  }, [placements]);
 
-  // ✅ Generate years dynamically (last 5 → next 1)
+  const Month = [
+    'JAN',
+    'FEB',
+    'MAR',
+    'APR',
+    'MAY',
+    'JUN',
+    'JUL',
+    'AUG',
+    'SEP',
+    'OCT',
+    'NOV',
+    'DEC'
+  ];
   const currentYear = dayjs().year();
   const Years = Array.from({ length: 5 }, (_, i) => currentYear - 1 + i);
 
   const columns = [
-    // Updated employeeName column to use safe navigation handler
     {
       key: 'employeeName',
       label: 'Employee Name',
-      render: row => (
+      width: 180,
+      sortable: false,
+      filterable: false,
+      render: (row) => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Person sx={{ fontSize: 18, color: 'primary.main' }} />
           <Typography
             variant="body2"
             fontWeight={500}
             sx={{
-              cursor: (role === 'ACCOUNTS' || role === 'SUPERADMIN' || role === 'ADMIN') ? 'pointer' : 'default',
-              color: (role === 'ACCOUNTS' || role === 'SUPERADMIN' || role === 'ADMIN') ? 'primary.main' : 'text.primary',
-              textDecoration: (role === 'ACCOUNTS' || role === 'SUPERADMIN' || role === 'ADMIN') ? 'underline' : 'none',
-              '&:hover': (role === 'ACCOUNTS' || role === 'SUPERADMIN' || role === 'ADMIN') ? {
-                color: 'primary.dark'
-              } : {}
+              cursor:
+                role === 'ACCOUNTS' ||
+                role === 'SUPERADMIN' ||
+                role === 'ADMIN'
+                  ? 'pointer'
+                  : 'default',
+              color:
+                role === 'ACCOUNTS' ||
+                role === 'SUPERADMIN' ||
+                role === 'ADMIN'
+                  ? 'primary.main'
+                  : 'text.primary',
+              textDecoration:
+                role === 'ACCOUNTS' ||
+                role === 'SUPERADMIN' ||
+                role === 'ADMIN'
+                  ? 'underline'
+                  : 'none',
+              '&:hover':
+                role === 'ACCOUNTS' ||
+                role === 'SUPERADMIN' ||
+                role === 'ADMIN'
+                  ? { color: 'primary.dark' }
+                  : {}
             }}
             onClick={() => handleEmployeeClick(row)}
           >
             {row?.employeeName}
           </Typography>
         </Box>
-      ),
-      width: 150
+      )
     },
     {
       key: 'employeeType',
       label: 'Employee Type',
-      render: row => (
+      width: 140,
+      sortable: false,
+      filterable: false,
+      render: (row) => (
         <Chip
-          label={row?.employeeType}
+          label={row?.employeeType || '—'}
           size="small"
           variant="outlined"
           sx={{
@@ -347,55 +476,66 @@ const TimesheetList = () => {
             backgroundColor: alpha(theme.palette.primary.light, 0.1)
           }}
         />
-      ),
-      width: 140
+      )
     },
     {
       key: 'clientName',
       label: 'Client',
-      render: row => (
+      width: 160,
+      sortable: false,
+      filterable: false,
+      render: (row) => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Business sx={{ fontSize: 18, color: 'info.main' }} />
           <Typography variant="body2">
-            {row?.clientName}
+            {row?.clientName || '—'}
           </Typography>
         </Box>
-      ),
-      width: 140
+      )
     },
     {
-      label: 'Vendor',
       key: 'vendor',
-      render: row => {
-        const vendor = vendorMap[row.employeeName?.toLowerCase().trim()] || '—';
+      label: 'Vendor',
+      width: 160,
+      sortable: false,
+      filterable: false,
+      render: (row) => {
+        const vendor =
+          vendorMap[normalizeName(row?.employeeName)] || '—';
         return (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Business sx={{ fontSize: 18, color: 'text.secondary' }} />
             <Typography variant="body2">{vendor}</Typography>
           </Box>
         );
-      },
-      width: 140
+      }
     },
     {
       key: 'startDate',
       label: 'Start Date',
-      render: row => (
+      width: 130,
+      sortable: false,
+      filterable: false,
+      render: (row) => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <CalendarToday sx={{ fontSize: 16, color: 'text.secondary' }} />
+          <CalendarToday
+            sx={{ fontSize: 16, color: 'text.secondary' }}
+          />
           <Typography variant="body2">
-            {row?.startDate}
+            {row?.startDate || '—'}
           </Typography>
         </Box>
-      ),
-      width: 140
+      )
     },
-    {
-      key: 'week1Hours',
-      label: 'Week 1',
-      render: row => (
+    ...[1, 2, 3, 4, 5].map((w) => ({
+      key: `week${w}Hours`,
+      label: `Week ${w}`,
+      width: 90,
+      sortable: false,
+      filterable: false,
+      render: (row) => (
         <Chip
-          label={`${row?.week1Hours}h`}
+          label={`${row?.[`week${w}Hours`] ?? 0}h`}
           size="small"
           variant="outlined"
           sx={{
@@ -403,93 +543,33 @@ const TimesheetList = () => {
             backgroundColor: alpha(theme.palette.info.light, 0.1)
           }}
         />
-      ),
-      width: 100
-    },
-    {
-      key: 'week2Hours',
-      label: 'Week 2',
-      render: row => (
-        <Chip
-          label={`${row?.week2Hours}h`}
-          size="small"
-          variant="outlined"
-          sx={{
-            borderColor: theme.palette.info.light,
-            backgroundColor: alpha(theme.palette.info.light, 0.1)
-          }}
-        />
-      ),
-      width: 100
-    },
-    {
-      key: 'week3Hours',
-      label: 'Week 3',
-      render: row => (
-        <Chip
-          label={`${row?.week3Hours}h`}
-          size="small"
-          variant="outlined"
-          sx={{
-            borderColor: theme.palette.info.light,
-            backgroundColor: alpha(theme.palette.info.light, 0.1)
-          }}
-        />
-      ),
-      width: 100
-    },
-    {
-      key: 'week4Hours',
-      label: 'Week 4',
-      render: row => (
-        <Chip
-          label={`${row?.week4Hours}h`}
-          size="small"
-          variant="outlined"
-          sx={{
-            borderColor: theme.palette.info.light,
-            backgroundColor: alpha(theme.palette.info.light, 0.1)
-          }}
-        />
-      ),
-      width: 100
-    },
-    {
-      key: 'week5Hours',
-      label: 'Week 5',
-      render: row => (
-        <Chip
-          label={`${row?.week5Hours}h`}
-          size="small"
-          variant="outlined"
-          sx={{
-            borderColor: theme.palette.info.light,
-            backgroundColor: alpha(theme.palette.info.light, 0.1)
-          }}
-        />
-      ),
-      width: 100
-    },
+      )
+    })),
     {
       key: 'totalWorkingHours',
       label: 'Total Hours',
-      render: row => (
+      width: 120,
+      sortable: false,
+      filterable: false,
+      render: (row) => (
         <Chip
           icon={<AccessTime />}
-          label={`${row?.totalWorkingHours}h`}
+          label={`${row?.totalWorkingHours ?? 0}h`}
           variant="filled"
           size="small"
           color="primary"
         />
-      ),
-      width: 120
+      )
     },
     {
       key: 'totalMonthWorkingDays',
       label: 'Total Days (Month)',
-      render: row => (
+      width: 150,
+      sortable: false,
+      filterable: false,
+      render: (row) => (
         <Chip
-          label={`${row?.totalMonthWorkingDays} days`}
+          label={`${row?.totalMonthWorkingDays ?? 0} days`}
           size="small"
           variant="outlined"
           sx={{
@@ -499,15 +579,17 @@ const TimesheetList = () => {
             fontWeight: 600
           }}
         />
-      ),
-      width: 140
+      )
     },
     {
       key: 'weekendDays',
-      label: 'Weekend Days (Month)',
-      render: row => (
+      label: 'Weekend Days',
+      width: 130,
+      sortable: false,
+      filterable: false,
+      render: (row) => (
         <Chip
-          label={`${row?.weekendDays} days`}
+          label={`${row?.weekendDays ?? 0} days`}
           size="small"
           variant="outlined"
           sx={{
@@ -517,15 +599,17 @@ const TimesheetList = () => {
             fontWeight: 600
           }}
         />
-      ),
-      width: 140
+      )
     },
     {
       key: 'lastWorkedDays',
       label: 'Working Days',
-      render: row => (
+      width: 130,
+      sortable: false,
+      filterable: false,
+      render: (row) => (
         <Chip
-          label={`${row?.lastWorkedDays} days`}
+          label={`${row?.lastWorkedDays ?? 0} days`}
           size="small"
           variant="outlined"
           sx={{
@@ -535,15 +619,17 @@ const TimesheetList = () => {
             fontWeight: 600
           }}
         />
-      ),
-      width: 140
+      )
     },
     {
       key: 'totalWorkingDays',
       label: 'Worked Days',
-      render: row => (
+      width: 120,
+      sortable: false,
+      filterable: false,
+      render: (row) => (
         <Chip
-          label={`${row?.totalWorkingDays} days`}
+          label={`${row?.totalWorkingDays ?? 0} days`}
           size="small"
           variant="outlined"
           sx={{
@@ -553,15 +639,17 @@ const TimesheetList = () => {
             fontWeight: 600
           }}
         />
-      ),
-      width: 120
+      )
     },
     {
       key: 'publicHolidays',
       label: 'Public Holidays',
-      render: row => (
+      width: 130,
+      sortable: false,
+      filterable: false,
+      render: (row) => (
         <Chip
-          label={row?.publicHolidays}
+          label={row?.publicHolidays ?? 0}
           size="small"
           variant="outlined"
           sx={{
@@ -571,15 +659,17 @@ const TimesheetList = () => {
             fontWeight: 500
           }}
         />
-      ),
-      width: 120
+      )
     },
     {
-      key: 'totalLeavesEntitled',
+      key: 'availableLeaves',
       label: 'Leaves Available',
-      render: row => (
+      width: 130,
+      sortable: false,
+      filterable: false,
+      render: (row) => (
         <Chip
-          label={row?.availableLeaves}
+          label={row?.availableLeaves ?? 0}
           size="small"
           variant="outlined"
           sx={{
@@ -589,15 +679,17 @@ const TimesheetList = () => {
             fontWeight: 500
           }}
         />
-      ),
-      width: 120
+      )
     },
     {
       key: 'takenLeaves',
       label: 'Leaves Spent',
-      render: row => (
+      width: 120,
+      sortable: false,
+      filterable: false,
+      render: (row) => (
         <Chip
-          label={row?.takenLeaves}
+          label={row?.takenLeaves ?? 0}
           size="small"
           variant="outlined"
           sx={{
@@ -607,61 +699,97 @@ const TimesheetList = () => {
             fontWeight: 500
           }}
         />
-      ),
-      width: 120
+      )
     },
     {
       key: 'status',
       label: 'Status',
-      render: row => {
-        const statusColor = row?.status === 'Approved' ? 'success' :
-          row?.status === 'Pending' ? 'warning' :
-            row?.status === 'Rejected' ? 'error' : 'default';
+      width: 140,
+      sortable: false,
+      filterable: false,
+      render: (row) => {
+        const statusMap = {
+          Approved: 'success',
+          PENDING_APPROVAL: 'warning',
+          Pending: 'warning',
+          Rejected: 'error',
+          DRAFT: 'info',
+          NO_TIMESHEET: 'default'
+        };
+        const color = statusMap[row?.status] || 'default';
         return (
           <Chip
-            label={row?.status}
+            label={String(row?.status || '').replace(/_/g, ' ')}
             size="small"
-            color={statusColor}
-            variant={statusColor === 'default' ? 'outlined' : 'filled'}
+            color={color}
+            variant={color === 'default' ? 'outlined' : 'filled'}
           />
         );
-      },
-      width: 120
-    },
+      }
+    }
   ];
 
   return (
     <Box sx={{ p: 3, backgroundColor: '#f8fafc', minHeight: '100vh' }}>
-      {/* Header Section */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
         <AccessTime sx={{ color: 'primary.main', fontSize: 32 }} />
         <Box>
-          <Typography variant="h4" component="h1" sx={{ fontWeight: 700, color: 'primary.dark' }}>
+          <Typography
+            variant="h4"
+            component="h1"
+            sx={{ fontWeight: 700, color: 'primary.dark' }}
+          >
             Timesheet Management
           </Typography>
-          {externalActive && (
-            <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Showing {filteredTimesheetData.length} active employees out of {safeTotalTimesheetData.length} total
-            </Typography>
-          )}
+          <Typography
+            variant="subtitle2"
+            color="text.secondary"
+            sx={{ mt: 0.5 }}
+          >
+            {totalCount > 0
+              ? `${totalCount} timesheet${
+                  totalCount === 1 ? '' : 's'
+                } for ${Month[selectedMonth]} ${selectedYear} — page ${
+                  currentPage + 1
+                } of ${totalPages}`
+              : `No timesheets for ${Month[selectedMonth]} ${selectedYear}`}
+          </Typography>
         </Box>
       </Box>
 
-      {/* Controls Section */}
       <Card elevation={2} sx={{ mb: 3, borderRadius: 3 }}>
         <CardContent sx={{ pb: 2 }}>
-          <Grid container spacing={2} alignItems="center" justifyContent="space-between">
+          <Grid
+            container
+            spacing={2}
+            alignItems="center"
+            justifyContent="space-between"
+          >
             <Grid item>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CalendarToday sx={{ color: 'primary.main', fontSize: 24 }} />
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 2,
+                  flexWrap: 'wrap'
+                }}
+              >
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                >
+                  <CalendarToday
+                    sx={{ color: 'primary.main', fontSize: 24 }}
+                  />
                   <Typography variant="h6" color="primary.main">
                     {Month[selectedMonth]} {selectedYear}
                   </Typography>
                 </Box>
 
-                {/* Year Dropdown ✅ */}
-                <FormControl variant="outlined" size="small" sx={{ minWidth: 120 }}>
+                <FormControl
+                  variant="outlined"
+                  size="small"
+                  sx={{ minWidth: 120 }}
+                >
                   <InputLabel id="year-select-label">Year</InputLabel>
                   <Select
                     labelId="year-select-label"
@@ -678,8 +806,11 @@ const TimesheetList = () => {
                   </Select>
                 </FormControl>
 
-                {/* Month Dropdown */}
-                <FormControl variant="outlined" size="small" sx={{ minWidth: 120 }}>
+                <FormControl
+                  variant="outlined"
+                  size="small"
+                  sx={{ minWidth: 120 }}
+                >
                   <InputLabel id="month-select-label">Month</InputLabel>
                   <Select
                     labelId="month-select-label"
@@ -699,11 +830,22 @@ const TimesheetList = () => {
             </Grid>
 
             <Grid item>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1.5,
+                  flexWrap: 'wrap'
+                }}
+              >
                 <Button
                   variant="outlined"
                   startIcon={<DashboardIcon />}
-                  onClick={() => navigate(`/dashboard/timesheetsForAdmins/dashboard?year=${selectedYear}`)}
+                  onClick={() =>
+                    navigate(
+                      `/dashboard/timesheetsForAdmins/dashboard?year=${selectedYear}`
+                    )
+                  }
                   sx={{
                     px: 3,
                     py: 1,
@@ -714,77 +856,60 @@ const TimesheetList = () => {
                 >
                   Dashboard
                 </Button>
-              {(role === 'SUPERADMIN' || role === 'ADMIN') && (
-                <Button
-                  variant="contained"
-                  startIcon={<Add />}
-                  onClick={() => {
-                    // Clear any navigation state before going to create mode
-                    clearPrepopulatedEmployeeData();
-                    sessionStorage.removeItem('prepopulatedEmployee');
-                    sessionStorage.removeItem('selectedEmployeeData');
-
-                    // Navigate with explicit state to ensure create mode
-                    navigate('/dashboard/timesheets/create', {
-                      state: {
-                        forceCreateMode: true,
-                        from: '/dashboard/timesheetsForAdmins',
-                        timestamp: Date.now()
+                {(role === 'SUPERADMIN' || role === 'ADMIN') && (
+                  <Button
+                    variant="contained"
+                    startIcon={<Add />}
+                    onClick={() => {
+                      clearPrepopulatedEmployeeData();
+                      sessionStorage.removeItem('prepopulatedEmployee');
+                      sessionStorage.removeItem('selectedEmployeeData');
+                      navigate('/dashboard/timesheets/create', {
+                        state: {
+                          forceCreateMode: true,
+                          from: '/dashboard/timesheetsForAdmins',
+                          timestamp: Date.now()
+                        },
+                        replace: true
+                      });
+                    }}
+                    sx={{
+                      px: 3,
+                      py: 1,
+                      borderRadius: 2,
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      boxShadow: 2,
+                      '&:hover': {
+                        boxShadow: 4,
+                        transform: 'translateY(-2px)'
                       },
-                      replace: true // Use replace to avoid adding to history stack
-                    });
-                  }}
-                  sx={{
-                    px: 3,
-                    py: 1,
-                    borderRadius: 2,
-                    textTransform: 'none',
-                    fontWeight: 600,
-                    boxShadow: 2,
-                    '&:hover': {
-                      boxShadow: 4,
-                      transform: 'translateY(-2px)'
-                    },
-                    transition: 'all 0.2s ease-in-out'
-                  }}
-                >
-                  Add Timesheet
-                </Button>
-              )}
+                      transition: 'all 0.2s ease-in-out'
+                    }}
+                  >
+                    Add Timesheet
+                  </Button>
+                )}
               </Box>
             </Grid>
           </Grid>
         </CardContent>
       </Card>
 
-      {/* Error State */}
-      {error && (
-        <Fade in={!!error}>
+      {monthlyError && (
+        <Fade in={!!monthlyError}>
           <Alert
             severity="error"
-            sx={{
-              mb: 3,
-              borderRadius: 2,
-              boxShadow: 1
-            }}
+            sx={{ mb: 3, borderRadius: 2, boxShadow: 1 }}
             variant="filled"
           >
-            {error}
+            {typeof monthlyError === 'string'
+              ? monthlyError
+              : 'Failed to fetch timesheet data'}
           </Alert>
         </Fade>
       )}
 
-      {/* Warning when no active users found */}
-      {!loading && safeTotalTimesheetData.length > 0 && filteredTimesheetData.length === 0 && (
-        <Alert
-          severity="warning"
-          sx={{ mb: 3, borderRadius: 2 }}
-        >
-          No active employees found for the selected month. The timesheet data may contain only inactive employees.
-        </Alert>
-      )}
-
-      {/* Data Table Section */}
       <Card
         elevation={3}
         sx={{
@@ -796,19 +921,33 @@ const TimesheetList = () => {
       >
         <CardContent sx={{ p: 0 }}>
           <Box sx={{ overflow: 'auto' }}>
-            <DataTable
+            <DataTablePaginated
               title="Timesheets"
-              data={filteredTimesheetData} // Use filtered data instead of totalTimesheetData
+              data={monthlyTimesheets}
               columns={columns}
+              loading={monthlyLoading}
+              // ---- Server-side pagination ----
+              serverSide={true}
+              page={currentPage}
+              rowsPerPage={rowsPerPage}
+              totalCount={totalCount}
+              defaultRowsPerPage={DEFAULT_ROWS_PER_PAGE}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              // ---- Selection off ----
               enableSelection={false}
-              refreshData={() => { fetchTimesheetData(monthStart, monthEnd) }}
-              loading={loading}
-              sx={{
-                '& .MuiTableCell-head': {
-                  backgroundColor: alpha(theme.palette.primary.main, 0.05),
-                  fontWeight: 600,
-                  color: 'primary.dark'
-                }
+              checkboxRequired={false}
+              // ---- Refresh ----
+              refreshData={handleRefresh}
+              // ---- Export ----
+              enableExport={true}
+              onExportData={handleExportData}
+              // ---- Unique row id ----
+              uniqueId="employeeId"
+              // ---- Styling ----
+              primaryColor={theme.palette.primary.main}
+              customStyles={{
+                headerBackground: theme.palette.primary.main
               }}
             />
           </Box>
