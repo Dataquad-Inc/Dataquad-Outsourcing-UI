@@ -82,6 +82,7 @@ const EditInterviewForm = ({
       coordinator: data.coordinator || userName,
       assignedTo: data.assignedTo || userId || "",
       comments: data.comments || "",
+      remarks: data.comments || "",
     };
   };
 
@@ -178,6 +179,18 @@ const EditInterviewForm = ({
       );
     }
 
+    // Show Remarks textarea to all roles except COORDINATOR
+    if (role !== "COORDINATOR") {
+      fields.push({
+        name: "comments",
+        label: "Remarks",
+        type: "textarea",
+        placeholder: "Enter remarks...",
+        gridProps: { xs: 12 },
+        rows: 3,
+      });
+    }
+
     fields.push({
       name: "skipNotification",
       label: "Skip Email Notification",
@@ -233,6 +246,7 @@ const EditInterviewForm = ({
         assignedTo: values.assignedTo,
         comments: values.comments,
         clientName: values.clientName,
+        remarks: values.comments,
       };
 
       const baseUrl = showCoordinatorFields

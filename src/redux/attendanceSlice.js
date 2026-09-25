@@ -217,7 +217,10 @@ export const fetchHolidays = createAsyncThunk(
   }
 );
 
+// ============================================================
 // Setup attendance month with holidays (POST)
+// ⚠️ UNCHANGED — works as usual, does NOT send attendanceEdits
+// ============================================================
 export const setupAttendanceMonth = createAsyncThunk(
   'attendance/setupAttendanceMonth',
   async ({ month, year, publicHolidays, entity }, { rejectWithValue }) => {
@@ -250,23 +253,27 @@ export const setupAttendanceMonth = createAsyncThunk(
   }
 );
 
+// ============================================================
 // Update attendance month configuration (PUT)
+// ✅ FIXED: now accepts and forwards `attendanceEdits`
+// ============================================================
 export const updateAttendanceMonth = createAsyncThunk(
   'attendance/updateAttendanceMonth',
-  async ({ month, year, publicHolidays, entity }, { rejectWithValue }) => {
+  async ({ month, year, publicHolidays, entity, attendanceEdits }, { rejectWithValue }) => {
     try {
       const payload = {
         month,
         year,
         publicHolidays,
         entity,
+        attendanceEdits,
       };
 
       const response = await axios.put(
         `${API_BASE_URL}/users/attendance/month/edit`,
         payload,
         {
-          params:{entity},
+          params: { entity },
           headers: { 'Content-Type': 'application/json' },
         }
       );
