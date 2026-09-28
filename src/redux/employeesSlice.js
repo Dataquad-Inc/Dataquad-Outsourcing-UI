@@ -1,8 +1,7 @@
 // employeesSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import httpService from "../Services/httpService"; // Import the httpService
+import httpService from "../Services/httpService";
 import axios from "axios";
-import { data } from "react-router-dom";
 
 // Fetch employees thunk
 export const fetchEmployees = createAsyncThunk(
@@ -35,18 +34,19 @@ export const updateEmployee = createAsyncThunk(
 );
 
 export const filterUsersByDateRange = createAsyncThunk(
-  'users/filterUsersByDateRange',
-  async({startDate, endDate}, {rejectWithValue}) => {
-      try{
-        const response = await httpService.get(`/users/employee/filterByJoiningDate?startDate=${startDate}&endDate=${endDate}`);
-
-        return response.data;
-      }catch(error){
-        console.log(error);
-        return rejectWithValue(error);
-      }
-     }
-)
+  "users/filterUsersByDateRange",
+  async ({ startDate, endDate }, { rejectWithValue }) => {
+    try {
+      const response = await httpService.get(
+        `/users/employee/filterByJoiningDate?startDate=${startDate}&endDate=${endDate}`
+      );
+      return response.data;
+    } catch (error) {
+      console.log(error);
+      return rejectWithValue(error);
+    }
+  }
+);
 
 // Delete employee thunk
 export const deleteEmployee = createAsyncThunk(
@@ -57,12 +57,14 @@ export const deleteEmployee = createAsyncThunk(
   }
 );
 
-// Active Internal Users
+// Active Internal Users — entity param "IN"
 export const activeInternalUsers = createAsyncThunk(
   "employee/activeInternalUsers",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await httpService.get("/users/active-internal/employee");
+      const response = await httpService.get(
+        "/users/active-internal/employee?entity=IN"
+      );
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
@@ -70,12 +72,14 @@ export const activeInternalUsers = createAsyncThunk(
   }
 );
 
-// Inactive Internal Users
+// Inactive Internal Users — entity param "IN"
 export const inactiveInternalUsers = createAsyncThunk(
   "employee/inactiveInternalUsers",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await httpService.get("/users/inactive-internal/employee");
+      const response = await httpService.get(
+        "/users/inactive-internal/employee?entity=IN"
+      );
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
@@ -83,12 +87,14 @@ export const inactiveInternalUsers = createAsyncThunk(
   }
 );
 
-// ✅ NEW: Isolated Internal Users
+// Isolated Internal Users — entity param "IN"
 export const isolatedInternalUsers = createAsyncThunk(
   "employee/isolatedInternalUsers",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await httpService.get("/users/isolated-internal/employee");
+      const response = await httpService.get(
+        "/users/isolated-internal/employee?entity=IN"
+      );
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
@@ -96,12 +102,14 @@ export const isolatedInternalUsers = createAsyncThunk(
   }
 );
 
-// Active External Users
+// Active External Users — entity param "EX"
 export const activeExternalUsers = createAsyncThunk(
   "employee/activeExternalUsers",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await httpService.get("/users/active-external/employee");
+      const response = await httpService.get(
+        "/users/active-external/employee?entity=IN"
+      );
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
@@ -109,12 +117,14 @@ export const activeExternalUsers = createAsyncThunk(
   }
 );
 
-// Inactive External Users
+// Inactive External Users — entity param "EX"
 export const inactiveExternalUsers = createAsyncThunk(
   "employee/inactiveExternalUsers",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await httpService.get("/users/inactive-external/employee");
+      const response = await httpService.get(
+        "/users/inactive-external/employee?entity=IN"
+      );
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
@@ -122,12 +132,14 @@ export const inactiveExternalUsers = createAsyncThunk(
   }
 );
 
-// ✅ NEW: Isolated External Users
+// Isolated External Users — entity param "EX"
 export const isolatedExternalUsers = createAsyncThunk(
   "employee/isolatedExternalUsers",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await httpService.get("/users/isolated-external/employee");
+      const response = await httpService.get(
+        "/users/isolated-external/employee?entity=IN"
+      );
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
@@ -142,10 +154,10 @@ const employeesSlice = createSlice({
     filteredUsers: [],
     internalActive: [],
     internalInactive: [],
-    internalIsolated: [], // ✅ NEW
+    internalIsolated: [],
     externalActive: [],
     externalInactive: [],
-    externalIsolated: [], // ✅ NEW
+    externalIsolated: [],
     fetchStatus: "idle",
     fetchError: null,
     updateStatus: "idle",
@@ -153,11 +165,11 @@ const employeesSlice = createSlice({
     deleteStatus: "idle",
     deleteError: null,
     updatedUserResponse: null,
-    userType: "internal", // 'internal' or 'external'
-    userStatus: "active", // 'active', 'inactive', or 'isolated'
+    userType: "internal",
+    userStatus: "active",
     loading: false,
     error: null,
-    isFilteredDataRequested: false, // ✅ NEW
+    isFilteredDataRequested: false,
   },
   reducers: {
     resetUpdateStatus: (state) => {
@@ -239,7 +251,7 @@ const employeesSlice = createSlice({
         state.loading = false;
         state.error = action.payload.message;
       })
-      
+
       // Active Internal Users
       .addCase(activeInternalUsers.pending, (state) => {
         state.loading = true;
@@ -255,7 +267,7 @@ const employeesSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-      
+
       // Inactive Internal Users
       .addCase(inactiveInternalUsers.pending, (state) => {
         state.loading = true;
@@ -272,7 +284,7 @@ const employeesSlice = createSlice({
         state.error = action.payload;
       })
 
-      // ✅ NEW: Isolated Internal Users
+      // Isolated Internal Users
       .addCase(isolatedInternalUsers.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -287,7 +299,7 @@ const employeesSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-      
+
       // Active External Users
       .addCase(activeExternalUsers.pending, (state) => {
         state.loading = true;
@@ -303,7 +315,7 @@ const employeesSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-      
+
       // Inactive External Users
       .addCase(inactiveExternalUsers.pending, (state) => {
         state.loading = true;
@@ -320,7 +332,7 @@ const employeesSlice = createSlice({
         state.error = action.payload;
       })
 
-      // ✅ NEW: Isolated External Users
+      // Isolated External Users
       .addCase(isolatedExternalUsers.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -338,11 +350,11 @@ const employeesSlice = createSlice({
   },
 });
 
-export const { 
-  resetUpdateStatus, 
-  resetDeleteStatus, 
-  setUserType, 
+export const {
+  resetUpdateStatus,
+  resetDeleteStatus,
+  setUserType,
   setUserStatus,
-  resetFilteredUsers 
+  resetFilteredUsers,
 } = employeesSlice.actions;
 export default employeesSlice.reducer;
