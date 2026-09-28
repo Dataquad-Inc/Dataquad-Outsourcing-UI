@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import DataTable from "../muiComponents/DataTabel";
 import {
   Box,
@@ -48,7 +48,6 @@ import {
   filterUsersByDateRange,
 } from "../../redux/employeesSlice";
 import { showToast } from "../../utils/ToastNotification";
-// Import ToastContainer and toast directly
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import ComponentTitle from "../../utils/ComponentTitle";
@@ -203,7 +202,13 @@ const UserDetailsDialog = ({ open, onClose, user }) => {
                   </Typography>
                   <Chip
                     label={user.status}
-                    color={user.status === "ACTIVE" ? "success" : user.status === "INACTIVE" ? "error" : "warning"}
+                    color={
+                      user.status === "ACTIVE"
+                        ? "success"
+                        : user.status === "INACTIVE"
+                        ? "error"
+                        : "warning"
+                    }
                     size="small"
                     sx={{ mb: 2 }}
                   />
@@ -297,7 +302,13 @@ const UserDetailsDialog = ({ open, onClose, user }) => {
                   </Typography>
                   <Chip
                     label={user.status}
-                    color={user.status === "ACTIVE" ? "success" : user.status === "INACTIVE" ? "error" : "warning"}
+                    color={
+                      user.status === "ACTIVE"
+                        ? "success"
+                        : user.status === "INACTIVE"
+                        ? "error"
+                        : "warning"
+                    }
                     size="small"
                   />
                 </Grid>
@@ -364,9 +375,9 @@ const UsersList = () => {
   useEffect(() => {
     if (hasFetched.current) return;
     hasFetched.current = true;
-    
+
     // Check if there's a date range filter stored
-    const savedDateRange = localStorage.getItem('usersDateRange');
+    const savedDateRange = localStorage.getItem("usersDateRange");
     if (savedDateRange) {
       const { startDate, endDate } = JSON.parse(savedDateRange);
       setActiveDateRange({ startDate, endDate });
@@ -429,31 +440,60 @@ const UsersList = () => {
     }
   }, [deleteStatus, deleteError, dispatch]);
 
-  const refreshData = () => {
-    // Prevent multiple refresh calls
+  /**
+   * Refresh data based on the CURRENT active filter/tab.
+   * - If a date range filter is active → re-apply date range filter
+   * - If userType + userStatus toggles are active → re-fetch the matching endpoint
+   * - Otherwise → fetch all employees
+   */
+  const refreshData = useCallback(() => {
     if (isRefreshing.current) return;
     isRefreshing.current = true;
-    
-    // Check if we have an active date range filter
-    if (activeDateRange && activeDateRange.startDate && activeDateRange.endDate) {
-      // Re-apply date range filter
-      dispatch(filterUsersByDateRange({
-        startDate: activeDateRange.startDate,
-        endDate: activeDateRange.endDate,
-      })).finally(() => {
-        setTimeout(() => {
-          isRefreshing.current = false;
-        }, 300);
-      });
-    } else {
-      // Fetch all employees
-      dispatch(fetchEmployees()).finally(() => {
-        setTimeout(() => {
-          isRefreshing.current = false;
-        }, 300);
-      });
+
+    const resetRef = () => {
+      setTimeout(() => {
+        isRefreshing.current = false;
+      }, 300);
+    };
+
+    // 1. Date range filter takes priority
+    if (
+      activeDateRange &&
+      activeDateRange.startDate &&
+      activeDateRange.endDate
+    ) {
+      dispatch(
+        filterUsersByDateRange({
+          startDate: activeDateRange.startDate,
+          endDate: activeDateRange.endDate,
+        })
+      ).finally(resetRef);
+      return;
     }
-  };
+
+    // 2. Tab-based filter (userType + userStatus)
+    if (isFilterToggled.current && userType && userStatus) {
+      if (userType === "internal" && userStatus === "active") {
+        dispatch(activeInternalUsers()).finally(resetRef);
+      } else if (userType === "internal" && userStatus === "inactive") {
+        dispatch(inactiveInternalUsers()).finally(resetRef);
+      } else if (userType === "internal" && userStatus === "isolated") {
+        dispatch(isolatedInternalUsers()).finally(resetRef);
+      } else if (userType === "external" && userStatus === "active") {
+        dispatch(activeExternalUsers()).finally(resetRef);
+      } else if (userType === "external" && userStatus === "inactive") {
+        dispatch(inactiveExternalUsers()).finally(resetRef);
+      } else if (userType === "external" && userStatus === "isolated") {
+        dispatch(isolatedExternalUsers()).finally(resetRef);
+      } else {
+        dispatch(fetchEmployees()).finally(resetRef);
+      }
+      return;
+    }
+
+    // 3. Default — all employees
+    dispatch(fetchEmployees()).finally(resetRef);
+  }, [activeDateRange, userType, userStatus, dispatch]);
 
   const renderStatus = (status) => {
     const statusUpper = status?.toUpperCase();
@@ -498,7 +538,7 @@ const UsersList = () => {
     };
 
     dispatch(
-      updateEmployee({ employeeId: currentUser.employeeId, ...finalValues }),
+      updateEmployee({ employeeId: currentUser.employeeId, ...finalValues })
     ).finally(() => {
       actions.setSubmitting(false);
     });
@@ -508,15 +548,12 @@ const UsersList = () => {
     setOpenAddDrawer(true);
   };
 
-  // Close Add User drawer
   const handleCloseAddDrawer = () => {
     setOpenAddDrawer(false);
   };
 
-  // Close Edit User drawer
   const handleCloseEditDrawer = () => {
     setOpenEditDrawer(false);
-    // Clear current user after closing
     setTimeout(() => {
       setCurrentUser(null);
     }, 300);
@@ -535,7 +572,7 @@ const UsersList = () => {
     } catch (error) {
       showToast(
         error.response?.data?.message || "Failed to register employee",
-        "error",
+        "error"
       );
     } finally {
       actions.setSubmitting(false);
@@ -544,28 +581,47 @@ const UsersList = () => {
 
   // Handle date range filter changes
   const handleDateRangeFilter = (startDate, endDate) => {
-    // Prevent multiple calls
     if (isApplyingFilter.current) return;
     isApplyingFilter.current = true;
-    
+
+    const resetRef = () => {
+      setTimeout(() => {
+        isApplyingFilter.current = false;
+      }, 300);
+    };
+
     if (startDate && endDate) {
       setActiveDateRange({ startDate, endDate });
-      // Save to localStorage to persist on refresh
-      localStorage.setItem('usersDateRange', JSON.stringify({ startDate, endDate }));
-      dispatch(filterUsersByDateRange({ startDate, endDate })).finally(() => {
-        setTimeout(() => {
-          isApplyingFilter.current = false;
-        }, 300);
-      });
+      localStorage.setItem(
+        "usersDateRange",
+        JSON.stringify({ startDate, endDate })
+      );
+      dispatch(filterUsersByDateRange({ startDate, endDate })).finally(
+        resetRef
+      );
     } else {
-      // Clear filter
       setActiveDateRange(null);
-      localStorage.removeItem('usersDateRange');
-      dispatch(fetchEmployees()).finally(() => {
-        setTimeout(() => {
-          isApplyingFilter.current = false;
-        }, 300);
-      });
+      localStorage.removeItem("usersDateRange");
+      // Re-apply the currently-active tab filter (or all)
+      if (isFilterToggled.current && userType && userStatus) {
+        if (userType === "internal" && userStatus === "active") {
+          dispatch(activeInternalUsers()).finally(resetRef);
+        } else if (userType === "internal" && userStatus === "inactive") {
+          dispatch(inactiveInternalUsers()).finally(resetRef);
+        } else if (userType === "internal" && userStatus === "isolated") {
+          dispatch(isolatedInternalUsers()).finally(resetRef);
+        } else if (userType === "external" && userStatus === "active") {
+          dispatch(activeExternalUsers()).finally(resetRef);
+        } else if (userType === "external" && userStatus === "inactive") {
+          dispatch(inactiveExternalUsers()).finally(resetRef);
+        } else if (userType === "external" && userStatus === "isolated") {
+          dispatch(isolatedExternalUsers()).finally(resetRef);
+        } else {
+          dispatch(fetchEmployees()).finally(resetRef);
+        }
+      } else {
+        dispatch(fetchEmployees()).finally(resetRef);
+      }
     }
   };
 
@@ -586,13 +642,27 @@ const UsersList = () => {
   };
 
   const handleAllFilter = () => {
-    isFilterToggled.current = true;
+    isFilterToggled.current = false;
     setUserTypeLocal(null);
     setUserStatusLocal(null);
     dispatch(setUserType(null));
     dispatch(setUserStatus(null));
     dispatch(resetFilteredUsers());
-    refreshData();
+
+    if (
+      activeDateRange &&
+      activeDateRange.startDate &&
+      activeDateRange.endDate
+    ) {
+      dispatch(
+        filterUsersByDateRange({
+          startDate: activeDateRange.startDate,
+          endDate: activeDateRange.endDate,
+        })
+      );
+    } else {
+      dispatch(fetchEmployees());
+    }
   };
 
   const buttonStyles = {
@@ -806,7 +876,6 @@ const UsersList = () => {
 
   return (
     <Box sx={{ position: "relative" }}>
-      {/* ToastContainer positioned within the page */}
       <ToastContainer
         position="top-right"
         autoClose={3000}
@@ -824,9 +893,9 @@ const UsersList = () => {
           zIndex: 9999,
         }}
         toastStyle={{
-          borderRadius: '8px',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-          marginTop: '10px',
+          borderRadius: "8px",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+          marginTop: "10px",
         }}
       />
 
@@ -853,13 +922,31 @@ const UsersList = () => {
           spacing={2}
           sx={{ ml: "auto" }}
         >
-          <DateRangeFilter 
+          <DateRangeFilter
             component="Users"
             onDateChange={handleDateRangeFilter}
             onClearFilter={() => {
               setActiveDateRange(null);
-              localStorage.removeItem('usersDateRange');
-              dispatch(fetchEmployees());
+              localStorage.removeItem("usersDateRange");
+              if (isFilterToggled.current && userType && userStatus) {
+                if (userType === "internal" && userStatus === "active") {
+                  dispatch(activeInternalUsers());
+                } else if (userType === "internal" && userStatus === "inactive") {
+                  dispatch(inactiveInternalUsers());
+                } else if (userType === "internal" && userStatus === "isolated") {
+                  dispatch(isolatedInternalUsers());
+                } else if (userType === "external" && userStatus === "active") {
+                  dispatch(activeExternalUsers());
+                } else if (userType === "external" && userStatus === "inactive") {
+                  dispatch(inactiveExternalUsers());
+                } else if (userType === "external" && userStatus === "isolated") {
+                  dispatch(isolatedExternalUsers());
+                } else {
+                  dispatch(fetchEmployees());
+                }
+              } else {
+                dispatch(fetchEmployees());
+              }
             }}
           />
           <Button
@@ -874,19 +961,32 @@ const UsersList = () => {
         </Stack>
       </Stack>
 
-      <Box sx={{ mb: 3, display: "flex", justifyContent: "center", gap: 2, flexWrap: "wrap" }}>
+      <Box
+        sx={{
+          mb: 3,
+          display: "flex",
+          justifyContent: "center",
+          gap: 2,
+          flexWrap: "wrap",
+        }}
+      >
         <Button
           variant={!userType && !userStatus ? "contained" : "outlined"}
           onClick={handleAllFilter}
           sx={{
             ...buttonStyles,
             minWidth: "80px",
-            backgroundColor: !userType && !userStatus ? "#1976d2" : "transparent",
+            backgroundColor:
+              !userType && !userStatus ? "#1976d2" : "transparent",
             color: !userType && !userStatus ? "white" : "inherit",
-            borderColor: !userType && !userStatus ? "#1976d2" : "rgba(0, 0, 0, 0.23)",
-            '&:hover': {
-              backgroundColor: !userType && !userStatus ? "#1565c0" : "rgba(25, 118, 210, 0.04)",
-            }
+            borderColor:
+              !userType && !userStatus ? "#1976d2" : "rgba(0, 0, 0, 0.23)",
+            "&:hover": {
+              backgroundColor:
+                !userType && !userStatus
+                  ? "#1565c0"
+                  : "rgba(25, 118, 210, 0.04)",
+            },
           }}
         >
           All
@@ -933,15 +1033,23 @@ const UsersList = () => {
               fontWeight: 600,
               "&.Mui-selected": {
                 backgroundColor:
-                  userStatus === "active" ? "#4caf50" : 
-                  userStatus === "inactive" ? "#f44336" : 
-                  userStatus === "isolated" ? "#ff9800" : "#1976d2",
+                  userStatus === "active"
+                    ? "#4caf50"
+                    : userStatus === "inactive"
+                    ? "#f44336"
+                    : userStatus === "isolated"
+                    ? "#ff9800"
+                    : "#1976d2",
                 color: "white",
                 "&:hover": {
                   backgroundColor:
-                    userStatus === "active" ? "#45a049" : 
-                    userStatus === "inactive" ? "#d32f2f" : 
-                    userStatus === "isolated" ? "#f57c00" : "#1565c0",
+                    userStatus === "active"
+                      ? "#45a049"
+                      : userStatus === "inactive"
+                      ? "#d32f2f"
+                      : userStatus === "isolated"
+                      ? "#f57c00"
+                      : "#1565c0",
                 },
               },
               "&:hover": { backgroundColor: "rgba(25, 118, 210, 0.08)" },
@@ -1057,7 +1165,7 @@ const UsersList = () => {
           </Toolbar>
         </AppBar>
         <Box sx={{ p: 3, overflowY: "auto" }}>
-          <Registration 
+          <Registration
             onRegistrationSuccess={() => {
               setOpenAddDrawer(false);
               refreshData();
