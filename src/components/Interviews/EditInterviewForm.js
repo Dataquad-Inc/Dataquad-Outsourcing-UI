@@ -82,6 +82,7 @@ const EditInterviewForm = ({
       coordinator: data.coordinator || userName,
       assignedTo: data.assignedTo || userId || "",
       comments: data.comments || "",
+      remarks: data.comments || "",
     };
   };
 
@@ -106,6 +107,10 @@ const EditInterviewForm = ({
         value: "POSITION IS HOLD",
         label: "POSITION IS HOLD",
       },
+      {
+        value: "PROFILE HOLD",
+        label: "Profile Hold",
+      }
     ];
 
     const fields = [
@@ -183,6 +188,18 @@ const EditInterviewForm = ({
       });
     }
 
+    // Show Remarks textarea to all roles except COORDINATOR
+    if (role !== "COORDINATOR") {
+      fields.push({
+        name: "comments",
+        label: "Remarks",
+        type: "textarea",
+        placeholder: "Enter remarks...",
+        gridProps: { xs: 12 },
+        rows: 3,
+      });
+    }
+
     fields.push({
       name: "skipNotification",
       label: "Skip Email Notification",
@@ -210,6 +227,7 @@ const EditInterviewForm = ({
             "FEEDBACK_PENDING",
             "POSITION IS CLOSED",
             "POSITION IS HOLD",
+            "PROFILE HOLD",
           ],
           "Invalid interview status"
         ),
@@ -244,6 +262,7 @@ const EditInterviewForm = ({
         assignedTo: values.assignedTo,
         comments: values.comments,
         clientName: values.clientName || data.clientName,
+        remarks: values.comments,
       };
 
       // Prefer interview-id update for coordinator view; otherwise recruiter-owned update path.

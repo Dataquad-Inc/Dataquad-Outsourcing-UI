@@ -8,12 +8,13 @@ import Email from "@mui/icons-material/Email";
 import CalendarToday from "@mui/icons-material/CalendarToday";
 import Phone from "@mui/icons-material/Phone";
 import CheckCircle from "@mui/icons-material/CheckCircle";
-import Badge from "@mui/icons-material/Badge";
+import WorkOutline from "@mui/icons-material/WorkOutline";
+import SupervisorAccount from "@mui/icons-material/SupervisorAccount";
 import formatPhoneNumber from "../../utils/formatPhoneNumber";
 import CustomChip from "../../ui-lib/CustomChip";
 
 const renderValue = (value, width = 100, loading) =>
-  loading ? <Skeleton width={width} /> : value ?? "-";
+  loading ? <Skeleton width={width} /> : value || "-";
 
 const iconLabel = (IconComp, text) => (
   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -21,18 +22,22 @@ const iconLabel = (IconComp, text) => (
   </Box>
 );
 
-// ✅ Role → Chip Color mapping
 const roleColors = {
-  SUPERADMIN: "#d32f2f", // Red (Error)
-  ADMIN: "#9c27b0", // Purple (Secondary)
-  TEAMLEAD: "#0288d1", // Blue (Info)
-  RECRUITER: "#1976d2", // Primary Blue
-  SALESEXECUTIVE: "#ed6c02", // Orange (Warning)
-  EMPLOYEE: "#2e7d32", // Green (Success)
-  GRANDSALES: "#f57c00", // Dark Orange
+  SUPERADMIN: "#d32f2f",
+  ADMIN: "#9c27b0",
+  TEAMLEAD: "#0288d1",
+  RECRUITER: "#1976d2",
+  SALESEXECUTIVE: "#ed6c02",
+  EMPLOYEE: "#2e7d32",
+  GRANDSALES: "#f57c00",
 };
 
-const getEmployeeColumns = ({ handleEdit, handleDelete, loading, canManage = true }) => [
+const getEmployeeColumns = ({
+  handleEdit,
+  handleDelete,
+  loading,
+  canManage = true,
+}) => [
   {
     id: "userId",
     label: iconLabel(AssignmentInd, "Employee ID"),
@@ -58,6 +63,18 @@ const getEmployeeColumns = ({ handleEdit, handleDelete, loading, canManage = tru
       ) : (
         <CustomChip role={roles} />
       ),
+  },
+  // ✅ Designation — directly from /users/employee API
+  {
+    id: "designation",
+    label: iconLabel(WorkOutline, "Designation"),
+    render: (v) => renderValue(v, 150, loading),
+  },
+  // ✅ Reporting Manager — directly from /users/employee API
+  {
+    id: "reportingManager",
+    label: iconLabel(SupervisorAccount, "Reporting Manager"),
+    render: (v) => renderValue(v, 150, loading),
   },
   {
     id: "email",

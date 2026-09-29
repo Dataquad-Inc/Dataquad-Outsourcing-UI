@@ -1942,38 +1942,79 @@ const sortedUsers = useMemo(() => {
       </Stack>
 
       <Paper variant="outlined" sx={{ borderRadius: 1, overflow: "hidden" }}>
-        {/* Tabs */}
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
-          <Tabs 
-            value={activeTab} 
+        {/* Tabs and status filter on the same row, both bigger, centered, with generous gap */}
+        <Box
+          sx={{
+            borderBottom: 1,
+            borderColor: 'divider',
+            bgcolor: 'background.paper',
+            px: 3,
+            py: 1.5,
+            display: 'flex',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            columnGap: 6,
+            rowGap: 2,
+          }}
+        >
+          {/* INTERNAL / EXTERNAL tabs */}
+          <Tabs
+            value={activeTab}
             onChange={handleTabChange}
-            sx={{ px: 2 }}
+            sx={{
+              minHeight: 48,
+              '& .MuiTabs-flexContainer': { gap: 3 },
+              '& .MuiTab-root': {
+                minHeight: 48,
+                minWidth: 120,
+                fontSize: '0.95rem',
+                fontWeight: 600,
+                textTransform: 'none',
+              },
+            }}
           >
             <Tab label="INTERNAL" />
             <Tab label="EXTERNAL" />
           </Tabs>
-          <Box sx={{ px: 2, pb: 1.5, display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={statusFilter}
-              onChange={(e, value) => {
-                if (value) {
-                  setStatusFilter(value);
-                  setPage(0);
-                }
-              }}
-            >
-              <ToggleButton value="active">ACTIVE ({statusFilter === "active" ? users.length : "…"})</ToggleButton>
-              <ToggleButton value="inactive">INACTIVE ({statusFilter === "inactive" ? users.length : "…"})</ToggleButton>
-              <ToggleButton value="isolated">ISOLATE ({statusFilter === "isolated" ? users.length : "…"})</ToggleButton>
-            </ToggleButtonGroup>
-            {activeTab === 1 && (
-              <Typography variant="caption" color="text.secondary">
-                Placed candidates sync here with name, email &amp; phone. Use Invitation to start onboarding.
-              </Typography>
-            )}
-          </Box>
+
+          {/* ACTIVE / INACTIVE / ISOLATE toggle buttons */}
+          <ToggleButtonGroup
+            exclusive
+            value={statusFilter}
+            onChange={(e, value) => {
+              if (value) {
+                setStatusFilter(value);
+                setPage(0);
+              }
+            }}
+            sx={{
+              alignSelf: 'center',
+              height: 48,
+              '& .MuiToggleButton-root': {
+                px: 3,
+                py: 1,
+                fontSize: '0.95rem',
+                fontWeight: 600,
+                textTransform: 'none',
+                lineHeight: 1.2,
+              },
+              '& .MuiToggleButtonGroup-grouped:not(:first-of-type)': {
+                ml: 1,
+                borderLeft: '1px solid rgba(0, 0, 0, 0.12)',
+                borderRadius: '4px',
+              },
+            }}
+          >
+            <ToggleButton value="active">ACTIVE ({statusFilter === "active" ? users.length : "…"})</ToggleButton>
+            <ToggleButton value="inactive">INACTIVE ({statusFilter === "inactive" ? users.length : "…"})</ToggleButton>
+            <ToggleButton value="isolated">ISOLATE ({statusFilter === "isolated" ? users.length : "…"})</ToggleButton>
+          </ToggleButtonGroup>
+
+          {activeTab === 1 && (
+            <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
+              Placed candidates sync here with name, email &amp; phone. Use Invitation to start onboarding.
+            </Typography>
+          )}
         </Box>
 
         {loading ? (
