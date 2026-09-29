@@ -19,6 +19,7 @@ import {
   filterInterviewsByCoordinator,
   filterInterviewsByTeamLead,
   clearRecruiterFilter,
+  clearCoordinatorFilter,
 } from "../../redux/interviewSlice";
 import { filterUsersByDateRange } from "../../redux/employeesSlice";
 import {
@@ -296,7 +297,7 @@ const DateRangeFilter = ({
     setSelectedMonth(null);
     setSelectedDay(null);
 
-    // Legacy behavior for components without onDateChange
+      // Legacy behavior for components without onDateChange
     if (!onDateChange) {
       dispatch(setFilteredDataRequested(false));
       const clearAction = componentToClearActionsMap[component];
@@ -304,6 +305,9 @@ const DateRangeFilter = ({
 
       if (component === "InterviewsForRecruiter") {
         dispatch(clearRecruiterFilter());
+      }
+      if (component === "InterviewsForCoordinator") {
+        dispatch(clearCoordinatorFilter());
       }
     }
   };

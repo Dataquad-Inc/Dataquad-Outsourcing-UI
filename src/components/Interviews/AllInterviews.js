@@ -33,7 +33,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { getStatusChip, getInterviewLevelChip } from "../../utils/statusUtils";
 import ConfirmDialog from "../muiComponents/ConfirmDialog";
 import EditInterviewForm from "./EditInterviewForm";
-import { filterInterviewsByDateRange } from "../../redux/interviewSlice";
+import { filterInterviewsByDateRange, clearFilteredData, clearCoordinatorFilter } from "../../redux/interviewSlice";
 import { formatDateTime } from "../../utils/dateformate";
 import { showToast } from "../../utils/ToastNotification";
 import MoveToBench from "./MoveToBench";
@@ -69,8 +69,12 @@ const AllInterviews = () => {
 
   const dispatch = useDispatch();
   const { userId, role } = useSelector((state) => state.auth);
-  const { isFilteredDataRequested } = useSelector((state) => state.bench);
-  const { filteredInterviewList } = useSelector((state) => state.interview);
+  const {
+    filteredInterviewList,
+    filterInterviewsForCoordinator,
+    isFilteredDataRequested,
+    isCoordinatorFilterActive,
+  } = useSelector((state) => state.interview);
 
   const [levelFilter, setLevelFilter] = useState(
     role === "COORDINATOR" ? "INTERNAL" : "ALL"
@@ -665,9 +669,15 @@ const AllInterviews = () => {
   const getDisplayData = () => {
     let data;
     if (showCoordinatorView) {
-      data = coordinatorInterviews;
+      if (isCoordinatorFilterActive) {
+        data = processInterviewData(filterInterviewsForCoordinator || []);
+      } else {
+        data = coordinatorInterviews;
+      }
+    } else if (isFilteredDataRequested) {
+      data = processInterviewData(filteredInterviewList || []);
     } else {
-      data = isFilteredDataRequested ? filteredInterviewList : interviews;
+      data = interviews;
     }
     return filterInterviewsByLevel(data);
   };
@@ -678,6 +688,16 @@ const AllInterviews = () => {
     setShowCoordinatorView(!showCoordinatorView);
     if (!showCoordinatorView && coordinatorInterviews.length === 0) {
       fetchCoordinatorInterviews();
+    }
+  };
+
+  const handleClearDateFilter = () => {
+    if (showCoordinatorView) {
+      dispatch(clearCoordinatorFilter());
+      fetchCoordinatorInterviews();
+    } else {
+      dispatch(clearFilteredData());
+      fetchInterviews();
     }
   };
 
@@ -740,7 +760,10 @@ const AllInterviews = () => {
       {showCoordinatorView ? "Regular View" : "Coordinator View"}
     </Button>
 
-    <DateRangeFilter component="allInterviews" />
+    <DateRangeFilter
+      component={showCoordinatorView ? "InterviewsForCoordinator" : "allInterviews"}
+      onClearFilter={handleClearDateFilter}
+    />
   </Box>
 </Stack>
 

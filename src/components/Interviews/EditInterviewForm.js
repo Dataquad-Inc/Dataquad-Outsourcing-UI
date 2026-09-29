@@ -147,31 +147,40 @@ const EditInterviewForm = ({
       );
     }
 
-    // Only show coordinator fields if showCoordinatorFields is true
+    // Always show feedback for Action → Update Interview (all roles).
+    // Coordinator picker stays gated behind showCoordinatorFields.
+    fields.push({
+      name: "internalFeedback",
+      label: showCoordinatorFields ? "Coordinator Feedback" : "Feedback",
+      type: "textarea",
+      placeholder: "Enter interview feedback...",
+      gridProps: { xs: 12 },
+      rows: 3,
+    });
+
+    fields.push({
+      name: "comments",
+      label: "Comments",
+      type: "textarea",
+      placeholder: "Additional comments (optional)...",
+      gridProps: { xs: 12 },
+      rows: 2,
+    });
+
     if (showCoordinatorFields) {
-      fields.push(
-        {
-          name: "assignedTo",
-          label: "Coordinator",
-          type: "select",
-          disabled:
-            role === "SUPERADMIN" ||
-            role === "BDM" ||
-            role === "TEAMLEAD" ||
-            role === "COORDINATOR",
-          options: coordinators,
-          required: false,
-          gridProps: commonGridProps,
-        },
-        {
-          name: "internalFeedback",
-          label: "Coordinator Feedback",
-          type: "textarea",
-          placeholder: "Feedback/comments from the coordinator...",
-          gridProps: { xs: 12 },
-          rows: 3,
-        }
-      );
+      fields.push({
+        name: "assignedTo",
+        label: "Coordinator",
+        type: "select",
+        disabled:
+          role === "SUPERADMIN" ||
+          role === "BDM" ||
+          role === "TEAMLEAD" ||
+          role === "COORDINATOR",
+        options: coordinators,
+        required: false,
+        gridProps: commonGridProps,
+      });
     }
 
     fields.push({
@@ -199,9 +208,13 @@ const EditInterviewForm = ({
             "SELECTED",
             "PLACED",
             "FEEDBACK_PENDING",
+            "POSITION IS CLOSED",
+            "POSITION IS HOLD",
           ],
           "Invalid interview status"
         ),
+      internalFeedback: Yup.string().nullable(),
+      comments: Yup.string().nullable(),
       externalInterviewDetails: Yup.string().nullable(),
       skipNotification: Yup.boolean(),
     });
@@ -223,15 +236,24 @@ const EditInterviewForm = ({
         userEmail: data.userEmail,
         interviewLevel: values.interviewLevel,
         interviewStatus: values.interviewStatus,
+        // Send both spellings so InterviewDto and CoordinatorInterviewUpdateDto both bind.
+        internalFeedback: values.internalFeedback,
         internalFeedBack: values.internalFeedback,
         externalInterviewDetails: values.externalInterviewDetails,
         skipNotification: values.skipNotification,
         assignedTo: values.assignedTo,
         comments: values.comments,
-        clientName: values.clientName,
+        clientName: values.clientName || data.clientName,
       };
 
-      const baseUrl = showCoordinatorFields
+      // Prefer interview-id update for coordinator view; otherwise recruiter-owned update path.
+      // When interviewId is present and caller is not the owner path, coordinator endpoint also
+      // correctly persists feedback for SUPERADMIN/TL/BDM/COORDINATOR.
+      const canUseCoordinatorUpdate =
+        showCoordinatorFields ||
+        ["SUPERADMIN", "BDM", "TEAMLEAD", "COORDINATOR"].includes(role);
+
+      const baseUrl = canUseCoordinatorUpdate && data.interviewId
         ? `/candidate/updateInterviewByCoordinator/${userId}/${data.interviewId}`
         : `/candidate/interview-update/${data.userId || userId}/${
             data.candidateId

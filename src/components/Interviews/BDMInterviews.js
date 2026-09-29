@@ -541,19 +541,15 @@ const BDMInterviews = () => {
     let data;
     
     if (showCoordinatorView) {
-      // Check if coordinator filter is active
-      if (isCoordinatorFilterActive && filterInterviewsForCoordinator.length > 0) {
-        data = filterInterviewsForCoordinator;
+      if (isCoordinatorFilterActive) {
+        data = processInterviewData(filterInterviewsForCoordinator || []);
       } else {
         data = coordinatorInterviews;
       }
+    } else if (isRecruiterFilterActive) {
+      data = processInterviewData(filterInterviewsForRecruiter || []);
     } else {
-      // Check if recruiter filter is active
-      if (isRecruiterFilterActive && filterInterviewsForRecruiter.length > 0) {
-        data = filterInterviewsForRecruiter;
-      } else {
-        data = interviews;
-      }
+      data = interviews;
     }
     
     return filterInterviewsByLevel(data);

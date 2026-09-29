@@ -40,9 +40,11 @@ export const filterTeamMetricsByDateRange = createAsyncThunk(
                 );
                 return { employeeDetails: response.data };
             } else {
-                const [bdmResponse, statsResponse] = await Promise.all([
-                    httpService.get(`/users/bdmlist/filterByDate?startDate=${startDate}&endDate=${endDate}`),
-                    httpService.get(`/requirements/stats/filterByDate?startDate=${startDate}&endDate=${endDate}`)
+                // Must use /requirements/bdmlist (same source as fetchBdmUsers), not /users/bdmlist
+                const [bdmResponse, statsResponse, coordinatorResponse] = await Promise.all([
+                    httpService.get(`/requirements/bdmlist/filterByDate?startDate=${startDate}&endDate=${endDate}`),
+                    httpService.get(`/requirements/stats/filterByDate?startDate=${startDate}&endDate=${endDate}`),
+                    httpService.get(`/requirements/coordinatorstats/filterByDate?startDate=${startDate}&endDate=${endDate}`)
                 ]);
                 
                 return {
@@ -52,7 +54,8 @@ export const filterTeamMetricsByDateRange = createAsyncThunk(
                     ) || [],
                     employeeUsers: statsResponse.data?.userStats?.filter(
                         user => user.role && user.role.toUpperCase() === 'EMPLOYEE'
-                    ) || []
+                    ) || [],
+                    coordinators: coordinatorResponse.data || []
                 };
             }
         } catch (error) {
@@ -166,6 +169,7 @@ export const teamMetricsSlice = createSlice({
                     state.filteredBdmUsers = action.payload.bdmUsers;
                     state.filteredTeamLeadUsers = action.payload.teamLeadUsers;
                     state.filteredEmployeeUsers = action.payload.employeeUsers;
+                    state.filteredCoordinators = action.payload.coordinators || [];
                     state.isFiltered = true;
                 }
             })

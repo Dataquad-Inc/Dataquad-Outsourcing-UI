@@ -43,6 +43,8 @@ import { formatDateTime } from "../../utils/dateformate";
 import {
   fetchInterviewsTeamLead,
   filterInterviewsByTeamLead,
+  clearCoordinatorFilter,
+  clearTeamLeadFilter,
 } from "../../redux/interviewSlice";
 import { useNavigate } from "react-router-dom";
 import InternalFeedbackCell from "./FeedBack";
@@ -97,12 +99,15 @@ const TeamLeadInterviews = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { userId, role } = useSelector((state) => state.auth);
-  const { isFilteredDataRequested } = useSelector((state) => state.bench);
   const {
     selfInterviewsTL,
     teamInterviewsTL,
     filterInterviewsForTeamLeadTeam,
     filterInterviewsForTeamLeadSelf,
+    filterInterviewsForCoordinator,
+    isFilteredDataRequested,
+    isTeamLeadFilterActive,
+    isCoordinatorFilterActive,
   } = useSelector((state) => state.interview);
 
   const fetchInterviews = async () => {
@@ -630,9 +635,18 @@ const handleEdit = (row, isReschedule = false, isScheduleJoining = false) => {
               ? "External Interviews" : "Interviews";
   
   if (showCoordinatorView) {
-    displayData = getFilteredData(coordinatorData);
-    tableTitle = "Coordinator Interviews";
-  } else if (isFilteredDataRequested) {
+    if (isCoordinatorFilterActive) {
+      displayData = getFilteredData(
+        mapDataWithExpandedContent(
+          processInterviewData(filterInterviewsForCoordinator || [])
+        )
+      );
+      tableTitle = "Filtered Coordinator Interviews";
+    } else {
+      displayData = getFilteredData(coordinatorData);
+      tableTitle = "Coordinator Interviews";
+    }
+  } else if (isTeamLeadFilterActive || isFilteredDataRequested) {
     displayData = activeTab === 0 
       ? getFilteredData(filteredSelfInterviewData) 
       : getFilteredData(filteredTeamInterviewData);
@@ -709,7 +723,22 @@ const handleEdit = (row, isReschedule = false, isScheduleJoining = false) => {
               >
                 {showCoordinatorView ? "Regular View" : "Coordinator View"}
               </Button>
-              <DateRangeFilter component="InterviewsForTeamLead" />
+              <DateRangeFilter
+                component={
+                  showCoordinatorView
+                    ? "InterviewsForCoordinator"
+                    : "InterviewsForTeamLead"
+                }
+                onClearFilter={() => {
+                  if (showCoordinatorView) {
+                    dispatch(clearCoordinatorFilter());
+                    fetchCoordinatorInterviews();
+                  } else {
+                    dispatch(clearTeamLeadFilter());
+                    fetchInterviews();
+                  }
+                }}
+              />
             </Box>
           </Stack>
 
