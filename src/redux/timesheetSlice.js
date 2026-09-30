@@ -118,10 +118,17 @@ const normalizePagedResponse = (response) => {
 
 export const fetchMonthlyTimesheets = createAsyncThunk(
   'timesheet/fetchMonthlyTimesheets',
-  async ({ monthStart, monthEnd, page = 0, size = 20 } = {}, { rejectWithValue }) => {
+  async (
+    { monthStart, monthEnd, page = 0, size = 20, search } = {},
+    { rejectWithValue }
+  ) => {
     try {
+      const searchParam = search
+        ? `&search=${encodeURIComponent(search)}`
+        : '';
+
       const response = await httpService.get(
-        `/timesheet/monthly-timesheets?monthStart=${monthStart}&monthEnd=${monthEnd}&page=${page}&size=${size}`
+        `/timesheet/monthly-timesheets?monthStart=${monthStart}&monthEnd=${monthEnd}&page=${page}&size=${size}${searchParam}`
       );
 
       // Debug — remove after verifying
