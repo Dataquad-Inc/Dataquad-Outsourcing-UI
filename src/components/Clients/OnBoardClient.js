@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Formik, Form, Field, FieldArray } from "formik";
 import * as Yup from "yup";
 import { ToastContainer, toast } from "react-toastify";
@@ -24,6 +24,7 @@ import {
   FormControl,
   InputLabel,
   Chip,
+  Switch,
 } from "@mui/material";
 
 import {
@@ -91,6 +92,23 @@ const INDIAN_STATES = [
   // Special
   "Others",
 ];
+
+// ─── Invoice helpers ──────────────────────────────────────────────────────────
+// The Switch in the UI works with a boolean, but the backend expects "Yes"/"No".
+
+// Converts whatever the backend / form holds ("Yes", "No", true, false, "true",
+// null, undefined) into a real boolean for the Switch.
+const normalizeInvoice = (val) => {
+  if (typeof val === "boolean") return val;
+  if (typeof val === "string") {
+    const v = val.trim().toLowerCase();
+    return v === "yes" || v === "true";
+  }
+  return false;
+};
+
+// Converts the boolean form value into the "Yes" / "No" payload value.
+const invoiceToYesNo = (val) => (normalizeInvoice(val) ? "Yes" : "No");
 
 // Create a custom theme
 const theme = createTheme({
@@ -229,6 +247,7 @@ const ClientForm = ({
             { value: "Part-Time", label: "Part-Time" },
             { value: "Contract", label: "Contract" },
             { value: "Internship", label: "Internship" },
+            { value: "Hybrid", label: "Hybrid" },
           ],
         },
         {
@@ -246,7 +265,7 @@ const ClientForm = ({
         },
         {
           name: "clientWebsiteUrl",
-          label: "Client Website URL",
+          label: "Vendor Website URL",
           type: "url",
           placeholder: "https://",
           grid: { xs: 12, sm: 6, md: 4 },
@@ -254,7 +273,7 @@ const ClientForm = ({
         },
         {
           name: "clientLinkedInUrl",
-          label: "Client LinkedIn URL",
+          label: "Vendor LinkedIn URL",
           type: "url",
           placeholder: "https://linkedin.com/company/",
           grid: { xs: 12, sm: 6, md: 4 },
@@ -262,7 +281,7 @@ const ClientForm = ({
         },
         {
           name: "clientAddress",
-          label: "Client Address",
+          label: "Vendor Address",
           type: "text",
           placeholder: "Enter complete address",
           grid: { xs: 12, md: 8 },
@@ -276,7 +295,7 @@ const ClientForm = ({
       fields: [
         {
           name: "currency",
-          label: "Currency",
+          label: "Entity",
           type: "select",
           grid: { xs: 12, sm: 6, md: 3 },
           icon: <AttachMoney color="primary" />,
@@ -300,10 +319,9 @@ const ClientForm = ({
         {
           name: "gst",
           label: "GST",
-          type: "number",
-          placeholder: "0",
+          type: "text",
+          placeholder: "Enter GST",
           grid: { xs: 12, sm: 6, md: 3 },
-          icon: <Percent color="primary" />,
           conditional: () => currency === "INR",
         },
       ],
@@ -354,18 +372,14 @@ const ClientForm = ({
     positionType: Yup.string().nullable(),
     assignedTo: Yup.string().nullable(),
     paymentType: Yup.string().nullable(),
+    invoice: Yup.boolean().nullable(), // form state stays boolean; converted to "Yes"/"No" on submit
     netPayment: Yup.number()
       .positive("Must be a positive number")
       .nullable()
       .transform((value, originalValue) =>
         originalValue === "" ? null : value
       ),
-    gst: Yup.number()
-      .min(0, "GST cannot be negative")
-      .nullable()
-      .transform((value, originalValue) =>
-        originalValue === "" ? null : value
-      ),
+    gst: Yup.string().nullable(),
     supportingCustomers: Yup.array().of(Yup.string().nullable()),
     clientWebsiteUrl: Yup.string()
       .url("Must be a valid URL")
@@ -420,37 +434,30 @@ const ClientForm = ({
     supportingDocuments: [],
     currency: "INR",
     feedBack: "",
+    invoice: false,
   };
 
-  const formInitialValues = initialData || defaultInitialValues;
+  const normalizeArray = (val, fallback = [""]) =>
+    Array.isArray(val) && val.length > 0 ? val : fallback;
 
-  if (
-    !Array.isArray(formInitialValues.clientSpocName) ||
-    formInitialValues.clientSpocName.length === 0
-  ) {
-    formInitialValues.clientSpocName = [""];
-  }
-  if (
-    !Array.isArray(formInitialValues.clientSpocEmailid) ||
-    formInitialValues.clientSpocEmailid.length === 0
-  ) {
-    formInitialValues.clientSpocEmailid = [""];
-  }
-  if (
-    !Array.isArray(formInitialValues.clientSpocMobileNumber) ||
-    formInitialValues.clientSpocMobileNumber.length === 0
-  ) {
-    formInitialValues.clientSpocMobileNumber = [""];
-  }
-  if (
-    !Array.isArray(formInitialValues.clientSpocLinkedin) ||
-    formInitialValues.clientSpocLinkedin.length === 0
-  ) {
-    formInitialValues.clientSpocLinkedin = [""];
-  }
-  if (!Array.isArray(formInitialValues.supportingCustomers)) {
-    formInitialValues.supportingCustomers = [];
-  }
+  const formInitialValues = useMemo(() => {
+    const base = initialData
+      ? { ...initialData }
+      : { ...defaultInitialValues };
+
+    return {
+      ...base,
+      clientSpocName: normalizeArray(base.clientSpocName),
+      clientSpocEmailid: normalizeArray(base.clientSpocEmailid),
+      clientSpocMobileNumber: normalizeArray(base.clientSpocMobileNumber),
+      clientSpocLinkedin: normalizeArray(base.clientSpocLinkedin),
+      supportingCustomers: Array.isArray(base.supportingCustomers)
+        ? base.supportingCustomers
+        : [],
+      // Backend may send "Yes"/"No" (or a boolean) — always give the Switch a boolean
+      invoice: normalizeInvoice(base.invoice),
+    };
+  }, [initialData]);
 
   const handleFileChange = (event) => {
     const selectedFiles = Array.from(event.target.files);
@@ -497,6 +504,7 @@ const ClientForm = ({
         ...values,
         currency,
         onBoardedBy: onBoardedByName,
+        invoice: invoiceToYesNo(values.invoice), // "Yes" / "No" in payload
       };
 
       if (isEdit) {
@@ -796,7 +804,7 @@ const ClientForm = ({
                                           <TextField
                                             {...field}
                                             fullWidth
-                                            placeholder={`Customer ${index + 1}`}
+                                            placeholder={`Client ${index + 1}`}
                                             error={
                                               meta.touched &&
                                               Boolean(meta.error)
@@ -848,7 +856,7 @@ const ClientForm = ({
                           }}
                           sx={{ mt: 1 }}
                         >
-                          Add Customer
+                          Add Client
                         </Button>
                       </Box>
                     )}
@@ -1067,8 +1075,65 @@ const ClientForm = ({
                   <Stack
                     direction={{ xs: "column", sm: "row" }}
                     spacing={2}
-                    justifyContent="flex-end"
+                    alignItems="center"
                   >
+                    {/* Invoice toggle — centered in the free space left of Cancel */}
+                    <Box
+                      sx={{
+                        flex: { xs: "none", sm: 1 },
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                      }}
+                    >
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        alignItems="center"
+                        sx={{
+                          px: 2,
+                          py: 0.5,
+                          border: "1px solid",
+                          borderColor: "divider",
+                          borderRadius: 2,
+                        }}
+                      >
+                        <Typography
+                          variant="subtitle1"
+                          color="primary"
+                          sx={{ mr: 1 }}
+                        >
+                          Invoice
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          color={
+                            !values.invoice ? "text.primary" : "text.secondary"
+                          }
+                          sx={{ fontWeight: !values.invoice ? 600 : 400 }}
+                        >
+                          No
+                        </Typography>
+                        <Switch
+                          color="primary"
+                          checked={Boolean(values.invoice)}
+                          onChange={(e) =>
+                            setFieldValue("invoice", e.target.checked)
+                          }
+                          inputProps={{ "aria-label": "Invoice toggle" }}
+                        />
+                        <Typography
+                          variant="body2"
+                          color={
+                            values.invoice ? "text.primary" : "text.secondary"
+                          }
+                          sx={{ fontWeight: values.invoice ? 600 : 400 }}
+                        >
+                          Yes
+                        </Typography>
+                      </Stack>
+                    </Box>
+
                     {onCancel && (
                       <Button
                         variant="outlined"
