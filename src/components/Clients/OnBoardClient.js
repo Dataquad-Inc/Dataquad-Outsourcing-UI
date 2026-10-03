@@ -305,7 +305,7 @@ const ClientForm = ({
 
   const reportingManagerEmployees = employees.filter((emp) => {
     const role = normalizeRole(emp.roles);
-    return role === "BDM" || role === "SUPERADMIN"
+    return role === "BDM" || role === "SUPERADMIN" || role === "TEAMLEAD";
   });
 
   useEffect(() => {
@@ -1081,7 +1081,7 @@ const ClientForm = ({
                 {/* Main client (top-level clientName) — shown in both create
                     and edit mode, editable and placed ABOVE the Add Client
                     button */}
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} sm={4} md={3}>
                   <Field name="clientName">
                     {({ field, meta }) => (
                       <TextField
