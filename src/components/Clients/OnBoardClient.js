@@ -110,6 +110,112 @@ const normalizeInvoice = (val) => {
 // Converts the boolean form value into the "Yes" / "No" payload value.
 const invoiceToYesNo = (val) => (normalizeInvoice(val) ? "Yes" : "No");
 
+// ─── Supporting customer helpers ──────────────────────────────────────────────
+// Backend shape:  { clientName: "KPMG", netPay: 50000 }
+// Form shape:     { clientName: "KPMG", netPay: 50000 }   (same keys)
+//
+// Incoming data (edit mode) is normalised so that:
+//   - { clientName, netPay }       -> used as is
+//   - { clientName, netPayment }   -> legacy key, mapped to netPay
+//   - plain string                 -> { clientName: string, netPay: "" }
+const normalizeSupportingCustomers = (val) =>
+  Array.isArray(val)
+    ? val.map((item) =>
+        item && typeof item === "object"
+          ? {
+              clientName: item.clientName ?? "",
+              netPay: item.netPay ?? item.netPayment ?? "",
+            }
+          : { clientName: item ?? "", netPay: "" }
+      )
+    : [];
+
+// Builds the payload shape expected by the backend:
+//   [{ clientName: "KPMG", netPay: 50000 }, ...]
+// Rows that are completely empty are dropped; netPay becomes a number or null.
+const buildSupportingCustomersPayload = (list) =>
+  (Array.isArray(list) ? list : [])
+    .map((item) => {
+      const clientName =
+        typeof item?.clientName === "string" ? item.clientName.trim() : "";
+      const rawPay = item?.netPay;
+      const hasPay =
+        rawPay !== "" &&
+        rawPay !== null &&
+        rawPay !== undefined &&
+        !Number.isNaN(Number(rawPay));
+      return {
+        clientName,
+        netPay: hasPay ? Number(rawPay) : null,
+      };
+    })
+    .filter((item) => item.clientName !== "" || item.netPay !== null);
+
+// ─── GSTIN validation helpers ─────────────────────────────────────────────────
+const GSTIN_CHARSET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+// Valid state / UT codes (01–38, plus 97 = Other Territory, 99 = Centre Jurisdiction)
+const VALID_GST_STATE_CODES = new Set([
+  ...Array.from({ length: 38 }, (_, i) => String(i + 1).padStart(2, "0")),
+  "97",
+  "99",
+]);
+
+// Structure: 2 digits | PAN (5 letters, 4 digits, 1 letter) | entity code (1-9 / A-Z) | 'Z' | checksum
+const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+
+// 4th character of the PAN = holder type (P = Person, C = Company, F = Firm, ...)
+const VALID_PAN_HOLDER_TYPES = "PCHFATBLJG";
+
+// Modified Luhn Mod-36: computes the expected 15th character from the first 14
+const getGstinChecksumChar = (first14) => {
+  let sum = 0;
+  for (let i = 0; i < 14; i++) {
+    const value = GSTIN_CHARSET.indexOf(first14[i]);
+    const product = value * (i % 2 === 0 ? 1 : 2);
+    sum += Math.floor(product / 36) + (product % 36);
+  }
+  return GSTIN_CHARSET[(36 - (sum % 36)) % 36];
+};
+
+const gstinSchema = Yup.string()
+  .nullable()
+  .transform((value) =>
+    typeof value === "string" ? value.trim().toUpperCase() || null : value
+  )
+  .test("gstin-length", "GSTIN must be exactly 15 characters", (value) =>
+    !value ? true : value.length === 15
+  )
+  .test(
+    "gstin-format",
+    "Invalid GSTIN format (e.g. 29AAAAA1111A1Z1)",
+    (value) => (!value || value.length !== 15 ? true : GSTIN_REGEX.test(value))
+  )
+  .test(
+    "gstin-state",
+    "Invalid state code (first 2 digits)",
+    (value) =>
+      !value || !GSTIN_REGEX.test(value)
+        ? true
+        : VALID_GST_STATE_CODES.has(value.slice(0, 2))
+  )
+  .test(
+    "gstin-pan",
+    "GSTIN contains an invalid PAN (characters 3–12)",
+    (value) =>
+      !value || !GSTIN_REGEX.test(value)
+        ? true
+        : VALID_PAN_HOLDER_TYPES.includes(value[5]) // 4th char of PAN = 6th char of GSTIN
+  )
+  .test(
+    "gstin-checksum",
+    "Invalid GSTIN (checksum digit does not match)",
+    (value) =>
+      !value || !GSTIN_REGEX.test(value)
+        ? true
+        : getGstinChecksumChar(value.slice(0, 14)) === value[14]
+  );
+
 // Create a custom theme
 const theme = createTheme({
   palette: {
@@ -189,6 +295,19 @@ const ClientForm = ({
     (emp) => emp.roles && emp.roles.toUpperCase() === "BDM"
   );
 
+  // Reporting Manager dropdown: BDMs + Super Admins.
+  // Role text is normalized (letters only, uppercase) so "SUPERADMIN",
+  // "SUPER_ADMIN", "Super Admin" etc. all match.
+  const normalizeRole = (role) =>
+    String(role || "")
+      .replace(/[^a-zA-Z]/g, "")
+      .toUpperCase();
+
+  const reportingManagerEmployees = employees.filter((emp) => {
+    const role = normalizeRole(emp.roles);
+    return role === "BDM" || role === "SUPERADMIN"
+  });
+
   useEffect(() => {
     dispatch(fetchEmployees());
   }, [dispatch]);
@@ -196,7 +315,9 @@ const ClientForm = ({
   useEffect(() => {
     if (initialData) {
       setCurrency(initialData.currency || "INR");
-      setOnBoardedBy(initialData.onBoardedBy || "");
+      setOnBoardedBy(
+        initialData.onBoardedBy || initialData.bdmName || userName || ""
+      );
 
       if (
         isEdit &&
@@ -222,15 +343,15 @@ const ClientForm = ({
         }
       }
     }
-  }, [initialData, isEdit]);
+  }, [initialData, isEdit, userName]);
 
   const formFields = [
     {
       section: "Basic Information",
       fields: [
         {
-          name: "clientName",
-          label: "Client Name",
+          name: "vendorName",
+          label: "Vendor Name",
           required: true,
           type: "text",
           grid: { xs: 12, sm: 6, md: 4 },
@@ -264,7 +385,7 @@ const ClientForm = ({
             : [{ value: "", label: "No BDMs Available" }],
         },
         {
-          name: "clientWebsiteUrl",
+          name: "vendorWebsiteUrl",
           label: "Vendor Website URL",
           type: "url",
           placeholder: "https://",
@@ -272,7 +393,7 @@ const ClientForm = ({
           icon: <Language color="primary" />,
         },
         {
-          name: "clientLinkedInUrl",
+          name: "vendorLinkedInUrl",
           label: "Vendor LinkedIn URL",
           type: "url",
           placeholder: "https://linkedin.com/company/",
@@ -280,7 +401,20 @@ const ClientForm = ({
           icon: <LinkedIn color="primary" />,
         },
         {
-          name: "clientAddress",
+          name: "accountManager",
+          label: "Account Manager",
+          type: "select",
+          grid: { xs: 12, sm: 6, md: 4 },
+          icon: <Person color="primary" />,
+          options: reportingManagerEmployees.length
+            ? reportingManagerEmployees.map((emp) => ({
+                value: emp.userName,
+                label: `${emp.userName}`,
+              }))
+            : [{ value: "", label: "No Managers Available" }],
+        },
+        {
+          name: "vendorAddress",
           label: "Vendor Address",
           type: "text",
           placeholder: "Enter complete address",
@@ -320,9 +454,11 @@ const ClientForm = ({
           name: "gst",
           label: "GST",
           type: "text",
-          placeholder: "Enter GST",
+          placeholder: "e.g. 29AAAAA1111A1Z1",
           grid: { xs: 12, sm: 6, md: 3 },
           conditional: () => currency === "INR",
+          uppercase: true, // force uppercase + 15-char limit while typing
+          maxLength: 15,
         },
       ],
     },
@@ -362,15 +498,20 @@ const ClientForm = ({
   ];
 
   const validationSchema = Yup.object().shape({
-    clientName: Yup.string()
-      .required("Client name is required")
-      .max(50, "Client name must be at most 35 characters"),
-    clientAddress: Yup.string()
+    // Top-level client name (shown in both create and edit mode).
+    // To make it mandatory use:
+    //   Yup.string().trim().required("Client name is required")
+    clientName: Yup.string().nullable(),
+    vendorName: Yup.string()
+      .required("Vendor name is required")
+      .max(50, "Vendor name must be at most 50 characters"),
+    vendorAddress: Yup.string()
       .nullable()
-      .max(250, "Client address must be at most 100 characters"),
+      .max(250, "Vendor address must be at most 250 characters"),
     location: Yup.string().nullable(),
     positionType: Yup.string().nullable(),
     assignedTo: Yup.string().nullable(),
+    reportingManager: Yup.string().nullable(),
     paymentType: Yup.string().nullable(),
     invoice: Yup.boolean().nullable(), // form state stays boolean; converted to "Yes"/"No" on submit
     netPayment: Yup.number()
@@ -379,13 +520,32 @@ const ClientForm = ({
       .transform((value, originalValue) =>
         originalValue === "" ? null : value
       ),
-    gst: Yup.string().nullable(),
-    supportingCustomers: Yup.array().of(Yup.string().nullable()),
-    clientWebsiteUrl: Yup.string()
+    // GSTIN is only applicable (and shown) for INR; skip validation otherwise
+    gst: Yup.string()
+      .nullable()
+      .when("currency", {
+        is: "INR",
+        then: () => gstinSchema,
+        otherwise: (schema) => schema.nullable(),
+      }),
+    // Each supporting customer: { clientName (required), netPay }
+    supportingCustomers: Yup.array().of(
+      Yup.object().shape({
+        clientName: Yup.string().trim().required("Client name is required"),
+        netPay: Yup.number()
+          .typeError("Must be a number")
+          .positive("Must be a positive number")
+          .nullable()
+          .transform((value, originalValue) =>
+            originalValue === "" || originalValue === null ? null : value
+          ),
+      })
+    ),
+    vendorWebsiteUrl: Yup.string()
       .url("Must be a valid URL")
       .nullable()
       .transform((value) => (value === "" ? null : value)),
-    clientLinkedInUrl: Yup.string()
+    vendorLinkedInUrl: Yup.string()
       .url("Must be a valid URL")
       .nullable()
       .transform((value) => (value === "" ? null : value)),
@@ -417,16 +577,18 @@ const ClientForm = ({
 
   const defaultInitialValues = {
     clientName: "",
-    clientAddress: "",
+    vendorName: "",
+    vendorAddress: "",
     location: "",
     positionType: "",
     assignedTo: "",
+    reportingManager: "",
     netPayment: "",
     onBoardedBy: onBoardedByName,
     gst: "",
     supportingCustomers: [],
-    clientWebsiteUrl: "",
-    clientLinkedInUrl: "",
+    vendorWebsiteUrl: "",
+    vendorLinkedInUrl: "",
     clientSpocName: [""],
     clientSpocEmailid: [""],
     clientSpocMobileNumber: [""],
@@ -441,22 +603,54 @@ const ClientForm = ({
     Array.isArray(val) && val.length > 0 ? val : fallback;
 
   const formInitialValues = useMemo(() => {
-    const base = initialData
-      ? { ...initialData }
-      : { ...defaultInitialValues };
+    if (!initialData) {
+      return {
+        ...defaultInitialValues,
+        onBoardedBy: onBoardedByName,
+      };
+    }
 
-    return {
-      ...base,
-      clientSpocName: normalizeArray(base.clientSpocName),
-      clientSpocEmailid: normalizeArray(base.clientSpocEmailid),
-      clientSpocMobileNumber: normalizeArray(base.clientSpocMobileNumber),
-      clientSpocLinkedin: normalizeArray(base.clientSpocLinkedin),
-      supportingCustomers: Array.isArray(base.supportingCustomers)
-        ? base.supportingCustomers
-        : [],
-      // Backend may send "Yes"/"No" (or a boolean) — always give the Switch a boolean
-      invoice: normalizeInvoice(base.invoice),
+    // Map API response fields to form fields
+    const base = {
+      // Top-level client (outside supportingCustomers) — editable
+      clientName: initialData.clientName || "",
+      // vendorName: API may send vendorName OR clientName
+      vendorName: initialData.vendorName || initialData.clientName || "",
+      vendorAddress:
+        initialData.vendorAddress || initialData.clientAddress || "",
+      location: initialData.location || "",
+      positionType: initialData.positionType || "",
+      assignedTo: initialData.assignedTo || "",
+      reportingManager: initialData.reportingManager || "",
+      netPayment: initialData.netPayment ?? "",
+      onBoardedBy: initialData.onBoardedBy || onBoardedByName,
+      gst: initialData.gst || "",
+      vendorWebsiteUrl:
+        initialData.vendorWebsiteUrl || initialData.clientWebsiteUrl || "",
+      vendorLinkedInUrl:
+        initialData.vendorLinkedInUrl || initialData.clientLinkedInUrl || "",
+      currency: initialData.currency || "INR",
+      feedBack: initialData.feedBack || "",
+      invoice: normalizeInvoice(initialData.invoice),
+
+      // Contact persons (SPOC) — these are arrays
+      clientSpocName: normalizeArray(initialData.clientSpocName),
+      clientSpocEmailid: normalizeArray(initialData.clientSpocEmailid),
+      clientSpocMobileNumber: normalizeArray(
+        initialData.clientSpocMobileNumber
+      ),
+      clientSpocLinkedin: normalizeArray(initialData.clientSpocLinkedin),
+
+      // Supporting customers — separate from the top-level client
+      supportingCustomers: normalizeSupportingCustomers(
+        initialData.supportingCustomers
+      ),
+
+      supportingDocuments: initialData.supportingDocuments || [],
     };
+
+    return base;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialData]);
 
   const handleFileChange = (event) => {
@@ -505,6 +699,15 @@ const ClientForm = ({
         currency,
         onBoardedBy: onBoardedByName,
         invoice: invoiceToYesNo(values.invoice), // "Yes" / "No" in payload
+        // Send a trimmed, uppercase GSTIN (matches what was validated)
+        gst:
+          typeof values.gst === "string"
+            ? values.gst.trim().toUpperCase()
+            : values.gst,
+        // Payload shape: [{ clientName: "KPMG", netPay: 50000 }, ...]
+        supportingCustomers: buildSupportingCustomersPayload(
+          values.supportingCustomers
+        ),
       };
 
       if (isEdit) {
@@ -572,6 +775,7 @@ const ClientForm = ({
               labelId={`${field.name}-label`}
               id={field.name}
               name={field.name}
+              label={field.label}
               value={values[field.name] || ""}
               onChange={(e) => {
                 if (field.customHandler) {
@@ -613,6 +817,13 @@ const ClientForm = ({
           {({ field: formikField, meta }) => (
             <TextField
               {...formikField}
+              onChange={(e) => {
+                if (field.uppercase) {
+                  setFieldValue(field.name, e.target.value.toUpperCase());
+                } else {
+                  formikField.onChange(e);
+                }
+              }}
               fullWidth
               label={field.label}
               placeholder={field.placeholder || ""}
@@ -620,6 +831,9 @@ const ClientForm = ({
               type={field.type || "text"}
               error={meta.touched && Boolean(meta.error)}
               helperText={meta.touched && meta.error}
+              inputProps={
+                field.maxLength ? { maxLength: field.maxLength } : undefined
+              }
               InputProps={{
                 startAdornment: field.icon && (
                   <InputAdornment position="start">{field.icon}</InputAdornment>
@@ -711,6 +925,64 @@ const ClientForm = ({
     </React.Fragment>
   );
 
+  // ── Invoice toggle renderer (highlighted, shown at the right end of the
+  //    Basic Information header) ─────────────────────────────────────────────
+  const renderInvoiceToggle = (values, setFieldValue) => {
+    const isOn = Boolean(values.invoice);
+    return (
+      <Stack
+        direction="row"
+        spacing={2}
+        alignItems="center"
+        sx={{
+          ml: { xs: 0, sm: 4 }, // gap between the section title and the toggle
+          px: 3,
+          py: 1,
+          border: "2px solid",
+          borderColor: isOn ? "success.main" : "primary.main",
+          borderRadius: 3,
+          bgcolor: isOn ? "rgba(46, 125, 50, 0.10)" : "rgba(26, 35, 126, 0.07)",
+          boxShadow: isOn
+            ? "0 0 0 4px rgba(46, 125, 50, 0.15)"
+            : "0 0 0 4px rgba(26, 35, 126, 0.12)",
+          transition: "all 0.25s ease",
+        }}
+      >
+        <Typography
+          variant="subtitle1"
+          color={isOn ? "success.main" : "primary"}
+          sx={{ fontWeight: 700, letterSpacing: 0.5 }}
+        >
+          Invoice
+        </Typography>
+
+        <Stack direction="row" spacing={1.5} alignItems="center">
+          <Typography
+            variant="body2"
+            color={!isOn ? "text.primary" : "text.disabled"}
+            sx={{ fontWeight: !isOn ? 700 : 400 }}
+          >
+            No
+          </Typography>
+          <Switch
+            color={isOn ? "success" : "primary"}
+            checked={isOn}
+            onChange={(e) => setFieldValue("invoice", e.target.checked)}
+            inputProps={{ "aria-label": "Invoice toggle" }}
+            sx={{ transform: "scale(1.25)", mx: 0.5 }}
+          />
+          <Typography
+            variant="body2"
+            color={isOn ? "success.main" : "text.disabled"}
+            sx={{ fontWeight: isOn ? 700 : 400 }}
+          >
+            Yes
+          </Typography>
+        </Stack>
+      </Stack>
+    );
+  };
+
   return (
     <ThemeProvider theme={theme}>
       <Box sx={{ p: 2 }}>
@@ -739,13 +1011,36 @@ const ClientForm = ({
                 {formFields.map((section, sectionIndex) => (
                   <React.Fragment key={`section-${sectionIndex}`}>
                     <Grid item xs={12}>
-                      <Typography
-                        variant="h6"
-                        color="primary"
-                        sx={{ mb: 1, fontWeight: 500 }}
-                      >
-                        {section.section}
-                      </Typography>
+                      {section.section === "Basic Information" ? (
+                        // Title on the left, Invoice toggle at the right end
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            flexWrap: "wrap",
+                            gap: 2,
+                            mb: 1,
+                          }}
+                        >
+                          <Typography
+                            variant="h6"
+                            color="primary"
+                            sx={{ fontWeight: 500 }}
+                          >
+                            {section.section}
+                          </Typography>
+                          {renderInvoiceToggle(values, setFieldValue)}
+                        </Box>
+                      ) : (
+                        <Typography
+                          variant="h6"
+                          color="primary"
+                          sx={{ mb: 1, fontWeight: 500 }}
+                        >
+                          {section.section}
+                        </Typography>
+                      )}
                       <Divider sx={{ mb: 3 }} />
                     </Grid>
 
@@ -782,10 +1077,54 @@ const ClientForm = ({
                   </Typography>
                   <Divider sx={{ mb: 3 }} />
                 </Grid>
+
+                {/* Main client (top-level clientName) — shown in both create
+                    and edit mode, editable and placed ABOVE the Add Client
+                    button */}
+                <Grid item xs={12} md={6}>
+                  <Field name="clientName">
+                    {({ field, meta }) => (
+                      <TextField
+                        {...field}
+                        value={field.value ?? ""}
+                        fullWidth
+                        label="Client Name"
+                        placeholder="Enter client name"
+                        error={meta.touched && Boolean(meta.error)}
+                        helperText={meta.touched && meta.error}
+                        variant="outlined"
+                        InputLabelProps={{ shrink: true }}
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <Business color="primary" />
+                            </InputAdornment>
+                          ),
+                        }}
+                      />
+                    )}
+                  </Field>
+                </Grid>
+
                 <Grid item xs={12}>
                   <FieldArray name="supportingCustomers">
                     {({ push, remove }) => (
                       <Box>
+                        {/* Add Client button — ABOVE the rows */}
+                        <Button
+                          startIcon={<AddCircleOutline />}
+                          variant="outlined"
+                          color="primary"
+                          onClick={() => {
+                            push({ clientName: "", netPay: "" });
+                            showToast("New client field added", "info");
+                          }}
+                          sx={{ mb: 2 }}
+                        >
+                          Add Client
+                        </Button>
+
+                        {/* Rows render BELOW the button */}
                         {values.supportingCustomers &&
                         values.supportingCustomers.length > 0 ? (
                           <Paper
@@ -795,15 +1134,19 @@ const ClientForm = ({
                             <Grid container spacing={2}>
                               {values.supportingCustomers.map(
                                 (customer, index) => (
-                                  <Grid item xs={12} sm={6} md={3} key={index}>
+                                  <Grid item xs={12} md={6} key={index}>
                                     <Box sx={{ display: "flex", gap: 1 }}>
+                                      {/* Client {index+1} — required */}
                                       <Field
-                                        name={`supportingCustomers.${index}`}
+                                        name={`supportingCustomers.${index}.clientName`}
                                       >
                                         {({ field, meta }) => (
                                           <TextField
                                             {...field}
+                                            value={field.value ?? ""}
                                             fullWidth
+                                            required
+                                            label={`Client ${index + 1}`}
                                             placeholder={`Client ${index + 1}`}
                                             error={
                                               meta.touched &&
@@ -814,6 +1157,34 @@ const ClientForm = ({
                                             }
                                             variant="outlined"
                                             size="medium"
+                                            InputLabelProps={{ shrink: true }}
+                                          />
+                                        )}
+                                      </Field>
+                                      {/* Net Payment {index+1} — stored as netPay */}
+                                      <Field
+                                        name={`supportingCustomers.${index}.netPay`}
+                                      >
+                                        {({ field, meta }) => (
+                                          <TextField
+                                            {...field}
+                                            value={field.value ?? ""}
+                                            fullWidth
+                                            type="number"
+                                            label={`Net Payment ${index + 1}`}
+                                            placeholder={`Net Payment ${
+                                              index + 1
+                                            }`}
+                                            error={
+                                              meta.touched &&
+                                              Boolean(meta.error)
+                                            }
+                                            helperText={
+                                              meta.touched && meta.error
+                                            }
+                                            variant="outlined"
+                                            size="medium"
+                                            InputLabelProps={{ shrink: true }}
                                           />
                                         )}
                                       </Field>
@@ -821,12 +1192,15 @@ const ClientForm = ({
                                         color="error"
                                         onClick={() => {
                                           remove(index);
-                                          showToast("Customer removed", "info");
+                                          showToast("Client removed", "info");
                                         }}
                                         sx={{
                                           border: "1px solid",
                                           borderColor: "divider",
                                           borderRadius: 2,
+                                          alignSelf: "flex-start",
+                                          height: 56,
+                                          width: 56,
                                         }}
                                       >
                                         <RemoveCircleOutline />
@@ -846,18 +1220,6 @@ const ClientForm = ({
                             No supporting customers added
                           </Typography>
                         )}
-                        <Button
-                          startIcon={<AddCircleOutline />}
-                          variant="outlined"
-                          color="primary"
-                          onClick={() => {
-                            push("");
-                            showToast("New customer field added", "info");
-                          }}
-                          sx={{ mt: 1 }}
-                        >
-                          Add Client
-                        </Button>
                       </Box>
                     )}
                   </FieldArray>
@@ -1076,64 +1438,8 @@ const ClientForm = ({
                     direction={{ xs: "column", sm: "row" }}
                     spacing={2}
                     alignItems="center"
+                    justifyContent="flex-end"
                   >
-                    {/* Invoice toggle — centered in the free space left of Cancel */}
-                    <Box
-                      sx={{
-                        flex: { xs: "none", sm: 1 },
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                      }}
-                    >
-                      <Stack
-                        direction="row"
-                        spacing={1}
-                        alignItems="center"
-                        sx={{
-                          px: 2,
-                          py: 0.5,
-                          border: "1px solid",
-                          borderColor: "divider",
-                          borderRadius: 2,
-                        }}
-                      >
-                        <Typography
-                          variant="subtitle1"
-                          color="primary"
-                          sx={{ mr: 1 }}
-                        >
-                          Invoice
-                        </Typography>
-                        <Typography
-                          variant="body2"
-                          color={
-                            !values.invoice ? "text.primary" : "text.secondary"
-                          }
-                          sx={{ fontWeight: !values.invoice ? 600 : 400 }}
-                        >
-                          No
-                        </Typography>
-                        <Switch
-                          color="primary"
-                          checked={Boolean(values.invoice)}
-                          onChange={(e) =>
-                            setFieldValue("invoice", e.target.checked)
-                          }
-                          inputProps={{ "aria-label": "Invoice toggle" }}
-                        />
-                        <Typography
-                          variant="body2"
-                          color={
-                            values.invoice ? "text.primary" : "text.secondary"
-                          }
-                          sx={{ fontWeight: values.invoice ? 600 : 400 }}
-                        >
-                          Yes
-                        </Typography>
-                      </Stack>
-                    </Box>
-
                     {onCancel && (
                       <Button
                         variant="outlined"
