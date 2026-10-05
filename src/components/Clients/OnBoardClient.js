@@ -369,7 +369,7 @@ const ClientForm = ({
   const employeesLoading = fetchStatus === "loading";
 
   const bdmEmployees = employees.filter(
-    (emp) => emp.roles && emp.roles.toUpperCase() === "BDM"
+    (emp) => emp.roles && emp.roles.toUpperCase() === "BDM" || emp.roles.toUpperCase() === "SUPERADMIN"
   );
 
   // Account Manager dropdown: BDMs + Super Admins + Team Leads.
