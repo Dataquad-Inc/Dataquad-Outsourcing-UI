@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useTheme } from "@mui/material/styles";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -51,7 +51,10 @@ const validationSchema = Yup.object().shape({
     .email("Invalid email format")
     .required("Email is required"),
   candidateContactNo: Yup.string()
-    .matches(/^(\+?\d{10}|\+?\d{12}|\+?\d{15})$/, "Contact number must be 10, 12, or 15 digits")
+    .matches(
+      /^(\+?\d{10}|\+?\d{12}|\+?\d{15})$/,
+      "Contact number must be 10, 12, or 15 digits"
+    )
     .required("Phone number is required"),
   technology: Yup.string().required("Technology is required"),
   clientName: Yup.string().required("Client name is required"),
@@ -74,14 +77,14 @@ const validationSchema = Yup.object().shape({
 });
 
 // Component for Employee Autocomplete field
-const EmployeeAutocomplete = ({ 
-  id, 
-  label, 
-  options, 
-  loading, 
-  value, 
-  onChange, 
-  error, 
+const EmployeeAutocomplete = ({
+  id,
+  label,
+  options,
+  loading,
+  value,
+  onChange,
+  error,
   helperText,
   placeholder,
   required = false,
@@ -95,7 +98,7 @@ const EmployeeAutocomplete = ({
   }, [value]);
 
   // Find the matching option for the current value
-  const matchedOption = options.find(opt => opt.value === value);
+  const matchedOption = options.find((opt) => opt.value === value);
 
   return (
     <Autocomplete
@@ -106,7 +109,6 @@ const EmployeeAutocomplete = ({
       value={matchedOption || (value ? { value: value, label: value } : null)}
       inputValue={inputValue}
       getOptionLabel={(option) => {
-        // Handle both string and object options
         if (typeof option === "string") return option;
         return option?.label || "";
       }}
@@ -115,7 +117,6 @@ const EmployeeAutocomplete = ({
         return option.value === value.value;
       }}
       onChange={(event, newValue) => {
-        // Handle freeSolo input (string) and selected option (object)
         if (typeof newValue === "string") {
           onChange(newValue);
           setInputValue(newValue);
@@ -129,13 +130,11 @@ const EmployeeAutocomplete = ({
       }}
       onInputChange={(event, newInputValue, reason) => {
         setInputValue(newInputValue);
-        // When user clears the field, propagate empty value up
         if (reason === "clear") {
           onChange("");
         }
       }}
       onBlur={() => {
-        // Commit any typed-but-not-selected text when the field loses focus
         if (inputValue && inputValue !== value) {
           onChange(inputValue);
         }
@@ -145,7 +144,7 @@ const EmployeeAutocomplete = ({
         <TextField
           {...params}
           fullWidth
-          label={`${label}${required ? ' *' : ''}`}
+          label={`${label}${required ? " *" : ""}`}
           error={error}
           helperText={helperText}
           placeholder={placeholder}
@@ -153,31 +152,31 @@ const EmployeeAutocomplete = ({
             ...params.InputProps,
             endAdornment: (
               <>
-                {loading ? <CircularProgress color="inherit" size={20} /> : null}
+                {loading ? (
+                  <CircularProgress color="inherit" size={20} />
+                ) : null}
                 {params.InputProps.endAdornment}
               </>
             ),
           }}
         />
       )}
-      noOptionsText={loading ? "Loading employees..." : "No employees found"}
+      noOptionsText={loading ? "Loading..." : "No options found"}
       filterOptions={(options, { inputValue: filterValue }) => {
         const searchLower = filterValue.toLowerCase();
-        return options.filter(option => 
-          option.label.toLowerCase().includes(searchLower) ||
-          (option.email && option.email.toLowerCase().includes(searchLower)) ||
-          (option.id && option.id.toLowerCase().includes(searchLower))
+        return options.filter(
+          (option) =>
+            option.label.toLowerCase().includes(searchLower) ||
+            (option.email &&
+              option.email.toLowerCase().includes(searchLower)) ||
+            (option.id && option.id.toLowerCase().includes(searchLower))
         );
       }}
     />
   );
 };
 
-const PlacementForm = ({
-  initialValues = {},
-  onCancel,
-  isEdit = false,
-}) => {
+const PlacementForm = ({ initialValues = {}, onCancel, isEdit = false }) => {
   const theme = useTheme();
   const dispatch = useDispatch();
   const { loading, error, success } = useSelector((state) => state.placement);
@@ -187,56 +186,110 @@ const PlacementForm = ({
     error: null,
     response: null,
   });
-  
-  const [employeeOptions, setEmployeeOptions] = useState({ 
-    recruiters: [], 
-    sales: [], 
-    teamleads: [] 
+
+  const [employeeOptions, setEmployeeOptions] = useState({
+    recruiters: [],
+    sales: [],
+    teamleads: [],
   });
   const [loadingEmployees, setLoadingEmployees] = useState(false);
 
+  // --- NEW: vendor / client state ---
+  const [vendorOptions, setVendorOptions] = useState([]);
+  const [clientOptions, setClientOptions] = useState([]);
+  const [loadingVendors, setLoadingVendors] = useState(false);
+
   const { userId, encryptionKey, role } = useSelector((state) => state.auth);
-  const isLocked = isEdit && (initialValues.lock === true || initialValues.lock === 'true') && role !== 'SUPERADMIN';
-  console.log('lock debug:', { lock: initialValues.lock, lockType: typeof initialValues.lock, role, isLocked });
+  const isLocked =
+    isEdit &&
+    (initialValues.lock === true || initialValues.lock === "true") &&
+    role !== "SUPERADMIN";
+  console.log("lock debug:", {
+    lock: initialValues.lock,
+    lockType: typeof initialValues.lock,
+    role,
+    isLocked,
+  });
   const decryptionKey = atob(encryptionKey);
   const FINANCIAL_SECRET_KEY = decryptionKey;
 
   // Fetch all employees with entity US
   useEffect(() => {
-  const fetchEmployees = async () => {
-    setLoadingEmployees(true);
-    try {
-      const response = await httpService.get("/users/employee?entity=IN");
+    const fetchEmployees = async () => {
+      setLoadingEmployees(true);
+      try {
+        const response = await httpService.get("/users/employee?entity=IN");
 
-      if (response.data && Array.isArray(response.data)) {
-        const employees = response.data
-          .filter(emp => emp.userName && emp.userName.trim() !== "")
-          .map(emp => ({
-            value: emp.userName,
-            label: emp.userName,
-            id: emp.employeeId,
-            email: emp.email,
-            designation: emp.designation,
-            roles: emp.roles,
-          }))
-          .sort((a, b) => a.label.localeCompare(b.label));
+        if (response.data && Array.isArray(response.data)) {
+          const employees = response.data
+            .filter((emp) => emp.userName && emp.userName.trim() !== "")
+            .map((emp) => ({
+              value: emp.userName,
+              label: emp.userName,
+              id: emp.employeeId,
+              email: emp.email,
+              designation: emp.designation,
+              roles: emp.roles,
+            }))
+            .sort((a, b) => a.label.localeCompare(b.label));
 
-        setEmployeeOptions({
-          recruiters: employees,
-          sales: employees,
-          teamleads: employees,
-        });
+          setEmployeeOptions({
+            recruiters: employees,
+            sales: employees,
+            teamleads: employees,
+          });
+        }
+      } catch (error) {
+        console.error(
+          "Error fetching employees:",
+          error?.response?.data || error.message
+        );
+        setEmployeeOptions({ recruiters: [], sales: [], teamleads: [] });
+      } finally {
+        setLoadingEmployees(false);
       }
-    } catch (error) {
-      console.error("Error fetching employees:", error?.response?.data || error.message);
-      setEmployeeOptions({ recruiters: [], sales: [], teamleads: [] });
-    } finally {
-      setLoadingEmployees(false);
-    }
-  };
+    };
 
-  fetchEmployees();
-}, []);
+    fetchEmployees();
+  }, []);
+
+  // --- NEW: fetch vendors (with their clients) ---
+  useEffect(() => {
+    const fetchVendors = async () => {
+      setLoadingVendors(true);
+      try {
+        const response = await httpService.get(
+          "/requirements/bdm/invoice/yes/vendors"
+        );
+
+        const data = response?.data?.data || response?.data || [];
+
+        if (Array.isArray(data)) {
+          const vendors = data
+            .filter((v) => v.vendorName && v.vendorName.trim() !== "")
+            .map((v) => ({
+              value: v.vendorName,
+              label: v.vendorName,
+              vendorId: v.vendorId,
+              clients: Array.isArray(v.clients) ? v.clients : [],
+            }))
+            .sort((a, b) => a.label.localeCompare(b.label));
+
+          setVendorOptions(vendors);
+        }
+      } catch (err) {
+        console.error(
+          "Error fetching vendors:",
+          err?.response?.data || err.message
+        );
+        setVendorOptions([]);
+      } finally {
+        setLoadingVendors(false);
+      }
+    };
+
+    fetchVendors();
+  }, []);
 
   const encryptFinancialValue = (value) => {
     if (!value) return value;
@@ -255,8 +308,11 @@ const PlacementForm = ({
       if (!isNaN(parseFloat(encryptedValue))) {
         return encryptedValue;
       }
-      
-      const bytes = CryptoJS.AES.decrypt(encryptedValue, FINANCIAL_SECRET_KEY);
+
+      const bytes = CryptoJS.AES.decrypt(
+        encryptedValue,
+        FINANCIAL_SECRET_KEY
+      );
       const decryptedValue = bytes.toString(CryptoJS.enc.Utf8);
       return decryptedValue || encryptedValue;
     } catch (error) {
@@ -341,8 +397,8 @@ const PlacementForm = ({
       options: [
         { value: "Dataquad", label: "Dataquad" },
         { value: "Adroit", label: "Adroit" },
-      ]
-    }
+      ],
+    },
   ];
 
   const financialFields = [
@@ -442,18 +498,18 @@ const PlacementForm = ({
     if (!dateStr) return "";
     try {
       let date;
-      
+
       if (dayjs.isDayjs(dateStr)) {
         date = dateStr;
       } else {
         date = dayjs.utc(dateStr);
       }
-      
+
       if (!date.isValid()) {
         console.warn("Invalid date for display:", dateStr);
         return "";
       }
-      
+
       return date.format("MM/DD/YYYY");
     } catch (error) {
       console.error("Error formatting date for display:", error, dateStr);
@@ -465,18 +521,18 @@ const PlacementForm = ({
     if (!dateStr) return "";
     try {
       let date;
-      
+
       if (dayjs.isDayjs(dateStr)) {
         date = dateStr;
       } else {
         date = dayjs(dateStr);
       }
-      
+
       if (!date.isValid()) {
         console.warn("Invalid date for input:", dateStr);
         return "";
       }
-      
+
       return date.format("YYYY-MM-DD");
     } catch (error) {
       console.error("Error formatting date for input:", error, dateStr);
@@ -492,7 +548,7 @@ const PlacementForm = ({
         console.warn("Invalid date for submission:", dateStr);
         return null;
       }
-      
+
       return date.format("YYYY-MM-DD");
     } catch (error) {
       console.error("Error formatting date for submission:", error, dateStr);
@@ -513,10 +569,16 @@ const PlacementForm = ({
 
   // Prepare initial values with decryption for financial fields
   const getInitialFormValues = () => {
-    const decryptedBillRate = initialValues.billRate ? decryptFinancialValue(initialValues.billRate) : "";
-    const decryptedPayRate = initialValues.payRate ? decryptFinancialValue(initialValues.payRate) : "";
-    const decryptedGrossProfit = initialValues.grossProfit ? decryptFinancialValue(initialValues.grossProfit) : "";
-    
+    const decryptedBillRate = initialValues.billRate
+      ? decryptFinancialValue(initialValues.billRate)
+      : "";
+    const decryptedPayRate = initialValues.payRate
+      ? decryptFinancialValue(initialValues.payRate)
+      : "";
+    const decryptedGrossProfit = initialValues.grossProfit
+      ? decryptFinancialValue(initialValues.grossProfit)
+      : "";
+
     return {
       candidateFullName: initialValues.candidateFullName || "",
       candidateEmailId: initialValues.candidateEmailId || "",
@@ -542,7 +604,10 @@ const PlacementForm = ({
     };
   };
 
-  const initialFormValues = React.useMemo(() => getInitialFormValues(), [initialValues, isEdit]);
+  const initialFormValues = React.useMemo(
+    () => getInitialFormValues(),
+    [initialValues, isEdit]
+  );
 
   // Setup formik
   const formik = useFormik({
@@ -558,10 +623,12 @@ const PlacementForm = ({
       });
 
       try {
-        const billRate = parseFloat(parseNumberFromFormatted(values.billRate)) || 0;
-        const payRate = parseFloat(parseNumberFromFormatted(values.payRate)) || 0;
-        
-        if(payRate > billRate){
+        const billRate =
+          parseFloat(parseNumberFromFormatted(values.billRate)) || 0;
+        const payRate =
+          parseFloat(parseNumberFromFormatted(values.payRate)) || 0;
+
+        if (payRate > billRate) {
           setSubmitStatus({
             isSubmitting: false,
             success: false,
@@ -570,7 +637,7 @@ const PlacementForm = ({
           });
           return;
         }
-        
+
         const grossProfit = billRate - payRate;
 
         const encryptedBillRate = encryptFinancialValue(Math.round(billRate));
@@ -587,12 +654,14 @@ const PlacementForm = ({
         };
 
         if (isEdit) {
-          dispatch(updatePlacement({
-            id: initialValues.id,
-            placementData: payload,
-          }));
+          dispatch(
+            updatePlacement({
+              id: initialValues.id,
+              placementData: payload,
+            })
+          );
         } else {
-          dispatch(createPlacement(payload)); 
+          dispatch(createPlacement(payload));
         }
 
         setSubmitStatus({
@@ -600,7 +669,9 @@ const PlacementForm = ({
           success: true,
           error: null,
           response: {
-            message: `Placement ${isEdit ? "updated" : "created"} successfully!`,
+            message: `Placement ${
+              isEdit ? "updated" : "created"
+            } successfully!`,
             payload,
           },
         });
@@ -612,23 +683,27 @@ const PlacementForm = ({
         setSubmitStatus({
           isSubmitting: false,
           success: false,
-          error: error.message || `Failed to ${isEdit ? "update" : "create"} placement. Please try again.`,
+          error:
+            error.message ||
+            `Failed to ${
+              isEdit ? "update" : "create"
+            } placement. Please try again.`,
           response: null,
         });
       } finally {
         setSubmitting(false);
       }
-    }
+    },
   });
 
   // Update gross profit when bill rate or pay rate changes
   useEffect(() => {
     const billRate = parseFloat(formik.values.billRate) || 0;
     const payRate = parseFloat(formik.values.payRate) || 0;
-    
+
     if (billRate > 0 && payRate > 0) {
       const grossProfit = Math.round(billRate - payRate);
-      formik.setFieldValue('grossProfit', grossProfit.toString());
+      formik.setFieldValue("grossProfit", grossProfit.toString());
     }
   }, [formik.values.billRate, formik.values.payRate]);
 
@@ -640,15 +715,15 @@ const PlacementForm = ({
         success: true,
         error: null,
         response: {
-          message: `Placement ${isEdit ? 'updated' : 'created'} successfully!`,
+          message: `Placement ${isEdit ? "updated" : "created"} successfully!`,
         },
       });
-      
+
       setTimeout(() => {
-        onCancel(); 
+        onCancel();
       }, 1000);
     }
-    
+
     if (error) {
       setSubmitStatus({
         isSubmitting: false,
@@ -658,6 +733,24 @@ const PlacementForm = ({
       });
     }
   }, [success, error, isEdit, onCancel]);
+
+  // --- NEW: derive client options whenever selected vendor changes ---
+  useEffect(() => {
+    const selectedVendor = vendorOptions.find(
+      (v) => v.value === formik.values.vendorName
+    );
+
+    if (selectedVendor && Array.isArray(selectedVendor.clients)) {
+      setClientOptions(
+        selectedVendor.clients.map((c) => ({
+          value: c,
+          label: c,
+        }))
+      );
+    } else {
+      setClientOptions([]);
+    }
+  }, [formik.values.vendorName, vendorOptions]);
 
   // Function to render text fields
   const renderTextField = (field) => {
@@ -676,7 +769,7 @@ const PlacementForm = ({
       readOnly = false,
     } = field;
 
-    const editableWhenLocked = ['status', 'endDate'];
+    const editableWhenLocked = ["status", "endDate"];
     const isFieldLocked = isLocked && !editableWhenLocked.includes(id);
     const isFieldReadOnly = readOnly || isFieldLocked;
 
@@ -686,12 +779,12 @@ const PlacementForm = ({
           fullWidth
           id={id}
           name={id}
-          label={`${label}${required ? ' *' : ''}`}
+          label={`${label}${required ? " *" : ""}`}
           type={type}
           value={
             id === "billRate" || id === "payRate" || id === "grossProfit"
               ? formatNumberWithCommas(formik.values[id])
-              : formik.values[id] || ''
+              : formik.values[id] || ""
           }
           onChange={(e) => {
             if (id === "billRate" || id === "payRate") {
@@ -735,7 +828,7 @@ const PlacementForm = ({
   return (
     <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
       <Typography variant="h5" sx={{ mb: 3 }}>
-        {isEdit ? 'Edit Placement' : 'Create New Placement'}
+        {isEdit ? "Edit Placement" : "Create New Placement"}
       </Typography>
 
       {submitStatus.error && (
@@ -760,9 +853,7 @@ const PlacementForm = ({
               Consultant Information
             </Typography>
           </Grid>
-          {consultantFields.map((field) =>
-            renderTextField(field)
-          )}
+          {consultantFields.map((field) => renderTextField(field))}
 
           {/* Client Information */}
           <Grid item xs={12} sx={{ mt: 2 }}>
@@ -773,8 +864,59 @@ const PlacementForm = ({
               Client Information
             </Typography>
           </Grid>
-          {clientFields.map((field) =>
-            renderTextField(field)
+
+          {/* --- NEW: Vendor dropdown (Autocomplete) --- */}
+          <Grid item xs={12} sm={6}>
+            <EmployeeAutocomplete
+              id="vendorName"
+              label="Vendor Name"
+              options={vendorOptions}
+              loading={loadingVendors}
+              value={formik.values.vendorName}
+              onChange={(newValue) => {
+                formik.setFieldValue("vendorName", newValue);
+                // Reset client when vendor changes
+                formik.setFieldValue("clientName", "");
+              }}
+              error={
+                formik.touched.vendorName && Boolean(formik.errors.vendorName)
+              }
+              helperText={
+                formik.touched.vendorName && formik.errors.vendorName
+                  ? formik.errors.vendorName
+                  : ""
+              }
+              placeholder="Search or select a vendor..."
+              required
+              disabled={isLocked}
+            />
+          </Grid>
+
+          {/* --- NEW: Client dropdown – only visible when a vendor is selected --- */}
+          {formik.values.vendorName && (
+            <Grid item xs={12} sm={6}>
+              <EmployeeAutocomplete
+                id="clientName"
+                label="Client"
+                options={clientOptions}
+                loading={loadingVendors}
+                value={formik.values.clientName}
+                onChange={(newValue) => {
+                  formik.setFieldValue("clientName", newValue);
+                }}
+                error={
+                  formik.touched.clientName && Boolean(formik.errors.clientName)
+                }
+                helperText={
+                  formik.touched.clientName && formik.errors.clientName
+                    ? formik.errors.clientName
+                    : ""
+                }
+                placeholder="Search or select a client..."
+                required
+                disabled={isLocked}
+              />
+            </Grid>
           )}
 
           {/* Date Information */}
@@ -786,9 +928,7 @@ const PlacementForm = ({
               Date Information
             </Typography>
           </Grid>
-          {dateFields.map((field) =>
-            renderTextField(field)
-          )}
+          {dateFields.map((field) => renderTextField(field))}
 
           {/* Company Information */}
           <Grid item xs={12} sx={{ mt: 2 }}>
@@ -799,24 +939,17 @@ const PlacementForm = ({
               Company Information
             </Typography>
           </Grid>
-          {companyDetails.map((field) =>
-            renderTextField(field)
-          )}
+          {companyDetails.map((field) => renderTextField(field))}
 
           {/* Financial Information Section Header */}
           <Grid item xs={12} sx={{ mt: 2 }}>
-            <Typography
-              variant="subtitle1"
-              sx={{ fontWeight: "medium" }}
-            >
+            <Typography variant="subtitle1" sx={{ fontWeight: "medium" }}>
               Financial Information
             </Typography>
           </Grid>
 
           {/* Financial Information Fields */}
-          {financialFields.map((field) =>
-            renderTextField(field)
-          )}
+          {financialFields.map((field) => renderTextField(field))}
 
           {/* Employment Information */}
           <Grid item xs={12} sx={{ mt: 2 }}>
@@ -827,9 +960,7 @@ const PlacementForm = ({
               Employment Information
             </Typography>
           </Grid>
-          {employmentFields.map((field) =>
-            renderTextField(field)
-          )}
+          {employmentFields.map((field) => renderTextField(field))}
 
           {/* Internal Information */}
           <Grid item xs={12} sx={{ mt: 2 }}>
@@ -840,7 +971,7 @@ const PlacementForm = ({
               Internal Information
             </Typography>
           </Grid>
-          
+
           {/* Recruiter Field - Using Autocomplete with search */}
           <Grid item xs={12} sm={6}>
             <EmployeeAutocomplete
@@ -852,7 +983,10 @@ const PlacementForm = ({
               onChange={(newValue) => {
                 formik.setFieldValue("recruiterName", newValue);
               }}
-              error={formik.touched.recruiterName && Boolean(formik.errors.recruiterName)}
+              error={
+                formik.touched.recruiterName &&
+                Boolean(formik.errors.recruiterName)
+              }
               helperText={
                 formik.touched.recruiterName && formik.errors.recruiterName
                   ? formik.errors.recruiterName
@@ -917,8 +1051,13 @@ const PlacementForm = ({
               value={formik.values.statusMessage || ""}
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
-              error={formik.touched.statusMessage && Boolean(formik.errors.statusMessage)}
-              helperText={formik.touched.statusMessage && formik.errors.statusMessage}
+              error={
+                formik.touched.statusMessage &&
+                Boolean(formik.errors.statusMessage)
+              }
+              helperText={
+                formik.touched.statusMessage && formik.errors.statusMessage
+              }
               multiline
               rows={2}
               disabled={isLocked}
@@ -950,7 +1089,7 @@ const PlacementForm = ({
               mt: 3,
               display: "flex",
               justifyContent: "flex-end",
-              gap: 2
+              gap: 2,
             }}
           >
             <Button
@@ -973,10 +1112,12 @@ const PlacementForm = ({
               {loading || formik.isSubmitting ? (
                 <>
                   <CircularProgress size={20} sx={{ mr: 1 }} />
-                  {isEdit ? 'Updating...' : 'Creating...'}
+                  {isEdit ? "Updating..." : "Creating..."}
                 </>
+              ) : isEdit ? (
+                "Update Placement"
               ) : (
-                isEdit ? 'Update Placement' : 'Create Placement'
+                "Create Placement"
               )}
             </Button>
           </Grid>
