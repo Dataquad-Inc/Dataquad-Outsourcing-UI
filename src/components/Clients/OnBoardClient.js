@@ -110,6 +110,19 @@ const normalizeInvoice = (val) => {
 // Converts the boolean form value into the "Yes" / "No" payload value.
 const invoiceToYesNo = (val) => (normalizeInvoice(val) ? "Yes" : "No");
 
+// ─── Currency / Entity helper ─────────────────────────────────────────────────
+// The "Entity" dropdown is bound to the `currency` form field and only knows
+// "INR" and "USD". The backend may return it as `currency` or `entity`, in
+// different casing ("inr") or as a label ("Rupee (INR)"). Normalise it so the
+// Select always receives a valid option value.
+const normalizeCurrency = (val) => {
+  if (typeof val !== "string") return "INR";
+  const v = val.trim().toUpperCase();
+  if (v.includes("USD") || v.includes("DOLLAR")) return "USD";
+  if (v.includes("INR") || v.includes("RUPEE")) return "INR";
+  return "INR";
+};
+
 // ─── Supporting customer helpers ──────────────────────────────────────────────
 // Backend shape:  { clientName: "KPMG", netPay: 50000 }
 // Form shape:     { clientName: "KPMG", netPay: 50000 }   (same keys)
@@ -266,7 +279,9 @@ const ClientForm = ({
   const dispatch = useDispatch();
   const [files, setFiles] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [currency, setCurrency] = useState(initialData?.currency || "INR");
+  const [currency, setCurrency] = useState(
+    normalizeCurrency(initialData?.currency ?? initialData?.entity)
+  );
   const { userName } = useSelector((state) => state.auth);
   const [onBoardedByName, setOnBoardedBy] = useState(
     initialData?.onBoardedBy || userName
@@ -295,7 +310,7 @@ const ClientForm = ({
     (emp) => emp.roles && emp.roles.toUpperCase() === "BDM"
   );
 
-  // Reporting Manager dropdown: BDMs + Super Admins.
+  // Account Manager dropdown: BDMs + Super Admins + Team Leads.
   // Role text is normalized (letters only, uppercase) so "SUPERADMIN",
   // "SUPER_ADMIN", "Super Admin" etc. all match.
   const normalizeRole = (role) =>
@@ -303,7 +318,7 @@ const ClientForm = ({
       .replace(/[^a-zA-Z]/g, "")
       .toUpperCase();
 
-  const reportingManagerEmployees = employees.filter((emp) => {
+  const accountManagerEmployees = employees.filter((emp) => {
     const role = normalizeRole(emp.roles);
     return role === "BDM" || role === "SUPERADMIN" || role === "TEAMLEAD";
   });
@@ -314,7 +329,7 @@ const ClientForm = ({
 
   useEffect(() => {
     if (initialData) {
-      setCurrency(initialData.currency || "INR");
+      setCurrency(normalizeCurrency(initialData.currency ?? initialData.entity));
       setOnBoardedBy(
         initialData.onBoardedBy || initialData.bdmName || userName || ""
       );
@@ -406,8 +421,8 @@ const ClientForm = ({
           type: "select",
           grid: { xs: 12, sm: 6, md: 4 },
           icon: <Person color="primary" />,
-          options: reportingManagerEmployees.length
-            ? reportingManagerEmployees.map((emp) => ({
+          options: accountManagerEmployees.length
+            ? accountManagerEmployees.map((emp) => ({
                 value: emp.userName,
                 label: `${emp.userName}`,
               }))
@@ -456,7 +471,8 @@ const ClientForm = ({
           type: "text",
           placeholder: "e.g. 29AAAAA1111A1Z1",
           grid: { xs: 12, sm: 6, md: 3 },
-          conditional: () => currency === "INR",
+          conditional: (formValues) =>
+            (formValues?.currency || currency) === "INR",
           uppercase: true, // force uppercase + 15-char limit while typing
           maxLength: 15,
         },
@@ -511,7 +527,7 @@ const ClientForm = ({
     location: Yup.string().nullable(),
     positionType: Yup.string().nullable(),
     assignedTo: Yup.string().nullable(),
-    reportingManager: Yup.string().nullable(),
+    accountManager: Yup.string().nullable(),
     paymentType: Yup.string().nullable(),
     invoice: Yup.boolean().nullable(), // form state stays boolean; converted to "Yes"/"No" on submit
     netPayment: Yup.number()
@@ -582,7 +598,7 @@ const ClientForm = ({
     location: "",
     positionType: "",
     assignedTo: "",
-    reportingManager: "",
+    accountManager: "",
     netPayment: "",
     onBoardedBy: onBoardedByName,
     gst: "",
@@ -621,7 +637,10 @@ const ClientForm = ({
       location: initialData.location || "",
       positionType: initialData.positionType || "",
       assignedTo: initialData.assignedTo || "",
-      reportingManager: initialData.reportingManager || "",
+      // accountManager: fall back to the legacy "reportingManager" key if an
+      // older record still carries it
+      accountManager:
+        initialData.accountManager || initialData.reportingManager || "",
       netPayment: initialData.netPayment ?? "",
       onBoardedBy: initialData.onBoardedBy || onBoardedByName,
       gst: initialData.gst || "",
@@ -629,7 +648,8 @@ const ClientForm = ({
         initialData.vendorWebsiteUrl || initialData.clientWebsiteUrl || "",
       vendorLinkedInUrl:
         initialData.vendorLinkedInUrl || initialData.clientLinkedInUrl || "",
-      currency: initialData.currency || "INR",
+      // The Entity dropdown is bound to the `currency` field
+      currency: normalizeCurrency(initialData.currency ?? initialData.entity),
       feedBack: initialData.feedBack || "",
       invoice: normalizeInvoice(initialData.invoice),
 
@@ -696,9 +716,11 @@ const ClientForm = ({
 
       const clientData = {
         ...values,
-        currency,
+        currency: values.currency || currency,
         onBoardedBy: onBoardedByName,
         invoice: invoiceToYesNo(values.invoice), // "Yes" / "No" in payload
+        // Account manager is sent as "accountManager" (create and update)
+        accountManager: values.accountManager || "",
         // Send a trimmed, uppercase GSTIN (matches what was validated)
         gst:
           typeof values.gst === "string"
@@ -709,6 +731,9 @@ const ClientForm = ({
           values.supportingCustomers
         ),
       };
+
+      // Make sure the old key never reaches the backend
+      delete clientData.reportingManager;
 
       if (isEdit) {
         clientData.supportingDocuments = files
@@ -759,11 +784,22 @@ const ClientForm = ({
   };
 
   const renderFormField = (field, values, errors, touched, setFieldValue) => {
-    if (field.conditional && !field.conditional()) {
+    if (field.conditional && !field.conditional(values)) {
       return null;
     }
 
     if (field.type === "select") {
+      // If the saved value is not in the option list (e.g. employees not
+      // loaded yet, or a user no longer in the list), keep it as an option so
+      // the Select still displays it instead of rendering blank.
+      const baseOptions = field.options || [];
+      const currentValue = values[field.name];
+      const selectOptions =
+        currentValue &&
+        !baseOptions.some((option) => option.value === currentValue)
+          ? [...baseOptions, { value: currentValue, label: String(currentValue) }]
+          : baseOptions;
+
       return (
         <Grid item {...field.grid} key={field.name}>
           <FormControl
@@ -794,12 +830,11 @@ const ClientForm = ({
               <MenuItem value="" disabled>
                 {field.loading ? "Loading..." : `Select ${field.label}`}
               </MenuItem>
-              {field.options &&
-                field.options.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
+              {selectOptions.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
             </Select>
             {touched[field.name] && errors[field.name] && (
               <Typography variant="caption" color="error">
