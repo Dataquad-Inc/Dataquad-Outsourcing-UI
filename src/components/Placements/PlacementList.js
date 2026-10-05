@@ -147,6 +147,12 @@ const formatDate = (dateString) => {
   return `${day}${suffix} ${monthName} ${year}`;
 };
 
+// ─── Currency symbol helper ────────────────────────────────────────────────
+const getCurrencySymbol = (currency) => {
+  if (!currency) return "₹";
+  return String(currency).toUpperCase() === "USD" ? "$" : "₹";
+};
+
 // Tab panel component
 const TabPanel = ({ children, value, index, ...other }) => {
   return (
@@ -343,11 +349,13 @@ const CandidateTablePage = ({
 
   const renderFinancialField = (row, fieldName) => {
     const value = row[fieldName];
+    const symbol = getCurrencySymbol(row.currency);
+
     if (typeof value === "number" && !isNaN(value)) {
-      return `₹${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+      return `${symbol}${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
     }
     return value
-      ? `₹${parseFloat(value).toLocaleString("en-IN", {
+      ? `${symbol}${parseFloat(value).toLocaleString("en-IN", {
         maximumFractionDigits: 2,
       })}`
       : "-";
@@ -1003,17 +1011,20 @@ const PlacementsList = () => {
 
     switch (activeFilter) {
       case "active":
+        // ✅ FIX: Exclude both Full-time AND Pass-Through from Active
         filtered = processedPlacements.filter(
           (placement) =>
             placement.status === "Active" &&
-            placement.employmentType !== "Full-time"
+            placement.employmentType !== "Full-time" &&
+            placement.employmentType !== "Pass-Through"
         );
         break;
       case "inactive":
         filtered = processedPlacements.filter(
           (placement) =>
             placement.status !== "Active" &&
-            placement.employmentType !== "Full-time"
+            placement.employmentType !== "Full-time" &&
+            placement.employmentType !== "Pass-Through"
         );
         break;
       case "fulltime":
@@ -1054,16 +1065,19 @@ const PlacementsList = () => {
   const getFilterCount = (filterType) => {
     switch (filterType) {
       case "active":
+        // ✅ FIX: Exclude both Full-time AND Pass-Through
         return processedPlacements.filter(
           (placement) =>
             placement.status === "Active" &&
-            placement.employmentType !== "Full-time"
+            placement.employmentType !== "Full-time" &&
+            placement.employmentType !== "Pass-Through"
         ).length;
       case "inactive":
         return processedPlacements.filter(
           (placement) =>
             placement.status !== "Active" &&
-            placement.employmentType !== "Full-time"
+            placement.employmentType !== "Full-time" &&
+            placement.employmentType !== "Pass-Through"
         ).length;
       case "fulltime":
         return processedPlacements.filter(
@@ -1337,13 +1351,16 @@ const PlacementsList = () => {
     }
   };
 
+  // ✅ FIX: Use currency symbol based on row.currency
   const renderFinancialField = (row, fieldName) => {
     const value = row[fieldName];
+    const symbol = getCurrencySymbol(row.currency);
+
     if (typeof value === "number" && !isNaN(value)) {
-      return `₹${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+      return `${symbol}${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
     }
     return value
-      ? `₹${parseFloat(value).toLocaleString("en-IN", {
+      ? `${symbol}${parseFloat(value).toLocaleString("en-IN", {
         maximumFractionDigits: 2,
       })}`
       : "-";
@@ -1931,7 +1948,7 @@ const PlacementsList = () => {
               Pending ({getFilterCount("Pending")})
             </Button>
 
-            {/* NEW: Direct Pass-Through Tab */}
+            {/* ✅ FIX: Pass-Through now shows count */}
             <Button
               variant={getFilterButtonColor("passthrough")}
               onClick={() => handleFilterChange("passthrough")}
@@ -1940,7 +1957,6 @@ const PlacementsList = () => {
                 fontWeight: activeFilter === "passthrough" ? 700 : 500,
                 textTransform: 'none',
                 position: 'relative',
-                // Match the neutral look of the other tabs when idle
                 backgroundColor:
                   activeFilter === "passthrough" ? '#7b1fa2' : '#ffffff',
                 color:
@@ -1963,7 +1979,7 @@ const PlacementsList = () => {
                 },
               }}
             >
-              Pass-Through 
+              Pass-Through ({getFilterCount("passthrough")})
             </Button>
           </ButtonGroup>
 
@@ -1997,9 +2013,9 @@ const PlacementsList = () => {
           {activeFilter !== "all" && (
             <Typography variant="body2" color="text.secondary" fontStyle="italic">
               {activeFilter === "active" &&
-                "Showing active placements (excludes full-time employment)"}
+                "Showing active placements (excludes full-time and pass-through employment)"}
               {activeFilter === "inactive" &&
-                "Showing inactive placements (excludes full-time employment)"}
+                "Showing inactive placements (excludes full-time and pass-through employment)"}
               {activeFilter === "fulltime" &&
                 "Showing all full-time placements (active and inactive)"}
               {activeFilter === "Pending" &&

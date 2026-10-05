@@ -44,7 +44,7 @@ const ErrorAlert = styled(Alert)(({ theme }) => ({
   },
 }));
 
-// Validation schema using Yup
+// Validation schema using Yup - ✅ allow decimals for billRate / payRate
 const validationSchema = Yup.object().shape({
   candidateFullName: Yup.string().required("Consultant name is required"),
   candidateEmailId: Yup.string()
@@ -92,12 +92,10 @@ const EmployeeAutocomplete = ({
 }) => {
   const [inputValue, setInputValue] = useState(value || "");
 
-  // Keep inputValue in sync when the parent value changes (e.g., on edit load)
   useEffect(() => {
     setInputValue(value || "");
   }, [value]);
 
-  // Find the matching option for the current value
   const matchedOption = options.find((opt) => opt.value === value);
 
   return (
@@ -194,7 +192,6 @@ const PlacementForm = ({ initialValues = {}, onCancel, isEdit = false }) => {
   });
   const [loadingEmployees, setLoadingEmployees] = useState(false);
 
-  // --- NEW: vendor / client state ---
   const [vendorOptions, setVendorOptions] = useState([]);
   const [clientOptions, setClientOptions] = useState([]);
   const [loadingVendors, setLoadingVendors] = useState(false);
@@ -204,16 +201,11 @@ const PlacementForm = ({ initialValues = {}, onCancel, isEdit = false }) => {
     isEdit &&
     (initialValues.lock === true || initialValues.lock === "true") &&
     role !== "SUPERADMIN";
-  console.log("lock debug:", {
-    lock: initialValues.lock,
-    lockType: typeof initialValues.lock,
-    role,
-    isLocked,
-  });
+
   const decryptionKey = atob(encryptionKey);
   const FINANCIAL_SECRET_KEY = decryptionKey;
 
-  // Fetch all employees with entity US
+  // Fetch all employees with entity IN
   useEffect(() => {
     const fetchEmployees = async () => {
       setLoadingEmployees(true);
@@ -253,7 +245,7 @@ const PlacementForm = ({ initialValues = {}, onCancel, isEdit = false }) => {
     fetchEmployees();
   }, []);
 
-  // --- NEW: fetch vendors (with their clients) ---
+  // Fetch vendors (with their clients)
   useEffect(() => {
     const fetchVendors = async () => {
       setLoadingVendors(true);
@@ -292,7 +284,7 @@ const PlacementForm = ({ initialValues = {}, onCancel, isEdit = false }) => {
   }, []);
 
   const encryptFinancialValue = (value) => {
-    if (!value) return value;
+    if (!value && value !== 0) return value;
     try {
       const stringValue = value.toString();
       return CryptoJS.AES.encrypt(stringValue, FINANCIAL_SECRET_KEY).toString();
@@ -321,7 +313,7 @@ const PlacementForm = ({ initialValues = {}, onCancel, isEdit = false }) => {
     }
   };
 
-  // Form field configurations organized in arrays for better maintainability
+  // Form field configurations
   const consultantFields = [
     {
       id: "candidateFullName",
@@ -398,64 +390,6 @@ const PlacementForm = ({ initialValues = {}, onCancel, isEdit = false }) => {
         { value: "Dataquad", label: "Dataquad" },
         { value: "Adroit", label: "Adroit" },
       ],
-    },
-  ];
-
-  const financialFields = [
-    {
-      id: "currency",
-      label: "Currency",
-      required: true,
-      grid: { xs: 12, sm: 6 },
-      select: true,
-      helperText: "Select currency",
-      options: [
-        { value: "INR", label: "INR" },
-        { value: "USD", label: "USD" },
-      ],
-    },
-    {
-      id: "ratePeriod",
-      label: "Rate Period",
-      required: true,
-      grid: { xs: 12, sm: 6 },
-      select: true,
-      options: [
-        { value: "HOUR", label: "Hour" },
-        { value: "DAY", label: "Day" },
-        { value: "MONTH", label: "Month" },
-        { value: "YEAR", label: "Year" },
-      ],
-    },
-    {
-      id: "billRate",
-      label: "Bill Rate",
-      required: true,
-      grid: { xs: 12, sm: 6 },
-      helperText: "Enter total bill rate",
-      inputProps: {
-        startAdornment: <InputAdornment position="start">₹</InputAdornment>,
-      },
-    },
-    {
-      id: "payRate",
-      label: "Pay Rate",
-      required: true,
-      grid: { xs: 12, sm: 6 },
-      helperText: "Enter total pay rate",
-      inputProps: {
-        startAdornment: <InputAdornment position="start">₹</InputAdornment>,
-      },
-    },
-    {
-      id: "grossProfit",
-      label: "Gross Profit",
-      grid: { xs: 6 },
-      helperText: "Bill Rate - Pay Rate",
-      readOnly: true,
-      inputProps: {
-        startAdornment: <InputAdornment position="start">₹</InputAdornment>,
-      },
     },
   ];
 
@@ -556,15 +490,35 @@ const PlacementForm = ({ initialValues = {}, onCancel, isEdit = false }) => {
     }
   };
 
+  // ✅ FIX: Format numbers with commas while preserving decimals
   const formatNumberWithCommas = (value) => {
-    if (!value) return "";
-    const numStr = value.toString().replace(/\D/g, "");
-    return numStr.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    if (value === "" || value === null || value === undefined) return "";
+    const str = value.toString();
+    // Allow only digits and at most one decimal point
+    const sanitized = str.replace(/[^0-9.]/g, "");
+    const parts = sanitized.split(".");
+    // Keep only first decimal part
+    const intPart = parts[0] || "";
+    const decimalPart = parts.length > 1 ? parts[1] : null;
+
+    const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+    if (decimalPart !== null) {
+      return `${formattedInt}.${decimalPart}`;
+    }
+    return formattedInt;
   };
 
+  // ✅ FIX: Parse number, stripping commas but keeping decimal
   const parseNumberFromFormatted = (formattedValue) => {
-    if (!formattedValue) return "";
-    return formattedValue.replace(/,/g, "");
+    if (!formattedValue && formattedValue !== 0) return "";
+    return formattedValue.toString().replace(/,/g, "");
+  };
+
+  // Get currency symbol based on current form currency
+  const getCurrencySymbol = (currency) => {
+    if (!currency) return "₹";
+    return String(currency).toUpperCase() === "USD" ? "$" : "₹";
   };
 
   // Prepare initial values with decryption for financial fields
@@ -598,7 +552,7 @@ const PlacementForm = ({ initialValues = {}, onCancel, isEdit = false }) => {
       status: initialValues.status || "",
       statusMessage: initialValues.statusMessage || "",
       remarks: initialValues.remarks || "",
-      currency: initialValues.currency || "",
+      currency: initialValues.currency || "INR", // default INR
       ratePeriod: initialValues.ratePeriod || "",
       company: initialValues.company || "",
     };
@@ -640,8 +594,9 @@ const PlacementForm = ({ initialValues = {}, onCancel, isEdit = false }) => {
 
         const grossProfit = billRate - payRate;
 
-        const encryptedBillRate = encryptFinancialValue(Math.round(billRate));
-        const encryptedPayRate = encryptFinancialValue(Math.round(payRate));
+        // ✅ FIX: Preserve decimal values when encrypting
+        const encryptedBillRate = encryptFinancialValue(billRate);
+        const encryptedPayRate = encryptFinancialValue(payRate);
         const encryptedGrossProfit = encryptFinancialValue(grossProfit);
 
         const payload = {
@@ -669,9 +624,7 @@ const PlacementForm = ({ initialValues = {}, onCancel, isEdit = false }) => {
           success: true,
           error: null,
           response: {
-            message: `Placement ${
-              isEdit ? "updated" : "created"
-            } successfully!`,
+            message: `Placement ${isEdit ? "updated" : "created"} successfully!`,
             payload,
           },
         });
@@ -685,8 +638,7 @@ const PlacementForm = ({ initialValues = {}, onCancel, isEdit = false }) => {
           success: false,
           error:
             error.message ||
-            `Failed to ${
-              isEdit ? "update" : "create"
+            `Failed to ${isEdit ? "update" : "create"
             } placement. Please try again.`,
           response: null,
         });
@@ -696,15 +648,18 @@ const PlacementForm = ({ initialValues = {}, onCancel, isEdit = false }) => {
     },
   });
 
-  // Update gross profit when bill rate or pay rate changes
+  // ✅ FIX: Update gross profit preserving decimals
   useEffect(() => {
-    const billRate = parseFloat(formik.values.billRate) || 0;
-    const payRate = parseFloat(formik.values.payRate) || 0;
+    const billRate = parseFloat(parseNumberFromFormatted(formik.values.billRate)) || 0;
+    const payRate = parseFloat(parseNumberFromFormatted(formik.values.payRate)) || 0;
 
     if (billRate > 0 && payRate > 0) {
-      const grossProfit = Math.round(billRate - payRate);
-      formik.setFieldValue("grossProfit", grossProfit.toString());
+      const grossProfit = billRate - payRate;
+      // Round to 2 decimal places
+      const roundedGross = Math.round(grossProfit * 100) / 100;
+      formik.setFieldValue("grossProfit", roundedGross.toString());
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formik.values.billRate, formik.values.payRate]);
 
   // Update submit status based on Redux state
@@ -734,7 +689,7 @@ const PlacementForm = ({ initialValues = {}, onCancel, isEdit = false }) => {
     }
   }, [success, error, isEdit, onCancel]);
 
-  // --- NEW: derive client options whenever selected vendor changes ---
+  // Derive client options whenever selected vendor changes
   useEffect(() => {
     const selectedVendor = vendorOptions.find(
       (v) => v.value === formik.values.vendorName
@@ -788,8 +743,15 @@ const PlacementForm = ({ initialValues = {}, onCancel, isEdit = false }) => {
           }
           onChange={(e) => {
             if (id === "billRate" || id === "payRate") {
-              const rawValue = parseNumberFromFormatted(e.target.value);
-              formik.setFieldValue(id, rawValue);
+              // ✅ FIX: Allow only digits and at most one decimal point
+              const rawValue = e.target.value.replace(/[^0-9.]/g, "");
+              // Prevent multiple decimals
+              const parts = rawValue.split(".");
+              let sanitized = parts[0];
+              if (parts.length > 1) {
+                sanitized = `${parts[0]}.${parts.slice(1).join("")}`;
+              }
+              formik.setFieldValue(id, sanitized);
             } else {
               formik.handleChange(e);
             }
@@ -824,6 +786,74 @@ const PlacementForm = ({ initialValues = {}, onCancel, isEdit = false }) => {
       </Grid>
     );
   };
+
+  // ✅ Financial fields computed dynamically (depends on currency)
+  const financialFields = useMemo(() => {
+    const symbol = getCurrencySymbol(formik.values.currency);
+    return [
+      {
+        id: "currency",
+        label: "Currency",
+        required: true,
+        grid: { xs: 12, sm: 6 },
+        select: true,
+        helperText: "Select currency",
+        options: [
+          { value: "INR", label: "INR" },
+          { value: "USD", label: "USD" },
+        ],
+      },
+      {
+        id: "ratePeriod",
+        label: "Rate Period",
+        required: true,
+        grid: { xs: 12, sm: 6 },
+        select: true,
+        options: [
+          { value: "HOUR", label: "Hour" },
+          { value: "DAY", label: "Day" },
+          { value: "MONTH", label: "Month" },
+          { value: "YEAR", label: "Year" },
+        ],
+      },
+      {
+        id: "billRate",
+        label: "Bill Rate",
+        required: true,
+        grid: { xs: 12, sm: 6 },
+        helperText: "Enter total bill rate (decimals allowed)",
+        inputProps: {
+          startAdornment: (
+            <InputAdornment position="start">{symbol}</InputAdornment>
+          ),
+        },
+      },
+      {
+        id: "payRate",
+        label: "Pay Rate",
+        required: true,
+        grid: { xs: 12, sm: 6 },
+        helperText: "Enter total pay rate (decimals allowed)",
+        inputProps: {
+          startAdornment: (
+            <InputAdornment position="start">{symbol}</InputAdornment>
+          ),
+        },
+      },
+      {
+        id: "grossProfit",
+        label: "Gross Profit",
+        grid: { xs: 6 },
+        helperText: "Bill Rate - Pay Rate",
+        readOnly: true,
+        inputProps: {
+          startAdornment: (
+            <InputAdornment position="start">{symbol}</InputAdornment>
+          ),
+        },
+      },
+    ];
+  }, [formik.values.currency]);
 
   return (
     <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
@@ -865,7 +895,7 @@ const PlacementForm = ({ initialValues = {}, onCancel, isEdit = false }) => {
             </Typography>
           </Grid>
 
-          {/* --- NEW: Vendor dropdown (Autocomplete) --- */}
+          {/* Vendor dropdown (Autocomplete) */}
           <Grid item xs={12} sm={6}>
             <EmployeeAutocomplete
               id="vendorName"
@@ -875,7 +905,6 @@ const PlacementForm = ({ initialValues = {}, onCancel, isEdit = false }) => {
               value={formik.values.vendorName}
               onChange={(newValue) => {
                 formik.setFieldValue("vendorName", newValue);
-                // Reset client when vendor changes
                 formik.setFieldValue("clientName", "");
               }}
               error={
@@ -892,7 +921,7 @@ const PlacementForm = ({ initialValues = {}, onCancel, isEdit = false }) => {
             />
           </Grid>
 
-          {/* --- NEW: Client dropdown – only visible when a vendor is selected --- */}
+          {/* Client dropdown – only visible when a vendor is selected */}
           {formik.values.vendorName && (
             <Grid item xs={12} sm={6}>
               <EmployeeAutocomplete
@@ -972,7 +1001,7 @@ const PlacementForm = ({ initialValues = {}, onCancel, isEdit = false }) => {
             </Typography>
           </Grid>
 
-          {/* Recruiter Field - Using Autocomplete with search */}
+          {/* Recruiter Field */}
           <Grid item xs={12} sm={6}>
             <EmployeeAutocomplete
               id="recruiterName"
@@ -997,7 +1026,7 @@ const PlacementForm = ({ initialValues = {}, onCancel, isEdit = false }) => {
             />
           </Grid>
 
-          {/* Sales Field - Using Autocomplete with search */}
+          {/* Sales Field */}
           <Grid item xs={12} sm={6}>
             <EmployeeAutocomplete
               id="sales"
@@ -1019,7 +1048,7 @@ const PlacementForm = ({ initialValues = {}, onCancel, isEdit = false }) => {
             />
           </Grid>
 
-          {/* Team Lead Field - Using Autocomplete with search */}
+          {/* Team Lead Field */}
           <Grid item xs={12} sm={6}>
             <EmployeeAutocomplete
               id="teamLead"
