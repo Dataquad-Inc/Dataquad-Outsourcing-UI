@@ -93,6 +93,68 @@ const INDIAN_STATES = [
   "Others",
 ];
 
+// ─── US States list ───────────────────────────────────────────────────────────
+const US_STATES = [
+  "Alabama",
+  "Alaska",
+  "Arizona",
+  "Arkansas",
+  "California",
+  "Colorado",
+  "Connecticut",
+  "Delaware",
+  "District of Columbia",
+  "Florida",
+  "Georgia",
+  "Hawaii",
+  "Idaho",
+  "Illinois",
+  "Indiana",
+  "Iowa",
+  "Kansas",
+  "Kentucky",
+  "Louisiana",
+  "Maine",
+  "Maryland",
+  "Massachusetts",
+  "Michigan",
+  "Minnesota",
+  "Mississippi",
+  "Missouri",
+  "Montana",
+  "Nebraska",
+  "Nevada",
+  "New Hampshire",
+  "New Jersey",
+  "New Mexico",
+  "New York",
+  "North Carolina",
+  "North Dakota",
+  "Ohio",
+  "Oklahoma",
+  "Oregon",
+  "Pennsylvania",
+  "Rhode Island",
+  "South Carolina",
+  "South Dakota",
+  "Tennessee",
+  "Texas",
+  "Utah",
+  "Vermont",
+  "Virginia",
+  "Washington",
+  "West Virginia",
+  "Wisconsin",
+  "Wyoming",
+  // Special
+  "Others",
+];
+
+// Entity (currency) decides which location list is shown:
+//   INR -> Indian states / UTs,  USD -> US states
+const getStatesForCurrency = (cur) =>
+  cur === "USD" ? US_STATES : INDIAN_STATES;
+
 // ─── Invoice helpers ──────────────────────────────────────────────────────────
 // The Switch in the UI works with a boolean, but the backend expects "Yes"/"No".
 
@@ -290,13 +352,13 @@ const ClientForm = ({
   // ── Location: track whether "Others" is selected ──────────────────────────
   const [locationSelection, setLocationSelection] = useState(() => {
     if (!initialData?.location) return "";
-    return INDIAN_STATES.includes(initialData.location)
+    return getStatesForCurrency(currency).includes(initialData.location)
       ? initialData.location
       : "Others";
   });
   const [customLocation, setCustomLocation] = useState(() => {
     if (!initialData?.location) return "";
-    return INDIAN_STATES.includes(initialData.location)
+    return getStatesForCurrency(currency).includes(initialData.location)
       ? ""
       : initialData.location;
   });
@@ -349,7 +411,10 @@ const ClientForm = ({
 
       // Sync location state when initialData changes
       if (initialData.location) {
-        if (INDIAN_STATES.includes(initialData.location)) {
+        const statesForData = getStatesForCurrency(
+          normalizeCurrency(initialData.currency ?? initialData.entity)
+        );
+        if (statesForData.includes(initialData.location)) {
           setLocationSelection(initialData.location);
           setCustomLocation("");
         } else {
@@ -453,8 +518,14 @@ const ClientForm = ({
             { value: "USD", label: "Dollar (USD)" },
           ],
           customHandler: (e, setFieldValue) => {
-            setCurrency(e.target.value);
-            setFieldValue("currency", e.target.value);
+            const newCurrency = e.target.value;
+            setCurrency(newCurrency);
+            setFieldValue("currency", newCurrency);
+            // The state list changes with the entity (INR -> India, USD -> US),
+            // so the previously chosen location is no longer valid.
+            setLocationSelection("");
+            setCustomLocation("");
+            setFieldValue("location", "");
           },
         },
         {
@@ -883,7 +954,11 @@ const ClientForm = ({
   };
 
   // ── Location field renderer ────────────────────────────────────────────────
-  const renderLocationField = (values, errors, touched, setFieldValue) => (
+  const renderLocationField = (values, errors, touched, setFieldValue) => {
+    const activeCurrency = values.currency || currency;
+    const statesList = getStatesForCurrency(activeCurrency);
+    const isUS = activeCurrency === "USD";
+    return (
     <React.Fragment>
       {/* State dropdown */}
       <Grid item xs={12} sm={6} md={4}>
@@ -892,7 +967,7 @@ const ClientForm = ({
           <Select
             labelId="location-label"
             id="location-select"
-            value={locationSelection}
+            value={statesList.includes(locationSelection) ? locationSelection : ""}
             label="Location (State)"
             onChange={(e) => {
               const selected = e.target.value;
@@ -918,9 +993,9 @@ const ClientForm = ({
             }}
           >
             <MenuItem value="" disabled>
-              Select State / UT
+              {isUS ? "Select State" : "Select State / UT"}
             </MenuItem>
-            {INDIAN_STATES.map((state) => (
+            {statesList.map((state) => (
               <MenuItem key={state} value={state}>
                 {state}
               </MenuItem>
@@ -958,7 +1033,8 @@ const ClientForm = ({
         </Grid>
       )}
     </React.Fragment>
-  );
+    );
+  };
 
   // ── Invoice toggle renderer (highlighted, shown at the right end of the
   //    Basic Information header) ─────────────────────────────────────────────
@@ -1495,8 +1571,30 @@ const ClientForm = ({
                         resetForm();
                         if (!isEdit) {
                           setFiles([]);
+                          setCurrency("INR");
                           setLocationSelection("");
                           setCustomLocation("");
+                        } else {
+                          // Restore entity + location to the loaded record
+                          const resetCurrency = normalizeCurrency(
+                            initialData?.currency ?? initialData?.entity
+                          );
+                          const resetLocation = initialData?.location || "";
+                          setCurrency(resetCurrency);
+                          if (!resetLocation) {
+                            setLocationSelection("");
+                            setCustomLocation("");
+                          } else if (
+                            getStatesForCurrency(resetCurrency).includes(
+                              resetLocation
+                            )
+                          ) {
+                            setLocationSelection(resetLocation);
+                            setCustomLocation("");
+                          } else {
+                            setLocationSelection("Others");
+                            setCustomLocation(resetLocation);
+                          }
                         }
                         showToast("Form has been reset", "info");
                       }}
