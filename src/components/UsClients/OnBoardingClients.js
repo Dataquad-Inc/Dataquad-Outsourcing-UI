@@ -25,6 +25,7 @@ import {
   FormControl,
   InputLabel,
   Chip,
+  Switch,
 } from "@mui/material";
 
 import {
@@ -49,6 +50,23 @@ import {
 import { useSelector } from "react-redux";
 import httpService from "../../Services/httpService";
 import axios from "axios";
+
+// ─── Invoice helpers ──────────────────────────────────────────────────────────
+// The Switch in the UI works with a boolean, but the backend expects "Yes"/"No".
+
+// Converts whatever the backend / form holds ("Yes", "No", true, false, "true",
+// null, undefined) into a real boolean for the Switch.
+const normalizeInvoice = (val) => {
+  if (typeof val === "boolean") return val;
+  if (typeof val === "string") {
+    const v = val.trim().toLowerCase();
+    return v === "yes" || v === "true";
+  }
+  return false;
+};
+
+// Converts the boolean form value into the "Yes" / "No" payload value.
+const invoiceToYesNo = (val) => (normalizeInvoice(val) ? "Yes" : "No");
 
 // Create a custom theme
 const theme = createTheme({
@@ -171,6 +189,7 @@ const ClientForm = ({
             { value: "Part-Time", label: "Part-Time" },
             { value: "Contract", label: "Contract" },
             { value: "Internship", label: "Internship" },
+            {value: "Hybrid", label: "Hybrid"},
           ],
         },
         {
@@ -247,6 +266,8 @@ const ClientForm = ({
       .required("Currency is required")
       .oneOf(["USD", "INR"], "Invalid currency"),
 
+    invoice: Yup.boolean().nullable(), // form state stays boolean; converted to "Yes"/"No" on submit
+
     netPayment: Yup.number()
       .typeError("Net payment must be a number")
       .min(0, "Net payment cannot be negative")
@@ -297,7 +318,8 @@ const ClientForm = ({
     currency: "USD",
     feedBack: "",
     status: "ACTIVE",
-    numberOfRequirements: 0
+    numberOfRequirements: 0,
+    invoice: false,
   };
 
   const getFormInitialValues = () => {
@@ -333,6 +355,7 @@ const ClientForm = ({
       feedBack: safeValue(initialData.feedBack, ""),
       status: safeValue(initialData.status, "ACTIVE"),
       numberOfRequirements: safeValue(initialData.numberOfRequirements, 0),
+      invoice: normalizeInvoice(initialData.invoice),
       supportingCustomers: []
     };
 
@@ -569,6 +592,7 @@ const handleSubmit = async (values, { resetForm }) => {
         feedBack: values.feedBack || "",
         numberOfRequirements: values.numberOfRequirements || 0,
         currency: currency || "USD",
+        invoice: invoiceToYesNo(values.invoice), // "Yes" / "No" in payload
       };
 
       console.log("Updating client data:", JSON.stringify(clientData, null, 2));
@@ -631,6 +655,7 @@ const handleSubmit = async (values, { resetForm }) => {
         feedBack: values.feedBack || "",
         numberOfRequirements: values.numberOfRequirements || 0,
         currency: currency || "USD",
+        invoice: invoiceToYesNo(values.invoice), // "Yes" / "No" in payload
       };
 
       console.log("Creating new client:", JSON.stringify(clientData, null, 2));
@@ -754,6 +779,64 @@ const handleSubmit = async (values, { resetForm }) => {
     );
   };
 
+  // ── Invoice toggle renderer (highlighted, shown at the right end of the
+  //    Basic Information header) ─────────────────────────────────────────────
+  const renderInvoiceToggle = (values, setFieldValue) => {
+    const isOn = Boolean(values.invoice);
+    return (
+      <Stack
+        direction="row"
+        spacing={2}
+        alignItems="center"
+        sx={{
+          ml: { xs: 0, sm: 4 }, // gap between the section title and the toggle
+          px: 3,
+          py: 1,
+          border: "2px solid",
+          borderColor: isOn ? "success.main" : "primary.main",
+          borderRadius: 3,
+          bgcolor: isOn ? "rgba(46, 125, 50, 0.10)" : "rgba(26, 35, 126, 0.07)",
+          boxShadow: isOn
+            ? "0 0 0 4px rgba(46, 125, 50, 0.15)"
+            : "0 0 0 4px rgba(26, 35, 126, 0.12)",
+          transition: "all 0.25s ease",
+        }}
+      >
+        <Typography
+          variant="subtitle1"
+          color={isOn ? "success.main" : "primary"}
+          sx={{ fontWeight: 700, letterSpacing: 0.5 }}
+        >
+          Invoice
+        </Typography>
+
+        <Stack direction="row" spacing={1.5} alignItems="center">
+          <Typography
+            variant="body2"
+            color={!isOn ? "text.primary" : "text.disabled"}
+            sx={{ fontWeight: !isOn ? 700 : 400 }}
+          >
+            No
+          </Typography>
+          <Switch
+            color={isOn ? "success" : "primary"}
+            checked={isOn}
+            onChange={(e) => setFieldValue("invoice", e.target.checked)}
+            inputProps={{ "aria-label": "Invoice toggle" }}
+            sx={{ transform: "scale(1.25)", mx: 0.5 }}
+          />
+          <Typography
+            variant="body2"
+            color={isOn ? "success.main" : "text.disabled"}
+            sx={{ fontWeight: isOn ? 700 : 400 }}
+          >
+            Yes
+          </Typography>
+        </Stack>
+      </Stack>
+    );
+  };
+
   const handleCancel = () => {
     setRemovedFileIds([]);
     setRemovedFiles([]);
@@ -793,13 +876,36 @@ const handleSubmit = async (values, { resetForm }) => {
                 {formFields.map((section, sectionIndex) => (
                   <React.Fragment key={`section-${sectionIndex}`}>
                     <Grid item xs={12}>
-                      <Typography
-                        variant="h6"
-                        color="primary"
-                        sx={{ mb: 1, fontWeight: 500 }}
-                      >
-                        {section.section}
-                      </Typography>
+                      {section.section === "Basic Information" ? (
+                        // Title on the left, Invoice toggle at the right end
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            flexWrap: "wrap",
+                            gap: 2,
+                            mb: 1,
+                          }}
+                        >
+                          <Typography
+                            variant="h6"
+                            color="primary"
+                            sx={{ fontWeight: 500 }}
+                          >
+                            {section.section}
+                          </Typography>
+                          {renderInvoiceToggle(values, setFieldValue)}
+                        </Box>
+                      ) : (
+                        <Typography
+                          variant="h6"
+                          color="primary"
+                          sx={{ mb: 1, fontWeight: 500 }}
+                        >
+                          {section.section}
+                        </Typography>
+                      )}
                       <Divider sx={{ mb: 3 }} />
                     </Grid>
                     {section.fields.map((field) =>
