@@ -110,8 +110,8 @@ const ClientList = () => {
 
   const isSuperAdmin = role === "SUPERADMIN";
   const isBDM = role === "BDM";
-  const canViewOverall = role === "SUPERADMIN" || role === "BDM";
-  const canViewInvoice = role === "SUPERADMIN" || role === "BDM";
+  const canViewOverall = role === "SUPERADMIN" || role === "BDM" || role === "INVOICE";
+  const canViewInvoice = role === "SUPERADMIN" || role === "BDM" || role === "INVOICE";
 
   const [selectedClient, setSelectedClient] = useState(null);
   const [openDocsDialog, setOpenDocsDialog] = useState(false);
