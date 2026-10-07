@@ -371,7 +371,8 @@ const TimesheetList = () => {
       if (
         role === 'ACCOUNTS' ||
         role === 'SUPERADMIN' ||
-        role === 'ADMIN'
+        role === 'ADMIN' ||
+        role === 'INVOICE'
       ) {
         sessionStorage.setItem(
           'timesheetsAdmin_selectedMonth',
@@ -443,25 +444,29 @@ const TimesheetList = () => {
               cursor:
                 role === 'ACCOUNTS' ||
                 role === 'SUPERADMIN' ||
-                role === 'ADMIN'
+                role === 'ADMIN' ||
+                role === 'INVOICE'
                   ? 'pointer'
                   : 'default',
               color:
                 role === 'ACCOUNTS' ||
                 role === 'SUPERADMIN' ||
-                role === 'ADMIN'
+                role === 'ADMIN' ||
+                role === 'INVOICE'
                   ? 'primary.main'
                   : 'text.primary',
               textDecoration:
                 role === 'ACCOUNTS' ||
                 role === 'SUPERADMIN' ||
-                role === 'ADMIN'
+                role === 'ADMIN' ||
+                role === 'INVOICE'
                   ? 'underline'
                   : 'none',
               '&:hover':
                 role === 'ACCOUNTS' ||
                 role === 'SUPERADMIN' ||
-                role === 'ADMIN'
+                role === 'ADMIN' ||
+                role === 'INVOICE'
                   ? { color: 'primary.dark' }
                   : {}
             }}
@@ -868,7 +873,7 @@ const TimesheetList = () => {
                 >
                   Dashboard
                 </Button>
-                {(role === 'SUPERADMIN' || role === 'ADMIN') && (
+                {(role === 'SUPERADMIN' || role === 'ADMIN' || role === "INVOICE") && (
                   <Button
                     variant="contained"
                     startIcon={<Add />}

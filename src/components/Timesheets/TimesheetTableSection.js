@@ -136,7 +136,7 @@ const TimesheetTableSection = ({
         </Box>
       ) : (
         // Check if we should render monthly view (ACCOUNTS/INVOICE roles)
-        (role === 'ACCOUNTS' || role === 'ADMIN') && monthlyTimesheetData && monthlyTimesheetData.length > 0 ? (
+        (role === 'ACCOUNTS' || role === 'ADMIN' || role === 'INVOICE') && monthlyTimesheetData && monthlyTimesheetData.length > 0 ? (
           // Monthly view - render multiple week tables
           <Box sx={{ mt: 2 }}>
             <Typography variant="h6" sx={{ mb: 3, color: 'primary.main' }}>
@@ -501,7 +501,7 @@ const TimesheetTableSection = ({
 
         {/* Progress and Actions */}
         {/* Only show action buttons for non-ACCOUNTS/INVOICE roles */}
-        {(role !== 'ACCOUNTS' && role !== 'ADMIN') && (
+        {(role !== 'ACCOUNTS' && role !== 'ADMIN' && role !== 'INVOICE') && (
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 2 }}>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               <Button
@@ -618,7 +618,7 @@ const TimesheetTableSection = ({
       </Box>
 
       {/* Actions Section for ACCOUNTS and INVOICE roles */}
-      {(role === 'ACCOUNTS' || role === 'ADMIN') && (
+      {(role === 'ACCOUNTS' || role === 'ADMIN' || role === 'INVOICE') && (
         <Box sx={{ mt: 4, p: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 2 }}>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
