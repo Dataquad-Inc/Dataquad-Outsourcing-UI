@@ -250,11 +250,11 @@ const UsClients = () => {
   const columns = [
     {
       id: 'vendorName',
-      label: 'Client Name',
+      label: 'Vendor Name',
       applyFilter: true,
       filterType: 'text',
       sortable: true,
-      render: (value, row) => value || row.clientName || 'N/A',
+      render: (value, row) => value || row.vendorName || 'N/A',
     },
     {
       id: 'vendorId',
