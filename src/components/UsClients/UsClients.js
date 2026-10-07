@@ -19,6 +19,7 @@ import DocumentViewDialog from './DocumentViewDialog'
 import { toast, ToastContainer } from 'react-toastify'
 import ToastService from '../../Services/toastService'
 import axios from 'axios'
+import DialogValueViewer from '../../ui-lib/DialogValueViewer'
 
 // ─── Invoice API endpoint ─────────────────────────────────────────────────────
 const INVOICE_API_URL =
@@ -32,6 +33,34 @@ const ORANGE = {
   border: '#ed6c02',     // border color
   shadow: 'rgba(237, 108, 2, 0.35)',
   shadowHover: 'rgba(237, 108, 2, 0.2)',
+}
+
+// ─── Helper: build a readable string for supporting customers ─────────────────
+// Returns "" when there's nothing to show, otherwise a comma-separated string
+// like "KPMG (50000), Deloitte (60000), Infosys (70000)".
+const buildSupportingCustomersText = (supportingCustomers) => {
+  if (!Array.isArray(supportingCustomers) || supportingCustomers.length === 0) {
+    return ''
+  }
+
+  const items = supportingCustomers
+    .map((item) => {
+      if (typeof item === 'string') {
+        return item.trim()
+      }
+      if (item && typeof item === 'object') {
+        const name = (item.clientName ?? item.customerName ?? '').toString().trim()
+        const pay = item.netPay ?? item.netPayment
+        if (name && pay !== undefined && pay !== null && pay !== '') {
+          return `${name} (${pay})`
+        }
+        return name
+      }
+      return ''
+    })
+    .filter(Boolean)
+
+  return items.join(', ')
 }
 
 const UsClients = () => {
@@ -217,15 +246,23 @@ const UsClients = () => {
     return 'other'
   }
 
-  // ─── Columns ────────────────────────────────────────────────────────────────
+  // ─── Columns (mapped to new API response fields) ────────────────────────────
   const columns = [
     {
-      id: 'clientName',
+      id: 'vendorName',
       label: 'Client Name',
       applyFilter: true,
       filterType: 'text',
       sortable: true,
-      render: (value) => value || 'N/A',
+      render: (value, row) => value || row.clientName || 'N/A',
+    },
+    {
+      id: 'vendorId',
+      label: 'Vendor ID',
+      applyFilter: true,
+      filterType: 'text',
+      sortable: true,
+      render: (value, row) => value || row.clientId || 'N/A',
     },
     {
       id: 'positionType',
@@ -250,16 +287,17 @@ const UsClients = () => {
       render: (value) => (value ? `${value} Days` : '0 Days'),
     },
     {
-      id: 'clientWebsiteUrl',
+      id: 'vendorWebsiteUrl',
       label: 'Website',
       applyFilter: true,
       filterType: 'text',
       sortable: true,
-      render: (value) =>
-        value && value.startsWith('http') ? (
+      render: (value, row) => {
+        const url = value || row.clientWebsiteUrl
+        return url && url.startsWith('http') ? (
           <Typography component="span">
             <a
-              href={value}
+              href={url}
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: ORANGE.main, textDecoration: 'none' }}
@@ -271,19 +309,21 @@ const UsClients = () => {
           <Typography component="span" sx={{ color: '#999' }}>
             Not provided
           </Typography>
-        ),
+        )
+      },
     },
     {
-      id: 'clientLinkedInUrl',
+      id: 'vendorLinkedInUrl',
       label: 'LinkedIn',
       applyFilter: true,
       filterType: 'text',
       sortable: true,
-      render: (value) =>
-        value && value.startsWith('http') ? (
+      render: (value, row) => {
+        const url = value || row.clientLinkedInUrl
+        return url && url.startsWith('http') ? (
           <Typography component="span">
             <a
-              href={value}
+              href={url}
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: ORANGE.main, textDecoration: 'none' }}
@@ -295,7 +335,8 @@ const UsClients = () => {
           <Typography component="span" sx={{ color: '#999' }}>
             Not provided
           </Typography>
-        ),
+        )
+      },
     },
     {
       id: 'onBoardedByName',
@@ -304,6 +345,45 @@ const UsClients = () => {
       filterType: 'text',
       sortable: true,
       render: (value) => value || 'N/A',
+    },
+    {
+      id: 'numberOfRequirements',
+      label: 'Requirements',
+      applyFilter: true,
+      filterType: 'text',
+      sortable: true,
+      render: (value) => (value !== null && value !== undefined ? value : 0),
+    },
+    {
+      id: 'invoice',
+      label: 'Invoice',
+      applyFilter: true,
+      filterType: 'select',
+      filterOptions: [
+        { value: 'Yes', label: 'Yes' },
+        { value: 'No', label: 'No' },
+      ],
+      sortable: true,
+      render: (value) => {
+        const invoiceValue = value || 'No'
+        return (
+          <Typography
+            component="span"
+            sx={{
+              display: 'inline-block',
+              padding: '4px 12px',
+              borderRadius: '12px',
+              fontSize: '0.75rem',
+              fontWeight: 'bold',
+              backgroundColor:
+                invoiceValue === 'Yes' ? '#e8f5e8' : '#ffe8e8',
+              color: invoiceValue === 'Yes' ? '#2e7d32' : '#d32f2f',
+            }}
+          >
+            {invoiceValue}
+          </Typography>
+        )
+      },
     },
     {
       id: 'status',
@@ -352,48 +432,26 @@ const UsClients = () => {
       applyFilter: false,
       sortable: false,
       render: (value) => {
-        if (!value || !Array.isArray(value) || value.length === 0) {
-          return 'No customers'
+        const text = buildSupportingCustomersText(value)
+
+        if (!text) {
+          return (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              fontStyle="italic"
+            >
+              None
+            </Typography>
+          )
         }
+
         return (
-          <Box sx={{ width: 170 }}>
-            {value.map((customer, index) => {
-              let netPaymentValue = '0'
-              if (customer.netPayment !== null && customer.netPayment !== undefined) {
-                if (typeof customer.netPayment === 'object') {
-                  netPaymentValue =
-                    customer.netPayment.value ||
-                    customer.netPayment.amount ||
-                    '0'
-                } else {
-                  netPaymentValue = customer.netPayment
-                }
-              }
-              return (
-                <Box
-                  key={index}
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    mb: 0.5,
-                    fontSize: '0.875rem',
-                  }}
-                >
-                  <Typography variant="body2" component="span">
-                    {customer.customerName || 'Unnamed Customer'}
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    component="span"
-                    sx={{ color: '#666', marginLeft: '8px' }}
-                  >
-                    {String(netPaymentValue).toLocaleString()} Days
-                  </Typography>
-                </Box>
-              )
-            })}
-          </Box>
+          <DialogValueViewer
+            value={text}
+            label="Supporting Customers"
+            chip
+          />
         )
       },
     },
@@ -481,17 +539,22 @@ const UsClients = () => {
               size="small"
               color="secondary"
               onClick={() =>
-                handleDownloadAllDocuments(row.clientId, row.clientName)
+                handleDownloadAllDocuments(
+                  row.clientId || row.vendorId,
+                  row.vendorName || row.clientName
+                )
               }
             >
               <Download />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Delete Client">
+          <Tooltip title="Delete Vendor">
             <IconButton
               size="small"
               color="error"
-              onClick={() => handleDeleteClick(row.clientId, row.clientName)}
+              onClick={() =>
+                handleDeleteClick(row)
+              }
             >
               <Delete />
             </IconButton>
@@ -524,7 +587,7 @@ const UsClients = () => {
       supportingCustomers: Array.isArray(client.supportingCustomers)
         ? client.supportingCustomers.map((customer) =>
             typeof customer === 'string'
-              ? { customerName: customer, netPayment: '' }
+              ? { clientName: customer, netPay: '' }
               : customer
           )
         : [],
@@ -561,38 +624,47 @@ const UsClients = () => {
     }
   }
 
-  const handleDeleteClick = async (clientId, clientName) => {
-    const idToDelete = clientId
-    if (!idToDelete) {
-      ToastService.error('Cannot delete: Client ID is missing')
-      showSnackbar('Cannot delete: Client ID is missing', 'error')
+  // ─── Delete vendor (uses vendorId, not clientId) ────────────────────────────
+  const handleDeleteClick = async (row) => {
+    // Accept either a full row object OR (clientId, clientName, vendorId, vendorName)
+    let vendorId
+    let vendorName
+
+    if (row && typeof row === 'object') {
+      vendorId = row.vendorId
+      vendorName = row.vendorName
+    }
+
+    if (!vendorId) {
+      ToastService.error('Cannot delete: Vendor ID is missing')
+      showSnackbar('Cannot delete: Vendor ID is missing', 'error')
       return
     }
 
-    const displayName = clientName || 'this client'
+    const displayName = vendorName || 'this vendor'
     if (
-      window.confirm(`Are you sure you want to delete client "${displayName}"?`)
+      window.confirm(`Are you sure you want to delete vendor "${displayName}"?`)
     ) {
       try {
         const response = await httpService.delete(
-          `/api/us/requirements/client/delete/${idToDelete}`
+          `/api/us/requirements/client/delete/${vendorId}`
         )
         if (response.data && response.data.success) {
-          ToastService.success('Client deleted successfully')
-          showSnackbar('Client deleted successfully', 'success')
+          ToastService.success('Vendor deleted successfully')
+          showSnackbar('Vendor deleted successfully', 'success')
           await fetchClients()
           if (selectedTab === 'INVOICE VENDOR') {
             await fetchInvoiceClients()
           }
         } else {
           const errorMsg = response.data?.message || 'Unknown error'
-          ToastService.error(`Failed to delete client: ${errorMsg}`)
-          showSnackbar(`Failed to delete client: ${errorMsg}`, 'error')
+          ToastService.error(`Failed to delete vendor: ${errorMsg}`)
+          showSnackbar(`Failed to delete vendor: ${errorMsg}`, 'error')
         }
       } catch (error) {
         const errorMsg = error.response?.data?.message || error.message
-        ToastService.error(`Error deleting client: ${errorMsg}`)
-        showSnackbar(`Error deleting client: ${errorMsg}`, 'error')
+        ToastService.error(`Error deleting vendor: ${errorMsg}`)
+        showSnackbar(`Error deleting vendor: ${errorMsg}`, 'error')
       }
     }
   }
@@ -647,15 +719,16 @@ const UsClients = () => {
     if (search) {
       const searchLower = search.toLowerCase()
       const matchesSearch =
-        (row.clientName?.toLowerCase() || '').includes(searchLower) ||
+        (row.vendorName?.toLowerCase() || row.clientName?.toLowerCase() || '').includes(searchLower) ||
         (row.assignedTo?.toLowerCase() || '').includes(searchLower) ||
         (row.positionType?.toLowerCase() || '').includes(searchLower) ||
         (row.onBoardedBy?.toLowerCase() || '').includes(searchLower) ||
+        (row.onBoardedByName?.toLowerCase() || '').includes(searchLower) ||
         (row.status?.toLowerCase() || '').includes(searchLower) ||
-        (row.clientWebsiteUrl &&
-          row.clientWebsiteUrl.toLowerCase().includes(searchLower)) ||
-        (row.clientLinkedInUrl &&
-          row.clientLinkedInUrl.toLowerCase().includes(searchLower))
+        ((row.vendorWebsiteUrl || row.clientWebsiteUrl) &&
+          (row.vendorWebsiteUrl || row.clientWebsiteUrl).toLowerCase().includes(searchLower)) ||
+        ((row.vendorLinkedInUrl || row.clientLinkedInUrl) &&
+          (row.vendorLinkedInUrl || row.clientLinkedInUrl).toLowerCase().includes(searchLower))
       if (!matchesSearch) return false
     }
 
