@@ -340,6 +340,7 @@ const routeConfig = [
                   "TEAMLEAD",
                   "PARTNER",
                   "COORDINATOR",
+                  "INVOICE"
                 ]}
                 allowedEntities={["IN"]}
               />
@@ -356,6 +357,7 @@ const routeConfig = [
                   "ADMIN",
                   "SUPERADMIN",
                   "COORDINATOR",
+                  "INVOICE",
                   "ADMIN",
                   "EMPLOYEE",
                   "BDM",
@@ -414,6 +416,7 @@ const routeConfig = [
                   "TEAMLEAD",
                   "SUPERADMIN",
                   "COORDINATOR",
+                  "INVOICE"
                 ]}
                 allowedEntities={["IN"]}
               />
@@ -426,7 +429,7 @@ const routeConfig = [
             path: "interviews-all",
             element: (
               <ProtectedRoute
-                allowedRoles={["ADMIN", "SUPERADMIN"]}
+                allowedRoles={["ADMIN", "SUPERADMIN", "INVOICE"]}
                 allowedEntities={["IN"]}
               />
             ),
@@ -581,6 +584,7 @@ const routeConfig = [
                   "PARTNER",
                   "PAYROLLADMIN",
                   "COORDINATOR",
+                  "INVOICE"
                 ]}
                 allowedEntities={["IN"]}
               />
@@ -630,6 +634,7 @@ const routeConfig = [
                   "TEAMLEAD",
                   "PARTNER",
                   "EMPLOYEE",
+                  "INVOICE"
                 ]}
                 allowedEntities={["IN"]}
               />
@@ -659,6 +664,7 @@ const routeConfig = [
                   "TEAMLEAD",
                   "PARTNER",
                   "EMPLOYEE",
+                  "INVOICE"
                 ]}
               />
             ),
@@ -668,7 +674,7 @@ const routeConfig = [
                 path: "bdmstatus/:employeeId",
                 element: (
                   <ProtectedRoute
-                    allowedRoles={["ADMIN", "SUPERADMIN", "BDM", "TEAMLEAD"]}
+                    allowedRoles={["ADMIN", "SUPERADMIN", "BDM", "TEAMLEAD","INVOICE"]}
                   />
                 ),
                 children: [{ index: true, element: Loadable(BdmStatus) }],
@@ -686,7 +692,7 @@ const routeConfig = [
                 path: "teamstatus/:teamId",
                 element: (
                   <ProtectedRoute
-                    allowedRoles={["ADMIN", "SUPERADMIN", "BDM", "TEAMLEAD", "EMPLOYEE"]}
+                    allowedRoles={["ADMIN", "SUPERADMIN", "BDM", "TEAMLEAD", "EMPLOYEE","INVOICE"]}
                   />
                 ),
                 children: [{ index: true, element: Loadable(TeamStatus) }],
@@ -753,7 +759,7 @@ const routeConfig = [
             path: "hrms",
             element: (
               <ProtectedRoute
-                allowedRoles={["SUPERADMIN", "HRMS","ADMIN","SUPERACCOUNTS"]}
+                allowedRoles={["SUPERADMIN", "HRMS","ADMIN","SUPERACCOUNTS","INVOICE"]}
                 allowedEntities={["IN", "US"]}
               />
             ),
