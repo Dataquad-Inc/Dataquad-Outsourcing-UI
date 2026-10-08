@@ -124,7 +124,9 @@ const UsEmployees = () => {
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [search, setSearch] = useState("");
 
+  // statusFilter: "all" | "active" | "inactive" | "isolated"
   const [statusFilter, setStatusFilter] = useState("active");
+  // typeFilter: "internal" | "external" | "" (empty = none selected, only when All)
   const [typeFilter, setTypeFilter] = useState("internal");
 
   const BASE_URL = "https://mymulya.com";
@@ -142,14 +144,46 @@ const UsEmployees = () => {
   ];
 
   // ============================================================
-  // ✅ SINGLE API CALL — /users/employee?entity=US
-  //    Returns FULL employee details including designation + reportingManager
+  // ✅ API endpoint selection
+  //   - "All" tab → generic /users/employee (no status/type)
+  //   - Otherwise → dynamic endpoint based on status + type
+  // ============================================================
+  const getEndpoint = useCallback(() => {
+    // When "All" is selected, use the generic endpoint
+    if (statusFilter === "all") {
+      return "/users/employee";
+    }
+
+    const isExternal = typeFilter === "external";
+
+    if (statusFilter === "active") {
+      return isExternal
+        ? "/users/active-external/employee"
+        : "/users/active-internal/employee";
+    }
+    if (statusFilter === "inactive") {
+      return isExternal
+        ? "/users/inactive-external/employee"
+        : "/users/inactive-internal/employee";
+    }
+    if (statusFilter === "isolated") {
+      return isExternal
+        ? "/users/isolated-external/employee"
+        : "/users/isolated-internal/employee";
+    }
+    // Fallback
+    return "/users/employee";
+  }, [statusFilter, typeFilter]);
+
+  // ============================================================
+  // ✅ SINGLE API CALL — dynamic endpoint based on tabs
   // ============================================================
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
 
-      const response = await httpService.get("/users/employee", {
+      const endpoint = getEndpoint();
+      const response = await httpService.get(endpoint, {
         entity: "US",
       });
 
@@ -161,18 +195,11 @@ const UsEmployees = () => {
         return !TEST_EMPLOYEE_IDS.includes(id);
       });
 
-      // 2) Apply status filter (ACTIVE / INACTIVE / ISOLATED / ALL)
-      const byStatus =
-        statusFilter === "all"
-          ? withoutTestAccounts
-          : withoutTestAccounts.filter(
-              (user) =>
-                String(user.status || "").toUpperCase() ===
-                statusFilter.toUpperCase()
-            );
+      // 2) Apply internal / external filter ONLY when a type is selected
+      //    (i.e., not on "All" tab where typeFilter is "")
+      const byType = withoutTestAccounts.filter((user) => {
+        if (!typeFilter) return true;
 
-      // 3) Apply internal / external filter
-      const byType = byStatus.filter((user) => {
         const userRoles = Array.isArray(user.roles)
           ? user.roles
           : String(user.roles || "")
@@ -188,7 +215,7 @@ const UsEmployees = () => {
           : !isExternalRole;
       });
 
-      // 4) Normalize rows for the table
+      // 3) Normalize rows for the table
       const normalized = byType.map(normalizeUserRow);
 
       setEmployees(normalized);
@@ -206,7 +233,7 @@ const UsEmployees = () => {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, typeFilter]);
+  }, [getEndpoint, typeFilter]);
 
   useEffect(() => {
     fetchData();
@@ -274,13 +301,25 @@ const UsEmployees = () => {
     showInfoToast("Create new employee clicked");
   };
 
+  // ✅ When "All" is selected, deselect both Internal and External
   const handleStatusFilterChange = (key) => {
     setStatusFilter(key);
+    if (key === "all") {
+      setTypeFilter("");
+    } else if (!typeFilter) {
+      // If a specific status is chosen and no type was selected, default to internal
+      setTypeFilter("internal");
+    }
     setPage(0);
   };
 
   const handleTypeFilterChange = (key) => {
-    setTypeFilter(key);
+    // Toggle: clicking the same type again deselects it
+    if (typeFilter === key) {
+      setTypeFilter("");
+    } else {
+      setTypeFilter(key);
+    }
     setPage(0);
   };
 
@@ -424,6 +463,8 @@ const UsEmployees = () => {
               key={key}
               variant={typeFilter === key ? "contained" : "outlined"}
               onClick={() => handleTypeFilterChange(key)}
+              // ✅ Disable type buttons when "All" is selected
+              disabled={statusFilter === "all"}
               sx={{
                 textTransform: "none",
                 minWidth: 100,
@@ -439,6 +480,9 @@ const UsEmployees = () => {
                       : "rgba(242, 99, 34, 0.04)",
                   borderColor:
                     typeFilter === key ? "#F26322" : "rgba(0, 0, 0, 0.23)",
+                },
+                "&.Mui-disabled": {
+                  opacity: 0.5,
                 },
               }}
             >
