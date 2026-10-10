@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { tenantFetch } from "../utils/tenant";
+import { API_BASE_URL } from "../Services/httpService";
 import {
   AppBar,
   Toolbar,
@@ -102,7 +104,7 @@ const Header = ({
     }
 
     try {
-      const response = await fetch(`https://mymulya.com/users/profile/${userId}`);
+      const response = await tenantFetch(`${API_BASE_URL}/users/profile/${userId}`);
       if (!response.ok) throw new Error("Failed to fetch profile");
 
       const result = await response.json();

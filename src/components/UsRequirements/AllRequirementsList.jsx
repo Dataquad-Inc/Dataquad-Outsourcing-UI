@@ -1,4 +1,6 @@
 import React, { useState, useCallback, useEffect } from "react";
+import { tenantFetch } from "../../utils/tenant";
+import { API_BASE_URL } from "../../Services/httpService";
 import { Box, Typography } from "@mui/material";
 import CustomDataTable from "../../ui-lib/CustomDataTable";
 import getRequirementsColumns from "./requirementsColumns";
@@ -131,7 +133,7 @@ const AllRequirementsList = () => {
   const fetchFilterOptions = useCallback(async () => {
     try {
       const response = await axios.get(
-        "https://mymulya.com/api/us/requirements/filterOptions",
+        `${API_BASE_URL}/api/us/requirements/filterOptions`,
         { headers: { "Content-Type": "application/json" } }
       );
       if (response.data.success && response.data.data) {
@@ -170,7 +172,7 @@ const fetchData = useCallback(async () => {
 
     // Always allRequirements — no role branching here
     const response = await axios.get(
-      "https://mymulya.com/api/us/requirements/v2/get-all-requirements",
+      `${API_BASE_URL}/api/us/requirements/v2/get-all-requirements`,
       {
         params,
         headers: { "Content-Type": "application/json" },
@@ -245,8 +247,7 @@ const fetchData = useCallback(async () => {
 
   const handleDownloadJD = async (jobId) => {
     try {
-      const response = await fetch(
-        `https://mymulya.com/api/us/requirements/v2/download-jd/${jobId}`,
+      const response = await tenantFetch(`${API_BASE_URL}/api/us/requirements/v2/download-jd/${jobId}`,
         { method: "GET", headers: { Accept: "application/pdf" } }
       );
       if (!response.ok) throw new Error("Failed to download JD");
@@ -297,7 +298,7 @@ const fetchData = useCallback(async () => {
     try {
       if (!userId || !deleteJobId) return;
       await axios.delete(
-        `https://mymulya.com/api/us/requirements/v2/delete-requirement/${deleteJobId}`
+        `${API_BASE_URL}/api/us/requirements/v2/delete-requirement/${deleteJobId}`
       );
       setConfirmOpen(false);
       setDeleteJobId(null);

@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { tenantFetch } from "../../utils/tenant";
+import { API_BASE_URL } from "../../Services/httpService";
 import {
   Box,
   Card,
@@ -231,7 +233,7 @@ const TeamForm = ({ teamData = null, onSave, onCancel, mode = "create" }) => {
     const fetchUsers = async () => {
       try {
         setLoading(true);
-        const response = await fetch("https://mymulya.com/users/employee");
+        const response = await tenantFetch(`${API_BASE_URL}/users/employee`);
         const users = await response.json();
 
         // Add your user to the teamLeads array
@@ -321,9 +323,9 @@ const TeamForm = ({ teamData = null, onSave, onCancel, mode = "create" }) => {
 
     setSaving(true);
     try {
-      const url = `https://mymulya.com/users/assignTeamLead/${formData.superAdmin}`;
+      const url = `${API_BASE_URL}/users/assignTeamLead/${formData.superAdmin}`;
 
-      const response = await fetch(url, {
+      const response = await tenantFetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -721,8 +723,7 @@ const TeamManagement = () => {
   const fetchTeams = async () => {
     try {
       setLoading(true);
-      const response = await fetch(
-        "https://mymulya.com/users/AllAssociatedUsers?entity=IN"
+      const response = await tenantFetch(`${API_BASE_URL}/users/AllAssociatedUsers?entity=IN`
       );
       const data = await response.json();
 
@@ -774,8 +775,7 @@ const TeamManagement = () => {
       window.confirm(`Are you sure you want to delete team "${team.teamName}"?`)
     ) {
       try {
-        const response = await fetch(
-          `https://mymulya.com/users/deleteTeam/${team.teamLeadId}`,
+        const response = await tenantFetch(`${API_BASE_URL}/users/deleteTeam/${team.teamLeadId}`,
           {
             method: "DELETE",
           }
@@ -813,8 +813,7 @@ const TeamManagement = () => {
       setDeletingMember(member.employeeId || member.userId);
 
       try {
-        const response = await fetch(
-          `https://mymulya.com/users/team/${team.teamLeadId}/user/${
+        const response = await tenantFetch(`${API_BASE_URL}/users/team/${team.teamLeadId}/user/${
             member.employeeId || member.userId
           }`,
           {

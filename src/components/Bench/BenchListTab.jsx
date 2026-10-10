@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { API_BASE_URL } from "../../Services/httpService";
 import {
   Box,
   Typography,
@@ -112,7 +113,7 @@ function SubmitToJobPopover({ anchorEl, row, onClose }) {
 
     try {
       const response = await axios.post(
-        "https://mymulya.com/candidate/submit-bench",
+        `${API_BASE_URL}/candidate/submit-bench`,
         {
           benchIds: [row.id],
           jobId: jobId.trim(),
@@ -608,7 +609,7 @@ const BenchListTab = ({ onAddClick }) => {
       };
 
       // Replace with your actual email API endpoint
-      const response = await axios.post("https://mymulya.com/candidate/send-jd", emailPayload);
+      const response = await axios.post(`${API_BASE_URL}/candidate/send-jd`, emailPayload);
 
       ToastService.success(
         response.data.message || `Email sent successfully to ${selectedEmails.length} candidate(s)!`
@@ -643,7 +644,7 @@ const BenchListTab = ({ onAddClick }) => {
 
     try {
       const response = await axios.post(
-        "https://mymulya.com/candidate/submit-bench",
+        `${API_BASE_URL}/candidate/submit-bench`,
         {
           benchIds: benchIds,
           jobId: jobId,

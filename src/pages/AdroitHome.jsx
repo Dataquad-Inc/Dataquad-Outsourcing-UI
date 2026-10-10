@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { tenantFetch } from "../utils/tenant";
+import { API_BASE_URL } from "../Services/httpService";
 import {
   Box,
   Grid,
@@ -268,8 +270,7 @@ const AdroitHome = () => {
     setError(null);
 
     try {
-      const response = await fetch(
-        "https://mymulya.com/api/us/requirements/dashboard/get-all"
+      const response = await tenantFetch(`${API_BASE_URL}/api/us/requirements/dashboard/get-all`
       );
 
       const responseText = await response.text();

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { API_BASE_URL } from "../../Services/httpService";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import {
@@ -389,7 +390,7 @@ const CreateRTR = () => {
 
       // Submit to API
       const response = await axios.post(
-        `https://mymulya.com/hotlist/create-direct-rtr/${userId}?isAssignAll=false`,
+        `${API_BASE_URL}/hotlist/create-direct-rtr/${userId}?isAssignAll=false`,
         formDataToSend,
         {
           withCredentials: true,

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { API_BASE_URL } from "../../Services/httpService";
 import {
   Box,
   Table,
@@ -316,7 +317,7 @@ const TagCandidatesTable = ({ rows = [], loading = false, tagName = "" }) => {
 
     try {
       const response = await axios.post(
-        "https://mymulya.com/candidate/submit-bench",
+        `${API_BASE_URL}/candidate/submit-bench`,
         { benchIds, jobId: jobId.trim() },
       );
 
@@ -377,7 +378,7 @@ const TagCandidatesTable = ({ rows = [], loading = false, tagName = "" }) => {
         body: mailBody
       };
 
-      const response = await axios.post("https://mymulya.com/candidate/send-jd", emailPayload);
+      const response = await axios.post(`${API_BASE_URL}/candidate/send-jd`, emailPayload);
 
       setEmailResult({
         type: "success",

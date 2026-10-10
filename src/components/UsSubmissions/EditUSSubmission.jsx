@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { tenantFetch } from "../../utils/tenant";
+import { API_BASE_URL } from "../../Services/httpService";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import axios from "axios";
@@ -371,7 +373,7 @@ const EditUSSubmission = ({
       try {
         setLoading(true);
         const response = await axios.get(
-          `https://mymulya.com/api/us/requirements/get-submission/by-id/${submissionId}`
+          `${API_BASE_URL}/api/us/requirements/get-submission/by-id/${submissionId}`
         );
 
         if (response.data) {
@@ -380,7 +382,7 @@ const EditUSSubmission = ({
           // Check if resume exists for this submission
           try {
             const resumeResponse = await axios.head(
-              `https://mymulya.com/api/us/requirements/download-resume/${submissionId}`
+              `${API_BASE_URL}/api/us/requirements/download-resume/${submissionId}`
             );
 
             if (resumeResponse.status === 200) {
@@ -421,8 +423,7 @@ const EditUSSubmission = ({
   // Resume handlers
   const handleViewResume = async (submissionId, candidateName) => {
     try {
-      const response = await fetch(
-        `https://mymulya.com/api/us/requirements/download-resume/${submissionId}`,
+      const response = await tenantFetch(`${API_BASE_URL}/api/us/requirements/download-resume/${submissionId}`,
         { method: "GET", headers: { Accept: "application/pdf" } }
       );
 
@@ -455,8 +456,7 @@ const MIME_EXTENSION_MAP = {
 
 const handleDownloadResume = async (submissionId, candidateName) => {
   try {
-    const response = await fetch(
-      `https://mymulya.com/api/us/requirements/download-resume/${submissionId}`,
+    const response = await tenantFetch(`${API_BASE_URL}/api/us/requirements/download-resume/${submissionId}`,
       { method: "GET", headers: { "Content-Type": "application/octet-stream" } }
     );
 
@@ -683,11 +683,11 @@ const handleDownloadResume = async (submissionId, candidateName) => {
         resume: values.resume ? "New resume provided" : "No resume update",
         removeResume: resumeRemoved,
         userId: userId,
-        endpoint: `https://mymulya.com/api/us/requirements/update-submission/${submissionId}`,
+        endpoint: `${API_BASE_URL}/api/us/requirements/update-submission/${submissionId}`,
       });
 
       const response = await axios.put(
-        `https://mymulya.com/api/us/requirements/update-submission/${submissionId}`,
+        `${API_BASE_URL}/api/us/requirements/update-submission/${submissionId}`,
         formData,
         {
           headers: {

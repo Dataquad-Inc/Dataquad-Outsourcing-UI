@@ -6,6 +6,7 @@ import BaseSubmission from "./BaseSubmission";
 import { filterSubmissionsByDateRange, setFilteredFlag } from "../../redux/submissionSlice";
 import { setFilteredDataRequested } from "../../redux/benchSlice";
 import { exportFile } from "../../utils/exportFile";
+import httpService from "../../Services/httpService";
 
 
 const AdminSubmissions = () => {
@@ -75,12 +76,12 @@ const AdminSubmissions = () => {
           }
         });
 
-        const response = await axios.get(
-          "https://mymulya.com/candidate/submissions",
+        const response = await httpService.get(
+          "/candidate/submissions",
+          params,
           {
             signal: controllerRef.current.signal,
             timeout: 30000,
-            params,
           },
         );
 

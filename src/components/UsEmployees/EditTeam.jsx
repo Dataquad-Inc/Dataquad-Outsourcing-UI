@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { API_BASE_URL } from "../../Services/httpService";
 import { Box, CircularProgress } from "@mui/material";
 import DynamicFormUltra from "../FormContainer/DynamicFormUltra";
 import { hotlistAPI } from "../../utils/api";
@@ -124,7 +125,7 @@ const EditTeam = () => {
     try {
       // Use the same POST endpoint for both create and edit
       const { data } = await axios.post(
-        `https://mymulya.com/users/assignTeamLead/${userId}`,
+        `${API_BASE_URL}/users/assignTeamLead/${userId}`,
         values
       );
       console.log("Team updated successfully:", data);

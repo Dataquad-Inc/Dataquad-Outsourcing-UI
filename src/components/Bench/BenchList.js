@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { API_BASE_URL } from "../../Services/httpService";
 import {
   Box,
   Typography,
@@ -110,7 +111,7 @@ function SubmitToJobPopover({ anchorEl, row, onClose }) {
 
     try {
       const response = await axios.post(
-        "https://mymulya.com/candidate/submit-bench",
+        `${API_BASE_URL}/candidate/submit-bench`,
         {
           benchIds: [row.id],
           jobId: jobId.trim(),
@@ -621,7 +622,7 @@ const BenchListTab = ({ onAddClick }) => {
 
     try {
       const response = await axios.post(
-        "https://mymulya.com/candidate/submit-bench",
+        `${API_BASE_URL}/candidate/submit-bench`,
         {
           benchIds: benchIds,
           jobId: jobId,

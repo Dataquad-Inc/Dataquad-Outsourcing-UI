@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import { tenantFetch } from "../../utils/tenant";
+import { API_BASE_URL } from "../../Services/httpService";
 import {
   Paper,
   Typography,
@@ -24,8 +26,7 @@ const SimpleDocumentsDisplay = ({ consultantId }) => {
   useEffect(() => {
     const fetchDocs = async () => {
       try {
-        const res = await fetch(
-          `https://mymulya.com/hotlist/getDocumentDetails/${consultantId}`
+        const res = await tenantFetch(`${API_BASE_URL}/hotlist/getDocumentDetails/${consultantId}`
         );
         const result = await res.json();
         if (result.success) {

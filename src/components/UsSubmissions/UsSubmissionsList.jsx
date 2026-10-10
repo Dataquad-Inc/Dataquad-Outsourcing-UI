@@ -1,4 +1,6 @@
 import React, { useState, useCallback, useEffect } from "react";
+import { tenantFetch } from "../../utils/tenant";
+import { API_BASE_URL } from "../../Services/httpService";
 import { Box } from "@mui/material";
 import CustomDataTable from "../../ui-lib/CustomDataTable";
 import getSubmissionsColumns from "./submissionsColumns";
@@ -180,7 +182,7 @@ const UsSubmissionsList = () => {
       let response;
       if (role === "RECRUITER" || role === "GRANDSALES") {
         response = await axios.get(
-          `https://mymulya.com/api/us/requirements/get-submission/${userId}`,
+          `${API_BASE_URL}/api/us/requirements/get-submission/${userId}`,
           {
             params,
             headers: { "Content-Type": "application/json" },
@@ -188,7 +190,7 @@ const UsSubmissionsList = () => {
         );
       } else {
         response = await axios.get(
-          `https://mymulya.com/api/us/requirements/get-submission/${userId}`,
+          `${API_BASE_URL}/api/us/requirements/get-submission/${userId}`,
           {
             params,
             headers: { "Content-Type": "application/json" },
@@ -274,8 +276,7 @@ const UsSubmissionsList = () => {
 
   const handleDownloadResume = async (submissionId, candidateName) => {
     try {
-      const response = await fetch(
-        `https://mymulya.com/api/us/requirements/download-resume/${submissionId}`,
+      const response = await tenantFetch(`${API_BASE_URL}/api/us/requirements/download-resume/${submissionId}`,
         {
           method: "GET",
           headers: { "Content-Type": "application/octet-stream" },
@@ -322,8 +323,7 @@ const UsSubmissionsList = () => {
   /** ---------------- View Resume ---------------- */
   const handleViewResume = async (submissionId, candidateName) => {
     try {
-      const response = await fetch(
-        `https://mymulya.com/api/us/requirements/download-resume/${submissionId}`,
+      const response = await tenantFetch(`${API_BASE_URL}/api/us/requirements/download-resume/${submissionId}`,
         { method: "GET", headers: { Accept: "application/pdf" } }
       );
 
@@ -366,7 +366,7 @@ const UsSubmissionsList = () => {
       if (!deleteSubmissionId) return;
 
       await axios.delete(
-        `https://mymulya.com/api/us/requirements/delete-submission/${deleteSubmissionId}`
+        `${API_BASE_URL}/api/us/requirements/delete-submission/${deleteSubmissionId}`
       );
 
       setConfirmOpen(false);

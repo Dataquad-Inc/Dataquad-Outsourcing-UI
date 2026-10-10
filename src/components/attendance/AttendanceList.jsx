@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { tenantFetch } from "../../utils/tenant";
 import {
   Box, Card, CardContent, Chip, Paper, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, TextField, Typography, Select,
@@ -223,7 +224,7 @@ function AttendanceGrid({ snackbar: showSnackbar }) {
   const fetchCycles = useCallback(async () => {
     setLoadingCycles(true);
     try {
-      const res = await fetch(`${BASE_URL}/attendance-cycles`);
+      const res = await tenantFetch(`${BASE_URL}/attendance-cycles`);
       if (!res.ok) throw new Error(`Failed to fetch cycles (${res.status})`);
       const data = await res.json();
       const list = Array.isArray(data) ? data : [];
@@ -255,7 +256,7 @@ function AttendanceGrid({ snackbar: showSnackbar }) {
         year: String(selectedCycle.attendanceYear),
       });
 
-      const res = await fetch(`${BASE_URL}/employee-attendance/all/monthly?${params}`);
+      const res = await tenantFetch(`${BASE_URL}/employee-attendance/all/monthly?${params}`);
       if (!res.ok) {
         const txt = await res.text();
         throw new Error(txt || `Server error ${res.status}`);
@@ -349,7 +350,7 @@ function AttendanceGrid({ snackbar: showSnackbar }) {
         remarks: '',
       };
 
-      const res = await fetch(`${BASE_URL}/employee-attendance/mark`, {
+      const res = await tenantFetch(`${BASE_URL}/employee-attendance/mark`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

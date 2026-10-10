@@ -41,6 +41,8 @@ import {
 
 const Transition = React.forwardRef(function Transition(props, ref) {
     return <Slide direction="up" ref={ref} {...props} />;
+import { tenantFetch } from "../../utils/tenant";
+import { API_BASE_URL } from "../../Services/httpService";
 });
 
 const DocumentViewDialog = ({ open, onClose, client, documents }) => {
@@ -95,9 +97,9 @@ const DocumentViewDialog = ({ open, onClose, client, documents }) => {
 
     const fetchFileBlob = async (documentId) => {
         try {
-            const apiUrl = `https://mymulya.com/api/us/requirements/client/download/${documentId}`;
+            const apiUrl = `${API_BASE_URL}/api/us/requirements/client/download/${documentId}`;
             
-            const response = await fetch(apiUrl);
+            const response = await tenantFetch(apiUrl);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }

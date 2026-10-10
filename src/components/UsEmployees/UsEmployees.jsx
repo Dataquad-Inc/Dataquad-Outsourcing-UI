@@ -1,4 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo } from "react";
+import { tenantFetch } from "../../utils/tenant";
+import { API_BASE_URL } from "../../Services/httpService";
 import {
   Button,
   MenuItem,
@@ -127,7 +129,7 @@ const UsEmployees = () => {
   const [statusFilter, setStatusFilter] = useState("active");
   const [typeFilter, setTypeFilter] = useState("internal");
 
-  const BASE_URL = "https://mymulya.com";
+  const BASE_URL = `${API_BASE_URL}`;
 
   const roleOptions = [
     { value: "EMPLOYEE", label: "Employee" },
@@ -252,8 +254,7 @@ const UsEmployees = () => {
   const handleDelete = useCallback((row) => {
     const deleteAction = async () => {
       try {
-        const response = await fetch(
-          `${BASE_URL}/users/delete/${row.userId || row.employeeId}`,
+        const response = await tenantFetch(`${BASE_URL}/users/delete/${row.userId || row.employeeId}`,
           { method: "DELETE" }
         );
         if (!response.ok) throw new Error("Failed to delete employee");
@@ -342,8 +343,7 @@ const UsEmployees = () => {
       delete payload.password;
       delete payload.confirmPassword;
 
-      const response = await fetch(
-        `${BASE_URL}/users/update/${selectedEmployee.userId}`,
+      const response = await tenantFetch(`${BASE_URL}/users/update/${selectedEmployee.userId}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },

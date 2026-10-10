@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 
+import { API_BASE_URL } from "../../Services/httpService";
 import { Box, CircularProgress } from "@mui/material";
 
 import DynamicFormUltra from "../FormContainer/DynamicFormUltra";
@@ -105,7 +106,7 @@ const CreateTeam = () => {
     try {
       // const response = await teamAPI.createTeam(userId, values);
       const { data } = await axios.post(
-        `https://mymulya.com/users/assignTeamLead/${userId}`, // URL
+        `${API_BASE_URL}/users/assignTeamLead/${userId}`, // URL
         values // request body
       );
       console.log("Team created successfully:", data);

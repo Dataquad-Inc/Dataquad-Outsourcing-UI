@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { tenantFetch } from "../../utils/tenant";
+import { API_BASE_URL } from "../../Services/httpService";
 import {
   Box,
   Card,
@@ -54,7 +56,7 @@ const OnBoardNewEmployee = () => {
 
   const navigate = useNavigate();
 
-  const BASE_URL = "https://mymulya.com";
+  const BASE_URL = `${API_BASE_URL}`;
 
   // Role options
   const roleOptions = [
@@ -212,7 +214,7 @@ const OnBoardNewEmployee = () => {
         phoneNumber: formData.phoneNumber.replace(/\D/g, ""), // Clean phone number
       };
 
-      const response = await fetch(`${BASE_URL}/users/register`, {
+      const response = await tenantFetch(`${BASE_URL}/users/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
+import { tenantFetch } from "../../utils/tenant";
+import { API_BASE_URL } from "../../Services/httpService";
 import axios from "axios";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { showSuccessToast, showErrorToast } from "../../utils/toastUtils";
 import DynamicFormUltra from "../FormContainer/DynamicFormUltra";
-
-const API_BASE_URL = "https://mymulya.com";
 
 const getMemberId = (member) => {
   if (!member) return "";
@@ -53,7 +53,7 @@ export default function TeamForm() {
       try {
         setLoading(true);
         // const response = await axios.get(`${API_BASE_URL}/users/employee`);
-        const response = await fetch("https://mymulya.com/users/employee");
+        const response = await tenantFetch(`${API_BASE_URL}/users/employee`);
         const users = await response.json();
         // const users = response.data;
 
@@ -242,7 +242,7 @@ export default function TeamForm() {
           await Promise.all(
             [...new Set(removedMemberIds)].map((memberId) =>
               axios.delete(
-                `https://mymulya.com/users/team/${teamLeadForRemoval}/user/${memberId}`
+                `${API_BASE_URL}/users/team/${teamLeadForRemoval}/user/${memberId}`
               )
             )
           );
@@ -250,7 +250,7 @@ export default function TeamForm() {
       }
 
       const response = await axios.post(
-        `https://mymulya.com/users/assignTeamLead/${userId}`,
+        `${API_BASE_URL}/users/assignTeamLead/${userId}`,
         payload
       );
 

@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { tenantFetch } from "../../utils/tenant";
+import { API_BASE_URL } from "../../Services/httpService";
 import {
   Box,
   Card,
@@ -44,8 +46,7 @@ const CandidateProfile = () => {
 
   const fetchCandidateData = async () => {
     try {
-      const response = await fetch(
-        `https://mymulya.com/api/us/requirements/get-submission/by-id/${submissionId}`
+      const response = await tenantFetch(`${API_BASE_URL}/api/us/requirements/get-submission/by-id/${submissionId}`
       );
       if (!response.ok) throw new Error("Failed to fetch candidate data");
 
@@ -75,8 +76,7 @@ const CandidateProfile = () => {
 
   const handleDownloadResume = async (submissionId, candidateName) => {
     try {
-      const response = await fetch(
-        `https://mymulya.com/api/us/requirements/download-resume/${submissionId}`,
+      const response = await tenantFetch(`${API_BASE_URL}/api/us/requirements/download-resume/${submissionId}`,
         { method: "GET", headers: { "Content-Type": "application/octet-stream" } }
       );
 
@@ -117,8 +117,7 @@ const CandidateProfile = () => {
 
   const handleViewResume = async () => {
     try {
-      const response = await fetch(
-        `https://mymulya.com/api/us/requirements/download-resume/${submissionId}`
+      const response = await tenantFetch(`${API_BASE_URL}/api/us/requirements/download-resume/${submissionId}`
       );
       if (!response.ok) throw new Error("Failed to view resume");
 
@@ -135,8 +134,7 @@ const CandidateProfile = () => {
 
   const handleDownloadDocument = async (fileName) => {
     try {
-      const response = await fetch(
-        `https://mymulya.com/api/us/requirements/download-multidoc/${submissionId}/${encodeURIComponent(
+      const response = await tenantFetch(`${API_BASE_URL}/api/us/requirements/download-multidoc/${submissionId}/${encodeURIComponent(
           fileName
         )}`
       );
@@ -156,8 +154,7 @@ const CandidateProfile = () => {
 
   const handleViewDocument = async (fileName) => {
     try {
-      const response = await fetch(
-        `https://mymulya.com/api/us/requirements/download-multidoc/${submissionId}/${encodeURIComponent(
+      const response = await tenantFetch(`${API_BASE_URL}/api/us/requirements/download-multidoc/${submissionId}/${encodeURIComponent(
           fileName
         )}`
       );
@@ -176,8 +173,7 @@ const CandidateProfile = () => {
       return;
 
     try {
-      const response = await fetch(
-        `https://mymulya.com/api/us/requirements/delete-multi-doc/${submissionId}/${encodeURIComponent(
+      const response = await tenantFetch(`${API_BASE_URL}/api/us/requirements/delete-multi-doc/${submissionId}/${encodeURIComponent(
           fileName
         )}`,
         { method: "DELETE" }

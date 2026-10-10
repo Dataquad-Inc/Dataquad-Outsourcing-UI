@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { tenantFetch } from "../../utils/tenant";
+import { API_BASE_URL } from "../../Services/httpService";
 import {
   Box,
   Typography,
@@ -40,7 +42,7 @@ const Teamlist = () => {
   const fetchTeams = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("https://mymulya.com/users/AllAssociatedUsers");
+      const res = await tenantFetch(`${API_BASE_URL}/users/AllAssociatedUsers`);
       const data = await res.json();
       const allTeams = Array.isArray(data) ? data : [];
       setTeams(allTeams.filter(isCurrentCoordinatorTeam));
@@ -60,8 +62,7 @@ const Teamlist = () => {
     if (!window.confirm("Are you sure you want to remove this member?")) return;
 
     try {
-      const res = await fetch(
-        `https://mymulya.com/users/team/${teamLeadId}/user/${memberId}`,
+      const res = await tenantFetch(`${API_BASE_URL}/users/team/${teamLeadId}/user/${memberId}`,
         { method: "DELETE" }
       );
 
@@ -81,8 +82,7 @@ const Teamlist = () => {
  const handleDeleteTeam=async(teamLeadId)=>{
   if (!window.confirm("Are you sure you want to delete this team?")) return;   
   try {
-    const res = await fetch(
-      `https://mymulya.com/users/team/${teamLeadId}`,
+    const res = await tenantFetch(`${API_BASE_URL}/users/team/${teamLeadId}`,
       { method: "DELETE" }
     );
     if (res.ok) {

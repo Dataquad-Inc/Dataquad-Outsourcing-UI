@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { API_BASE_URL } from "../../Services/httpService";
 import { useDispatch } from 'react-redux';
 import {
   uploadTimesheetAttachments,
@@ -423,7 +424,7 @@ const handleUploadAttachments = async (currentTimesheet, selectedWeekStart, setH
         `/timesheet/attachments/${attachmentId}/download?view=true`,
         {
           responseType: 'blob',
-          baseURL: 'https://mymulya.com/'
+          baseURL: `${API_BASE_URL}/`
         }
       );
 
@@ -518,7 +519,7 @@ const handleUploadAttachments = async (currentTimesheet, selectedWeekStart, setH
         `/timesheet/attachments/${attachmentId}/download`,
         {
           responseType: 'blob',
-          baseURL: 'https://mymulya.com/'
+          baseURL: `${API_BASE_URL}/`
         }
       );
 

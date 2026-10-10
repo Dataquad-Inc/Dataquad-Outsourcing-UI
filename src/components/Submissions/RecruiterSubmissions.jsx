@@ -9,6 +9,7 @@ import {
   resetRecruiterFilteredSubmissions 
 } from "../../redux/submissionSlice";
 import { setFilteredDataRequested } from "../../redux/benchSlice";
+import httpService from "../../Services/httpService";
 
 const RecruiterSubmissions = () => {
   const [data, setData] = useState([]);
@@ -66,11 +67,11 @@ const RecruiterSubmissions = () => {
           if (value && value !== "") params[key] = value;
         });
 
-        const response = await axios.get(
-          `https://mymulya.com/candidate/submissionsByUserId/${userId}`,
+        const response = await httpService.get(
+          `/candidate/submissionsByUserId/${userId}`,
+          params,
           {
             signal: controllerRef.current.signal,
-            params,
           }
         );
 

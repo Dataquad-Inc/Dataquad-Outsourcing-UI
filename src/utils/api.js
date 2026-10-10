@@ -1,4 +1,5 @@
 import axios from "axios";
+import { getTenantHeader } from "./tenant";
 
 // Base URL for API
 // const BASE_URL = "http://192.168.0.115:8092";
@@ -26,6 +27,8 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    Object.assign(config.headers, getTenantHeader());
 
     // CRITICAL: when the request body is FormData (file uploads), the
     // "Content-Type: application/json" default set on the axios instance

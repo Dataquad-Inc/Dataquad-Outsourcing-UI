@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo } from "react";
+import { API_BASE_URL } from "../../Services/httpService";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
@@ -473,11 +474,11 @@ const CreateUSSubmission = ({
           id: userId,
           name: userName,
         },
-        endpoint: `https://mymulya.com/api/us/requirements/create-submission/${userId}`,
+        endpoint: `${API_BASE_URL}/api/us/requirements/create-submission/${userId}`,
       });
 
       const response = await axios.post(
-        `https://mymulya.com/api/us/requirements/create-submission/${userId}`,
+        `${API_BASE_URL}/api/us/requirements/create-submission/${userId}`,
         formData,
         {
           headers: {

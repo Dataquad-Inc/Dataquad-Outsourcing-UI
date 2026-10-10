@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { API_BASE_URL } from "../../Services/httpService";
 import { useSelector } from "react-redux";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
@@ -37,7 +38,7 @@ const EditRtrForm = () => {
     try {
       setLoading(true);
       const response = await axios.get(
-        `https://mymulya.com/hotlist/rtr-id/${rtrId}`
+        `${API_BASE_URL}/hotlist/rtr-id/${rtrId}`
       );
 
       if (response.data.success && response.data.data) {

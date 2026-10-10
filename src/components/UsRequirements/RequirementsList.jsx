@@ -1,4 +1,6 @@
 import React, { useState, useCallback, useEffect } from "react";
+import { tenantFetch } from "../../utils/tenant";
+import { API_BASE_URL } from "../../Services/httpService";
 import { Box, Typography } from "@mui/material";
 import CustomDataTable from "../../ui-lib/CustomDataTable";
 import getRequirementsColumns from "./requirementsColumns";
@@ -142,7 +144,7 @@ const RequirementsList = () => {
   const fetchFilterOptions = useCallback(async () => {
     try {
       const response = await axios.get(
-        "https://mymulya.com/api/us/requirements/filterOptions",
+        `${API_BASE_URL}/api/us/requirements/filterOptions`,
         {
           headers: { "Content-Type": "application/json" },
         }
@@ -224,7 +226,7 @@ const RequirementsList = () => {
       ) {
         // For date range filter, use the API endpoint with fromDate and toDate
         response = await axios.get(
-          `https://mymulya.com/api/us/requirements/v2/get-requirements/${userId}`,
+          `${API_BASE_URL}/api/us/requirements/v2/get-requirements/${userId}`,
           {
             params,
             headers: { "Content-Type": "application/json" },
@@ -232,7 +234,7 @@ const RequirementsList = () => {
         );
       } else {
         response = await axios.get(
-          "https://mymulya.com/api/us/requirements/allRequirements",
+          `${API_BASE_URL}/api/us/requirements/allRequirements`,
           {
             params,
             headers: { "Content-Type": "application/json" },
@@ -298,8 +300,7 @@ const RequirementsList = () => {
   /** ---------------- Download JD ---------------- */
   const handleDownloadJD = async (jobId) => {
     try {
-      const response = await fetch(
-        `https://mymulya.com/api/us/requirements/v2/download-jd/${jobId}`,
+      const response = await tenantFetch(`${API_BASE_URL}/api/us/requirements/v2/download-jd/${jobId}`,
         { method: "GET", headers: { Accept: "application/pdf" } }
       );
 
@@ -359,7 +360,7 @@ const RequirementsList = () => {
       if (!userId || !deleteJobId) return;
 
       await axios.delete(
-        `https://mymulya.com/api/us/requirements/v2/delete-requirement/${deleteJobId}`
+        `${API_BASE_URL}/api/us/requirements/v2/delete-requirement/${deleteJobId}`
       );
 
       setConfirmOpen(false);

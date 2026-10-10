@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import httpService from "../Services/httpService";
+import { resolveTenantId, tenantFromEmail } from "../utils/tenant";
 
 // ✅ Load user from localStorage (if any)
 const storedUser = JSON.parse(localStorage.getItem("authUser"));
@@ -11,6 +12,7 @@ const initialState = {
   email: storedUser?.email || null,
   role: storedUser?.role || null,
   entity: storedUser?.entity || null,
+  tenantId: storedUser?.tenantId || null,
   logInTimeStamp: storedUser?.logInTimeStamp || null,
   logoutTimestamp: null,
   status: "idle",
@@ -23,10 +25,15 @@ export const loginAsync = createAsyncThunk(
   "auth/loginAsync",
   async ({ email, password }, { rejectWithValue }) => {
     try {
+      // @aventrainc.ai → aventra tenant before the request hits the API
+      const tenantHint = tenantFromEmail(email) || resolveTenantId();
       const response = await httpService.post(
         `/users/login`,
         { email, password },
-        { withCredentials: true }
+        {
+          withCredentials: true,
+          headers: { "X-Tenant-Id": tenantHint },
+        }
       );
 
       const {
@@ -37,6 +44,7 @@ export const loginAsync = createAsyncThunk(
         loginTimestamp,
         encryptionKey,
         entity,
+        tenantId,
       } = response.data.payload;
 
       return {
@@ -46,6 +54,7 @@ export const loginAsync = createAsyncThunk(
         email: userEmail,
         role: roleType,
         entity,
+        tenantId: tenantId || tenantHint,
         logInTimeStamp: loginTimestamp,
         encryptionKey,
       };
@@ -100,6 +109,7 @@ const authSlice = createSlice({
       state.email = null;
       state.role = null;
       state.entity = null;
+      state.tenantId = null;
       state.logInTimeStamp = null;
       state.logoutTimestamp = null;
       state.error = null;
@@ -134,6 +144,7 @@ const authSlice = createSlice({
         state.email = payload.email;
         state.role = payload.role;
         state.entity = payload.entity;
+        state.tenantId = payload.tenantId || null;
         state.logInTimeStamp = payload.logInTimeStamp;
         state.encryptionKey = payload.encryptionKey;
 
@@ -153,6 +164,7 @@ const authSlice = createSlice({
         state.email = null;
         state.role = null;
         state.entity = null;
+        state.tenantId = null;
         state.logInTimeStamp = null;
         state.logoutTimestamp = action.payload.logoutTimestamp;
         state.encryptionKey = null;

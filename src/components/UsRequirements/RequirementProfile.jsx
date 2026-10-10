@@ -1,4 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
+import { tenantFetch } from "../../utils/tenant";
+import { API_BASE_URL } from "../../Services/httpService";
 import {
   Box,
   Button,
@@ -82,8 +84,7 @@ const RequirementProfile = () => {
   const fetchJobDetails = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(
-        `https://mymulya.com/api/us/requirements/v2/get-requirement/${jobId}`
+      const res = await tenantFetch(`${API_BASE_URL}/api/us/requirements/v2/get-requirement/${jobId}`
       );
       const data = await res.json();
       if (data.success && data.data) {
@@ -115,7 +116,7 @@ const RequirementProfile = () => {
       }
 
       const response = await axios.get(
-        `https://mymulya.com/api/us/requirements/get-submission/by-jobid/${jobId}`,
+        `${API_BASE_URL}/api/us/requirements/get-submission/by-jobid/${jobId}`,
         { params }
       );
 
@@ -210,8 +211,7 @@ const RequirementProfile = () => {
 
   const handleDownloadResume = async (submissionId, candidateName) => {
     try {
-      const response = await fetch(
-        `https://mymulya.com/api/us/requirements/download-resume/${submissionId}`,
+      const response = await tenantFetch(`${API_BASE_URL}/api/us/requirements/download-resume/${submissionId}`,
         { method: "GET", headers: { "Content-Type": "application/octet-stream" } }
       );
 
@@ -337,8 +337,7 @@ const RequirementProfile = () => {
   const handleDownloadJD = async () => {
     try {
       setDownloadLoading(true);
-      const res = await fetch(
-        `https://mymulya.com/api/us/requirements/v2/download-jd/${jobId}`,
+      const res = await tenantFetch(`${API_BASE_URL}/api/us/requirements/v2/download-jd/${jobId}`,
         { headers: { Accept: "application/pdf" } }
       );
       if (!res.ok) throw new Error("Failed to download JD");
@@ -391,7 +390,7 @@ const RequirementProfile = () => {
     try {
       setDeleting(true);
       const response = await axios.delete(
-        `https://mymulya.com/api/us/requirements/v2/delete-requirement/${jobId}`
+        `${API_BASE_URL}/api/us/requirements/v2/delete-requirement/${jobId}`
       );
       showSuccessToast("Requirement deleted successfully");
       setDeleteDialogOpen(false);

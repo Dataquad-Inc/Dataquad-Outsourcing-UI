@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { tenantFetch } from "../../utils/tenant";
+import { API_BASE_URL } from "../../Services/httpService";
 import {
   Alert,
   Avatar,
@@ -1415,7 +1417,7 @@ const sortedUsers = useMemo(() => {
     if (fileInputRef.current) fileInputRef.current.value = "";
 
     try {
-      const response = await fetch(`https://mymulya.com/users/profile/${employeeId}`, {
+      const response = await tenantFetch(`${API_BASE_URL}/users/profile/${employeeId}`, {
         method: "GET",
         credentials: "include",
       });
@@ -1473,7 +1475,7 @@ const sortedUsers = useMemo(() => {
     }));
 
     try {
-      await fetch(`https://mymulya.com/users/profile/${employeeId}/documents/${documentId}/verify?isVerified=${nextVerified}`, {
+      await tenantFetch(`${API_BASE_URL}/users/profile/${employeeId}/documents/${documentId}/verify?isVerified=${nextVerified}`, {
         method: "PATCH",
         credentials: "include",
       });

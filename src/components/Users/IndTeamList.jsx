@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { tenantFetch } from "../../utils/tenant";
+import { API_BASE_URL } from "../../Services/httpService";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import {
@@ -61,7 +63,7 @@ const IndTeamList = () => {
 
   useEffect(() => {
     axios
-      .get("https://mymulya.com/users/AllAssociatedUsers?entity=IN")
+      .get(`${API_BASE_URL}/users/AllAssociatedUsers?entity=IN`)
       .then((res) => {
         const teamsData = Array.isArray(res.data) ? res.data : [];
         setTeams(
@@ -111,7 +113,7 @@ const IndTeamList = () => {
     try {
       let response;
       if (type === "team") {
-        response = await fetch(`https://mymulya.com/users/team/${team.teamLeadId}`, {
+        response = await tenantFetch(`${API_BASE_URL}/users/team/${team.teamLeadId}`, {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
         });
@@ -123,8 +125,8 @@ const IndTeamList = () => {
         }
       } else {
         // existing member delete logic unchanged below
-        response = await fetch(
-          `https://mymulya.com/users/team/${team.teamLeadId}/user/${member.employeeId || member.userId}`,
+        response = await tenantFetch(
+          `${API_BASE_URL}/users/team/${team.teamLeadId}/user/${member.employeeId || member.userId}`,
           { method: "DELETE", headers: { "Content-Type": "application/json" } }
         );
         if (response.ok) {

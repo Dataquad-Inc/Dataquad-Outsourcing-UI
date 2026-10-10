@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { API_BASE_URL } from "../../Services/httpService";
 import { useDispatch, useSelector } from "react-redux";
 import { showSuccessToast, showErrorToast } from "../../utils/toastUtils";
 import { useNavigate, useParams } from "react-router-dom";
@@ -79,7 +80,7 @@ const EditJobRequirement = () => {
     try {
       setLoading(true);
       const response = await axios.get(
-        `https://mymulya.com/api/us/requirements/v2/get-requirement/${jobId}`
+        `${API_BASE_URL}/api/us/requirements/v2/get-requirement/${jobId}`
       );
 
       if (response.data.success && response.data.data) {
@@ -418,7 +419,7 @@ const EditJobRequirement = () => {
 
       // Use PUT method for update
       const response = await axios.put(
-        `https://mymulya.com/api/us/requirements/v2/update-requirement/${userId}`,
+        `${API_BASE_URL}/api/us/requirements/v2/update-requirement/${userId}`,
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );

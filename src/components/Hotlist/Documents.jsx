@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import { tenantFetch } from "../../utils/tenant";
+import { API_BASE_URL } from "../../Services/httpService";
 import {
   Box,
   Typography,
@@ -79,8 +81,7 @@ const Documents = ({ consultantId }) => {
     setLoading(true);
     setErrorMsg("");
     try {
-      const res = await fetch(
-        `https://mymulya.com/hotlist/getDocumentDetails/${consultantId}`
+      const res = await tenantFetch(`${API_BASE_URL}/hotlist/getDocumentDetails/${consultantId}`
       );
       if (!res.ok) {
         throw new Error(`HTTP error! Status: ${res.status}`);
@@ -101,8 +102,7 @@ const Documents = ({ consultantId }) => {
 
   const handleDownload = async (documentId, fileName) => {
     try {
-      const res = await fetch(
-        `https://mymulya.com/hotlist/download-document/${documentId}`
+      const res = await tenantFetch(`${API_BASE_URL}/hotlist/download-document/${documentId}`
       );
       if (!res.ok) throw new Error("Failed to download document");
 
@@ -131,8 +131,7 @@ const Documents = ({ consultantId }) => {
     setPreviewContent(null);
 
     try {
-      const res = await fetch(
-        `https://mymulya.com/hotlist/download-document/${document.documentId}`
+      const res = await tenantFetch(`${API_BASE_URL}/hotlist/download-document/${document.documentId}`
       );
       if (!res.ok) throw new Error("Failed to load document for preview");
 
@@ -485,8 +484,7 @@ const Documents = ({ consultantId }) => {
     if (!documentToDelete) return;
 
     try {
-      const res = await fetch(
-        `https://mymulya.com/hotlist/deleteDocument/${documentToDelete.documentId}/${userId}`,
+      const res = await tenantFetch(`${API_BASE_URL}/hotlist/deleteDocument/${documentToDelete.documentId}/${userId}`,
         { method: "DELETE" }
       );
 
@@ -537,8 +535,7 @@ const Documents = ({ consultantId }) => {
 
     try {
       setUploading(true);
-      const res = await fetch(
-        `https://mymulya.com/hotlist/addDocument/${consultantId}`,
+      const res = await tenantFetch(`${API_BASE_URL}/hotlist/addDocument/${consultantId}`,
         {
           method: "POST",
           body: formData,

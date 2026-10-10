@@ -1,4 +1,6 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import { tenantFetch } from "../utils/tenant";
+import { API_BASE_URL } from "../Services/httpService";
 import httpService from "../Services/httpService";
 
 // Fetch all submissions with pagination
@@ -61,8 +63,7 @@ export const filterSubmissionsByDateRange = createAsyncThunk(
         }
       });
 
-      const response = await fetch(
-        `https://mymulya.com/candidate/submissions/filterByDate?${params.toString()}`
+      const response = await tenantFetch(`${API_BASE_URL}/candidate/submissions/filterByDate?${params.toString()}`
       );
 
       if (!response.ok) {
@@ -151,8 +152,7 @@ export const filterSubmissionsByRecruiter = createAsyncThunk(
         }
       });
 
-      const response = await fetch(
-        `https://mymulya.com/candidate/submissions/${recruiterId}/filterByDate?${params.toString()}`
+      const response = await tenantFetch(`${API_BASE_URL}/candidate/submissions/${recruiterId}/filterByDate?${params.toString()}`
       );
 
       if (!response.ok) {
@@ -247,8 +247,7 @@ export const filterSubmissionsByTeamLead = createAsyncThunk(
         }
       });
 
-      const response = await fetch(
-        `https://mymulya.com/candidate/submissions/teamlead/${userId}/filterByDate?${params.toString()}`
+      const response = await tenantFetch(`${API_BASE_URL}/candidate/submissions/teamlead/${userId}/filterByDate?${params.toString()}`
       );
 
       if (!response.ok) {

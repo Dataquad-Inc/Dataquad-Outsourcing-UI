@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { API_BASE_URL } from "../../Services/httpService";
 import { useDispatch, useSelector } from "react-redux";
 import { showSuccessToast, showErrorToast } from "../../utils/toastUtils";
 import { useNavigate } from "react-router-dom";
@@ -344,7 +345,7 @@ const clientOptions = clients
 
       // API call
       const response = await axios.post(
-        `https://mymulya.com/api/us/requirements/v2/post-requirement/${userId}`,
+        `${API_BASE_URL}/api/us/requirements/v2/post-requirement/${userId}`,
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );

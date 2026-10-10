@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { tenantFetch } from "../../utils/tenant";
+import { API_BASE_URL } from "../../Services/httpService";
 import {
   Box,
   Card,
@@ -87,8 +89,7 @@ const TeamManagementForm = ({
     const fetchUsers = async () => {
       try {
         setLoading(true);
-        const response = await fetch(
-          "https://mymulya.com/users/employee?excludeRoleName=EMPLOYEE"
+        const response = await tenantFetch(`${API_BASE_URL}/users/employee?excludeRoleName=EMPLOYEE`
         );
         const users = await response.json();
 
@@ -164,8 +165,7 @@ const TeamManagementForm = ({
 
     setSaving(true);
     try {
-      const response = await fetch(
-        `https://mymulya.com/users/assignTeamLead/${formData.teamLead}`,
+      const response = await tenantFetch(`${API_BASE_URL}/users/assignTeamLead/${formData.teamLead}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

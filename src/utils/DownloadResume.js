@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { IconButton, Menu, MenuItem, LinearProgress, Tooltip } from "@mui/material";
 import { Download } from "@mui/icons-material";
 import ToastService from "../Services/toastService";
+import { tenantFetch } from "./tenant";
 import * as pdfjsLib from "pdfjs-dist";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ExternalHyperlink, Table, TableRow, TableCell, WidthType, BorderStyle } from "docx";
 
@@ -25,7 +26,7 @@ const DownloadResume = ({ candidate, getDownloadUrl }) => {
 
   const downloadFile = async (url, format) => {
     try {
-      const response = await fetch(url, {
+      const response = await tenantFetch(url, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,

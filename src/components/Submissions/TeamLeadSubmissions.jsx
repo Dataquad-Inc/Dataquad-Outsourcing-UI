@@ -10,6 +10,7 @@ import {
 } from "../../redux/submissionSlice";
 import { setFilteredDataRequested } from "../../redux/benchSlice";
 import { set } from "date-fns";
+import httpService from "../../Services/httpService";
 
 // ─── stable initial pagination ───────────────────────────────────────────────
 const INIT_PAGINATION = {
@@ -95,9 +96,10 @@ const TeamLeadSubmissions = () => {
       }
       Object.entries(filterParams).forEach(([k, v]) => { if (v) params[k] = v; });
 
-      const response = await axios.get(
-        `https://mymulya.com/candidate/submissions/teamlead/${userId}`,
-        { signal: controllerRef.current.signal, timeout: 30000, params }
+      const response = await httpService.get(
+        `/candidate/submissions/teamlead/${userId}`,
+        params,
+        { signal: controllerRef.current.signal, timeout: 30000 }
       );
 
       if (isTeam) {

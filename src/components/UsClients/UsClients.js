@@ -54,6 +54,7 @@ const UsClients = () => {
     try {
       const result = await httpService.get(`/api/us/requirements/client/getAll`);
 
+import { API_BASE_URL } from "../../Services/httpService";
       console.log('API Response:', result);
       
       if (result.data.success && result.data.data) {
@@ -83,7 +84,7 @@ const UsClients = () => {
       console.log('Quick Download - Client ID:', cleanClientId);
       console.log('Quick Download - Client Name:', clientName);
       
-      const downloadUrl = `https://mymulya.com/api/us/requirements/ClientsDocuments/downloadAll/${cleanClientId}`;
+      const downloadUrl = `${API_BASE_URL}/api/us/requirements/ClientsDocuments/downloadAll/${cleanClientId}`;
       
       const link = document.createElement('a');
       link.href = downloadUrl;
@@ -100,7 +101,7 @@ const UsClients = () => {
       console.error('Error downloading documents:', error);
       
       try {
-        const downloadUrl = `https://mymulya.com/api/us/requirements/ClientsDocuments/downloadAll/${clientId}`;
+        const downloadUrl = `${API_BASE_URL}/api/us/requirements/ClientsDocuments/downloadAll/${clientId}`;
         window.open(downloadUrl, '_blank');
         showSnackbar('Download opened in new tab!', 'info');
       } catch (fallbackError) {
