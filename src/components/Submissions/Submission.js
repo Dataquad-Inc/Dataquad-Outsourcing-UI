@@ -13,6 +13,7 @@ const Submission = () => {
       case "SUPERADMIN":
       case "COORDINATOR":
       case "ADMIN":
+      case "INVOICE":
         return <AdminSubmissions />;
       
       case "TEAMLEAD":

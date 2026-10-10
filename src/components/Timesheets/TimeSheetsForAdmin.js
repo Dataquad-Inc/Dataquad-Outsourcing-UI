@@ -135,10 +135,10 @@ const TimesheetList = () => {
     return saved !== null ? parseInt(saved, 10) : dayjs().year();
   });
 
+  // ---- Global search term (server-side) ----
+  const [searchTerm, setSearchTerm] = useState('');
+
   // ---- Refs ----
-  // We keep a SINGLE source of truth for "what request we last dispatched".
-  // When currentPage/rowsPerPage/monthStart/monthEnd change, the effect compares
-  // the current tuple against this ref, and dispatches only if they differ.
   const isInitialMount = useRef(true);
   const lastDispatchedParamsRef = useRef(null);
 
@@ -176,39 +176,31 @@ const TimesheetList = () => {
 
   // -------------------------------------------------------------------------
   // THE ONLY EFFECT THAT FETCHES.
-  //
-  // It runs whenever (page, rowsPerPage, monthStart, monthEnd) change.
-  // It compares the current tuple against lastDispatchedParamsRef; if they
-  // differ, it dispatches a fresh thunk and records the tuple.
-  //
-  // This is exactly the InProgress pattern: no isFetchingRef, no isMonthChangeRef,
-  // no isInitialMount short-circuit for subsequent changes — just one comparison.
+  // Now also includes the global search term so the server returns filtered
+  // results across ALL pages (global search).
   // -------------------------------------------------------------------------
   useEffect(() => {
     const params = {
       page: currentPage,
       size: rowsPerPage,
       monthStart,
-      monthEnd
+      monthEnd,
+      ...(searchTerm ? { search: searchTerm } : {})
     };
     const key = JSON.stringify(params);
 
     if (lastDispatchedParamsRef.current === key) {
-      // Already dispatched for this exact tuple → skip
       return;
     }
     lastDispatchedParamsRef.current = key;
 
-    // eslint-disable-next-line no-console
     console.log('[timesheets] dispatch fetchMonthlyTimesheets', params);
 
     dispatch(fetchMonthlyTimesheets(params));
-  }, [currentPage, rowsPerPage, monthStart, monthEnd, dispatch]);
+  }, [currentPage, rowsPerPage, monthStart, monthEnd, searchTerm, dispatch]);
 
   // -------------------------------------------------------------------------
   // Reset pagination when month/year changes.
-  // We reset via slice action, and clear lastDispatched so the effect above
-  // will fire again with the new month + page 0.
   // -------------------------------------------------------------------------
   const prevMonthRef = useRef({ monthStart, monthEnd });
   useEffect(() => {
@@ -220,11 +212,9 @@ const TimesheetList = () => {
     }
     prevMonthRef.current = { monthStart, monthEnd };
 
-    // Reset monthly list, page to 0, totalCount to 0
     dispatch(resetMonthlyTimesheets());
     dispatch(setMonthRange({ monthStart, monthEnd }));
 
-    // Force the fetch effect to fire even if page/size unchanged
     lastDispatchedParamsRef.current = null;
   }, [monthStart, monthEnd, dispatch]);
 
@@ -251,12 +241,30 @@ const TimesheetList = () => {
   );
 
   const handleRefresh = useCallback(() => {
-    // Reset current page to 0, clear totalCount, and force refetch
     dispatch(resetMonthlyTimesheets());
     dispatch(setPage(0));
     lastDispatchedParamsRef.current = null;
-    // The effect above will fire because lastDispatched is null.
   }, [dispatch]);
+
+  // -------------------------------------------------------------------------
+  // Global (server-side) search handler passed to DataTablePaginated.
+  // Resets to page 0 and stores the search term; the fetch effect above
+  // will pick up the new term and refetch globally from the server.
+  // -------------------------------------------------------------------------
+  const handleSearchChange = useCallback(
+    (value) => {
+      const normalized = typeof value === 'string' ? value.trim() : '';
+      setSearchTerm(normalized);
+
+      // Reset to first page on new search so global results start at page 1
+      if (currentPage !== 0) {
+        dispatch(setPage(0));
+      }
+      // Force the fetch effect to fire even if page/size unchanged
+      lastDispatchedParamsRef.current = null;
+    },
+    [dispatch, currentPage]
+  );
 
   // ---- Export ----
   const handleExportData = useCallback(
@@ -273,9 +281,13 @@ const TimesheetList = () => {
         ToastService.info('Preparing export...');
         const allRows = [];
 
-        // Walk every page at size=100
+        // Include the global search term so the export matches what's shown
+        const searchQuery = searchTerm
+          ? `&search=${encodeURIComponent(searchTerm)}`
+          : '';
+
         const first = await httpService.get(
-          `/timesheet/monthly-timesheets?monthStart=${monthStart}&monthEnd=${monthEnd}&page=0&size=100`
+          `/timesheet/monthly-timesheets?monthStart=${monthStart}&monthEnd=${monthEnd}&page=0&size=100${searchQuery}`
         );
         const firstBody = first?.data !== undefined ? first.data : first;
         const firstPaged = firstBody?.data?.content
@@ -287,7 +299,7 @@ const TimesheetList = () => {
         for (let p = 1; p < discoveredTotalPages; p++) {
           // eslint-disable-next-line no-await-in-loop
           const resp = await httpService.get(
-            `/timesheet/monthly-timesheets?monthStart=${monthStart}&monthEnd=${monthEnd}&page=${p}&size=100`
+            `/timesheet/monthly-timesheets?monthStart=${monthStart}&monthEnd=${monthEnd}&page=${p}&size=100${searchQuery}`
           );
           const body = resp?.data !== undefined ? resp.data : resp;
           const paged = body?.data?.content ? body.data : body;
@@ -344,7 +356,7 @@ const TimesheetList = () => {
         ToastService.error('Export failed');
       }
     },
-    [monthStart, monthEnd]
+    [monthStart, monthEnd, searchTerm]
   );
 
   const handleMonthChange = (e) => setSelectedMonth(e.target.value);
@@ -359,7 +371,8 @@ const TimesheetList = () => {
       if (
         role === 'ACCOUNTS' ||
         role === 'SUPERADMIN' ||
-        role === 'ADMIN'
+        role === 'ADMIN' ||
+        role === 'INVOICE'
       ) {
         sessionStorage.setItem(
           'timesheetsAdmin_selectedMonth',
@@ -431,25 +444,29 @@ const TimesheetList = () => {
               cursor:
                 role === 'ACCOUNTS' ||
                 role === 'SUPERADMIN' ||
-                role === 'ADMIN'
+                role === 'ADMIN' ||
+                role === 'INVOICE'
                   ? 'pointer'
                   : 'default',
               color:
                 role === 'ACCOUNTS' ||
                 role === 'SUPERADMIN' ||
-                role === 'ADMIN'
+                role === 'ADMIN' ||
+                role === 'INVOICE'
                   ? 'primary.main'
                   : 'text.primary',
               textDecoration:
                 role === 'ACCOUNTS' ||
                 role === 'SUPERADMIN' ||
-                role === 'ADMIN'
+                role === 'ADMIN' ||
+                role === 'INVOICE'
                   ? 'underline'
                   : 'none',
               '&:hover':
                 role === 'ACCOUNTS' ||
                 role === 'SUPERADMIN' ||
-                role === 'ADMIN'
+                role === 'ADMIN' ||
+                role === 'INVOICE'
                   ? { color: 'primary.dark' }
                   : {}
             }}
@@ -856,7 +873,7 @@ const TimesheetList = () => {
                 >
                   Dashboard
                 </Button>
-                {(role === 'SUPERADMIN' || role === 'ADMIN') && (
+                {(role === 'SUPERADMIN' || role === 'ADMIN' || role === "INVOICE") && (
                   <Button
                     variant="contained"
                     startIcon={<Add />}
@@ -934,6 +951,10 @@ const TimesheetList = () => {
               defaultRowsPerPage={DEFAULT_ROWS_PER_PAGE}
               onPageChange={handleChangePage}
               onRowsPerPageChange={handleChangeRowsPerPage}
+              // ---- Global (server-side) search ----
+              // Providing onSearchChange ENABLES the search field inside
+              // DataTablePaginated and makes it trigger a global server search.
+              onSearchChange={handleSearchChange}
               // ---- Selection off ----
               enableSelection={false}
               checkboxRequired={false}

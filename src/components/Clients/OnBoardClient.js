@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Formik, Form, Field, FieldArray } from "formik";
 import * as Yup from "yup";
 import { ToastContainer, toast } from "react-toastify";
@@ -24,6 +24,7 @@ import {
   FormControl,
   InputLabel,
   Chip,
+  Switch,
 } from "@mui/material";
 
 import {
@@ -92,6 +93,204 @@ const INDIAN_STATES = [
   "Others",
 ];
 
+// ─── US States list ───────────────────────────────────────────────────────────
+const US_STATES = [
+  "Alabama",
+  "Alaska",
+  "Arizona",
+  "Arkansas",
+  "California",
+  "Colorado",
+  "Connecticut",
+  "Delaware",
+  "District of Columbia",
+  "Florida",
+  "Georgia",
+  "Hawaii",
+  "Idaho",
+  "Illinois",
+  "Indiana",
+  "Iowa",
+  "Kansas",
+  "Kentucky",
+  "Louisiana",
+  "Maine",
+  "Maryland",
+  "Massachusetts",
+  "Michigan",
+  "Minnesota",
+  "Mississippi",
+  "Missouri",
+  "Montana",
+  "Nebraska",
+  "Nevada",
+  "New Hampshire",
+  "New Jersey",
+  "New Mexico",
+  "New York",
+  "North Carolina",
+  "North Dakota",
+  "Ohio",
+  "Oklahoma",
+  "Oregon",
+  "Pennsylvania",
+  "Rhode Island",
+  "South Carolina",
+  "South Dakota",
+  "Tennessee",
+  "Texas",
+  "Utah",
+  "Vermont",
+  "Virginia",
+  "Washington",
+  "West Virginia",
+  "Wisconsin",
+  "Wyoming",
+  // Special
+  "Others",
+];
+
+// Entity (currency) decides which location list is shown:
+//   INR -> Indian states / UTs,  USD -> US states
+const getStatesForCurrency = (cur) =>
+  cur === "USD" ? US_STATES : INDIAN_STATES;
+
+// ─── Invoice helpers ──────────────────────────────────────────────────────────
+// The Switch in the UI works with a boolean, but the backend expects "Yes"/"No".
+
+// Converts whatever the backend / form holds ("Yes", "No", true, false, "true",
+// null, undefined) into a real boolean for the Switch.
+const normalizeInvoice = (val) => {
+  if (typeof val === "boolean") return val;
+  if (typeof val === "string") {
+    const v = val.trim().toLowerCase();
+    return v === "yes" || v === "true";
+  }
+  return false;
+};
+
+// Converts the boolean form value into the "Yes" / "No" payload value.
+const invoiceToYesNo = (val) => (normalizeInvoice(val) ? "Yes" : "No");
+
+// ─── Currency / Entity helper ─────────────────────────────────────────────────
+// The "Entity" dropdown is bound to the `currency` form field and only knows
+// "INR" and "USD". The backend may return it as `currency` or `entity`, in
+// different casing ("inr") or as a label ("Rupee (INR)"). Normalise it so the
+// Select always receives a valid option value.
+const normalizeCurrency = (val) => {
+  if (typeof val !== "string") return "INR";
+  const v = val.trim().toUpperCase();
+  if (v.includes("USD") || v.includes("DOLLAR")) return "USD";
+  if (v.includes("INR") || v.includes("RUPEE")) return "INR";
+  return "INR";
+};
+
+// ─── Supporting customer helpers ──────────────────────────────────────────────
+// Backend shape:  { clientName: "KPMG", netPay: 50000 }
+// Form shape:     { clientName: "KPMG", netPay: 50000 }   (same keys)
+//
+// Incoming data (edit mode) is normalised so that:
+//   - { clientName, netPay }       -> used as is
+//   - { clientName, netPayment }   -> legacy key, mapped to netPay
+//   - plain string                 -> { clientName: string, netPay: "" }
+const normalizeSupportingCustomers = (val) =>
+  Array.isArray(val)
+    ? val.map((item) =>
+        item && typeof item === "object"
+          ? {
+              clientName: item.clientName ?? "",
+              netPay: item.netPay ?? item.netPayment ?? "",
+            }
+          : { clientName: item ?? "", netPay: "" }
+      )
+    : [];
+
+// Builds the payload shape expected by the backend:
+//   [{ clientName: "KPMG", netPay: 50000 }, ...]
+// Rows that are completely empty are dropped; netPay becomes a number or null.
+const buildSupportingCustomersPayload = (list) =>
+  (Array.isArray(list) ? list : [])
+    .map((item) => {
+      const clientName =
+        typeof item?.clientName === "string" ? item.clientName.trim() : "";
+      const rawPay = item?.netPay;
+      const hasPay =
+        rawPay !== "" &&
+        rawPay !== null &&
+        rawPay !== undefined &&
+        !Number.isNaN(Number(rawPay));
+      return {
+        clientName,
+        netPay: hasPay ? Number(rawPay) : null,
+      };
+    })
+    .filter((item) => item.clientName !== "" || item.netPay !== null);
+
+// ─── GSTIN validation helpers ─────────────────────────────────────────────────
+const GSTIN_CHARSET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+// Valid state / UT codes (01–38, plus 97 = Other Territory, 99 = Centre Jurisdiction)
+const VALID_GST_STATE_CODES = new Set([
+  ...Array.from({ length: 38 }, (_, i) => String(i + 1).padStart(2, "0")),
+  "97",
+  "99",
+]);
+
+// Structure: 2 digits | PAN (5 letters, 4 digits, 1 letter) | entity code (1-9 / A-Z) | 'Z' | checksum
+const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+
+// 4th character of the PAN = holder type (P = Person, C = Company, F = Firm, ...)
+const VALID_PAN_HOLDER_TYPES = "PCHFATBLJG";
+
+// Modified Luhn Mod-36: computes the expected 15th character from the first 14
+const getGstinChecksumChar = (first14) => {
+  let sum = 0;
+  for (let i = 0; i < 14; i++) {
+    const value = GSTIN_CHARSET.indexOf(first14[i]);
+    const product = value * (i % 2 === 0 ? 1 : 2);
+    sum += Math.floor(product / 36) + (product % 36);
+  }
+  return GSTIN_CHARSET[(36 - (sum % 36)) % 36];
+};
+
+const gstinSchema = Yup.string()
+  .nullable()
+  .transform((value) =>
+    typeof value === "string" ? value.trim().toUpperCase() || null : value
+  )
+  .test("gstin-length", "GSTIN must be exactly 15 characters", (value) =>
+    !value ? true : value.length === 15
+  )
+  .test(
+    "gstin-format",
+    "Invalid GSTIN format (e.g. 29AAAAA1111A1Z1)",
+    (value) => (!value || value.length !== 15 ? true : GSTIN_REGEX.test(value))
+  )
+  .test(
+    "gstin-state",
+    "Invalid state code (first 2 digits)",
+    (value) =>
+      !value || !GSTIN_REGEX.test(value)
+        ? true
+        : VALID_GST_STATE_CODES.has(value.slice(0, 2))
+  )
+  .test(
+    "gstin-pan",
+    "GSTIN contains an invalid PAN (characters 3–12)",
+    (value) =>
+      !value || !GSTIN_REGEX.test(value)
+        ? true
+        : VALID_PAN_HOLDER_TYPES.includes(value[5]) // 4th char of PAN = 6th char of GSTIN
+  )
+  .test(
+    "gstin-checksum",
+    "Invalid GSTIN (checksum digit does not match)",
+    (value) =>
+      !value || !GSTIN_REGEX.test(value)
+        ? true
+        : getGstinChecksumChar(value.slice(0, 14)) === value[14]
+  );
+
 // Create a custom theme
 const theme = createTheme({
   palette: {
@@ -142,7 +341,9 @@ const ClientForm = ({
   const dispatch = useDispatch();
   const [files, setFiles] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [currency, setCurrency] = useState(initialData?.currency || "INR");
+  const [currency, setCurrency] = useState(
+    normalizeCurrency(initialData?.currency ?? initialData?.entity)
+  );
   const { userName } = useSelector((state) => state.auth);
   const [onBoardedByName, setOnBoardedBy] = useState(
     initialData?.onBoardedBy || userName
@@ -151,13 +352,13 @@ const ClientForm = ({
   // ── Location: track whether "Others" is selected ──────────────────────────
   const [locationSelection, setLocationSelection] = useState(() => {
     if (!initialData?.location) return "";
-    return INDIAN_STATES.includes(initialData.location)
+    return getStatesForCurrency(currency).includes(initialData.location)
       ? initialData.location
       : "Others";
   });
   const [customLocation, setCustomLocation] = useState(() => {
     if (!initialData?.location) return "";
-    return INDIAN_STATES.includes(initialData.location)
+    return getStatesForCurrency(currency).includes(initialData.location)
       ? ""
       : initialData.location;
   });
@@ -168,8 +369,21 @@ const ClientForm = ({
   const employeesLoading = fetchStatus === "loading";
 
   const bdmEmployees = employees.filter(
-    (emp) => emp.roles && emp.roles.toUpperCase() === "BDM"
+    (emp) => emp.roles && emp.roles.toUpperCase() === "BDM" || emp.roles.toUpperCase() === "SUPERADMIN"
   );
+
+  // Account Manager dropdown: BDMs + Super Admins + Team Leads.
+  // Role text is normalized (letters only, uppercase) so "SUPERADMIN",
+  // "SUPER_ADMIN", "Super Admin" etc. all match.
+  const normalizeRole = (role) =>
+    String(role || "")
+      .replace(/[^a-zA-Z]/g, "")
+      .toUpperCase();
+
+  const accountManagerEmployees = employees.filter((emp) => {
+    const role = normalizeRole(emp.roles);
+    return role === "BDM" || role === "SUPERADMIN" || role === "TEAMLEAD";
+  });
 
   useEffect(() => {
     dispatch(fetchEmployees());
@@ -177,8 +391,10 @@ const ClientForm = ({
 
   useEffect(() => {
     if (initialData) {
-      setCurrency(initialData.currency || "INR");
-      setOnBoardedBy(initialData.onBoardedBy || "");
+      setCurrency(normalizeCurrency(initialData.currency ?? initialData.entity));
+      setOnBoardedBy(
+        initialData.onBoardedBy || initialData.bdmName || userName || ""
+      );
 
       if (
         isEdit &&
@@ -195,7 +411,10 @@ const ClientForm = ({
 
       // Sync location state when initialData changes
       if (initialData.location) {
-        if (INDIAN_STATES.includes(initialData.location)) {
+        const statesForData = getStatesForCurrency(
+          normalizeCurrency(initialData.currency ?? initialData.entity)
+        );
+        if (statesForData.includes(initialData.location)) {
           setLocationSelection(initialData.location);
           setCustomLocation("");
         } else {
@@ -204,15 +423,15 @@ const ClientForm = ({
         }
       }
     }
-  }, [initialData, isEdit]);
+  }, [initialData, isEdit, userName]);
 
   const formFields = [
     {
       section: "Basic Information",
       fields: [
         {
-          name: "clientName",
-          label: "Client Name",
+          name: "vendorName",
+          label: "Vendor Name",
           required: true,
           type: "text",
           grid: { xs: 12, sm: 6, md: 4 },
@@ -229,6 +448,7 @@ const ClientForm = ({
             { value: "Part-Time", label: "Part-Time" },
             { value: "Contract", label: "Contract" },
             { value: "Internship", label: "Internship" },
+            { value: "Hybrid", label: "Hybrid" },
           ],
         },
         {
@@ -245,24 +465,37 @@ const ClientForm = ({
             : [{ value: "", label: "No BDMs Available" }],
         },
         {
-          name: "clientWebsiteUrl",
-          label: "Client Website URL",
+          name: "vendorWebsiteUrl",
+          label: "Vendor Website URL",
           type: "url",
           placeholder: "https://",
           grid: { xs: 12, sm: 6, md: 4 },
           icon: <Language color="primary" />,
         },
         {
-          name: "clientLinkedInUrl",
-          label: "Client LinkedIn URL",
+          name: "vendorLinkedInUrl",
+          label: "Vendor LinkedIn URL",
           type: "url",
           placeholder: "https://linkedin.com/company/",
           grid: { xs: 12, sm: 6, md: 4 },
           icon: <LinkedIn color="primary" />,
         },
         {
-          name: "clientAddress",
-          label: "Client Address",
+          name: "accountManager",
+          label: "Account Manager",
+          type: "select",
+          grid: { xs: 12, sm: 6, md: 4 },
+          icon: <Person color="primary" />,
+          options: accountManagerEmployees.length
+            ? accountManagerEmployees.map((emp) => ({
+                value: emp.userName,
+                label: `${emp.userName}`,
+              }))
+            : [{ value: "", label: "No Managers Available" }],
+        },
+        {
+          name: "vendorAddress",
+          label: "Vendor Address",
           type: "text",
           placeholder: "Enter complete address",
           grid: { xs: 12, md: 8 },
@@ -276,7 +509,7 @@ const ClientForm = ({
       fields: [
         {
           name: "currency",
-          label: "Currency",
+          label: "Entity",
           type: "select",
           grid: { xs: 12, sm: 6, md: 3 },
           icon: <AttachMoney color="primary" />,
@@ -285,8 +518,14 @@ const ClientForm = ({
             { value: "USD", label: "Dollar (USD)" },
           ],
           customHandler: (e, setFieldValue) => {
-            setCurrency(e.target.value);
-            setFieldValue("currency", e.target.value);
+            const newCurrency = e.target.value;
+            setCurrency(newCurrency);
+            setFieldValue("currency", newCurrency);
+            // The state list changes with the entity (INR -> India, USD -> US),
+            // so the previously chosen location is no longer valid.
+            setLocationSelection("");
+            setCustomLocation("");
+            setFieldValue("location", "");
           },
         },
         {
@@ -300,11 +539,13 @@ const ClientForm = ({
         {
           name: "gst",
           label: "GST",
-          type: "number",
-          placeholder: "0",
+          type: "text",
+          placeholder: "e.g. 29AAAAA1111A1Z1",
           grid: { xs: 12, sm: 6, md: 3 },
-          icon: <Percent color="primary" />,
-          conditional: () => currency === "INR",
+          conditional: (formValues) =>
+            (formValues?.currency || currency) === "INR",
+          uppercase: true, // force uppercase + 15-char limit while typing
+          maxLength: 15,
         },
       ],
     },
@@ -344,34 +585,54 @@ const ClientForm = ({
   ];
 
   const validationSchema = Yup.object().shape({
-    clientName: Yup.string()
-      .required("Client name is required")
-      .max(50, "Client name must be at most 35 characters"),
-    clientAddress: Yup.string()
+    // Top-level client name (shown in both create and edit mode).
+    // To make it mandatory use:
+    //   Yup.string().trim().required("Client name is required")
+    clientName: Yup.string().nullable(),
+    vendorName: Yup.string()
+      .required("Vendor name is required")
+      .max(50, "Vendor name must be at most 50 characters"),
+    vendorAddress: Yup.string()
       .nullable()
-      .max(250, "Client address must be at most 100 characters"),
+      .max(250, "Vendor address must be at most 250 characters"),
     location: Yup.string().nullable(),
     positionType: Yup.string().nullable(),
     assignedTo: Yup.string().nullable(),
+    accountManager: Yup.string().nullable(),
     paymentType: Yup.string().nullable(),
+    invoice: Yup.boolean().nullable(), // form state stays boolean; converted to "Yes"/"No" on submit
     netPayment: Yup.number()
       .positive("Must be a positive number")
       .nullable()
       .transform((value, originalValue) =>
         originalValue === "" ? null : value
       ),
-    gst: Yup.number()
-      .min(0, "GST cannot be negative")
+    // GSTIN is only applicable (and shown) for INR; skip validation otherwise
+    gst: Yup.string()
       .nullable()
-      .transform((value, originalValue) =>
-        originalValue === "" ? null : value
-      ),
-    supportingCustomers: Yup.array().of(Yup.string().nullable()),
-    clientWebsiteUrl: Yup.string()
+      .when("currency", {
+        is: "INR",
+        then: () => gstinSchema,
+        otherwise: (schema) => schema.nullable(),
+      }),
+    // Each supporting customer: { clientName (required), netPay }
+    supportingCustomers: Yup.array().of(
+      Yup.object().shape({
+        clientName: Yup.string().trim().required("Client name is required"),
+        netPay: Yup.number()
+          .typeError("Must be a number")
+          .positive("Must be a positive number")
+          .nullable()
+          .transform((value, originalValue) =>
+            originalValue === "" || originalValue === null ? null : value
+          ),
+      })
+    ),
+    vendorWebsiteUrl: Yup.string()
       .url("Must be a valid URL")
       .nullable()
       .transform((value) => (value === "" ? null : value)),
-    clientLinkedInUrl: Yup.string()
+    vendorLinkedInUrl: Yup.string()
       .url("Must be a valid URL")
       .nullable()
       .transform((value) => (value === "" ? null : value)),
@@ -403,16 +664,18 @@ const ClientForm = ({
 
   const defaultInitialValues = {
     clientName: "",
-    clientAddress: "",
+    vendorName: "",
+    vendorAddress: "",
     location: "",
     positionType: "",
     assignedTo: "",
+    accountManager: "",
     netPayment: "",
     onBoardedBy: onBoardedByName,
     gst: "",
     supportingCustomers: [],
-    clientWebsiteUrl: "",
-    clientLinkedInUrl: "",
+    vendorWebsiteUrl: "",
+    vendorLinkedInUrl: "",
     clientSpocName: [""],
     clientSpocEmailid: [""],
     clientSpocMobileNumber: [""],
@@ -420,37 +683,66 @@ const ClientForm = ({
     supportingDocuments: [],
     currency: "INR",
     feedBack: "",
+    invoice: false,
   };
 
-  const formInitialValues = initialData || defaultInitialValues;
+  const normalizeArray = (val, fallback = [""]) =>
+    Array.isArray(val) && val.length > 0 ? val : fallback;
 
-  if (
-    !Array.isArray(formInitialValues.clientSpocName) ||
-    formInitialValues.clientSpocName.length === 0
-  ) {
-    formInitialValues.clientSpocName = [""];
-  }
-  if (
-    !Array.isArray(formInitialValues.clientSpocEmailid) ||
-    formInitialValues.clientSpocEmailid.length === 0
-  ) {
-    formInitialValues.clientSpocEmailid = [""];
-  }
-  if (
-    !Array.isArray(formInitialValues.clientSpocMobileNumber) ||
-    formInitialValues.clientSpocMobileNumber.length === 0
-  ) {
-    formInitialValues.clientSpocMobileNumber = [""];
-  }
-  if (
-    !Array.isArray(formInitialValues.clientSpocLinkedin) ||
-    formInitialValues.clientSpocLinkedin.length === 0
-  ) {
-    formInitialValues.clientSpocLinkedin = [""];
-  }
-  if (!Array.isArray(formInitialValues.supportingCustomers)) {
-    formInitialValues.supportingCustomers = [];
-  }
+  const formInitialValues = useMemo(() => {
+    if (!initialData) {
+      return {
+        ...defaultInitialValues,
+        onBoardedBy: onBoardedByName,
+      };
+    }
+
+    // Map API response fields to form fields
+    const base = {
+      // Top-level client (outside supportingCustomers) — editable
+      clientName: initialData.clientName || "",
+      // vendorName: API may send vendorName OR clientName
+      vendorName: initialData.vendorName || initialData.clientName || "",
+      vendorAddress:
+        initialData.vendorAddress || initialData.clientAddress || "",
+      location: initialData.location || "",
+      positionType: initialData.positionType || "",
+      assignedTo: initialData.assignedTo || "",
+      // accountManager: fall back to the legacy "reportingManager" key if an
+      // older record still carries it
+      accountManager:
+        initialData.accountManager || initialData.reportingManager || "",
+      netPayment: initialData.netPayment ?? "",
+      onBoardedBy: initialData.onBoardedBy || onBoardedByName,
+      gst: initialData.gst || "",
+      vendorWebsiteUrl:
+        initialData.vendorWebsiteUrl || initialData.clientWebsiteUrl || "",
+      vendorLinkedInUrl:
+        initialData.vendorLinkedInUrl || initialData.clientLinkedInUrl || "",
+      // The Entity dropdown is bound to the `currency` field
+      currency: normalizeCurrency(initialData.currency ?? initialData.entity),
+      feedBack: initialData.feedBack || "",
+      invoice: normalizeInvoice(initialData.invoice),
+
+      // Contact persons (SPOC) — these are arrays
+      clientSpocName: normalizeArray(initialData.clientSpocName),
+      clientSpocEmailid: normalizeArray(initialData.clientSpocEmailid),
+      clientSpocMobileNumber: normalizeArray(
+        initialData.clientSpocMobileNumber
+      ),
+      clientSpocLinkedin: normalizeArray(initialData.clientSpocLinkedin),
+
+      // Supporting customers — separate from the top-level client
+      supportingCustomers: normalizeSupportingCustomers(
+        initialData.supportingCustomers
+      ),
+
+      supportingDocuments: initialData.supportingDocuments || [],
+    };
+
+    return base;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData]);
 
   const handleFileChange = (event) => {
     const selectedFiles = Array.from(event.target.files);
@@ -495,9 +787,24 @@ const ClientForm = ({
 
       const clientData = {
         ...values,
-        currency,
+        currency: values.currency || currency,
         onBoardedBy: onBoardedByName,
+        invoice: invoiceToYesNo(values.invoice), // "Yes" / "No" in payload
+        // Account manager is sent as "accountManager" (create and update)
+        accountManager: values.accountManager || "",
+        // Send a trimmed, uppercase GSTIN (matches what was validated)
+        gst:
+          typeof values.gst === "string"
+            ? values.gst.trim().toUpperCase()
+            : values.gst,
+        // Payload shape: [{ clientName: "KPMG", netPay: 50000 }, ...]
+        supportingCustomers: buildSupportingCustomersPayload(
+          values.supportingCustomers
+        ),
       };
+
+      // Make sure the old key never reaches the backend
+      delete clientData.reportingManager;
 
       if (isEdit) {
         clientData.supportingDocuments = files
@@ -548,11 +855,22 @@ const ClientForm = ({
   };
 
   const renderFormField = (field, values, errors, touched, setFieldValue) => {
-    if (field.conditional && !field.conditional()) {
+    if (field.conditional && !field.conditional(values)) {
       return null;
     }
 
     if (field.type === "select") {
+      // If the saved value is not in the option list (e.g. employees not
+      // loaded yet, or a user no longer in the list), keep it as an option so
+      // the Select still displays it instead of rendering blank.
+      const baseOptions = field.options || [];
+      const currentValue = values[field.name];
+      const selectOptions =
+        currentValue &&
+        !baseOptions.some((option) => option.value === currentValue)
+          ? [...baseOptions, { value: currentValue, label: String(currentValue) }]
+          : baseOptions;
+
       return (
         <Grid item {...field.grid} key={field.name}>
           <FormControl
@@ -564,6 +882,7 @@ const ClientForm = ({
               labelId={`${field.name}-label`}
               id={field.name}
               name={field.name}
+              label={field.label}
               value={values[field.name] || ""}
               onChange={(e) => {
                 if (field.customHandler) {
@@ -582,12 +901,11 @@ const ClientForm = ({
               <MenuItem value="" disabled>
                 {field.loading ? "Loading..." : `Select ${field.label}`}
               </MenuItem>
-              {field.options &&
-                field.options.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
+              {selectOptions.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
             </Select>
             {touched[field.name] && errors[field.name] && (
               <Typography variant="caption" color="error">
@@ -605,6 +923,13 @@ const ClientForm = ({
           {({ field: formikField, meta }) => (
             <TextField
               {...formikField}
+              onChange={(e) => {
+                if (field.uppercase) {
+                  setFieldValue(field.name, e.target.value.toUpperCase());
+                } else {
+                  formikField.onChange(e);
+                }
+              }}
               fullWidth
               label={field.label}
               placeholder={field.placeholder || ""}
@@ -612,6 +937,9 @@ const ClientForm = ({
               type={field.type || "text"}
               error={meta.touched && Boolean(meta.error)}
               helperText={meta.touched && meta.error}
+              inputProps={
+                field.maxLength ? { maxLength: field.maxLength } : undefined
+              }
               InputProps={{
                 startAdornment: field.icon && (
                   <InputAdornment position="start">{field.icon}</InputAdornment>
@@ -626,7 +954,11 @@ const ClientForm = ({
   };
 
   // ── Location field renderer ────────────────────────────────────────────────
-  const renderLocationField = (values, errors, touched, setFieldValue) => (
+  const renderLocationField = (values, errors, touched, setFieldValue) => {
+    const activeCurrency = values.currency || currency;
+    const statesList = getStatesForCurrency(activeCurrency);
+    const isUS = activeCurrency === "USD";
+    return (
     <React.Fragment>
       {/* State dropdown */}
       <Grid item xs={12} sm={6} md={4}>
@@ -635,7 +967,7 @@ const ClientForm = ({
           <Select
             labelId="location-label"
             id="location-select"
-            value={locationSelection}
+            value={statesList.includes(locationSelection) ? locationSelection : ""}
             label="Location (State)"
             onChange={(e) => {
               const selected = e.target.value;
@@ -661,9 +993,9 @@ const ClientForm = ({
             }}
           >
             <MenuItem value="" disabled>
-              Select State / UT
+              {isUS ? "Select State" : "Select State / UT"}
             </MenuItem>
-            {INDIAN_STATES.map((state) => (
+            {statesList.map((state) => (
               <MenuItem key={state} value={state}>
                 {state}
               </MenuItem>
@@ -701,7 +1033,66 @@ const ClientForm = ({
         </Grid>
       )}
     </React.Fragment>
-  );
+    );
+  };
+
+  // ── Invoice toggle renderer (highlighted, shown at the right end of the
+  //    Basic Information header) ─────────────────────────────────────────────
+  const renderInvoiceToggle = (values, setFieldValue) => {
+    const isOn = Boolean(values.invoice);
+    return (
+      <Stack
+        direction="row"
+        spacing={2}
+        alignItems="center"
+        sx={{
+          ml: { xs: 0, sm: 4 }, // gap between the section title and the toggle
+          px: 3,
+          py: 1,
+          border: "2px solid",
+          borderColor: isOn ? "success.main" : "primary.main",
+          borderRadius: 3,
+          bgcolor: isOn ? "rgba(46, 125, 50, 0.10)" : "rgba(26, 35, 126, 0.07)",
+          boxShadow: isOn
+            ? "0 0 0 4px rgba(46, 125, 50, 0.15)"
+            : "0 0 0 4px rgba(26, 35, 126, 0.12)",
+          transition: "all 0.25s ease",
+        }}
+      >
+        <Typography
+          variant="subtitle1"
+          color={isOn ? "success.main" : "primary"}
+          sx={{ fontWeight: 700, letterSpacing: 0.5 }}
+        >
+          Invoice
+        </Typography>
+
+        <Stack direction="row" spacing={1.5} alignItems="center">
+          <Typography
+            variant="body2"
+            color={!isOn ? "text.primary" : "text.disabled"}
+            sx={{ fontWeight: !isOn ? 700 : 400 }}
+          >
+            No
+          </Typography>
+          <Switch
+            color={isOn ? "success" : "primary"}
+            checked={isOn}
+            onChange={(e) => setFieldValue("invoice", e.target.checked)}
+            inputProps={{ "aria-label": "Invoice toggle" }}
+            sx={{ transform: "scale(1.25)", mx: 0.5 }}
+          />
+          <Typography
+            variant="body2"
+            color={isOn ? "success.main" : "text.disabled"}
+            sx={{ fontWeight: isOn ? 700 : 400 }}
+          >
+            Yes
+          </Typography>
+        </Stack>
+      </Stack>
+    );
+  };
 
   return (
     <ThemeProvider theme={theme}>
@@ -731,13 +1122,36 @@ const ClientForm = ({
                 {formFields.map((section, sectionIndex) => (
                   <React.Fragment key={`section-${sectionIndex}`}>
                     <Grid item xs={12}>
-                      <Typography
-                        variant="h6"
-                        color="primary"
-                        sx={{ mb: 1, fontWeight: 500 }}
-                      >
-                        {section.section}
-                      </Typography>
+                      {section.section === "Basic Information" ? (
+                        // Title on the left, Invoice toggle at the right end
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            flexWrap: "wrap",
+                            gap: 2,
+                            mb: 1,
+                          }}
+                        >
+                          <Typography
+                            variant="h6"
+                            color="primary"
+                            sx={{ fontWeight: 500 }}
+                          >
+                            {section.section}
+                          </Typography>
+                          {renderInvoiceToggle(values, setFieldValue)}
+                        </Box>
+                      ) : (
+                        <Typography
+                          variant="h6"
+                          color="primary"
+                          sx={{ mb: 1, fontWeight: 500 }}
+                        >
+                          {section.section}
+                        </Typography>
+                      )}
                       <Divider sx={{ mb: 3 }} />
                     </Grid>
 
@@ -774,10 +1188,54 @@ const ClientForm = ({
                   </Typography>
                   <Divider sx={{ mb: 3 }} />
                 </Grid>
+
+                {/* Main client (top-level clientName) — shown in both create
+                    and edit mode, editable and placed ABOVE the Add Client
+                    button */}
+                <Grid item xs={12} sm={4} md={3}>
+                  <Field name="clientName">
+                    {({ field, meta }) => (
+                      <TextField
+                        {...field}
+                        value={field.value ?? ""}
+                        fullWidth
+                        label="Client Name"
+                        placeholder="Enter client name"
+                        error={meta.touched && Boolean(meta.error)}
+                        helperText={meta.touched && meta.error}
+                        variant="outlined"
+                        InputLabelProps={{ shrink: true }}
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <Business color="primary" />
+                            </InputAdornment>
+                          ),
+                        }}
+                      />
+                    )}
+                  </Field>
+                </Grid>
+
                 <Grid item xs={12}>
                   <FieldArray name="supportingCustomers">
                     {({ push, remove }) => (
                       <Box>
+                        {/* Add Client button — ABOVE the rows */}
+                        <Button
+                          startIcon={<AddCircleOutline />}
+                          variant="outlined"
+                          color="primary"
+                          onClick={() => {
+                            push({ clientName: "", netPay: "" });
+                            showToast("New client field added", "info");
+                          }}
+                          sx={{ mb: 2 }}
+                        >
+                          Add Client
+                        </Button>
+
+                        {/* Rows render BELOW the button */}
                         {values.supportingCustomers &&
                         values.supportingCustomers.length > 0 ? (
                           <Paper
@@ -787,16 +1245,20 @@ const ClientForm = ({
                             <Grid container spacing={2}>
                               {values.supportingCustomers.map(
                                 (customer, index) => (
-                                  <Grid item xs={12} sm={6} md={3} key={index}>
+                                  <Grid item xs={12} md={6} key={index}>
                                     <Box sx={{ display: "flex", gap: 1 }}>
+                                      {/* Client {index+1} — required */}
                                       <Field
-                                        name={`supportingCustomers.${index}`}
+                                        name={`supportingCustomers.${index}.clientName`}
                                       >
                                         {({ field, meta }) => (
                                           <TextField
                                             {...field}
+                                            value={field.value ?? ""}
                                             fullWidth
-                                            placeholder={`Customer ${index + 1}`}
+                                            required
+                                            label={`Client ${index + 1}`}
+                                            placeholder={`Client ${index + 1}`}
                                             error={
                                               meta.touched &&
                                               Boolean(meta.error)
@@ -806,6 +1268,34 @@ const ClientForm = ({
                                             }
                                             variant="outlined"
                                             size="medium"
+                                            InputLabelProps={{ shrink: true }}
+                                          />
+                                        )}
+                                      </Field>
+                                      {/* Net Payment {index+1} — stored as netPay */}
+                                      <Field
+                                        name={`supportingCustomers.${index}.netPay`}
+                                      >
+                                        {({ field, meta }) => (
+                                          <TextField
+                                            {...field}
+                                            value={field.value ?? ""}
+                                            fullWidth
+                                            type="number"
+                                            label={`Net Payment ${index + 1}`}
+                                            placeholder={`Net Payment ${
+                                              index + 1
+                                            }`}
+                                            error={
+                                              meta.touched &&
+                                              Boolean(meta.error)
+                                            }
+                                            helperText={
+                                              meta.touched && meta.error
+                                            }
+                                            variant="outlined"
+                                            size="medium"
+                                            InputLabelProps={{ shrink: true }}
                                           />
                                         )}
                                       </Field>
@@ -813,12 +1303,15 @@ const ClientForm = ({
                                         color="error"
                                         onClick={() => {
                                           remove(index);
-                                          showToast("Customer removed", "info");
+                                          showToast("Client removed", "info");
                                         }}
                                         sx={{
                                           border: "1px solid",
                                           borderColor: "divider",
                                           borderRadius: 2,
+                                          alignSelf: "flex-start",
+                                          height: 56,
+                                          width: 56,
                                         }}
                                       >
                                         <RemoveCircleOutline />
@@ -838,18 +1331,6 @@ const ClientForm = ({
                             No supporting customers added
                           </Typography>
                         )}
-                        <Button
-                          startIcon={<AddCircleOutline />}
-                          variant="outlined"
-                          color="primary"
-                          onClick={() => {
-                            push("");
-                            showToast("New customer field added", "info");
-                          }}
-                          sx={{ mt: 1 }}
-                        >
-                          Add Customer
-                        </Button>
                       </Box>
                     )}
                   </FieldArray>
@@ -1067,6 +1548,7 @@ const ClientForm = ({
                   <Stack
                     direction={{ xs: "column", sm: "row" }}
                     spacing={2}
+                    alignItems="center"
                     justifyContent="flex-end"
                   >
                     {onCancel && (
@@ -1089,8 +1571,30 @@ const ClientForm = ({
                         resetForm();
                         if (!isEdit) {
                           setFiles([]);
+                          setCurrency("INR");
                           setLocationSelection("");
                           setCustomLocation("");
+                        } else {
+                          // Restore entity + location to the loaded record
+                          const resetCurrency = normalizeCurrency(
+                            initialData?.currency ?? initialData?.entity
+                          );
+                          const resetLocation = initialData?.location || "";
+                          setCurrency(resetCurrency);
+                          if (!resetLocation) {
+                            setLocationSelection("");
+                            setCustomLocation("");
+                          } else if (
+                            getStatesForCurrency(resetCurrency).includes(
+                              resetLocation
+                            )
+                          ) {
+                            setLocationSelection(resetLocation);
+                            setCustomLocation("");
+                          } else {
+                            setLocationSelection("Others");
+                            setCustomLocation(resetLocation);
+                          }
                         }
                         showToast("Form has been reset", "info");
                       }}

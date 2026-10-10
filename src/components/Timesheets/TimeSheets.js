@@ -325,7 +325,7 @@ const Timesheets = () => {
             console.log('Set calendar to prepopulated month:', targetDate);
           }
         }
-        if (role === 'ACCOUNTS' || role === "ADMIN") {
+        if (role === 'ACCOUNTS' || role === "ADMIN" || role === "INVOICE") {
           console.log('Setting monthly view for ACCOUNTS/INVOICE role');
           setMonthlyViewMode(true);
         }
@@ -342,7 +342,7 @@ const Timesheets = () => {
 
 
   useEffect(() => {
-    if (prepopulatedEmployee && (role === 'ACCOUNTS' || role === "ADMIN")) {
+    if (prepopulatedEmployee && (role === 'ACCOUNTS' || role === "ADMIN" || role === "INVOICE")) {
       console.log('Prepopulating employee for monthly view:', prepopulatedEmployee);
 
       // Set monthly view mode based on the prepopulated data
@@ -396,7 +396,7 @@ const Timesheets = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const monthlyViewParam = urlParams.get('monthlyView');
 
-    if ((role === 'ACCOUNTS' || role === 'ADMIN') && monthlyViewParam === 'true') {
+    if ((role === 'ACCOUNTS' || role === 'ADMIN' || role === 'INVOICE') && monthlyViewParam === 'true') {
       setMonthlyViewMode(true);
       if (selectedEmployee) {
         fetchMonthlyTimesheetData(selectedEmployee);
@@ -423,7 +423,7 @@ const Timesheets = () => {
       setMonthlyViewMode(false);
     } else {
       setSelectedEmployee(employeeId);
-      if (role === 'ACCOUNTS' || role === 'ADMIN') {
+      if (role === 'ACCOUNTS' || role === 'ADMIN' || role === 'INVOICE') {
         setMonthlyViewMode(true);
         console.log('Setting monthly view for ACCOUNTS/INVOICE role');
       } else {
@@ -452,7 +452,7 @@ const Timesheets = () => {
 
         if (callback && typeof callback === 'function') {
           callback(projectsData);
-        } else if (monthlyViewMode && (role === 'ACCOUNTS' || role === 'ADMIN') && !isCreateMode && !isAddingNewTimesheet) {
+        } else if (monthlyViewMode && (role === 'ACCOUNTS' || role === 'ADMIN' || role === 'INVOICE') && !isCreateMode && !isAddingNewTimesheet) {
 
           if (!selectedMonthRange) {
             setTimeout(() => {
@@ -475,7 +475,7 @@ const Timesheets = () => {
   };
 
   useEffect(() => {
-    if (prepopulatedEmployee && (role === 'ACCOUNTS' || role === 'ADMIN')) {
+    if (prepopulatedEmployee && (role === 'ACCOUNTS' || role === 'ADMIN' || role === 'INVOICE')) {
       console.log('Prepopulating employee for monthly view:', prepopulatedEmployee);
       handleEmployeeChange(prepopulatedEmployee.userId, handleProjectPrepopulation);
 
@@ -493,7 +493,7 @@ const Timesheets = () => {
 
   useEffect(() => {
     const handlePrepopulation = async () => {
-      if (!prepopulatedEmployee || !(role === 'ACCOUNTS' || role === 'ADMIN')) {
+      if (!prepopulatedEmployee || !(role === 'ACCOUNTS' || role === 'ADMIN' || role === 'INVOICE')) {
         setIsInitialLoad(false);
         return;
       }
@@ -666,7 +666,7 @@ const Timesheets = () => {
 
   useEffect(() => {
     const fetchEmployeeAttachments = async () => {
-      if ((role === 'ACCOUNTS' || role === 'ADMIN') && selectedEmployee && timesheetData.length > 0) {
+      if ((role === 'ACCOUNTS' || role === 'ADMIN' || role === 'INVOICE') && selectedEmployee && timesheetData.length > 0) {
         // Find the current week's timesheet for the selected employee
         const currentWeekTimesheet = timesheetData.find(ts => {
           // Add validation for weekStartDate
@@ -701,7 +701,7 @@ const Timesheets = () => {
 
 
   useEffect(() => {
-    if (monthlyViewMode && selectedEmployee && (role === 'ACCOUNTS' || role === 'ADMIN')) {
+    if (monthlyViewMode && selectedEmployee && (role === 'ACCOUNTS' || role === 'ADMIN' || role === 'INVOICE')) {
       // Only fetch if we don't have selectedMonthRange (manual calendar change)
       if (!selectedMonthRange) {
         fetchMonthlyTimesheetData(selectedEmployee);
@@ -850,13 +850,13 @@ const fetchOrCreateTimesheet = async () => {
     }
   }
 
-  if ((role === 'ACCOUNTS' || role === 'ADMIN') && !isCreateMode && !isAddingNewTimesheet) {
-    console.log('Using monthly view for ACCOUNTS/ADMIN role');
+  if ((role === 'ACCOUNTS' || role === 'ADMIN' || role === 'INVOICE') && !isCreateMode && !isAddingNewTimesheet) {
+    console.log('Using monthly view for ACCOUNTS/ADMIN/INVOICE role');
     await fetchMonthlyTimesheetData(selectedEmployee || userId);
     return;
   }
 
-  const isMonthlyView = (role === 'ACCOUNTS' || role === 'ADMIN') && !isCreateMode && !isAddingNewTimesheet;
+  const isMonthlyView = (role === 'ACCOUNTS' || role === 'ADMIN' || role === 'INVOICE') && !isCreateMode && !isAddingNewTimesheet;
 
   if (isMonthlyView) {
     setLoading(true);
@@ -1326,13 +1326,13 @@ const transformTimesheet = (apiTimesheet, currentCalendarMonth) => {
 };
 
   useEffect(() => {
-    if ((role === 'ACCOUNTS' || role === 'ADMIN') && selectedEmployee && !isCreateMode && !isAddingNewTimesheet) {
+    if ((role === 'ACCOUNTS' || role === 'ADMIN' || role === 'INVOICE') && selectedEmployee && !isCreateMode && !isAddingNewTimesheet) {
       console.log('Auto-enabling monthly view for ACCOUNTS/INVOICE role');
       setMonthlyViewMode(true);
       if (selectedEmployee && calendarValue && !loading) {
         fetchMonthlyTimesheetData(selectedEmployee);
       }
-    } else if (role !== 'ACCOUNTS' && role !== 'ADMIN') {
+    } else if (role !== 'ACCOUNTS' && role !== 'ADMIN' && role !== 'INVOICE') {
       setMonthlyViewMode(false);
     }
   }, [role, selectedEmployee, isCreateMode, isAddingNewTimesheet]);
@@ -1736,7 +1736,7 @@ if (apiTimesheet.holidays) {
     }
 
     // SIXTH: For admin roles, allow editing of DRAFT timesheets
-    if ((role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "ADMIN") && timesheet.status === 'DRAFT') {
+    if ((role === 'SUPERADMIN' || role === 'ACCOUNTS' || role === "ADMIN" || role === "INVOICE") && timesheet.status === 'DRAFT') {
       return true;
     }
 
@@ -2665,7 +2665,7 @@ const saveTimesheet = async (isSubmission = false, isEdit = false) => {
             fetchOrCreateTimesheet();
           }, 500);
 
-        } else if (monthlyViewMode && (role === 'ACCOUNTS' || role === 'ADMIN')) {
+        } else if (monthlyViewMode && (role === 'ACCOUNTS' || role === 'ADMIN' || role === "INVOICE")) {
 
           console.log('Refreshing monthly view data after save');
           setTimeout(() => {

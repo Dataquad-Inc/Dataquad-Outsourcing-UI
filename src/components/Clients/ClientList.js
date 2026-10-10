@@ -39,6 +39,7 @@ import OnBoardClient from "./OnBoardClient";
 import DateRangeFilter from "../muiComponents/DateRangeFilter";
 import InternalFeedbackCell from "../Interviews/FeedBack";
 import ExportButton from "../../utils/ExportButton";
+import DialogValueViewer from "../../ui-lib/DialogValueViewer";
 
 // ─── Helper selectors ─────────────────────────────────────────────────────────
 const selectUserId = (state) =>
@@ -49,6 +50,44 @@ const selectUserId = (state) =>
 
 const selectRole = (state) =>
   state.auth?.role ?? state.auth?.user?.role ?? null;
+
+const selectToken = (state) =>
+  state.auth?.token ??
+  state.auth?.accessToken ??
+  state.auth?.user?.token ??
+  null;
+
+// ─── Invoice API endpoint ─────────────────────────────────────────────────────
+const INVOICE_API_URL =
+  "https://mymulya.com/requirements/bdm/invoice/yes";
+
+// ─── Helper: build a readable string for supporting customers ─────────────────
+// Returns "" when there's nothing to show, otherwise a comma-separated string
+// like "KPMG (50000), Deloitte (60000), Infosys (70000)".
+const buildSupportingCustomersText = (supportingCustomers) => {
+  if (!Array.isArray(supportingCustomers) || supportingCustomers.length === 0) {
+    return "";
+  }
+
+  const items = supportingCustomers
+    .map((item) => {
+      if (typeof item === "string") {
+        return item.trim();
+      }
+      if (item && typeof item === "object") {
+        const name = (item.clientName ?? "").toString().trim();
+        const pay = item.netPay ?? item.netPayment;
+        if (name && pay !== undefined && pay !== null && pay !== "") {
+          return `${name} (${pay})`;
+        }
+        return name;
+      }
+      return "";
+    })
+    .filter(Boolean);
+
+  return items.join(", ");
+};
 
 const ClientList = () => {
   const dispatch = useDispatch();
@@ -67,10 +106,12 @@ const ClientList = () => {
 
   const userId = useSelector(selectUserId);
   const role = useSelector(selectRole);
+  const token = useSelector(selectToken);
 
   const isSuperAdmin = role === "SUPERADMIN";
   const isBDM = role === "BDM";
-  const canViewOverall = role === "SUPERADMIN" || role === "BDM";
+  const canViewOverall = role === "SUPERADMIN" || role === "BDM" || role === "INVOICE";
+  const canViewInvoice = role === "SUPERADMIN" || role === "BDM" || role === "INVOICE";
 
   const [selectedClient, setSelectedClient] = useState(null);
   const [openDocsDialog, setOpenDocsDialog] = useState(false);
@@ -80,6 +121,10 @@ const ClientList = () => {
   const [clientToDelete, setClientToDelete] = useState(null);
   const [levelFilter, setLevelFilter] = useState("ALL");
   const [isFiltered, setIsFiltered] = useState(false);
+
+  // ─── Invoice tab local state ────────────────────────────────────────────────
+  const [invoiceList, setInvoiceList] = useState([]);
+  const [invoiceStatus, setInvoiceStatus] = useState("idle"); // idle | loading | succeeded | failed
 
   // ─── Refs to prevent multiple API calls ─────────────────────────────────────
   const hasFetched = useRef(false);
@@ -92,9 +137,9 @@ const ClientList = () => {
   useEffect(() => {
     if (hasFetched.current) return;
     if (!role) return;
-    
+
     hasFetched.current = true;
-    
+
     if (role === "BDM") {
       if (!userId) {
         showToast("User ID not found", "error");
@@ -108,16 +153,13 @@ const ClientList = () => {
 
   // ─── Handle role/userId changes ─────────────────────────────────────────────
   useEffect(() => {
-    // Skip initial mount
     if (!hasFetched.current) return;
-    
-    // Check if role or userId changed
+
     if (prevRoleRef.current !== role || prevUserIdRef.current !== userId) {
       prevRoleRef.current = role;
       prevUserIdRef.current = userId;
-      
-      // Only refetch if not filtered
-      if (!isFiltered) {
+
+      if (!isFiltered && levelFilter !== "INVOICE") {
         if (role === "BDM") {
           if (!userId) {
             showToast("User ID not found", "error");
@@ -129,7 +171,7 @@ const ClientList = () => {
         }
       }
     }
-  }, [dispatch, role, userId, isFiltered]);
+  }, [dispatch, role, userId, isFiltered, levelFilter]);
 
   // ─── Handle overall tab fetch ──────────────────────────────────────────────
   useEffect(() => {
@@ -137,6 +179,43 @@ const ClientList = () => {
       dispatch(fetchOverallClients());
     }
   }, [levelFilter, canViewOverall, dispatch]);
+
+  // ─── Invoice fetcher (thunk-like using fetch) ───────────────────────────────
+  const fetchInvoiceClients = useCallback(async () => {
+    setInvoiceStatus("loading");
+    try {
+      const headers = { Accept: "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const res = await fetch(INVOICE_API_URL, { method: "GET", headers });
+      if (!res.ok) throw new Error(`Request failed with status ${res.status}`);
+
+      const json = await res.json();
+      const rows = Array.isArray(json?.data)
+        ? json.data
+        : Array.isArray(json)
+        ? json
+        : [];
+
+      setInvoiceList(rows);
+      setInvoiceStatus("succeeded");
+
+      if (!rows.length) {
+        showToast("No invoice vendors found", "info");
+      }
+    } catch (err) {
+      console.error("Invoice fetch error:", err);
+      setInvoiceStatus("failed");
+      showToast(err.message || "Failed to load invoice vendors", "error");
+    }
+  }, [token]);
+
+  // ─── Handle invoice tab fetch ──────────────────────────────────────────────
+  useEffect(() => {
+    if (levelFilter === "INVOICE" && canViewInvoice) {
+      fetchInvoiceClients();
+    }
+  }, [levelFilter, canViewInvoice, fetchInvoiceClients]);
 
   // ─── Reset download status ──────────────────────────────────────────────────
   useEffect(() => {
@@ -170,70 +249,66 @@ const ClientList = () => {
   }, [updateStatus, createStatus, deleteStatus, error, dispatch]);
 
   // ─── Handle date range filter ──────────────────────────────────────────────
-  const handleDateRangeFilter = useCallback((startDate, endDate) => {
-    // Prevent multiple calls
-    if (isApplyingFilter.current) return;
-    isApplyingFilter.current = true;
-    
-    if (startDate && endDate) {
-      setIsFiltered(true);
-      dispatch(filterClientsByDateRange({ startDate, endDate }))
-        .finally(() => {
-          setTimeout(() => {
-            isApplyingFilter.current = false;
-          }, 300);
-        });
-    } else {
-      setIsFiltered(false);
-      // Clear filter - fetch all clients based on role
-      if (role === "BDM") {
-        if (!userId) {
-          showToast("User ID not found", "error");
-          return;
-        }
-        dispatch(fetchClientsByBdm(userId))
-          .finally(() => {
+  const handleDateRangeFilter = useCallback(
+    (startDate, endDate) => {
+      if (isApplyingFilter.current) return;
+      isApplyingFilter.current = true;
+
+      if (startDate && endDate) {
+        setIsFiltered(true);
+        dispatch(filterClientsByDateRange({ startDate, endDate })).finally(
+          () => {
             setTimeout(() => {
               isApplyingFilter.current = false;
             }, 300);
-          });
+          }
+        );
       } else {
-        dispatch(fetchAllClients())
-          .finally(() => {
+        setIsFiltered(false);
+        if (role === "BDM") {
+          if (!userId) {
+            showToast("User ID not found", "error");
+            return;
+          }
+          dispatch(fetchClientsByBdm(userId)).finally(() => {
             setTimeout(() => {
               isApplyingFilter.current = false;
             }, 300);
           });
+        } else {
+          dispatch(fetchAllClients()).finally(() => {
+            setTimeout(() => {
+              isApplyingFilter.current = false;
+            }, 300);
+          });
+        }
       }
-    }
-  }, [dispatch, role, userId]);
+    },
+    [dispatch, role, userId]
+  );
 
   // ─── Handle clear filter ────────────────────────────────────────────────────
   const handleClearFilter = useCallback(() => {
-    // Prevent multiple calls
     if (isRefreshing.current) return;
     isRefreshing.current = true;
-    
+
     setIsFiltered(false);
-    // Refresh data based on role
     if (role === "BDM") {
       if (!userId) {
         showToast("User ID not found", "error");
         return;
       }
-      dispatch(fetchClientsByBdm(userId))
-        .finally(() => {
-          setTimeout(() => {
-            isRefreshing.current = false;
-          }, 300);
-        });
+      dispatch(fetchClientsByBdm(userId)).finally(() => {
+        setTimeout(() => {
+          isRefreshing.current = false;
+        }, 300);
+      });
     } else {
-      dispatch(fetchAllClients())
-        .finally(() => {
-          setTimeout(() => {
-            isRefreshing.current = false;
-          }, 300);
-        });
+      dispatch(fetchAllClients()).finally(() => {
+        setTimeout(() => {
+          isRefreshing.current = false;
+        }, 300);
+      });
     }
   }, [dispatch, role, userId]);
 
@@ -277,8 +352,17 @@ const ClientList = () => {
     return <Chip label={status || "Unknown"} size="small" color={color} />;
   };
 
+  // ── Find a client by any of its possible ID fields ─────────────────────────
+  const findClientById = (clientId) =>
+    clients.find(
+      (c) =>
+        c.vendorId === clientId ||
+        c.id === clientId ||
+        c.clientId === clientId
+    );
+
   const handleEditClick = (clientId) => {
-    const clientToEdit = clients.find((c) => c.id === clientId);
+    const clientToEdit = findClientById(clientId);
     if (clientToEdit) {
       setCurrentClient(clientToEdit);
       setDrawerOpen(true);
@@ -294,16 +378,16 @@ const ClientList = () => {
 
   const handleClientSubmit = (formData, isEdit) => {
     if (isEdit && currentClient) {
-      dispatch(
-        updateClient({ clientId: currentClient.id, updatedData: formData }),
-      );
+      const clientId =
+        currentClient.vendorId ?? currentClient.id ?? currentClient.clientId;
+      dispatch(updateClient({ clientId, updatedData: formData }));
     } else {
       dispatch(createClient(formData));
     }
   };
 
   const handleDeleteClick = (clientId) => {
-    const client = clients.find((c) => c.id === clientId);
+    const client = findClientById(clientId);
     if (client) {
       setClientToDelete(client);
       setDeleteDialogOpen(true);
@@ -311,7 +395,13 @@ const ClientList = () => {
   };
 
   const handleDeleteConfirm = () => {
-    if (clientToDelete) dispatch(deleteClient(clientToDelete.id));
+    if (clientToDelete) {
+      const clientId =
+        clientToDelete.vendorId ??
+        clientToDelete.id ??
+        clientToDelete.clientId;
+      dispatch(deleteClient(clientId));
+    }
   };
 
   const handleDeleteCancel = () => {
@@ -325,35 +415,29 @@ const ClientList = () => {
   };
 
   const fetchClients = useCallback(() => {
-    // Prevent multiple refresh calls
     if (isRefreshing.current) return;
     if (!role) return;
-    if (isFiltered) {
-      // If filtered, don't refresh with normal fetch
-      return;
-    }
-    
+    if (isFiltered) return;
+
     isRefreshing.current = true;
-    
+
     if (role === "BDM") {
       if (!userId) {
         showToast("User ID not found. Cannot refresh BDM clients.", "error");
         isRefreshing.current = false;
         return;
       }
-      dispatch(fetchClientsByBdm(userId))
-        .finally(() => {
-          setTimeout(() => {
-            isRefreshing.current = false;
-          }, 300);
-        });
+      dispatch(fetchClientsByBdm(userId)).finally(() => {
+        setTimeout(() => {
+          isRefreshing.current = false;
+        }, 300);
+      });
     } else {
-      dispatch(fetchAllClients())
-        .finally(() => {
-          setTimeout(() => {
-            isRefreshing.current = false;
-          }, 300);
-        });
+      dispatch(fetchAllClients()).finally(() => {
+        setTimeout(() => {
+          isRefreshing.current = false;
+        }, 300);
+      });
     }
   }, [dispatch, role, userId, isFiltered]);
 
@@ -365,21 +449,25 @@ const ClientList = () => {
   const generateColumns = useCallback(
     () => [
       {
-        key: "id",
-        label: "Client ID",
+        key: "vendorId",
+        label: "Vendor ID",
         align: "center",
         render: (row) =>
-          loading ? <Skeleton variant="text" width={80} height={24} /> : row.id,
+          loading ? (
+            <Skeleton variant="text" width={80} height={24} />
+          ) : (
+            row.vendorId || row.id || row.clientId || "N/A"
+          ),
       },
       {
-        key: "clientName",
-        label: "Client Name",
+        key: "vendorName",
+        label: "Vendor Name",
         align: "center",
         render: (row) =>
           loading ? (
             <Skeleton variant="text" width={120} height={24} />
           ) : (
-            row.clientName || "N/A"
+            row.vendorName || row.clientName || "N/A"
           ),
       },
       {
@@ -390,7 +478,7 @@ const ClientList = () => {
           loading ? (
             <Skeleton variant="text" width={100} height={24} />
           ) : (
-            row.onBoardedBy || "N/A"
+            row.onBoardedBy || row.bdmName || "N/A"
           ),
       },
       {
@@ -401,9 +489,17 @@ const ClientList = () => {
           loading ? (
             <Skeleton variant="text" width={150} height={24} />
           ) : Array.isArray(row.clientSpocName) ? (
-            row.clientSpocName.filter(Boolean).join(", ") || "N/A"
+            <DialogValueViewer
+              value={row.clientSpocName.filter(Boolean).join(", ")}
+              label="Contact Persons"
+              chip
+            />
           ) : (
-            "N/A"
+            <DialogValueViewer
+              value={row.clientSpocName || ""}
+              label="Contact Person"
+              chip
+            />
           ),
       },
       {
@@ -430,36 +526,42 @@ const ClientList = () => {
           loading ? (
             <Skeleton variant="text" width={80} height={24} />
           ) : row.currency ? (
-            `${row.currency} ${row.netPayment}`
+            `${row.currency} ${row.netPayment ?? ""}`
           ) : (
-            row.netPayment || "N/A"
+            row.netPayment ?? "N/A"
           ),
       },
       {
         key: "supportingCustomers",
         label: "Supporting Customers",
         align: "center",
-        render: (row) =>
-          loading ? (
-            <Skeleton variant="text" width={150} height={24} />
-          ) : Array.isArray(row.supportingCustomers) ? (
-            <Tooltip
-              title={row.supportingCustomers.filter(Boolean).join(", ")}
-              arrow
-            >
-              <Typography variant="body2" noWrap>
-                {row.supportingCustomers.filter(Boolean).join(", ") || "None"}
+        render: (row) => {
+          if (loading) {
+            return <Skeleton variant="text" width={150} height={24} />;
+          }
+
+          const text = buildSupportingCustomersText(row.supportingCustomers);
+
+          if (!text) {
+            return (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                fontStyle="italic"
+              >
+                None
               </Typography>
-            </Tooltip>
-          ) : (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              fontStyle="italic"
-            >
-              None
-            </Typography>
-          ),
+            );
+          }
+
+          return (
+            <DialogValueViewer
+              value={text}
+              label="Supporting Customers"
+              chip
+            />
+          );
+        },
       },
       {
         key: "status",
@@ -510,8 +612,9 @@ const ClientList = () => {
       {
         key: "actions",
         label: "Actions",
-        render: (row) =>
-          loading ? (
+        render: (row) => {
+          const rowId = row.vendorId || row.id || row.clientId;
+          return loading ? (
             <Box display="flex" gap={1}>
               <Skeleton variant="circular" width={32} height={32} />
               <Skeleton variant="circular" width={32} height={32} />
@@ -523,7 +626,7 @@ const ClientList = () => {
                 <IconButton
                   size="small"
                   color="primary"
-                  onClick={() => handleEditClick(row.id)}
+                  onClick={() => handleEditClick(rowId)}
                 >
                   <Edit />
                 </IconButton>
@@ -532,7 +635,7 @@ const ClientList = () => {
                 <IconButton
                   size="small"
                   color="secondary"
-                  onClick={() => handleDownloadDocs(row.id)}
+                  onClick={() => handleDownloadDocs(rowId)}
                 >
                   <CloudDownload />
                 </IconButton>
@@ -541,40 +644,41 @@ const ClientList = () => {
                 <IconButton
                   size="small"
                   color="error"
-                  onClick={() => handleDeleteClick(row.id)}
+                  onClick={() => handleDeleteClick(rowId)}
                 >
                   <Delete />
                 </IconButton>
               </Tooltip>
             </Box>
-          ),
+          );
+        },
       },
     ],
-    [loading],
+    [loading]
   );
 
   const generateOverallColumns = useCallback(
     () => [
       {
-        key: "clientId",
-        label: "Client ID",
+        key: "vendorId",
+        label: "Vendor ID",
         align: "center",
         render: (row) =>
           overallStatus === "loading" ? (
             <Skeleton variant="text" width={80} height={24} />
           ) : (
-            row.clientId
+            row.vendorId || row.id || row.clientId || "N/A"
           ),
       },
       {
-        key: "clientName",
-        label: "Client Name",
+        key: "vendorName",
+        label: "Vendor Name",
         align: "center",
         render: (row) =>
           overallStatus === "loading" ? (
             <Skeleton variant="text" width={120} height={24} />
           ) : (
-            row.clientName || "N/A"
+            row.vendorName || row.clientName || "N/A"
           ),
       },
       {
@@ -585,22 +689,25 @@ const ClientList = () => {
           overallStatus === "loading" ? (
             <Skeleton variant="text" width={100} height={24} />
           ) : (
-            row.bdmName || "N/A"
+            row.bdmName || row.onBoardedBy || "N/A"
           ),
       },
       {
-        key: "clientWebsiteUrl",
+        key: "vendorWebsiteUrl",
         label: "Website",
         align: "center",
         render: (row) =>
           overallStatus === "loading" ? (
             <Skeleton variant="text" width={140} height={24} />
-          ) : row.clientWebsiteUrl ? (
-            <Tooltip title={row.clientWebsiteUrl} arrow>
+          ) : row.vendorWebsiteUrl || row.clientWebsiteUrl ? (
+            <Tooltip
+              title={row.vendorWebsiteUrl || row.clientWebsiteUrl}
+              arrow
+            >
               <Typography
                 variant="body2"
                 component="a"
-                href={row.clientWebsiteUrl}
+                href={row.vendorWebsiteUrl || row.clientWebsiteUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 sx={{
@@ -614,7 +721,7 @@ const ClientList = () => {
                   "&:hover": { textDecoration: "underline" },
                 }}
               >
-                {row.clientWebsiteUrl}
+                {row.vendorWebsiteUrl || row.clientWebsiteUrl}
               </Typography>
             </Tooltip>
           ) : (
@@ -628,18 +735,21 @@ const ClientList = () => {
           ),
       },
       {
-        key: "clientLinkedInUrl",
+        key: "vendorLinkedInUrl",
         label: "LinkedIn",
         align: "center",
         render: (row) =>
           overallStatus === "loading" ? (
             <Skeleton variant="text" width={140} height={24} />
-          ) : row.clientLinkedInUrl ? (
-            <Tooltip title={row.clientLinkedInUrl} arrow>
+          ) : row.vendorLinkedInUrl || row.clientLinkedInUrl ? (
+            <Tooltip
+              title={row.vendorLinkedInUrl || row.clientLinkedInUrl}
+              arrow
+            >
               <Typography
                 variant="body2"
                 component="a"
-                href={row.clientLinkedInUrl}
+                href={row.vendorLinkedInUrl || row.clientLinkedInUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 sx={{
@@ -653,7 +763,7 @@ const ClientList = () => {
                   "&:hover": { textDecoration: "underline" },
                 }}
               >
-                {row.clientLinkedInUrl}
+                {row.vendorLinkedInUrl || row.clientLinkedInUrl}
               </Typography>
             </Tooltip>
           ) : (
@@ -678,20 +788,23 @@ const ClientList = () => {
           ),
       },
       {
-        key: "clientAddress",
+        key: "vendorAddress",
         label: "Address",
         align: "center",
         render: (row) =>
           overallStatus === "loading" ? (
             <Skeleton variant="text" width={160} height={24} />
-          ) : row.clientAddress ? (
-            <Tooltip title={row.clientAddress} arrow>
+          ) : row.vendorAddress || row.clientAddress ? (
+            <Tooltip
+              title={row.vendorAddress || row.clientAddress}
+              arrow
+            >
               <Typography
                 variant="body2"
                 noWrap
                 sx={{ maxWidth: 180, display: "inline-block" }}
               >
-                {row.clientAddress}
+                {row.vendorAddress || row.clientAddress}
               </Typography>
             </Tooltip>
           ) : (
@@ -705,29 +818,422 @@ const ClientList = () => {
           ),
       },
     ],
-    [overallStatus],
+    [overallStatus]
+  );
+
+  // ─── Invoice (Vendor) tab columns ──────────────────────────────────────────
+  const generateInvoiceColumns = useCallback(
+    () => [
+      {
+        key: "vendorId",
+        label: "Vendor ID",
+        align: "center",
+        render: (row) =>
+          invoiceStatus === "loading" ? (
+            <Skeleton variant="text" width={80} height={24} />
+          ) : (
+            row.vendorId || row.id || row.clientId || "N/A"
+          ),
+      },
+      {
+        key: "vendorName",
+        label: "Vendor Name",
+        align: "center",
+        render: (row) =>
+          invoiceStatus === "loading" ? (
+            <Skeleton variant="text" width={120} height={24} />
+          ) : (
+            row.vendorName || row.clientName || "N/A"
+          ),
+      },
+      {
+        key: "onBoardedBy",
+        label: "BDM",
+        align: "center",
+        render: (row) =>
+          invoiceStatus === "loading" ? (
+            <Skeleton variant="text" width={100} height={24} />
+          ) : (
+            row.onBoardedBy || row.bdmName || "N/A"
+          ),
+      },
+      {
+        key: "clientSpocName",
+        label: "Contact Person",
+        align: "center",
+        render: (row) =>
+          invoiceStatus === "loading" ? (
+            <Skeleton variant="text" width={150} height={24} />
+          ) : Array.isArray(row.clientSpocName) ? (
+            <DialogValueViewer
+              value={row.clientSpocName.filter(Boolean).join(", ")}
+              label="Contact Persons"
+              chip
+            />
+          ) : (
+            <DialogValueViewer
+              value={row.clientSpocName || ""}
+              label="Contact Person"
+              chip
+            />
+          ),
+      },
+      {
+        key: "positionType",
+        label: "Position Type",
+        align: "center",
+        render: (row) =>
+          invoiceStatus === "loading" ? (
+            <Skeleton variant="rectangular" width={100} height={32} />
+          ) : (
+            <Chip
+              label={row.positionType || "Not specified"}
+              color={row.positionType ? "primary" : "default"}
+              variant="outlined"
+              size="small"
+            />
+          ),
+      },
+      {
+        key: "netPayment",
+        label: "Net Payment",
+        align: "center",
+        render: (row) =>
+          invoiceStatus === "loading" ? (
+            <Skeleton variant="text" width={80} height={24} />
+          ) : row.currency ? (
+            `${row.currency} ${row.netPayment ?? ""}`
+          ) : (
+            row.netPayment ?? "N/A"
+          ),
+      },
+      {
+        key: "supportingCustomers",
+        label: "Supporting Customers",
+        align: "center",
+        render: (row) => {
+          if (invoiceStatus === "loading") {
+            return <Skeleton variant="text" width={150} height={24} />;
+          }
+
+          const text = buildSupportingCustomersText(row.supportingCustomers);
+
+          if (!text) {
+            return (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                fontStyle="italic"
+              >
+                None
+              </Typography>
+            );
+          }
+
+          return (
+            <DialogValueViewer
+              value={text}
+              label="Supporting Customers"
+              chip
+            />
+          );
+        },
+      },
+      {
+        key: "vendorWebsiteUrl",
+        label: "Website",
+        align: "center",
+        render: (row) =>
+          invoiceStatus === "loading" ? (
+            <Skeleton variant="text" width={140} height={24} />
+          ) : row.vendorWebsiteUrl || row.clientWebsiteUrl ? (
+            <Tooltip
+              title={row.vendorWebsiteUrl || row.clientWebsiteUrl}
+              arrow
+            >
+              <Typography
+                variant="body2"
+                component="a"
+                href={row.vendorWebsiteUrl || row.clientWebsiteUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{
+                  color: "primary.main",
+                  textDecoration: "none",
+                  maxWidth: 160,
+                  display: "inline-block",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  "&:hover": { textDecoration: "underline" },
+                }}
+              >
+                {row.vendorWebsiteUrl || row.clientWebsiteUrl}
+              </Typography>
+            </Tooltip>
+          ) : (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              fontStyle="italic"
+            >
+              N/A
+            </Typography>
+          ),
+      },
+      {
+        key: "vendorLinkedInUrl",
+        label: "LinkedIn",
+        align: "center",
+        render: (row) =>
+          invoiceStatus === "loading" ? (
+            <Skeleton variant="text" width={140} height={24} />
+          ) : row.vendorLinkedInUrl || row.clientLinkedInUrl ? (
+            <Tooltip
+              title={row.vendorLinkedInUrl || row.clientLinkedInUrl}
+              arrow
+            >
+              <Typography
+                variant="body2"
+                component="a"
+                href={row.vendorLinkedInUrl || row.clientLinkedInUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{
+                  color: "#0077b5",
+                  textDecoration: "none",
+                  maxWidth: 160,
+                  display: "inline-block",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  "&:hover": { textDecoration: "underline" },
+                }}
+              >
+                {row.vendorLinkedInUrl || row.clientLinkedInUrl}
+              </Typography>
+            </Tooltip>
+          ) : (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              fontStyle="italic"
+            >
+              N/A
+            </Typography>
+          ),
+      },
+      {
+        key: "location",
+        label: "Location",
+        align: "center",
+        render: (row) =>
+          invoiceStatus === "loading" ? (
+            <Skeleton variant="text" width={100} height={24} />
+          ) : (
+            row.location || "N/A"
+          ),
+      },
+      {
+        key: "vendorAddress",
+        label: "Vendor Address",
+        align: "center",
+        render: (row) =>
+          invoiceStatus === "loading" ? (
+            <Skeleton variant="text" width={160} height={24} />
+          ) : row.vendorAddress || row.clientAddress ? (
+            <Tooltip
+              title={row.vendorAddress || row.clientAddress}
+              arrow
+            >
+              <Typography
+                variant="body2"
+                noWrap
+                sx={{ maxWidth: 180, display: "inline-block" }}
+              >
+                {row.vendorAddress || row.clientAddress}
+              </Typography>
+            </Tooltip>
+          ) : (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              fontStyle="italic"
+            >
+              N/A
+            </Typography>
+          ),
+      },
+      {
+        key: "status",
+        label: "Status",
+        align: "center",
+        render: (row) =>
+          invoiceStatus === "loading" ? (
+            <Skeleton variant="rectangular" width={100} height={32} />
+          ) : (
+            renderStatus(row.status)
+          ),
+      },
+      {
+        key: "feedBack",
+        label: "FeedBack",
+        align: "center",
+        render: (row) =>
+          invoiceStatus === "loading" ? (
+            <Skeleton variant="rectangular" width={100} height={32} />
+          ) : (
+            <InternalFeedbackCell value={row.feedBack} />
+          ),
+      },
+      {
+        key: "numberOfRequirements",
+        label: "Requirements",
+        align: "center",
+        render: (row) =>
+          invoiceStatus === "loading" ? (
+            <Skeleton variant="rectangular" width={100} height={32} />
+          ) : row.numberOfRequirements ? (
+            <Chip
+              label={row.numberOfRequirements}
+              color="primary"
+              variant="outlined"
+              size="small"
+            />
+          ) : (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              fontStyle="italic"
+            >
+              -
+            </Typography>
+          ),
+      },
+      {
+        key: "invoice",
+        label: "Invoice",
+        align: "center",
+        render: (row) =>
+          invoiceStatus === "loading" ? (
+            <Skeleton variant="rectangular" width={80} height={32} />
+          ) : (
+            <Chip
+              label={
+                typeof row.invoice === "string"
+                  ? row.invoice
+                  : row.invoice
+                  ? "Yes"
+                  : "No"
+              }
+              color={
+                row.invoice === true ||
+                String(row.invoice).toLowerCase() === "yes"
+                  ? "success"
+                  : "default"
+              }
+              variant="outlined"
+              size="small"
+            />
+          ),
+      },
+      {
+        key: "actions",
+        label: "Actions",
+        render: (row) => {
+          const rowId = row.vendorId || row.id || row.clientId;
+          return invoiceStatus === "loading" ? (
+            <Box display="flex" gap={1}>
+              <Skeleton variant="circular" width={32} height={32} />
+              <Skeleton variant="circular" width={32} height={32} />
+              <Skeleton variant="circular" width={32} height={32} />
+            </Box>
+          ) : (
+            <Box display="flex" gap={1}>
+              <Tooltip title="Edit Vendor">
+                <IconButton
+                  size="small"
+                  color="primary"
+                  onClick={() => handleEditClick(rowId)}
+                >
+                  <Edit />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Download Documents">
+                <IconButton
+                  size="small"
+                  color="secondary"
+                  onClick={() => handleDownloadDocs(rowId)}
+                >
+                  <CloudDownload />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Delete Vendor">
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={() => handleDeleteClick(rowId)}
+                >
+                  <Delete />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          );
+        },
+      },
+    ],
+    [invoiceStatus]
   );
 
   const columns = useMemo(() => generateColumns(), [generateColumns]);
   const overallColumns = useMemo(
     () => generateOverallColumns(),
-    [generateOverallColumns],
+    [generateOverallColumns]
+  );
+  const invoiceColumns = useMemo(
+    () => generateInvoiceColumns(),
+    [generateInvoiceColumns]
   );
 
   const isOverallTab = levelFilter === "OVERALL";
-  const activeColumns = isOverallTab ? overallColumns : columns;
-  const tableData = isOverallTab ? overallList : handleClientsByStatus(clients);
-  const tableUniqueId = isOverallTab ? "clientId" : "id";
-  const isTableLoading = isOverallTab ? overallStatus === "loading" : loading;
+  const isInvoiceTab = levelFilter === "INVOICE";
+
+  const activeColumns = isOverallTab
+    ? overallColumns
+    : isInvoiceTab
+    ? invoiceColumns
+    : columns;
+
+  const tableData = isOverallTab
+    ? overallList
+    : isInvoiceTab
+    ? invoiceList
+    : handleClientsByStatus(clients);
+
+  const tableUniqueId = "vendorId";
+
+  const isTableLoading = isOverallTab
+    ? overallStatus === "loading"
+    : isInvoiceTab
+    ? invoiceStatus === "loading"
+    : loading;
 
   const tableTitle =
     levelFilter === "ACTIVE"
       ? "Active Clients"
       : levelFilter === "INACTIVE"
-        ? "Inactive Clients"
-        : levelFilter === "OVERALL"
-          ? "Overall Clients"
-          : "Clients";
+      ? "Inactive Clients"
+      : levelFilter === "OVERALL"
+      ? "Overall Clients"
+      : levelFilter === "INVOICE"
+      ? "Invoice Vendors"
+      : "Clients";
+
+  const handleRefreshData = isOverallTab
+    ? fetchOverall
+    : isInvoiceTab
+    ? fetchInvoiceClients
+    : fetchClients;
 
   // ─── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -758,11 +1264,8 @@ const ClientList = () => {
           spacing={2}
           sx={{ ml: "auto" }}
         >
-          <ExportButton
-            apiUrl="/requirements/bdm/getAll"
-            fileName="clients"
-          />
-          <DateRangeFilter 
+          <ExportButton apiUrl="/requirements/bdm/getAll" fileName="clients" />
+          <DateRangeFilter
             component="Clients"
             onDateChange={handleDateRangeFilter}
             onClearFilter={handleClearFilter}
@@ -772,7 +1275,7 @@ const ClientList = () => {
             color="primary"
             onClick={() => setDrawerOpen(true)}
           >
-            Add New Client
+            Add New Vendor
           </Button>
         </Stack>
       </Stack>
@@ -817,6 +1320,11 @@ const ClientList = () => {
               OVERALL CLIENTS
             </ToggleButton>
           )}
+          {canViewInvoice && (
+            <ToggleButton value="INVOICE" aria-label="invoice vendors">
+              INVOICE VENDORS
+            </ToggleButton>
+          )}
         </ToggleButtonGroup>
       </Box>
 
@@ -826,10 +1334,10 @@ const ClientList = () => {
         title={tableTitle}
         loading={isTableLoading}
         enableSelection={false}
-        defaultSortColumn={isOverallTab ? "clientName" : "clientName"}
+        defaultSortColumn="vendorName"
         defaultSortDirection="asc"
         defaultRowsPerPage={10}
-        refreshData={isOverallTab ? fetchOverall : fetchClients}
+        refreshData={handleRefreshData}
         primaryColor="#1976d2"
         secondaryColor="#f5f5f5"
         uniqueId={tableUniqueId}
@@ -881,7 +1389,9 @@ const ClientList = () => {
         <DialogContent>
           <DialogContentText>
             {clientToDelete
-              ? `Are you sure you want to delete "${clientToDelete.clientName}"? This action cannot be undone.`
+              ? `Are you sure you want to delete "${
+                  clientToDelete.vendorName || clientToDelete.clientName
+                }"? This action cannot be undone.`
               : "Are you sure you want to delete this client? This action cannot be undone."}
           </DialogContentText>
         </DialogContent>
@@ -913,7 +1423,9 @@ const ClientList = () => {
       >
         <DialogTitle>
           {selectedClient
-            ? `Documents for ${selectedClient.clientName}`
+            ? `Documents for ${
+                selectedClient.vendorName || selectedClient.clientName
+              }`
             : "Client Documents"}
           <IconButton
             aria-label="close"
@@ -938,7 +1450,13 @@ const ClientList = () => {
               <Button
                 startIcon={<CloudDownload />}
                 variant="contained"
-                onClick={() => handleDownloadDocs(selectedClient.id)}
+                onClick={() =>
+                  handleDownloadDocs(
+                    selectedClient.vendorId ||
+                      selectedClient.id ||
+                      selectedClient.clientId
+                  )
+                }
                 sx={{ mt: 2, alignSelf: "flex-start" }}
                 disabled={downloadStatus === "loading"}
               >

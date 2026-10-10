@@ -49,7 +49,7 @@ export const inNavItems = [
     text: "Team Metrices",
     path: "team-metrics",
     icon: <InsightsIcon />,
-    roles: ["ADMIN", "SUPERADMIN"],
+    roles: ["ADMIN", "SUPERADMIN","INVOICE"],
   },
   {
     text: "Clients",
@@ -82,6 +82,7 @@ export const inNavItems = [
       "PARTNER",
       "PAYROLLADMIN",
       "COORDINATOR",
+      "INVOICE"
     ],
   },
   {
@@ -96,6 +97,7 @@ export const inNavItems = [
       "TEAMLEAD",
       "SUPERADMIN",
       "COORDINATOR",
+      "INVOICE"
     ],
   },
   {
@@ -109,6 +111,7 @@ export const inNavItems = [
       "TEAMLEAD",
       "SUPERADMIN",
       "COORDINATOR",
+      "INVOICE"
     ],
   },
   {
@@ -122,19 +125,19 @@ export const inNavItems = [
     text: "Bench",
     path: "bench-users",                // parent path — navigates to summary by default
     icon: <HourglassIcon />,
-    roles: ["ADMIN", "SUPERADMIN", "BDM", "TEAMLEAD", "PARTNER", "EMPLOYEE"],
+    roles: ["ADMIN", "SUPERADMIN", "BDM", "TEAMLEAD", "PARTNER", "EMPLOYEE","INVOICE"],
     children: [
       {
         text: "Technology Summary",
         path: "bench-users/summary",
         icon: <BarChartIcon />,
-        roles: ["ADMIN", "SUPERADMIN", "BDM", "TEAMLEAD", "PARTNER", "EMPLOYEE"],
+        roles: ["ADMIN", "SUPERADMIN", "BDM", "TEAMLEAD", "PARTNER", "EMPLOYEE","INVOICE"],
       },
       {
         text: "Bench List",
         path: "bench-users/bench-list",
         icon: <TableChartIcon />,
-        roles: ["ADMIN", "SUPERADMIN", "BDM", "TEAMLEAD", "PARTNER", "EMPLOYEE"],
+        roles: ["ADMIN", "SUPERADMIN", "BDM", "TEAMLEAD", "PARTNER", "EMPLOYEE","INVOICE"],
       },
     ],
   },
@@ -155,7 +158,7 @@ export const inNavItems = [
     text: "HRMS",
     path: "hrms",
     icon: <ManageAccountsIcon />,
-    roles: ["SUPERADMIN", "HRMS","ADMIN","SUPERACCOUNTS"],
+    roles: ["SUPERADMIN", "HRMS","ADMIN","SUPERACCOUNTS","INVOICE"],
   },
   {
     text: "Payroll",
