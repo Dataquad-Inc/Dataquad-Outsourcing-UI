@@ -14,6 +14,7 @@ import TableChartIcon from "@mui/icons-material/TableChart";
 import BarChartIcon from "@mui/icons-material/BarChart";
 import ManageAccountsIcon from "@mui/icons-material/ManageAccounts";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
+import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 
 export const inNavItems = [
   {
@@ -155,6 +156,12 @@ export const inNavItems = [
     path: "hrms",
     icon: <ManageAccountsIcon />,
     roles: ["SUPERADMIN", "HRMS","ADMIN","SUPERACCOUNTS"],
+  },
+  {
+    text: "Payroll",
+    path: "payroll",
+    icon: <ReceiptLongIcon />,
+    roles: ["SUPERADMIN", "HRMS", "ADMIN", "SUPERACCOUNTS"],
   },
    {
     text: "Attendance",

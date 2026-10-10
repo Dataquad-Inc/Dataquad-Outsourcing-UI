@@ -48,6 +48,7 @@ import {
   InsertDriveFileOutlined,
   MailOutline,
   PhoneOutlined,
+
   Refresh,
   Search,
   UploadFileOutlined,
@@ -1029,6 +1030,7 @@ const HRMS = () => {
   const fileInputRef = useRef(null);
   const { entity, role } = useSelector((state) => state.auth);
   const activeEntity = (entity || "IN").toUpperCase();
+  const isAdmin = role === "ADMIN";
   const [users, setUsers] = useState([]);
   const [profileDetailsByEmployeeId, setProfileDetailsByEmployeeId] = useState({});
   const [query, setQuery] = useState("");
@@ -1060,9 +1062,6 @@ const HRMS = () => {
   const [remarksDialog, setRemarksDialog] = useState({ open: false, userId: null, name: "" });
   const [remarksText, setRemarksText] = useState("");
   const [remarksSaving, setRemarksSaving] = useState(false);
-
-  const isAdmin = role === "ADMIN";
-
   // Helper function to check if user has a specific role
   const hasRole = (user, roleName) => {
     const roles = Array.isArray(user?.roles) ? user.roles : [user?.roles || user?.role];
@@ -1836,36 +1835,12 @@ const sortedUsers = useMemo(() => {
     setDocumentToDelete(null);
     closeDocumentViewer();
   };
-
-  // Dynamic sticky styles based on role
+  // Dynamic sticky styles — Actions is always rightmost
   const getStickyStyles = () => {
-    if (isAdmin) {
-      // When admin, Editable Access is the rightmost column
-      return {
-        stickyEditableColumnSx: {
-          position: "sticky",
-          right: 0,
-          minWidth: 130,
-          width: 130,
-          bgcolor: "background.paper",
-          zIndex: 3,
-        },
-        stickyStatusColumnSx: {
-          position: "sticky",
-          right: 130,
-          minWidth: 100,
-          width: 100,
-          bgcolor: "background.paper",
-          zIndex: 2,
-        },
-        stickyActionsColumnSx: null // No actions column for admin
-      };
-    }
-    // Non-admin: Actions is rightmost, Editable Access is second, Status is third
     return {
       stickyEditableColumnSx: {
         position: "sticky",
-        right: 72,
+        right: 100,
         minWidth: 130,
         width: 130,
         bgcolor: "background.paper",
@@ -1873,7 +1848,7 @@ const sortedUsers = useMemo(() => {
       },
       stickyStatusColumnSx: {
         position: "sticky",
-        right: 202,
+        right: 230,
         minWidth: 100,
         width: 100,
         bgcolor: "background.paper",
@@ -1882,8 +1857,8 @@ const sortedUsers = useMemo(() => {
       stickyActionsColumnSx: {
         position: "sticky",
         right: 0,
-        minWidth: 72,
-        width: 72,
+        minWidth: 100,
+        width: 100,
         bgcolor: "background.paper",
         zIndex: 3,
       }
@@ -2141,19 +2116,17 @@ const sortedUsers = useMemo(() => {
                         </TableCell>
                       </>
                     )}
-                    {!isAdmin && (
-                      <TableCell
-                        align="center"
-                        sx={{
-                          ...stickyStyles.stickyActionsColumnSx,
-                          color: "primary.contrastText",
-                          fontWeight: 700,
-                          bgcolor: "primary.main",
-                        }}
-                      >
-                        Actions
-                      </TableCell>
-                    )}
+                    <TableCell
+                      align="center"
+                      sx={{
+                        ...stickyStyles.stickyActionsColumnSx,
+                        color: "primary.contrastText",
+                        fontWeight: 700,
+                        bgcolor: "primary.main",
+                      }}
+                    >
+                      Actions
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -2278,62 +2251,60 @@ const sortedUsers = useMemo(() => {
                             </TableCell>
                           </>
                         )}
-                        {!isAdmin && (
-                          <TableCell align="center" sx={{ 
-                            ...stickyStyles.stickyActionsColumnSx,
-                            backgroundColor: rowColor !== 'transparent' ? rowColor : undefined,
-                          }}>
-                            <Stack direction="row" spacing={0.5} justifyContent="center" alignItems="center">
-                              <Tooltip title="View HRMS profile">
-                                <IconButton color="primary" size="small" onClick={() => fetchUserProfile(user)}>
-                                  <Visibility fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                              {activeTab === 1 && String(user.onboardingStatus || "").toUpperCase() === "SUBMITTED" && (
-                                <>
-                                  <Tooltip title="Request additional details">
-                                    <IconButton
-                                      color="warning"
-                                      size="small"
-                                      onClick={() => {
-                                        setRemarksDialog({
-                                          open: true,
-                                          userId: employeeId,
-                                          name: user.userName || user.employeeName || "",
-                                        });
-                                        setRemarksText("");
-                                      }}
-                                    >
-                                      <CommentOutlined fontSize="small" />
-                                    </IconButton>
-                                  </Tooltip>
-                                  <Tooltip title="Acknowledge as active employee">
-                                    <IconButton
-                                      color="success"
-                                      size="small"
-                                      disabled={ackLoadingId === employeeId}
-                                      onClick={() => handleAcknowledge(user)}
-                                    >
-                                      {ackLoadingId === employeeId ? (
-                                        <CircularProgress size={16} />
-                                      ) : (
-                                        <CheckCircleOutline fontSize="small" />
-                                      )}
-                                    </IconButton>
-                                  </Tooltip>
-                                </>
-                              )}
-                            </Stack>
-                          </TableCell>
-                        )}
+                        <TableCell align="center" sx={{ 
+                          ...stickyStyles.stickyActionsColumnSx,
+                          backgroundColor: rowColor !== 'transparent' ? rowColor : undefined,
+                        }}>
+                          <Stack direction="row" spacing={0.5} justifyContent="center" alignItems="center">
+                            <Tooltip title="View HRMS profile">
+                              <IconButton color="primary" size="small" onClick={() => fetchUserProfile(user)}>
+                                <Visibility fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            
+                            {!isAdmin && activeTab === 1 && String(user.onboardingStatus || "").toUpperCase() === "SUBMITTED" && (
+                              <>
+                                <Tooltip title="Request additional details">
+                                  <IconButton
+                                    color="warning"
+                                    size="small"
+                                    onClick={() => {
+                                      setRemarksDialog({
+                                        open: true,
+                                        userId: employeeId,
+                                        name: user.userName || user.employeeName || "",
+                                      });
+                                      setRemarksText("");
+                                    }}
+                                  >
+                                    <CommentOutlined fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title="Acknowledge as active employee">
+                                  <IconButton
+                                    color="success"
+                                    size="small"
+                                    disabled={ackLoadingId === employeeId}
+                                    onClick={() => handleAcknowledge(user)}
+                                  >
+                                    {ackLoadingId === employeeId ? (
+                                      <CircularProgress size={16} />
+                                    ) : (
+                                      <CheckCircleOutline fontSize="small" />
+                                    )}
+                                  </IconButton>
+                                </Tooltip>
+                              </>
+                            )}
+                          </Stack>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
                   {!paginatedUsers.length && (
                     <TableRow>
                       <TableCell colSpan={
-                        (!isAdmin ? hrmsTableColumns.length + 3 : hrmsTableColumns.length + 1)
-                        + (activeTab === 1 ? 2 : 0)
+                        hrmsTableColumns.length + 3 + (activeTab === 1 ? 2 : 0)
                       }>
                         <Alert severity="info">
                           No {activeTab === 0 ? "internal" : "external"} {statusFilter} employees found.
@@ -2396,14 +2367,17 @@ const sortedUsers = useMemo(() => {
                       <Chip icon={<PhoneOutlined />} label={profile.phoneNumber || "-"} size="small" />
                     </Stack>
                   </Box>
-                  <Button
-                    variant="outlined"
-                    startIcon={<DownloadOutlined />}
-                    onClick={() => downloadFile(profile.photo, `${profile.employeeId || "profile"}-photo.jpg`)}
-                    disabled={!profile.photo}
-                  >
-                    Download Photo
-                  </Button>
+                  <Stack direction="row" gap={1} flexWrap="wrap">
+                    
+                    <Button
+                      variant="outlined"
+                      startIcon={<DownloadOutlined />}
+                      onClick={() => downloadFile(profile.photo, `${profile.employeeId || "profile"}-photo.jpg`)}
+                      disabled={!profile.photo}
+                    >
+                      Download Photo
+                    </Button>
+                  </Stack>
                 </Stack>
               </Paper>
 
