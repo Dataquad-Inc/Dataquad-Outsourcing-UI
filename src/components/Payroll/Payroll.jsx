@@ -13,6 +13,8 @@ import {
   InputAdornment,
   Paper,
   Stack,
+  Tab,
+  Tabs,
   Table,
   TableBody,
   TableCell,
@@ -21,6 +23,8 @@ import {
   TablePagination,
   TableRow,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Tooltip,
   Typography,
 } from "@mui/material";
@@ -46,6 +50,41 @@ const normalizeArrayPayload = (value) => {
   if (Array.isArray(payload?.employees)) return payload.employees.filter(Boolean);
   if (Array.isArray(payload?.data)) return payload.data.filter(Boolean);
   return [];
+};
+
+const isTruthyFlag = (value) =>
+  value === true || String(value).toLowerCase() === "true" || String(value).toLowerCase() === "yes";
+
+/**
+ * Mutually exclusive bucket for Payroll sub-tabs.
+ * Consultant if designation/role says so; Full Time if PF/permanent; else external→consultant, internal→fulltime.
+ */
+const getEmploymentBucket = (user) => {
+  const designation = String(user?.designation || "").toLowerCase();
+  const roles = String(user?.roles || user?.Roles || "").toUpperCase();
+
+  if (
+    designation.includes("consultant") ||
+    designation.includes("contract") ||
+    designation === "candidate"
+  ) {
+    return "consultant";
+  }
+  if (
+    designation.includes("full time") ||
+    designation.includes("full-time") ||
+    designation.includes("fulltime") ||
+    designation.includes("permanent")
+  ) {
+    return "fulltime";
+  }
+  if (isTruthyFlag(user?.isEmployeeHavingPF) || (user?.pfNumber && String(user.pfNumber).trim())) {
+    return "fulltime";
+  }
+  if (roles.includes("EXTERNALEMPLOYEE")) {
+    return "consultant";
+  }
+  return "fulltime";
 };
 
 const TEST_EMPLOYEE_IDS = new Set([
@@ -80,6 +119,10 @@ const Payroll = () => {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
+  /** 0 = Internal, 1 = External */
+  const [scopeTab, setScopeTab] = useState(0);
+  /** consultant | fulltime */
+  const [employmentFilter, setEmploymentFilter] = useState("consultant");
 
   const [payslipDialog, setPayslipDialog] = useState({
     open: false,
@@ -115,15 +158,15 @@ const Payroll = () => {
   const loadUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const [internalRes, externalRes] = await Promise.all([
-        httpService.get("/users/active-internal/employee", { entity: activeEntity }),
-        httpService.get("/users/active-external/employee", { entity: activeEntity }),
-      ]);
-      const combined = [
-        ...normalizeArrayPayload(internalRes),
-        ...normalizeArrayPayload(externalRes),
-      ].filter((user) => !TEST_EMPLOYEE_IDS.has(String(getEmployeeId(user)).toUpperCase()));
-      setUsers(combined);
+      const endpoint =
+        scopeTab === 0
+          ? "/users/active-internal/employee"
+          : "/users/active-external/employee";
+      const response = await httpService.get(endpoint, { entity: activeEntity });
+      const list = normalizeArrayPayload(response).filter(
+        (user) => !TEST_EMPLOYEE_IDS.has(String(getEmployeeId(user)).toUpperCase())
+      );
+      setUsers(list);
     } catch (error) {
       console.error(error);
       showToast("Unable to load employees for payroll", "error");
@@ -131,23 +174,26 @@ const Payroll = () => {
     } finally {
       setLoading(false);
     }
-  }, [activeEntity]);
+  }, [activeEntity, scopeTab]);
 
   useEffect(() => {
     loadUsers();
   }, [loadUsers]);
 
   const filteredUsers = useMemo(() => {
+    const byEmployment = users.filter(
+      (user) => getEmploymentBucket(user) === employmentFilter
+    );
     const q = query.trim().toLowerCase();
-    if (!q) return users;
-    return users.filter((user) => {
+    if (!q) return byEmployment;
+    return byEmployment.filter((user) => {
       const id = String(getEmployeeId(user)).toLowerCase();
       const name = String(user.userName || user.employeeName || "").toLowerCase();
       const email = String(user.email || "").toLowerCase();
       const designation = String(user.designation || "").toLowerCase();
       return id.includes(q) || name.includes(q) || email.includes(q) || designation.includes(q);
     });
-  }, [users, query]);
+  }, [users, query, employmentFilter]);
 
   const paginatedUsers = useMemo(() => {
     const start = page * rowsPerPage;
@@ -307,7 +353,9 @@ const Payroll = () => {
             Payroll
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Generate and download Payment Advice PDFs for {activeEntity} employees.
+            Generate and download Payment Advice PDFs for {activeEntity}{" "}
+            {scopeTab === 0 ? "internal" : "external"}{" "}
+            {employmentFilter === "fulltime" ? "full-time" : "consultant"} employees.
           </Typography>
         </Box>
         <Stack direction={{ xs: "column", sm: "row" }} gap={1.5}>
@@ -332,6 +380,72 @@ const Payroll = () => {
           </Button>
         </Stack>
       </Stack>
+
+      <Paper
+        elevation={0}
+        sx={{
+          mb: 2,
+          border: "1px solid",
+          borderColor: "divider",
+          borderRadius: 1,
+          bgcolor: "background.paper",
+          px: 3,
+          py: 1.5,
+          display: "flex",
+          alignItems: "center",
+          flexWrap: "wrap",
+          columnGap: 4,
+          rowGap: 2,
+        }}
+      >
+        <Tabs
+          value={scopeTab}
+          onChange={(_, value) => {
+            setScopeTab(value);
+            setPage(0);
+            setQuery("");
+          }}
+          sx={{
+            minHeight: 48,
+            "& .MuiTabs-flexContainer": { gap: 2 },
+            "& .MuiTab-root": {
+              minHeight: 48,
+              minWidth: 110,
+              fontSize: "0.95rem",
+              fontWeight: 600,
+              textTransform: "none",
+            },
+          }}
+        >
+          <Tab label="INTERNAL" />
+          <Tab label="EXTERNAL" />
+        </Tabs>
+
+        <ToggleButtonGroup
+          exclusive
+          value={employmentFilter}
+          onChange={(_, value) => {
+            if (value) {
+              setEmploymentFilter(value);
+              setPage(0);
+            }
+          }}
+          sx={{
+            alignSelf: "center",
+            height: 40,
+            "& .MuiToggleButton-root": {
+              px: 2.5,
+              py: 0.75,
+              fontSize: "0.9rem",
+              fontWeight: 600,
+              textTransform: "none",
+            },
+          }}
+        >
+          <ToggleButton value="consultant">Consultant</ToggleButton>
+          <ToggleButton value="fulltime">Full Time</ToggleButton>
+        </ToggleButtonGroup>
+      </Paper>
 
       <Paper variant="outlined">
         {loading ? (
@@ -396,7 +510,11 @@ const Payroll = () => {
                   {!paginatedUsers.length && (
                     <TableRow>
                       <TableCell colSpan={6}>
-                        <Alert severity="info">No employees found{query ? " for this search." : "."}</Alert>
+                        <Alert severity="info">
+                          No {scopeTab === 0 ? "internal" : "external"}{" "}
+                          {employmentFilter === "fulltime" ? "full-time" : "consultant"} employees
+                          found{query ? " for this search." : "."}
+                        </Alert>
                       </TableCell>
                     </TableRow>
                   )}
