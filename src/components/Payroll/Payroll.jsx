@@ -52,76 +52,25 @@ const normalizeArrayPayload = (value) => {
   return [];
 };
 
-/**
- * Read the PF flag from whichever field name the API uses.
- * Handles boolean, string ("true"/"false"/"yes"/"no"), and numeric (0/1).
- * Returns: true | false | undefined (undefined = field not present at all)
- */
-const readPfFlag = (user) => {
-  if (!user) return undefined;
-  const raw =
-    user.isEmployeeHavingPF ??
-    user.isEmployeeHavingPf ??
-    user.isHavingPF ??
-    user.isHavingPf ??
-    user.havingPF ??
-    user.employeeHavingPF ??
-    user.employeeHavingPf;
+const isTruthyFlag = (value) =>
+  value === true || String(value).toLowerCase() === "true" || String(value).toLowerCase() === "yes";
 
-  if (raw === undefined || raw === null || raw === "") return undefined;
-  if (raw === true || raw === 1 || raw === "1") return true;
-  if (raw === false || raw === 0 || raw === "0") return false;
-  const s = String(raw).trim().toLowerCase();
-  if (["true", "yes", "y"].includes(s)) return true;
-  if (["false", "no", "n"].includes(s)) return false;
-  return undefined;
+const isFalsyFlag = (value) =>
+  value === false || String(value).toLowerCase() === "false" || String(value).toLowerCase() === "no";
+
+/** PF Yes → full time; PF No → consultant. */
+const hasEmployeePF = (user) => {
+  const flag = user?.isEmployeeHavingPF ?? user?.isHavingPF ?? user?.employeeHavingPF;
+  if (isTruthyFlag(flag)) return true;
+  if (isFalsyFlag(flag)) return false;
+  return Boolean(user?.pfNumber && String(user.pfNumber).trim());
 };
 
-/**
- * Bucket assignment for Payroll sub-tabs.
- *
- * The PF flag is AUTHORITATIVE:
- *   - isEmployeeHavingPF === true  → "fulltime"
- *     (except US-external, which falls through to designation rules)
- *   - isEmployeeHavingPF === false → "consultant"
- *     (regardless of designation)
- *
- * Only when the flag is missing do we fall back to designation / role / PF number.
- */
-const getEmploymentBucket = (user, entity, scopeTab) => {
-  const entityUpper = String(entity || "IN").toUpperCase();
-  const isUSExternal = entityUpper === "US" && scopeTab === 1;
+const getEmploymentBucket = (user) => (hasEmployeePF(user) ? "fulltime" : "consultant");
 
-  const pfFlag = readPfFlag(user); // true | false | undefined
-
-  // ---- 1. PF flag present → it decides the bucket (except US-external) ----
-  if (!isUSExternal && pfFlag === true) return "fulltime";
-  if (pfFlag === false) return "consultant";
-
-  // ---- 2. Flag missing → fall back to designation / role / PF number ----
-  const hasPfNumber = !!(user?.pfNumber && String(user.pfNumber).trim());
-  const designation = String(user?.designation || "").trim().toLowerCase();
-  const roles = String(user?.roles || user?.Roles || "").toUpperCase();
-
-  if (
-    designation.includes("consultant") ||
-    designation.includes("contract") ||
-    designation === "candidate"
-  ) {
-    return "consultant";
-  }
-  if (
-    designation.includes("full time") ||
-    designation.includes("full-time") ||
-    designation.includes("fulltime") ||
-    designation.includes("permanent")
-  ) {
-    return "fulltime";
-  }
-  if (hasPfNumber) return "fulltime";
-  if (roles.includes("EXTERNALEMPLOYEE")) return "consultant";
-  return "consultant";
-};
+/** Same company signal as Placements: IN uses `company`, US uses `projectIn`. */
+const getPlacementCompanyName = (placement) =>
+  String(placement?.company || placement?.projectIn || "").trim();
 
 const TEST_EMPLOYEE_IDS = new Set([
   "ADRTIN9099",
@@ -151,17 +100,37 @@ const Payroll = () => {
   const activeEntity = (entity || "IN").toUpperCase();
 
   const [users, setUsers] = useState([]);
+  const [companyByPlacementId, setCompanyByPlacementId] = useState({});
+  const [companyByCandidateId, setCompanyByCandidateId] = useState({});
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
+  /** 0 = Internal, 1 = External */
   const [scopeTab, setScopeTab] = useState(0);
+  /** consultant | fulltime */
   const [employmentFilter, setEmploymentFilter] = useState("consultant");
+
+  const getEmployeeCompany = useCallback(
+    (user) => {
+      const placementId = String(user?.placementId || "").trim();
+      if (placementId && companyByPlacementId[placementId]) {
+        return companyByPlacementId[placementId];
+      }
+      const employeeId = String(getEmployeeId(user) || "").trim();
+      if (employeeId && companyByCandidateId[employeeId]) {
+        return companyByCandidateId[employeeId];
+      }
+      return "";
+    },
+    [companyByPlacementId, companyByCandidateId]
+  );
 
   const [payslipDialog, setPayslipDialog] = useState({
     open: false,
     userId: "",
     name: "",
+    company: "",
     bankName: "",
     accountNumber: "",
     ifscCode: "",
@@ -189,6 +158,35 @@ const Payroll = () => {
     };
   }, [payslipForm.grossConsultancyFee]);
 
+  const loadPlacementCompanies = useCallback(async () => {
+    try {
+      const isUs = activeEntity === "US";
+      const response = isUs
+        ? await httpService.get("/candidate/us-placement/placements-list", {
+            page: 0,
+            size: 10000,
+          })
+        : await httpService.get("/candidate/placement/placements-list");
+      const placements = normalizeArrayPayload(response);
+      const byPlacementId = {};
+      const byCandidateId = {};
+      placements.forEach((placement) => {
+        const company = getPlacementCompanyName(placement);
+        if (!company) return;
+        const placementId = String(placement?.id || "").trim();
+        if (placementId) byPlacementId[placementId] = company;
+        const candidateId = String(placement?.candidateId || "").trim();
+        if (candidateId) byCandidateId[candidateId] = company;
+      });
+      setCompanyByPlacementId(byPlacementId);
+      setCompanyByCandidateId(byCandidateId);
+    } catch (error) {
+      console.error(error);
+      setCompanyByPlacementId({});
+      setCompanyByCandidateId({});
+    }
+  }, [activeEntity]);
+
   const loadUsers = useCallback(async () => {
     setLoading(true);
     try {
@@ -196,24 +194,13 @@ const Payroll = () => {
         scopeTab === 0
           ? "/users/active-internal/employee"
           : "/users/active-external/employee";
-      const response = await httpService.get(endpoint, { entity: activeEntity });
+      const [response] = await Promise.all([
+        httpService.get(endpoint, { entity: activeEntity }),
+        loadPlacementCompanies(),
+      ]);
       const list = normalizeArrayPayload(response).filter(
         (user) => !TEST_EMPLOYEE_IDS.has(String(getEmployeeId(user)).toUpperCase())
       );
-
-      // ---- DEBUG: inspect PF flag values coming from the API ----
-      // console.table(
-      //   list.map((u) => ({
-      //     id: getEmployeeId(u),
-      //     name: u.userName || u.employeeName,
-      //     designation: u.designation,
-      //     isEmployeeHavingPF: u.isEmployeeHavingPF,
-      //     rawType: typeof u.isEmployeeHavingPF,
-      //     pfNumber: u.pfNumber,
-      //     bucket: getEmploymentBucket(u, activeEntity, scopeTab),
-      //   }))
-      // );
-
       setUsers(list);
     } catch (error) {
       console.error(error);
@@ -222,7 +209,7 @@ const Payroll = () => {
     } finally {
       setLoading(false);
     }
-  }, [activeEntity, scopeTab]);
+  }, [activeEntity, scopeTab, loadPlacementCompanies]);
 
   useEffect(() => {
     loadUsers();
@@ -230,7 +217,7 @@ const Payroll = () => {
 
   const filteredUsers = useMemo(() => {
     const byEmployment = users.filter(
-      (user) => getEmploymentBucket(user, activeEntity, scopeTab) === employmentFilter
+      (user) => getEmploymentBucket(user) === employmentFilter
     );
     const q = query.trim().toLowerCase();
     if (!q) return byEmployment;
@@ -239,9 +226,16 @@ const Payroll = () => {
       const name = String(user.userName || user.employeeName || "").toLowerCase();
       const email = String(user.email || "").toLowerCase();
       const designation = String(user.designation || "").toLowerCase();
-      return id.includes(q) || name.includes(q) || email.includes(q) || designation.includes(q);
+      const company = String(getEmployeeCompany(user)).toLowerCase();
+      return (
+        id.includes(q) ||
+        name.includes(q) ||
+        email.includes(q) ||
+        designation.includes(q) ||
+        company.includes(q)
+      );
     });
-  }, [users, query, employmentFilter, activeEntity, scopeTab]);
+  }, [users, query, employmentFilter, getEmployeeCompany]);
 
   const paginatedUsers = useMemo(() => {
     const start = page * rowsPerPage;
@@ -256,6 +250,7 @@ const Payroll = () => {
       open: true,
       userId: employeeId,
       name: user.userName || user.employeeName || "",
+      company: getEmployeeCompany(user) || "",
       bankName: user.bankName || "",
       accountNumber: user.accountNumber || user.bankAccountNumber || "",
       ifscCode: user.ifscCode || user.ifsc || "",
@@ -299,6 +294,7 @@ const Payroll = () => {
       open: false,
       userId: "",
       name: "",
+      company: "",
       bankName: "",
       accountNumber: "",
       ifscCode: "",
@@ -307,7 +303,7 @@ const Payroll = () => {
   };
 
   const handleGeneratePayslip = async () => {
-    const { userId } = payslipDialog;
+    const { userId, company } = payslipDialog;
     const payableDays = Number(payslipForm.payableDays);
     const gross = Number(payslipForm.grossConsultancyFee);
     if (!userId) {
@@ -339,6 +335,7 @@ const Payroll = () => {
         payableDays,
         paymentDate: payslipForm.paymentDate,
         grossConsultancyFee: gross,
+        company: company || undefined,
         createdBy: loggedInUserId || undefined,
       });
       const dto = response?.data?.data || response?.data;
@@ -513,7 +510,16 @@ const Payroll = () => {
                       Name
                     </TableCell>
                     <TableCell sx={{ fontWeight: 700, bgcolor: "primary.main", color: "primary.contrastText" }}>
+                      Company
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 700, bgcolor: "primary.main", color: "primary.contrastText" }}>
                       Designation
+                    </TableCell>
+                    <TableCell
+                      align="center"
+                      sx={{ fontWeight: 700, bgcolor: "primary.main", color: "primary.contrastText" }}
+                    >
+                      PF
                     </TableCell>
                     <TableCell sx={{ fontWeight: 700, bgcolor: "primary.main", color: "primary.contrastText" }}>
                       Email
@@ -532,11 +538,22 @@ const Payroll = () => {
                 <TableBody>
                   {paginatedUsers.map((user) => {
                     const employeeId = getEmployeeId(user);
+                    const pfYes = hasEmployeePF(user);
+                    const company = getEmployeeCompany(user);
                     return (
                       <TableRow key={employeeId || user.email} hover>
                         <TableCell>{employeeId || "-"}</TableCell>
                         <TableCell>{user.userName || user.employeeName || "-"}</TableCell>
+                        <TableCell>{company || "-"}</TableCell>
                         <TableCell>{user.designation || "-"}</TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            size="small"
+                            label={pfYes ? "Yes" : "No"}
+                            color={pfYes ? "success" : "default"}
+                            variant={pfYes ? "filled" : "outlined"}
+                          />
+                        </TableCell>
                         <TableCell>{user.email || "-"}</TableCell>
                         <TableCell>
                           <Chip
@@ -557,7 +574,7 @@ const Payroll = () => {
                   })}
                   {!paginatedUsers.length && (
                     <TableRow>
-                      <TableCell colSpan={6}>
+                      <TableCell colSpan={8}>
                         <Alert severity="info">
                           No {scopeTab === 0 ? "internal" : "external"}{" "}
                           {employmentFilter === "fulltime" ? "full-time" : "consultant"} employees
@@ -591,6 +608,11 @@ const Payroll = () => {
           <Typography variant="body2" sx={{ mb: 2 }}>
             Consultant: <strong>{payslipDialog.name || payslipDialog.userId}</strong>
             {payslipDialog.userId ? ` (${payslipDialog.userId})` : ""}
+            {payslipDialog.company
+              ? ` · Company: ${payslipDialog.company} (${
+                  /adroit/i.test(payslipDialog.company) ? "Adroit payslip" : "Dataquad payslip"
+                })`
+              : ""}
           </Typography>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
