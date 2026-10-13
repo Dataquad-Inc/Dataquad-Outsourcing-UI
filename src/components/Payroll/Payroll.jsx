@@ -52,17 +52,43 @@ const normalizeArrayPayload = (value) => {
   return [];
 };
 
-const isTruthyFlag = (value) =>
-  value === true || String(value).toLowerCase() === "true" || String(value).toLowerCase() === "yes";
+/**
+ * Robust flag readers — handle boolean, string, and numeric variants,
+ * e.g. true / "true" / "True" / "YES" / 1 / "1"
+ *      false / "false" / "False" / "NO" / 0 / "0"
+ */
+const isTruthyFlag = (value) => {
+  if (value === true || value === 1) return true;
+  const s = String(value).trim().toLowerCase();
+  return s === "true" || s === "yes" || s === "y" || s === "1";
+};
 
-const isFalsyFlag = (value) =>
-  value === false || String(value).toLowerCase() === "false" || String(value).toLowerCase() === "no";
+const isFalsyFlag = (value) => {
+  if (value === false || value === 0) return true;
+  const s = String(value).trim().toLowerCase();
+  return s === "false" || s === "no" || s === "n" || s === "0";
+};
 
-/** PF Yes → full time; PF No → consultant. */
+/**
+ * PF Yes → full time; PF No → consultant.
+ *
+ * The PF flag is AUTHORITATIVE when present. `pfNumber` is only used as a
+ * fallback signal when the flag is missing entirely — otherwise a false flag
+ * combined with a stale pfNumber would incorrectly push someone into Full Time.
+ */
 const hasEmployeePF = (user) => {
-  const flag = user?.isEmployeeHavingPF ?? user?.isHavingPF ?? user?.employeeHavingPF;
+  const flag =
+    user?.isEmployeeHavingPF ??
+    user?.isEmployeeHavingPf ??
+    user?.isHavingPF ??
+    user?.isHavingPf ??
+    user?.employeeHavingPF ??
+    user?.employeeHavingPf;
+
   if (isTruthyFlag(flag)) return true;
   if (isFalsyFlag(flag)) return false;
+
+  // Flag missing entirely → fall back to pfNumber presence
   return Boolean(user?.pfNumber && String(user.pfNumber).trim());
 };
 
