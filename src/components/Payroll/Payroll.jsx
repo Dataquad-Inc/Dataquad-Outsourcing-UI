@@ -49,6 +49,7 @@ const normalizeArrayPayload = (value) => {
   if (Array.isArray(payload?.users)) return payload.users.filter(Boolean);
   if (Array.isArray(payload?.employees)) return payload.employees.filter(Boolean);
   if (Array.isArray(payload?.data)) return payload.data.filter(Boolean);
+  if (Array.isArray(payload?.content)) return payload.content.filter(Boolean);
   return [];
 };
 
@@ -126,8 +127,15 @@ const Payroll = () => {
   const activeEntity = (entity || "IN").toUpperCase();
 
   const [users, setUsers] = useState([]);
-  const [companyByPlacementId, setCompanyByPlacementId] = useState({});
-  const [companyByCandidateId, setCompanyByCandidateId] = useState({});
+  /**
+   * Single company-lookup map. Keys can be any of:
+   *   - placement.id              (PLMNT0107)
+   *   - placement.candidateId     (CAND12688)
+   *   - placement.userId          (ADRTIN032)
+   *   - placement.candidateEmailId (ssvarma.suraj@gmail.com)
+   * Values are the resolved company name (e.g. "Dataquad").
+   */
+  const [companyLookup, setCompanyLookup] = useState({});
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
@@ -139,17 +147,26 @@ const Payroll = () => {
 
   const getEmployeeCompany = useCallback(
     (user) => {
-      const placementId = String(user?.placementId || "").trim();
-      if (placementId && companyByPlacementId[placementId]) {
-        return companyByPlacementId[placementId];
-      }
-      const employeeId = String(getEmployeeId(user) || "").trim();
-      if (employeeId && companyByCandidateId[employeeId]) {
-        return companyByCandidateId[employeeId];
+      if (!user) return "";
+      // Try every identifier we have on the user object against the lookup map.
+      const candidates = [
+        user?.placementId,
+        getEmployeeId(user),
+        user?.candidateId,
+        user?.userId,
+        user?.employeeId,
+        user?.email,
+        user?.candidateEmailId,
+        user?.officialEmail,
+      ];
+      for (const raw of candidates) {
+        const key = String(raw || "").trim();
+        if (!key) continue;
+        if (companyLookup[key]) return companyLookup[key];
       }
       return "";
     },
-    [companyByPlacementId, companyByCandidateId]
+    [companyLookup]
   );
 
   const [payslipDialog, setPayslipDialog] = useState({
@@ -187,29 +204,51 @@ const Payroll = () => {
   const loadPlacementCompanies = useCallback(async () => {
     try {
       const isUs = activeEntity === "US";
-      const response = isUs
-        ? await httpService.get("/candidate/us-placement/placements-list", {
-            page: 0,
-            size: 10000,
-          })
-        : await httpService.get("/candidate/placement/placements-list");
-      const placements = normalizeArrayPayload(response);
-      const byPlacementId = {};
-      const byCandidateId = {};
+      let placements = [];
+
+      if (isUs) {
+        const response = await httpService.get("/candidate/us-placement/placements-list", {
+          page: 0,
+          size: 10000,
+        });
+        placements = normalizeArrayPayload(response);
+      } else {
+        // IN: fetch a large page to ensure we get all active placements.
+        const response = await httpService.get("/candidate/placement/placements-list", {
+          page: 0,
+          size: 10000,
+        });
+        placements = normalizeArrayPayload(response);
+        // Fallback: if server ignored pagination params and returned a wrapper
+        // we didn't recognize, try the raw response body.
+        if (!placements.length) {
+          placements = normalizeArrayPayload(response?.data ?? response);
+        }
+      }
+
+      const lookup = {};
       placements.forEach((placement) => {
         const company = getPlacementCompanyName(placement);
         if (!company) return;
-        const placementId = String(placement?.id || "").trim();
-        if (placementId) byPlacementId[placementId] = company;
-        const candidateId = String(placement?.candidateId || "").trim();
-        if (candidateId) byCandidateId[candidateId] = company;
+        const keys = [
+          placement?.id,
+          placement?.placementId,
+          placement?.candidateId,
+          placement?.userId,
+          placement?.employeeId,
+          placement?.candidateEmailId,
+          placement?.email,
+          placement?.officialEmail,
+        ];
+        keys.forEach((raw) => {
+          const key = String(raw || "").trim();
+          if (key) lookup[key] = company;
+        });
       });
-      setCompanyByPlacementId(byPlacementId);
-      setCompanyByCandidateId(byCandidateId);
+      setCompanyLookup(lookup);
     } catch (error) {
-      console.error(error);
-      setCompanyByPlacementId({});
-      setCompanyByCandidateId({});
+      console.error("Failed to load placement companies", error);
+      setCompanyLookup({});
     }
   }, [activeEntity]);
 
@@ -565,7 +604,7 @@ const Payroll = () => {
                   {paginatedUsers.map((user) => {
                     const employeeId = getEmployeeId(user);
                     const pfYes = hasEmployeePF(user);
-                    const company = getEmployeeCompany(user);
+                    const company = scopeTab === 0 ? "Adroit" : getEmployeeCompany(user);
                     return (
                       <TableRow key={employeeId || user.email} hover>
                         <TableCell>{employeeId || "-"}</TableCell>
