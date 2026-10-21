@@ -491,6 +491,8 @@ const Payroll = () => {
         </Stack>
       </Stack>
 
+      {/* Single-line bar: INTERNAL/EXTERNAL tabs on the left,
+          Consultant/Full Time toggle pushed to the far-left of the right side. */}
       <Paper
         elevation={0}
         sx={{
@@ -504,8 +506,8 @@ const Payroll = () => {
           display: "flex",
           alignItems: "center",
           flexWrap: "wrap",
-          columnGap: 4,
-          rowGap: 2,
+          columnGap: 3,
+          rowGap: 1,
         }}
       >
         <Tabs
@@ -541,8 +543,8 @@ const Payroll = () => {
             }
           }}
           sx={{
+            ml: "auto",
             alignSelf: "center",
-            height: 40,
             "& .MuiToggleButton-root": {
               px: 2.5,
               py: 0.75,

@@ -353,16 +353,40 @@ const ClientList = () => {
   };
 
   // ── Find a client by any of its possible ID fields ─────────────────────────
-  const findClientById = (clientId) =>
-    clients.find(
+  // FIX: search the correct source list based on the active tab so that the
+  // Invoice Vendors tab (and Overall tab) resolve rows correctly. Previously
+  // this only searched `clients`, so editing a row on the Invoice tab returned
+  // `undefined`, the drawer opened in "create" mode, and submitting threw a
+  // "client already exists" error.
+  const findClientById = (clientId) => {
+    let sourceList;
+    if (levelFilter === "OVERALL") {
+      sourceList = overallList;
+    } else if (levelFilter === "INVOICE") {
+      sourceList = invoiceList;
+    } else {
+      sourceList = clients;
+    }
+
+    if (!Array.isArray(sourceList)) return undefined;
+
+    return sourceList.find(
       (c) =>
         c.vendorId === clientId ||
         c.id === clientId ||
         c.clientId === clientId
     );
+  };
 
-  const handleEditClick = (clientId) => {
-    const clientToEdit = findClientById(clientId);
+  // FIX: accept either a row object or an id. When a row object is passed we
+  // use it directly so the drawer always gets the full record in edit mode,
+  // even if the underlying list hasn't been refreshed yet.
+  const handleEditClick = (rowOrId) => {
+    const clientToEdit =
+      rowOrId && typeof rowOrId === "object"
+        ? rowOrId
+        : findClientById(rowOrId);
+
     if (clientToEdit) {
       setCurrentClient(clientToEdit);
       setDrawerOpen(true);
@@ -386,11 +410,18 @@ const ClientList = () => {
     }
   };
 
-  const handleDeleteClick = (clientId) => {
-    const client = findClientById(clientId);
+  // FIX: accept either a row object or an id (same reasoning as edit).
+  const handleDeleteClick = (rowOrId) => {
+    const client =
+      rowOrId && typeof rowOrId === "object"
+        ? rowOrId
+        : findClientById(rowOrId);
+
     if (client) {
       setClientToDelete(client);
       setDeleteDialogOpen(true);
+    } else {
+      showToast("Client not found", "error");
     }
   };
 
@@ -626,7 +657,7 @@ const ClientList = () => {
                 <IconButton
                   size="small"
                   color="primary"
-                  onClick={() => handleEditClick(rowId)}
+                  onClick={() => handleEditClick(row)}
                 >
                   <Edit />
                 </IconButton>
@@ -644,7 +675,7 @@ const ClientList = () => {
                 <IconButton
                   size="small"
                   color="error"
-                  onClick={() => handleDeleteClick(rowId)}
+                  onClick={() => handleDeleteClick(row)}
                 >
                   <Delete />
                 </IconButton>
@@ -1154,7 +1185,7 @@ const ClientList = () => {
                 <IconButton
                   size="small"
                   color="primary"
-                  onClick={() => handleEditClick(rowId)}
+                  onClick={() => handleEditClick(row)}
                 >
                   <Edit />
                 </IconButton>
@@ -1172,7 +1203,7 @@ const ClientList = () => {
                 <IconButton
                   size="small"
                   color="error"
-                  onClick={() => handleDeleteClick(rowId)}
+                  onClick={() => handleDeleteClick(row)}
                 >
                   <Delete />
                 </IconButton>

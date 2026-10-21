@@ -25,6 +25,8 @@ import {
   InputLabel,
   Chip,
   Switch,
+  Autocomplete,
+  Checkbox,
 } from "@mui/material";
 
 import {
@@ -184,6 +186,56 @@ const normalizeCurrency = (val) => {
   if (v.includes("INR") || v.includes("RUPEE")) return "INR";
   return "INR";
 };
+
+// ─── Multi-select (Assigned To / Account Manager) helpers ─────────────────────
+// Each of these fields is ONE combined control (MUI Autocomplete):
+//   - dropdown list loaded from the API (employees)
+//   - multi select (each choice becomes a chip)
+//   - custom text (type any name and press Enter / leave the field)
+//
+// Form state  : ["john", "mary", "Custom Person"]
+// Payload     : depends on MULTI_FIELD_PAYLOAD_FORMAT below
+//                 "array" -> ["john", "mary", "Custom Person"]   (current)
+//                 "csv"   -> "john, mary, Custom Person"
+//
+// >>> Change this ONE constant if your backend expects a list instead of a
+// >>> comma separated string.
+const MULTI_FIELD_PAYLOAD_FORMAT = "array"; // "csv" | "array"
+
+// Accepts array | comma separated string | null and returns a clean,
+// de-duplicated (case-insensitive) array of trimmed strings. Entries that
+// contain commas ("a, b") are split into separate values.
+const normalizeMulti = (val) => {
+  const raw = Array.isArray(val)
+    ? val.flatMap((item) => String(item ?? "").split(","))
+    : typeof val === "string"
+    ? val.split(",")
+    : [];
+  const seen = new Set();
+  const result = [];
+  raw.forEach((item) => {
+    const text = String(item ?? "").trim();
+    if (!text) return;
+    const key = text.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    result.push(text);
+  });
+  return result;
+};
+
+// Converts the form array into the payload value.
+const serializeMulti = (list) => {
+  const clean = normalizeMulti(list);
+  return MULTI_FIELD_PAYLOAD_FORMAT === "array" ? clean : clean.join(", ");
+};
+
+// Role text is normalized (letters only, uppercase) so "SUPERADMIN",
+// "SUPER_ADMIN", "Super Admin" etc. all match.
+const normalizeRole = (role) =>
+  String(role || "")
+    .replace(/[^a-zA-Z]/g, "")
+    .toUpperCase();
 
 // ─── Supporting customer helpers ──────────────────────────────────────────────
 // Backend shape:  { clientName: "KPMG", netPay: 50000 }
@@ -349,6 +401,14 @@ const ClientForm = ({
     initialData?.onBoardedBy || userName
   );
 
+  // Text currently typed (not yet added as a chip) in the multi-select fields
+  const [multiInput, setMultiInput] = useState({
+    assignedTo: "",
+    accountManager: "",
+  });
+  const clearMultiInput = () =>
+    setMultiInput({ assignedTo: "", accountManager: "" });
+
   // ── Location: track whether "Others" is selected ──────────────────────────
   const [locationSelection, setLocationSelection] = useState(() => {
     if (!initialData?.location) return "";
@@ -368,18 +428,13 @@ const ClientForm = ({
   );
   const employeesLoading = fetchStatus === "loading";
 
-  const bdmEmployees = employees.filter(
-    (emp) => emp.roles && emp.roles.toUpperCase() === "BDM" || emp.roles.toUpperCase() === "SUPERADMIN"
-  );
+  // Assigned To dropdown list: BDMs + Super Admins
+  const bdmEmployees = employees.filter((emp) => {
+    const role = normalizeRole(emp.roles);
+    return role === "BDM" || role === "SUPERADMIN";
+  });
 
-  // Account Manager dropdown: BDMs + Super Admins + Team Leads.
-  // Role text is normalized (letters only, uppercase) so "SUPERADMIN",
-  // "SUPER_ADMIN", "Super Admin" etc. all match.
-  const normalizeRole = (role) =>
-    String(role || "")
-      .replace(/[^a-zA-Z]/g, "")
-      .toUpperCase();
-
+  // Account Manager dropdown list: BDMs + Super Admins + Team Leads.
   const accountManagerEmployees = employees.filter((emp) => {
     const role = normalizeRole(emp.roles);
     return role === "BDM" || role === "SUPERADMIN" || role === "TEAMLEAD";
@@ -452,17 +507,16 @@ const ClientForm = ({
           ],
         },
         {
+          // ONE field: API dropdown list + multi select + custom text
           name: "assignedTo",
           label: "Assigned To (BDM)",
-          type: "select",
+          type: "multiselect",
           grid: { xs: 12, sm: 6, md: 4 },
           icon: <Assignment color="primary" />,
-          options: bdmEmployees.length
-            ? bdmEmployees.map((emp) => ({
-                value: emp.userName,
-                label: `${emp.userName}`,
-              }))
-            : [{ value: "", label: "No BDMs Available" }],
+          options: bdmEmployees.map((emp) => ({
+            value: emp.userName,
+            label: `${emp.userName}`,
+          })),
         },
         {
           name: "vendorWebsiteUrl",
@@ -481,17 +535,16 @@ const ClientForm = ({
           icon: <LinkedIn color="primary" />,
         },
         {
+          // ONE field: API dropdown list + multi select + custom text
           name: "accountManager",
           label: "Account Manager",
-          type: "select",
+          type: "multiselect",
           grid: { xs: 12, sm: 6, md: 4 },
           icon: <Person color="primary" />,
-          options: accountManagerEmployees.length
-            ? accountManagerEmployees.map((emp) => ({
-                value: emp.userName,
-                label: `${emp.userName}`,
-              }))
-            : [{ value: "", label: "No Managers Available" }],
+          options: accountManagerEmployees.map((emp) => ({
+            value: emp.userName,
+            label: `${emp.userName}`,
+          })),
         },
         {
           name: "vendorAddress",
@@ -597,8 +650,13 @@ const ClientForm = ({
       .max(250, "Vendor address must be at most 250 characters"),
     location: Yup.string().nullable(),
     positionType: Yup.string().nullable(),
-    assignedTo: Yup.string().nullable(),
-    accountManager: Yup.string().nullable(),
+    // Multi-select fields: array of names (list choices + custom entries)
+    assignedTo: Yup.array()
+      .of(Yup.string().trim().max(50, "Each name must be at most 50 characters"))
+      .nullable(),
+    accountManager: Yup.array()
+      .of(Yup.string().trim().max(50, "Each name must be at most 50 characters"))
+      .nullable(),
     paymentType: Yup.string().nullable(),
     invoice: Yup.boolean().nullable(), // form state stays boolean; converted to "Yes"/"No" on submit
     netPayment: Yup.number()
@@ -668,8 +726,8 @@ const ClientForm = ({
     vendorAddress: "",
     location: "",
     positionType: "",
-    assignedTo: "",
-    accountManager: "",
+    assignedTo: [],
+    accountManager: [],
     netPayment: "",
     onBoardedBy: onBoardedByName,
     gst: "",
@@ -707,11 +765,13 @@ const ClientForm = ({
         initialData.vendorAddress || initialData.clientAddress || "",
       location: initialData.location || "",
       positionType: initialData.positionType || "",
-      assignedTo: initialData.assignedTo || "",
+      // Multi-select: accepts an array OR a comma separated string from the API
+      assignedTo: normalizeMulti(initialData.assignedTo),
       // accountManager: fall back to the legacy "reportingManager" key if an
       // older record still carries it
-      accountManager:
-        initialData.accountManager || initialData.reportingManager || "",
+      accountManager: normalizeMulti(
+        initialData.accountManager || initialData.reportingManager
+      ),
       netPayment: initialData.netPayment ?? "",
       onBoardedBy: initialData.onBoardedBy || onBoardedByName,
       gst: initialData.gst || "",
@@ -790,8 +850,10 @@ const ClientForm = ({
         currency: values.currency || currency,
         onBoardedBy: onBoardedByName,
         invoice: invoiceToYesNo(values.invoice), // "Yes" / "No" in payload
+        // Multi-select fields -> payload (see MULTI_FIELD_PAYLOAD_FORMAT)
+        assignedTo: serializeMulti(values.assignedTo),
         // Account manager is sent as "accountManager" (create and update)
-        accountManager: values.accountManager || "",
+        accountManager: serializeMulti(values.accountManager),
         // Send a trimmed, uppercase GSTIN (matches what was validated)
         gst:
           typeof values.gst === "string"
@@ -827,6 +889,7 @@ const ClientForm = ({
         setFiles([]);
         setLocationSelection("");
         setCustomLocation("");
+        clearMultiInput();
       }
     } catch (error) {
       console.error("Form submission error:", error);
@@ -857,6 +920,114 @@ const ClientForm = ({
   const renderFormField = (field, values, errors, touched, setFieldValue) => {
     if (field.conditional && !field.conditional(values)) {
       return null;
+    }
+
+    // ── Combined field: dropdown list from API + multi select + custom text ──
+    // MUI Autocomplete (multiple + freeSolo):
+    //   - click / focus  -> list of employees from the API
+    //   - tick items    -> each becomes a chip (list stays open for more)
+    //   - type any text  -> press Enter (or click away) to add it as a custom
+    //                       chip; "a, b" is split into two chips
+    //   - chip "x"       -> removes it
+    if (field.type === "multiselect") {
+      const selected = normalizeMulti(values[field.name]);
+      const optionValues = (field.options || []).map((option) => option.value);
+      const rawError = errors[field.name];
+      const errorText = Array.isArray(rawError)
+        ? rawError.filter(Boolean)[0]
+        : rawError;
+
+      return (
+        <Grid item {...field.grid} key={field.name}>
+          <Autocomplete
+            multiple
+            freeSolo
+            disableCloseOnSelect // keep the list open so several names can be ticked in one go
+            id={field.name}
+            options={optionValues}
+            value={selected}
+            loading={employeesLoading}
+            inputValue={multiInput[field.name] || ""}
+            onInputChange={(_, newInput) =>
+              setMultiInput((prev) => ({ ...prev, [field.name]: newInput }))
+            }
+            onChange={(_, newValue) =>
+              setFieldValue(field.name, normalizeMulti(newValue))
+            }
+            renderOption={(props, option, { selected }) => {
+              const { key, ...optionProps } = props;
+              return (
+                <li key={key} {...optionProps}>
+                  <Checkbox size="small" sx={{ mr: 1 }} checked={selected} />
+                  {option}
+                </li>
+              );
+            }}
+            renderTags={(tagValue, getTagProps) =>
+              tagValue.map((option, index) => {
+                const { key, ...tagProps } = getTagProps({ index });
+                return (
+                  <Chip
+                    key={key ?? `${option}-${index}`}
+                    size="small"
+                    variant="outlined"
+                    label={option}
+                    // list entries = primary, custom (typed) = secondary
+                    color={optionValues.includes(option) ? "primary" : "secondary"}
+                    {...tagProps}
+                  />
+                );
+              })
+            }
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label={field.label}
+                placeholder={
+                  selected.length === 0 ? "Select or type a name" : ""
+                }
+                error={Boolean(errorText)}
+                helperText={errorText || undefined}
+                inputProps={{
+                  ...params.inputProps,
+                  onBlur: (e) => {
+                    params.inputProps.onBlur?.(e);
+                    const pending = (multiInput[field.name] || "").trim();
+                    if (pending) {
+                      setFieldValue(
+                        field.name,
+                        normalizeMulti([...selected, pending])
+                      );
+                      setMultiInput((prev) => ({ ...prev, [field.name]: "" }));
+                    }
+                  },
+                }}
+                InputProps={{
+                  ...params.InputProps,
+                  startAdornment: (
+                    <>
+                      {field.icon && (
+                        <InputAdornment position="start">
+                          {field.icon}
+                        </InputAdornment>
+                      )}
+                      {params.InputProps.startAdornment}
+                    </>
+                  ),
+                  endAdornment: (
+                    <>
+                      {employeesLoading ? (
+                        <CircularProgress color="inherit" size={18} />
+                      ) : null}
+                      {params.InputProps.endAdornment}
+                    </>
+                  ),
+                }}
+              />
+            )}
+          />
+        </Grid>
+      );
     }
 
     if (field.type === "select") {
@@ -1569,6 +1740,7 @@ const ClientForm = ({
                       color="secondary"
                       onClick={() => {
                         resetForm();
+                        clearMultiInput();
                         if (!isEdit) {
                           setFiles([]);
                           setCurrency("INR");
