@@ -22,6 +22,7 @@ import {
   TableHead,
   TablePagination,
   TableRow,
+  TableSortLabel,
   TextField,
   ToggleButton,
   ToggleButtonGroup,
@@ -99,6 +100,24 @@ const getEmploymentBucket = (user) => (hasEmployeePF(user) ? "fulltime" : "consu
 const getPlacementCompanyName = (placement) =>
   String(placement?.company || placement?.projectIn || "").trim();
 
+/**
+ * Column definition for sorting. Each entry maps a header to a value getter.
+ * `getEmployeeCompany` is passed in because it depends on the companyLookup map.
+ */
+const getSortValueGetters = (getEmployeeCompany, scopeTab) => ({
+  employeeId: (user) => String(getEmployeeId(user) || "").toLowerCase(),
+  name: (user) =>
+    String(user.userName || user.employeeName || "").toLowerCase(),
+  company: (user) =>
+    String(
+      scopeTab === 0 ? "Adroit" : getEmployeeCompany(user) || ""
+    ).toLowerCase(),
+  designation: (user) => String(user.designation || "").toLowerCase(),
+  pf: (user) => (hasEmployeePF(user) ? "yes" : "no"),
+  email: (user) => String(user.email || "").toLowerCase(),
+  status: (user) => String(user.status || "").toLowerCase(),
+});
+
 const TEST_EMPLOYEE_IDS = new Set([
   "ADRTIN9099",
   "ADRTIN9092",
@@ -144,6 +163,8 @@ const Payroll = () => {
   const [scopeTab, setScopeTab] = useState(0);
   /** consultant | fulltime */
   const [employmentFilter, setEmploymentFilter] = useState("consultant");
+  /** { field, direction: "asc" | "desc" } | null */
+  const [sortConfig, setSortConfig] = useState({ field: null, direction: "asc" });
 
   const getEmployeeCompany = useCallback(
     (user) => {
@@ -168,6 +189,24 @@ const Payroll = () => {
     },
     [companyLookup]
   );
+
+  const sortValueGetters = useMemo(
+    () => getSortValueGetters(getEmployeeCompany, scopeTab),
+    [getEmployeeCompany, scopeTab]
+  );
+
+  const handleSort = (field) => {
+    setSortConfig((prev) => {
+      if (prev.field === field) {
+        return {
+          field,
+          direction: prev.direction === "asc" ? "desc" : "asc",
+        };
+      }
+      return { field, direction: "asc" };
+    });
+    setPage(0);
+  };
 
   const [payslipDialog, setPayslipDialog] = useState({
     open: false,
@@ -302,10 +341,26 @@ const Payroll = () => {
     });
   }, [users, query, employmentFilter, getEmployeeCompany]);
 
+  /** Sorted view of filteredUsers — applies current sortConfig (if any). */
+  const sortedUsers = useMemo(() => {
+    const { field, direction } = sortConfig;
+    if (!field) return filteredUsers;
+    const getter = sortValueGetters[field];
+    if (!getter) return filteredUsers;
+    const factor = direction === "desc" ? -1 : 1;
+    return [...filteredUsers].sort((a, b) => {
+      const av = getter(a);
+      const bv = getter(b);
+      if (av < bv) return -1 * factor;
+      if (av > bv) return 1 * factor;
+      return 0;
+    });
+  }, [filteredUsers, sortConfig, sortValueGetters]);
+
   const paginatedUsers = useMemo(() => {
     const start = page * rowsPerPage;
-    return filteredUsers.slice(start, start + rowsPerPage);
-  }, [filteredUsers, page, rowsPerPage]);
+    return sortedUsers.slice(start, start + rowsPerPage);
+  }, [sortedUsers, page, rowsPerPage]);
 
   const openPayslipDialog = async (user) => {
     const employeeId = getEmployeeId(user);
@@ -449,6 +504,45 @@ const Payroll = () => {
     }
   };
 
+  /** Reusable sortable header renderer. */
+  const SortableHeader = ({ field, label, align }) => (
+    <TableCell
+      align={align}
+      sx={{
+        fontWeight: 700,
+        bgcolor: "primary.main",
+        color: "primary.contrastText",
+        whiteSpace: "nowrap",
+      }}
+      sortDirection={
+        sortConfig.field === field ? sortConfig.direction : false
+      }
+    >
+      <TableSortLabel
+        active={sortConfig.field === field}
+        direction={
+          sortConfig.field === field ? sortConfig.direction : "asc"
+        }
+        onClick={() => handleSort(field)}
+        sx={{
+          color: "inherit",
+          "&.Mui-active": { color: "inherit" },
+          "&:hover": { color: "inherit" },
+          "& .MuiTableSortLabel-icon": {
+            color: "inherit !important",
+            opacity: 0.6,
+          },
+          "&.Mui-active .MuiTableSortLabel-icon": {
+            color: "inherit !important",
+            opacity: 1,
+          },
+        }}
+      >
+        {label}
+      </TableSortLabel>
+    </TableCell>
+  );
+
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
       <Stack
@@ -570,33 +664,20 @@ const Payroll = () => {
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 700, bgcolor: "primary.main", color: "primary.contrastText" }}>
-                      Employee ID
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 700, bgcolor: "primary.main", color: "primary.contrastText" }}>
-                      Name
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 700, bgcolor: "primary.main", color: "primary.contrastText" }}>
-                      Company
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 700, bgcolor: "primary.main", color: "primary.contrastText" }}>
-                      Designation
-                    </TableCell>
+                    <SortableHeader field="employeeId" label="Employee ID" />
+                    <SortableHeader field="name" label="Name" />
+                    <SortableHeader field="company" label="Company" />
+                    <SortableHeader field="designation" label="Designation" />
+                    <SortableHeader field="pf" label="PF" align="center" />
+                    <SortableHeader field="email" label="Email" />
+                    <SortableHeader field="status" label="Status" />
                     <TableCell
                       align="center"
-                      sx={{ fontWeight: 700, bgcolor: "primary.main", color: "primary.contrastText" }}
-                    >
-                      PF
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 700, bgcolor: "primary.main", color: "primary.contrastText" }}>
-                      Email
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 700, bgcolor: "primary.main", color: "primary.contrastText" }}>
-                      Status
-                    </TableCell>
-                    <TableCell
-                      align="center"
-                      sx={{ fontWeight: 700, bgcolor: "primary.main", color: "primary.contrastText" }}
+                      sx={{
+                        fontWeight: 700,
+                        bgcolor: "primary.main",
+                        color: "primary.contrastText",
+                      }}
                     >
                       Action
                     </TableCell>
@@ -655,7 +736,7 @@ const Payroll = () => {
             </TableContainer>
             <TablePagination
               component="div"
-              count={filteredUsers.length}
+              count={sortedUsers.length}
               page={page}
               onPageChange={(event, nextPage) => setPage(nextPage)}
               rowsPerPage={rowsPerPage}
